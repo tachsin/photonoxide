@@ -352,7 +352,7 @@ T. Barwicz, H. Haus, "Three-dimensional analysis of scattering losses due to sid
 - Academy lessons: [loss-in-silicon-waveguides.md:68](../academy/loss-in-silicon-waveguides.md?plain=1#L68), [187](../academy/loss-in-silicon-waveguides.md?plain=1#L187), [333](../academy/loss-in-silicon-waveguides.md?plain=1#L333)
 - Validation cases: [`roughness/payne-lacey-eq9`](validation.md?plain=1#L758)
 - Code: [src/mode/roughness.rs:9](../src/mode/roughness.rs#L9), [src/mode/roughness_checks.rs:148](../src/mode/roughness_checks.rs#L148)
-- Other documents: [ROADMAP.md:752](../ROADMAP.md?plain=1#L752), [docs/plans/fabrication.md:646](plans/fabrication.md?plain=1#L646)
+- Other documents: [ROADMAP.md:752](../ROADMAP.md?plain=1#L752), [docs/plans/fabrication.md:647](plans/fabrication.md?plain=1#L647)
 
 #### Bauer et al. 2011
 
@@ -369,7 +369,7 @@ J. F. Bauters, M. J. R. Heck, D. John, D. Dai, M.-C. Tien, J. S. Barton, A. Lein
 - Methods pages: [fabrication.md:51](methods/fabrication.md?plain=1#L51)
 - Academy lessons: [loss-in-silicon-waveguides.md:80](../academy/loss-in-silicon-waveguides.md?plain=1#L80), [118](../academy/loss-in-silicon-waveguides.md?plain=1#L118), [337](../academy/loss-in-silicon-waveguides.md?plain=1#L337)
 - Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [282](../src/fabrication/references.rs#L282)
-- Other documents: [docs/plans/fabrication.md:663](plans/fabrication.md?plain=1#L663)
+- Other documents: [docs/plans/fabrication.md:664](plans/fabrication.md?plain=1#L664)
 
 #### Bell and Garland 2009
 
@@ -490,7 +490,7 @@ W. Bogaerts, S. K. Selvaraja, "Compact Single-Mode Silicon Hybrid Rib/Strip Wave
 W. Bogaerts, R. Baets, P. Dumon, V. Wiaux, S. Beckx, D. Taillaert, B. Luyssaert, J. Van Campenhout, P. Bienstman, D. Van Thourhout, "Nanophotonic waveguides in silicon-on-insulator fabricated with CMOS technology", J. Lightwave Technol. 23, 401 (2005). [doi:10.1109/JLT.2004.834471](https://doi.org/10.1109/JLT.2004.834471)
 
 - Academy lessons: [how-a-chip-is-made.md:43](../academy/how-a-chip-is-made.md?plain=1#L43), [226](../academy/how-a-chip-is-made.md?plain=1#L226), [strip-waveguide.md:100](../academy/strip-waveguide.md?plain=1#L100), [706](../academy/strip-waveguide.md?plain=1#L706)
-- Other documents: [docs/plans/fabrication.md:642](plans/fabrication.md?plain=1#L642)
+- Other documents: [docs/plans/fabrication.md:643](plans/fabrication.md?plain=1#L643)
 
 #### Bogaerts et al. 2007
 
@@ -530,7 +530,7 @@ R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, "Electron beam 
 - Methods pages: [fabrication.md:29](methods/fabrication.md?plain=1#L29)
 - Academy lessons: [how-a-chip-is-made.md:73](../academy/how-a-chip-is-made.md?plain=1#L73), [207](../academy/how-a-chip-is-made.md?plain=1#L207)
 - Code: [src/fabrication/references.rs:96](../src/fabrication/references.rs#L96)
-- Other documents: [docs/plans/fabrication.md:644](plans/fabrication.md?plain=1#L644)
+- Other documents: [docs/plans/fabrication.md:645](plans/fabrication.md?plain=1#L645)
 
 #### Bonazzoli et al. 2019
 
@@ -608,7 +608,7 @@ M. Bruel, "Silicon on insulator material technology", Electron. Lett. 31, 1201 (
 - Academy lessons: [how-a-chip-is-made.md:31](../academy/how-a-chip-is-made.md?plain=1#L31), [145](../academy/how-a-chip-is-made.md?plain=1#L145), [496](../academy/how-a-chip-is-made.md?plain=1#L496)
 - Validation cases: [`fabrication/smart-cut-range-bruel`](validation.md?plain=1#L819)
 - Code: [src/fabrication/references.rs:40](../src/fabrication/references.rs#L40), [src/fabrication/smart_cut.rs:3](../src/fabrication/smart_cut.rs#L3), [src/fabrication/smart_cut_checks.rs:124](../src/fabrication/smart_cut_checks.rs#L124)
-- Other documents: [docs/plans/fabrication.md:637](plans/fabrication.md?plain=1#L637)
+- Other documents: [docs/plans/fabrication.md:638](plans/fabrication.md?plain=1#L638)
 
 #### Bruner et al. 2002
 
@@ -710,7 +710,7 @@ G. K. Celler, S. Cristoloveanu, "Frontiers of silicon-on-insulator", J. Appl. Ph
 - Methods pages: [fabrication.md:14](methods/fabrication.md?plain=1#L14)
 - Validation cases: [`fabrication/simox-oxide-celler-low-dose`](validation.md?plain=1#L822), [`fabrication/simox-oxide-celler-thin`](validation.md?plain=1#L823)
 - Code: [src/fabrication/references.rs:56](../src/fabrication/references.rs#L56), [src/fabrication/simox.rs:10](../src/fabrication/simox.rs#L10), [src/fabrication/simox_checks.rs:197](../src/fabrication/simox_checks.rs#L197), [204](../src/fabrication/simox_checks.rs#L204)
-- Other documents: [docs/plans/fabrication.md:639](plans/fabrication.md?plain=1#L639)
+- Other documents: [docs/plans/fabrication.md:640](plans/fabrication.md?plain=1#L640)
 
 #### Černošková et al. 2014
 
@@ -749,7 +749,7 @@ Y. Chen, "Nanofabrication by electron beam lithography and its applications: A r
 - Academy lessons: [how-a-chip-is-made.md:85](../academy/how-a-chip-is-made.md?plain=1#L85), [206](../academy/how-a-chip-is-made.md?plain=1#L206)
 - Validation cases: [`fabrication/lithography-choice`](validation.md?plain=1#L800)
 - Code: [src/fabrication/checks.rs:447](../src/fabrication/checks.rs#L447), [src/fabrication/references.rs:104](../src/fabrication/references.rs#L104)
-- Other documents: [docs/plans/fabrication.md:630](plans/fabrication.md?plain=1#L630)
+- Other documents: [docs/plans/fabrication.md:631](plans/fabrication.md?plain=1#L631)
 
 #### Chen et al. 2010
 
@@ -812,7 +812,7 @@ S. Y. Chou, P. R. Krauss, P. J. Renstrom, "Imprint Lithography with 25-Nanometer
 
 - Academy lessons: [how-a-chip-is-made.md:37](../academy/how-a-chip-is-made.md?plain=1#L37), [210](../academy/how-a-chip-is-made.md?plain=1#L210)
 - Code: [src/fabrication/references.rs:112](../src/fabrication/references.rs#L112)
-- Other documents: [docs/plans/fabrication.md:629](plans/fabrication.md?plain=1#L629)
+- Other documents: [docs/plans/fabrication.md:630](plans/fabrication.md?plain=1#L630)
 
 #### Chow and Patel 2015
 
@@ -993,7 +993,7 @@ B. E. Deal, A. S. Grove, "General Relationship for the Thermal Oxidation of Sili
 - Academy lessons: [how-a-chip-is-made.md:25](../academy/how-a-chip-is-made.md?plain=1#L25), [363](../academy/how-a-chip-is-made.md?plain=1#L363)
 - Validation cases: [`fabrication/deal-grove-tables`](validation.md?plain=1#L798), [`fabrication/deal-grove-campbell`](validation.md?plain=1#L804)
 - Code: [src/fabrication/checks.rs:433](../src/fabrication/checks.rs#L433), [src/fabrication/oxidation.rs:3](../src/fabrication/oxidation.rs#L3), [src/fabrication/references.rs:136](../src/fabrication/references.rs#L136), [src/fabrication/rule_checks.rs:321](../src/fabrication/rule_checks.rs#L321)
-- Other documents: [docs/plans/fabrication.md:627](plans/fabrication.md?plain=1#L627)
+- Other documents: [docs/plans/fabrication.md:628](plans/fabrication.md?plain=1#L628)
 
 #### Deb et al. 2002
 
@@ -1012,7 +1012,7 @@ M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, "A New Family o
 - Validation cases: [`material/pcm-delaney-fits`](validation.md?plain=1#L45), [`material/pcm-delaney-fits-gst`](validation.md?plain=1#L46), [`material/pcm-delaney-contrast`](validation.md?plain=1#L47), [`material/pcm-delaney-table-1`](validation.md?plain=1#L48), [`material/pcm-delaney-losses`](validation.md?plain=1#L49), [`material/pcm-delaney-fom`](validation.md?plain=1#L50), [`material/pcm-delaney-lossless`](validation.md?plain=1#L51), [`material/pcm-sb2se3-crystallization`](validation.md?plain=1#L52), [`material/pcm-sb2s3-crystallization`](validation.md?plain=1#L53), [`device/pcm-fom`](validation.md?plain=1#L673), [`device/pcm-conformal-area`](validation.md?plain=1#L676), [`fabrication/thermal-order`](validation.md?plain=1#L801), [`fabrication/pcm-rules`](validation.md?plain=1#L813)
 - Examples: [README.md:83](../examples/README.md?plain=1#L83), [pcm_delaney.rs:6](../examples/pcm_delaney.rs#L6)
 - Code: [src/cases/device/pcm_checks.rs:461](../src/cases/device/pcm_checks.rs#L461), [482](../src/cases/device/pcm_checks.rs#L482), [src/device/pcm.rs:963](../src/device/pcm.rs#L963), [src/fabrication/checks.rs:454](../src/fabrication/checks.rs#L454), [src/fabrication/platform_checks.rs:742](../src/fabrication/platform_checks.rs#L742), [src/fabrication/references.rs:232](../src/fabrication/references.rs#L232), [src/material/catalogue/phase_change.rs:6](../src/material/catalogue/phase_change.rs#L6), [686](../src/material/catalogue/phase_change.rs#L686), [src/material/catalogue/references.rs:11](../src/material/catalogue/references.rs#L11), [src/validation.rs:344](../src/validation.rs#L344), [351](../src/validation.rs#L351), [358](../src/validation.rs#L358), [365](../src/validation.rs#L365), [372](../src/validation.rs#L372), [379](../src/validation.rs#L379), [386](../src/validation.rs#L386), [393](../src/validation.rs#L393), [400](../src/validation.rs#L400)
-- Other documents: [ROADMAP.md:820](../ROADMAP.md?plain=1#L820), [docs/plans/fabrication.md:667](plans/fabrication.md?plain=1#L667)
+- Other documents: [ROADMAP.md:820](../ROADMAP.md?plain=1#L820), [docs/plans/fabrication.md:668](plans/fabrication.md?plain=1#L668)
 
 #### Delaney et al. 2020b
 
@@ -1030,7 +1030,7 @@ M. Delaney, I. Zeimpekis, H. Du, X. Yan, M. Banakar, D. J. Thomson, D. W. Hewak,
 - Validation cases: [`fabrication/pcm-reported-flows`](validation.md?plain=1#L814)
 - Examples: [pcm_delaney.rs:27](../examples/pcm_delaney.rs#L27)
 - Code: [src/fabrication/platform_checks.rs:749](../src/fabrication/platform_checks.rs#L749), [src/fabrication/references.rs:272](../src/fabrication/references.rs#L272), [274](../src/fabrication/references.rs#L274)
-- Other documents: [docs/plans/fabrication.md:667](plans/fabrication.md?plain=1#L667)
+- Other documents: [docs/plans/fabrication.md:668](plans/fabrication.md?plain=1#L668)
 
 #### Demmel and Nguyen 2015
 
@@ -1076,7 +1076,7 @@ C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling, "GaAs integrated
 - Methods pages: [fabrication.md:69](methods/fabrication.md?plain=1#L69)
 - Validation cases: [`fabrication/gaas-rules`](validation.md?plain=1#L818)
 - Code: [src/fabrication/platform_checks.rs:777](../src/fabrication/platform_checks.rs#L777), [src/fabrication/references.rs:256](../src/fabrication/references.rs#L256)
-- Other documents: [docs/plans/fabrication.md:669](plans/fabrication.md?plain=1#L669)
+- Other documents: [docs/plans/fabrication.md:670](plans/fabrication.md?plain=1#L670)
 
 #### Ding et al. 2014
 
@@ -1108,7 +1108,7 @@ I. Dolev, A. Ganany-Padowicz, O. Gayer, A. Arie, J. Mangin, G. Gadret, "Linear a
 V. M. Donnelly, A. Kornblit, "Plasma etching: Yesterday, today, and tomorrow", Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 31, 050825 (2013). [doi:10.1116/1.4819316](https://doi.org/10.1116/1.4819316)
 
 - Code: [src/fabrication/references.rs:120](../src/fabrication/references.rs#L120)
-- Other documents: [docs/plans/fabrication.md:631](plans/fabrication.md?plain=1#L631)
+- Other documents: [docs/plans/fabrication.md:632](plans/fabrication.md?plain=1#L632)
 
 #### Dörfler 1996
 
@@ -1323,7 +1323,7 @@ S. Franssila, "Introduction to Microfabrication", Wiley (2010). [doi:10.1002/978
 - Academy lessons: [how-a-chip-is-made.md:67](../academy/how-a-chip-is-made.md?plain=1#L67), [316](../academy/how-a-chip-is-made.md?plain=1#L316)
 - Validation cases: [`fabrication/rayleigh-franssila`](validation.md?plain=1#L803), [`fabrication/rule-choices`](validation.md?plain=1#L806)
 - Code: [src/fabrication/references.rs:320](../src/fabrication/references.rs#L320), [src/fabrication/rule_checks.rs:314](../src/fabrication/rule_checks.rs#L314), [335](../src/fabrication/rule_checks.rs#L335)
-- Other documents: [docs/plans/fabrication.md:622](plans/fabrication.md?plain=1#L622)
+- Other documents: [docs/plans/fabrication.md:623](plans/fabrication.md?plain=1#L623)
 
 #### Frantz et al. 2023
 
@@ -1467,7 +1467,7 @@ A. George, "Nested Dissection of a Regular Finite Element Mesh", SIAM J. Numer. 
 
 S. M. George, "Atomic Layer Deposition: An Overview", Chem. Rev. 110, 111 (2009). [doi:10.1021/cr900056b](https://doi.org/10.1021/cr900056b)
 
-- Other documents: [docs/plans/fabrication.md:628](plans/fabrication.md?plain=1#L628)
+- Other documents: [docs/plans/fabrication.md:629](plans/fabrication.md?plain=1#L629)
 
 #### George and Ng 1987
 
@@ -1766,7 +1766,7 @@ N. C. Harris, Y. Ma, J. Mower, T. Baehr-Jones, D. Englund, M. Hochberg, C. Galla
 - Validation cases: [`shifter/harris-p-pi`](validation.md?plain=1#L632), [`shifter/harris-bandwidth`](validation.md?plain=1#L633), [`shifter/harris-bounds`](validation.md?plain=1#L634), [`device/thermo-harris`](validation.md?plain=1#L658), [`device/thermo-harris-bandwidth`](validation.md?plain=1#L659), [`device/thermo-in-guide-measured`](validation.md?plain=1#L660)
 - Examples: [README.md:82](../examples/README.md?plain=1#L82), [thermo_harris.rs:5](../examples/thermo_harris.rs#L5)
 - Code: [crosscode/src/joule.rs:2](../crosscode/src/joule.rs#L2), [src/cases/device/thermo_checks.rs:597](../src/cases/device/thermo_checks.rs#L597), [604](../src/cases/device/thermo_checks.rs#L604), [611](../src/cases/device/thermo_checks.rs#L611), [src/device/measured/harris-2014.toml:5](../src/device/measured/harris-2014.toml#L5), [src/device/thermo.rs:912](../src/device/thermo.rs#L912), [src/fabrication/references.rs:208](../src/fabrication/references.rs#L208), [210](../src/fabrication/references.rs#L210), [src/thermal/crosstalk_checks.rs:154](../src/thermal/crosstalk_checks.rs#L154), [365](../src/thermal/crosstalk_checks.rs#L365), [430](../src/thermal/crosstalk_checks.rs#L430), [450](../src/thermal/crosstalk_checks.rs#L450), [464](../src/thermal/crosstalk_checks.rs#L464)
-- Other documents: [ROADMAP.md:814](../ROADMAP.md?plain=1#L814), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
+- Other documents: [ROADMAP.md:814](../ROADMAP.md?plain=1#L814), [docs/plans/fabrication.md:663](plans/fabrication.md?plain=1#L663)
 
 #### He et al. 2019
 
@@ -1819,7 +1819,7 @@ P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, "
 - Methods pages: [fabrication.md:18](methods/fabrication.md?plain=1#L18)
 - Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L825)
 - Code: [src/fabrication/references.rs:72](../src/fabrication/references.rs#L72), [src/fabrication/simox.rs:42](../src/fabrication/simox.rs#L42), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
-- Other documents: [docs/plans/fabrication.md:641](plans/fabrication.md?plain=1#L641)
+- Other documents: [docs/plans/fabrication.md:642](plans/fabrication.md?plain=1#L642)
 
 #### Henson and Yang 2002
 
@@ -2012,7 +2012,7 @@ K. Izumi, M. Doken, H. Ariyoshi, "C.M.O.S. devices fabricated on buried SiO2 lay
 - Methods pages: [fabrication.md:12](methods/fabrication.md?plain=1#L12)
 - Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L825)
 - Code: [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/simox.rs:2](../src/fabrication/simox.rs#L2), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
-- Other documents: [docs/plans/fabrication.md:638](plans/fabrication.md?plain=1#L638)
+- Other documents: [docs/plans/fabrication.md:639](plans/fabrication.md?plain=1#L639)
 
 ### J
 
@@ -2026,7 +2026,7 @@ M. Jacques, A. Samani, E. El-Fiky, D. Patel, Z. Xing, D. V. Plant, "Optimization
 - Examples: [README.md:81](../examples/README.md?plain=1#L81), [thermo_jacques.rs:5](../examples/thermo_jacques.rs#L5)
 - Code: [crosscode/src/heaters.rs:2](../crosscode/src/heaters.rs#L2), [crosscode/src/joule.rs:15](../crosscode/src/joule.rs#L15), [crosscode/src/transient.rs:2](../crosscode/src/transient.rs#L2), [src/cases/device/thermo_checks.rs:542](../src/cases/device/thermo_checks.rs#L542), [559](../src/cases/device/thermo_checks.rs#L559), [569](../src/cases/device/thermo_checks.rs#L569), [576](../src/cases/device/thermo_checks.rs#L576), [src/cases/mode/thermo_checks.rs:387](../src/cases/mode/thermo_checks.rs#L387), [src/cases/statics/checks.rs:177](../src/cases/statics/checks.rs#L177), [542](../src/cases/statics/checks.rs#L542), [1062](../src/cases/statics/checks.rs#L1062), [1083](../src/cases/statics/checks.rs#L1083), [1107](../src/cases/statics/checks.rs#L1107), [src/cases/thermal/shifter_checks.rs:189](../src/cases/thermal/shifter_checks.rs#L189), [451](../src/cases/thermal/shifter_checks.rs#L451), [464](../src/cases/thermal/shifter_checks.rs#L464), [474](../src/cases/thermal/shifter_checks.rs#L474), [493](../src/cases/thermal/shifter_checks.rs#L493), [src/device/active.rs:198](../src/device/active.rs#L198), [src/device/measured/jacques-2019-npp.toml:5](../src/device/measured/jacques-2019-npp.toml#L5), [src/device/measured/jacques-2019-tin.toml:4](../src/device/measured/jacques-2019-tin.toml#L4), [src/device/thermo.rs:905](../src/device/thermo.rs#L905), [src/fabrication/references.rs:200](../src/fabrication/references.rs#L200), [202](../src/fabrication/references.rs#L202), [src/thermal/crosstalk_checks.rs:339](../src/thermal/crosstalk_checks.rs#L339), [383](../src/thermal/crosstalk_checks.rs#L383), [398](../src/thermal/crosstalk_checks.rs#L398), [413](../src/thermal/crosstalk_checks.rs#L413), [src/validation.rs:302](../src/validation.rs#L302)
 - Jobs and circuits: [jobs/pcm-switching.yaml:39](../jobs/pcm-switching.yaml#L39)
-- Other documents: [ROADMAP.md:813](../ROADMAP.md?plain=1#L813), [docs/plans/fabrication.md:662](plans/fabrication.md?plain=1#L662)
+- Other documents: [ROADMAP.md:813](../ROADMAP.md?plain=1#L813), [docs/plans/fabrication.md:663](plans/fabrication.md?plain=1#L663)
 
 #### JaeHyuk Shin et al. 2005
 
@@ -2242,7 +2242,7 @@ F. Kaufmann, G. Finco, A. Maeder, R. Grange, "Redeposition‐free inductively‐
 - Methods pages: [fabrication.md:35](methods/fabrication.md?plain=1#L35)
 - Academy lessons: [how-a-chip-is-made.md:115](../academy/how-a-chip-is-made.md?plain=1#L115), [303](../academy/how-a-chip-is-made.md?plain=1#L303)
 - Code: [src/fabrication/references.rs:184](../src/fabrication/references.rs#L184), [186](../src/fabrication/references.rs#L186)
-- Other documents: [docs/plans/fabrication.md:658](plans/fabrication.md?plain=1#L658)
+- Other documents: [docs/plans/fabrication.md:659](plans/fabrication.md?plain=1#L659)
 
 #### Kawachi 1990
 
@@ -2392,7 +2392,7 @@ C. Kottke, A. Farjadpour, S. G. Johnson, "Perturbation theory for anisotropic di
 I. Krasnokutska, J.-L. J. Tambasco, X. Li, A. Peruzzo, "Ultra-low loss photonic circuits in lithium niobate on insulator", Opt. Express 26, 897 (2018). [doi:10.1364/OE.26.000897](https://doi.org/10.1364/OE.26.000897)
 
 - Code: [src/fabrication/references.rs:176](../src/fabrication/references.rs#L176), [178](../src/fabrication/references.rs#L178)
-- Other documents: [docs/plans/fabrication.md:655](plans/fabrication.md?plain=1#L655)
+- Other documents: [docs/plans/fabrication.md:656](plans/fabrication.md?plain=1#L656)
 
 #### Kremer et al. 2004
 
@@ -2410,7 +2410,7 @@ M. Krishnan, J. W. Nalaskowski, L. M. Cook, "Chemical Mechanical Planarization: 
 - Academy lessons: [how-a-chip-is-made.md:61](../academy/how-a-chip-is-made.md?plain=1#L61), [415](../academy/how-a-chip-is-made.md?plain=1#L415)
 - Validation cases: [`fabrication/accuracy-combined`](validation.md?plain=1#L807)
 - Code: [src/fabrication/references.rs:128](../src/fabrication/references.rs#L128), [src/fabrication/rule_checks.rs:342](../src/fabrication/rule_checks.rs#L342)
-- Other documents: [docs/plans/fabrication.md:632](plans/fabrication.md?plain=1#L632)
+- Other documents: [docs/plans/fabrication.md:633](plans/fabrication.md?plain=1#L633)
 
 #### Krupka et al. 2006
 
@@ -2478,7 +2478,7 @@ H. W. Lam, "SIMOX SOI for integrated circuit fabrication", IEEE Circuits Devices
 - Methods pages: [fabrication.md:16](methods/fabrication.md?plain=1#L16)
 - Validation cases: [`fabrication/simox-oxide-lam`](validation.md?plain=1#L824)
 - Code: [src/fabrication/references.rs:64](../src/fabrication/references.rs#L64), [src/fabrication/simox.rs:20](../src/fabrication/simox.rs#L20), [src/fabrication/simox_checks.rs:211](../src/fabrication/simox_checks.rs#L211)
-- Other documents: [docs/plans/fabrication.md:640](plans/fabrication.md?plain=1#L640)
+- Other documents: [docs/plans/fabrication.md:641](plans/fabrication.md?plain=1#L641)
 
 #### Lamb 1996
 
@@ -2542,7 +2542,7 @@ K. K. Lee, D. R. Lim, H.-C. Luan, A. Agarwal, J. Foresi, L. C. Kimerling, "Effec
 K. K. Lee, D. R. Lim, L. C. Kimerling, J. Shin, F. Cerrina, "Fabrication of ultralow-loss Si/SiO\_2 waveguides by roughness reduction", Opt. Lett. 26, 1888 (2001). [doi:10.1364/OL.26.001888](https://doi.org/10.1364/OL.26.001888)
 
 - Academy lessons: [loss-in-silicon-waveguides.md:56](../academy/loss-in-silicon-waveguides.md?plain=1#L56), [215](../academy/loss-in-silicon-waveguides.md?plain=1#L215), [331](../academy/loss-in-silicon-waveguides.md?plain=1#L331), [strip-waveguide.md:70](../academy/strip-waveguide.md?plain=1#L70), [617](../academy/strip-waveguide.md?plain=1#L617), [703](../academy/strip-waveguide.md?plain=1#L703)
-- Other documents: [docs/plans/fabrication.md:645](plans/fabrication.md?plain=1#L645)
+- Other documents: [docs/plans/fabrication.md:646](plans/fabrication.md?plain=1#L646)
 
 #### Leidinger et al. 2015
 
@@ -2568,7 +2568,7 @@ M. Levy, R. M. Osgood, R. Liu, L. E. Cross, G. S. Cargill, A. Kumar, H. Bakhru, 
 
 - Academy lessons: [nonlinear-optics.md:138](../academy/nonlinear-optics.md?plain=1#L138), [1073](../academy/nonlinear-optics.md?plain=1#L1073), [1107](../academy/nonlinear-optics.md?plain=1#L1107)
 - Code: [src/fabrication/references.rs:144](../src/fabrication/references.rs#L144)
-- Other documents: [docs/plans/fabrication.md:651](plans/fabrication.md?plain=1#L651)
+- Other documents: [docs/plans/fabrication.md:652](plans/fabrication.md?plain=1#L652)
 
 #### Li 1980
 
@@ -2743,7 +2743,7 @@ K. Luke, A. Dutt, C. B. Poitras, M. Lipson, "Overcoming Si\_3N\_4 film stress li
 - Methods pages: [fabrication.md:53](methods/fabrication.md?plain=1#L53)
 - Validation cases: [`fabrication/nitride-rules`](validation.md?plain=1#L810), [`fabrication/nitride-reported-flows`](validation.md?plain=1#L811)
 - Code: [src/fabrication/platform_checks.rs:721](../src/fabrication/platform_checks.rs#L721), [728](../src/fabrication/platform_checks.rs#L728), [src/fabrication/references.rs:288](../src/fabrication/references.rs#L288), [290](../src/fabrication/references.rs#L290)
-- Other documents: [docs/plans/fabrication.md:664](plans/fabrication.md?plain=1#L664)
+- Other documents: [docs/plans/fabrication.md:665](plans/fabrication.md?plain=1#L665)
 
 #### Luke et al. 2015
 
@@ -2780,7 +2780,7 @@ C. Mack, "Fundamental Principles of Optical Lithography: The Science of Microfab
 - Academy lessons: [how-a-chip-is-made.md:49](../academy/how-a-chip-is-made.md?plain=1#L49), [251](../academy/how-a-chip-is-made.md?plain=1#L251)
 - Validation cases: [`fabrication/min-features-above-limit`](validation.md?plain=1#L805)
 - Code: [src/fabrication/references.rs:328](../src/fabrication/references.rs#L328), [src/fabrication/rule_checks.rs:328](../src/fabrication/rule_checks.rs#L328)
-- Other documents: [docs/plans/fabrication.md:623](plans/fabrication.md?plain=1#L623)
+- Other documents: [docs/plans/fabrication.md:624](plans/fabrication.md?plain=1#L624)
 
 #### Macleod 2017
 
@@ -2796,7 +2796,7 @@ M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume 
 - Academy lessons: [how-a-chip-is-made.md:103](../academy/how-a-chip-is-made.md?plain=1#L103), [255](../academy/how-a-chip-is-made.md?plain=1#L255), [348](../academy/how-a-chip-is-made.md?plain=1#L348)
 - Validation cases: [`fabrication/rule-choices`](validation.md?plain=1#L806)
 - Code: [src/fabrication/references.rs:304](../src/fabrication/references.rs#L304), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
-- Other documents: [docs/plans/fabrication.md:621](plans/fabrication.md?plain=1#L621)
+- Other documents: [docs/plans/fabrication.md:622](plans/fabrication.md?plain=1#L622)
 
 #### Madsen et al. 2022
 
@@ -3375,7 +3375,7 @@ M. H. P. Pfeiffer, A. Kordts, V. Brasch, M. Zervas, M. Geiselmann, J. D. Jost, T
 - Academy lessons: [nonlinear-optics.md:216](../academy/nonlinear-optics.md?plain=1#L216), [850](../academy/nonlinear-optics.md?plain=1#L850), [1120](../academy/nonlinear-optics.md?plain=1#L1120)
 - Validation cases: [`fabrication/nitride-rules`](validation.md?plain=1#L810), [`fabrication/nitride-reported-flows`](validation.md?plain=1#L811)
 - Code: [src/fabrication/platform_checks.rs:721](../src/fabrication/platform_checks.rs#L721), [728](../src/fabrication/platform_checks.rs#L728), [src/fabrication/references.rs:296](../src/fabrication/references.rs#L296), [298](../src/fabrication/references.rs#L298)
-- Other documents: [docs/plans/fabrication.md:665](plans/fabrication.md?plain=1#L665)
+- Other documents: [docs/plans/fabrication.md:666](plans/fabrication.md?plain=1#L666)
 
 #### Pierce 1954
 
@@ -3417,7 +3417,7 @@ G. Poberaj, H. Hu, W. Sohler, P. Günter, "Lithium niobate on insulator (LNOI) f
 - Methods pages: [fabrication.md:33](methods/fabrication.md?plain=1#L33)
 - Academy lessons: [how-a-chip-is-made.md:79](../academy/how-a-chip-is-made.md?plain=1#L79), [159](../academy/how-a-chip-is-made.md?plain=1#L159)
 - Code: [src/fabrication/references.rs:152](../src/fabrication/references.rs#L152)
-- Other documents: [docs/plans/fabrication.md:652](plans/fabrication.md?plain=1#L652)
+- Other documents: [docs/plans/fabrication.md:653](plans/fabrication.md?plain=1#L653)
 
 #### Politi et al. 2008
 
@@ -3645,7 +3645,7 @@ C. Ríos, M. Stegmaier, P. Hosseini, D. Wang, T. Scherer, C. D. Wright, H. Bhask
 - Academy lessons: [modulators.md:79](../academy/modulators.md?plain=1#L79), [599](../academy/modulators.md?plain=1#L599), [707](../academy/modulators.md?plain=1#L707)
 - Validation cases: [`fabrication/nitride-reported-flows`](validation.md?plain=1#L811), [`fabrication/pcm-rules`](validation.md?plain=1#L813)
 - Code: [src/fabrication/platform_checks.rs:728](../src/fabrication/platform_checks.rs#L728), [742](../src/fabrication/platform_checks.rs#L742), [src/fabrication/references.rs:224](../src/fabrication/references.rs#L224)
-- Other documents: [docs/plans/fabrication.md:666](plans/fabrication.md?plain=1#L666)
+- Other documents: [docs/plans/fabrication.md:667](plans/fabrication.md?plain=1#L667)
 
 #### Ritchie 1957
 
@@ -3811,7 +3811,7 @@ S. Seltzer, "Stopping-Powers and Range Tables for Electrons, Protons, and Helium
 - Methods pages: [fabrication.md:10](methods/fabrication.md?plain=1#L10)
 - Validation cases: [`fabrication/smart-cut-range-bruel`](validation.md?plain=1#L819)
 - Code: [src/fabrication/references.rs:336](../src/fabrication/references.rs#L336), [src/fabrication/smart_cut.rs:40](../src/fabrication/smart_cut.rs#L40), [src/fabrication/smart_cut_checks.rs:124](../src/fabrication/smart_cut_checks.rs#L124)
-- Other documents: [docs/plans/fabrication.md:633](plans/fabrication.md?plain=1#L633)
+- Other documents: [docs/plans/fabrication.md:634](plans/fabrication.md?plain=1#L634)
 
 #### Selvaraja et al. 2009
 
@@ -3821,7 +3821,7 @@ S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fab
 - Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [140](../academy/how-a-chip-is-made.md?plain=1#L140), [tolerances-corners-and-yield.md:17](../academy/tolerances-corners-and-yield.md?plain=1#L17), [185](../academy/tolerances-corners-and-yield.md?plain=1#L185)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L799), [`fabrication/lithography-choice`](validation.md?plain=1#L800), [`fabrication/reported-flows`](validation.md?plain=1#L802), [`fabrication/rule-choices`](validation.md?plain=1#L806)
 - Code: [src/fabrication/checks.rs:440](../src/fabrication/checks.rs#L440), [447](../src/fabrication/checks.rs#L447), [461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:88](../src/fabrication/references.rs#L88), [src/fabrication/rule_checks.rs:335](../src/fabrication/rule_checks.rs#L335)
-- Other documents: [docs/plans/fabrication.md:643](plans/fabrication.md?plain=1#L643)
+- Other documents: [docs/plans/fabrication.md:644](plans/fabrication.md?plain=1#L644)
 
 #### Shahriari et al. 2016
 
@@ -3925,7 +3925,7 @@ H. Shu, B. Shen, Q. Deng, M. Jin, X. Wang, Z. Zhou, "A Design Guideline for Mode
 S. Y. Siew, B. Li, F. Gao, H. Y. Zheng, W. Zhang, P. Guo, S. W. Xie, A. Song, B. Dong, L. W. Luo, et al., "Review of Silicon Photonics Technology and Platform Development", J. Lightwave Technol. 39, 4374 (2021). [doi:10.1109/JLT.2021.3066203](https://doi.org/10.1109/JLT.2021.3066203), open access.
 
 - Academy lessons: [strip-waveguide.md:142](../academy/strip-waveguide.md?plain=1#L142), [716](../academy/strip-waveguide.md?plain=1#L716)
-- Other documents: [docs/plans/fabrication.md:647](plans/fabrication.md?plain=1#L647)
+- Other documents: [docs/plans/fabrication.md:648](plans/fabrication.md?plain=1#L648)
 
 #### Sigmund 2009
 
@@ -4296,7 +4296,7 @@ Y. Ueno, V. Ricci, G. I. Stegeman, "Second-order susceptibility of Ga\_05In\_05P
 G. Ulliac, B. Guichardaz, J.-Y. Rauch, S. Queste, S. Benchabane, N. Courjal, "Ultra-smooth LiNbO3 micro and nano structures for photonic applications", Microelectronic Engineering 88, 2417 (2011). [doi:10.1016/j.mee.2011.02.024](https://doi.org/10.1016/j.mee.2011.02.024)
 
 - Code: [src/fabrication/references.rs:160](../src/fabrication/references.rs#L160)
-- Other documents: [docs/plans/fabrication.md:653](plans/fabrication.md?plain=1#L653)
+- Other documents: [docs/plans/fabrication.md:654](plans/fabrication.md?plain=1#L654)
 
 #### Ulsig et al. 2024a
 
@@ -4472,7 +4472,7 @@ C. Wang, M. Zhang, X. Chen, M. Bertrand, A. Shams-Ansari, S. Chandrasekhar, P. W
 
 - Methods pages: [electro-optic.md:180](methods/electro-optic.md?plain=1#L180)
 - Academy lessons: [mach-zehnder.md:112](../academy/mach-zehnder.md?plain=1#L112), [293](../academy/mach-zehnder.md?plain=1#L293), [375](../academy/mach-zehnder.md?plain=1#L375), [471](../academy/mach-zehnder.md?plain=1#L471), [modulators.md:91](../academy/modulators.md?plain=1#L91), [454](../academy/modulators.md?plain=1#L454), [512](../academy/modulators.md?plain=1#L512), [705](../academy/modulators.md?plain=1#L705)
-- Other documents: [docs/plans/fabrication.md:656](plans/fabrication.md?plain=1#L656)
+- Other documents: [docs/plans/fabrication.md:657](plans/fabrication.md?plain=1#L657)
 
 #### Wang et al. 2018b
 
@@ -4634,7 +4634,7 @@ C. Xiong, W. H. P. Pernice, H. X. Tang, "Low-Loss, Silicon Integrated, Aluminum 
 - Methods pages: [fabrication.md:65](methods/fabrication.md?plain=1#L65)
 - Validation cases: [`fabrication/aln-reported-flows`](validation.md?plain=1#L816)
 - Code: [src/fabrication/platform_checks.rs:763](../src/fabrication/platform_checks.rs#L763), [src/fabrication/references.rs:240](../src/fabrication/references.rs#L240)
-- Other documents: [docs/plans/fabrication.md:668](plans/fabrication.md?plain=1#L668)
+- Other documents: [docs/plans/fabrication.md:669](plans/fabrication.md?plain=1#L669)
 
 #### Xu et al. 2005
 
@@ -4755,7 +4755,7 @@ M. Zhang, C. Wang, R. Cheng, A. Shams-Ansari, M. Lončar, "Monolithic ultra-high
 - Academy lessons: [how-a-chip-is-made.md:91](../academy/how-a-chip-is-made.md?plain=1#L91), [403](../academy/how-a-chip-is-made.md?plain=1#L403)
 - Validation cases: [`fabrication/reported-flows`](validation.md?plain=1#L802)
 - Code: [src/fabrication/checks.rs:461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:168](../src/fabrication/references.rs#L168), [170](../src/fabrication/references.rs#L170)
-- Other documents: [docs/plans/fabrication.md:654](plans/fabrication.md?plain=1#L654)
+- Other documents: [docs/plans/fabrication.md:655](plans/fabrication.md?plain=1#L655)
 
 #### Zhang et al. 2018
 
@@ -4824,7 +4824,7 @@ D. Zhu, L. Shao, M. Yu, R. Cheng, B. Desiatov, C. J. Xin, Y. Hu, J. Holzgrafe, S
 - Academy lessons: [slab-waveguide.md:96](../academy/slab-waveguide.md?plain=1#L96), [590](../academy/slab-waveguide.md?plain=1#L590)
 - Validation cases: [`pockels/overlap-gamma`](validation.md?plain=1#L554)
 - Code: [src/cases/mode/pockels/checks.rs:1019](../src/cases/mode/pockels/checks.rs#L1019), [src/mode/pockels.rs:290](../src/mode/pockels.rs#L290)
-- Other documents: [docs/plans/fabrication.md:657](plans/fabrication.md?plain=1#L657)
+- Other documents: [docs/plans/fabrication.md:658](plans/fabrication.md?plain=1#L658)
 
 #### Zortman et al. 2010
 
