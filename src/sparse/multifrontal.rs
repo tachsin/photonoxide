@@ -335,8 +335,8 @@ struct Factors<T> {
 pub(crate) struct Multifrontal<T = c64> {
     analysis: Arc<Analysis>,
     factors: Vec<Factors<T>>,
-    /// Pivots perturbed to √ε ‖B‖₁ (ε the factors' precision): 0 on a matrix the matching made
-    /// safe.
+    /// Pivots perturbed to √ε ‖B‖₁ (double precision's ε, whatever the factors'): 0 on a matrix
+    /// the matching made safe.
     perturbed: usize,
 }
 
@@ -380,8 +380,8 @@ impl Multifrontal {
 
 impl Multifrontal<c32> {
     /// [`Multifrontal::new`] in single precision: B's entries rounded to it after the scaling,
-    /// the fronts assembled, eliminated and stored in it, small pivots perturbed to f32's √ε
-    /// ‖B‖₁. Its solves run in double precision on the stored factors
+    /// the fronts assembled, eliminated and stored in it, small pivots perturbed to √ε ‖B‖₁ as in
+    /// double ([Scalar::pivot_threshold] says why). Its solves run in double precision on the stored factors
     /// ([`Multifrontal::<c32>::solve`]).
     ///
     /// # Errors
@@ -454,7 +454,7 @@ fn factorize_in<T: Scalar>(
             }
         }
     }
-    let tiny = T::sqrt_epsilon() * norm.iter().copied().fold(0.0, f64::max);
+    let tiny = T::pivot_threshold() * norm.iter().copied().fold(0.0, f64::max);
     let slots: Vec<OnceLock<(Factors<T>, usize)>> = (0..analysis.fronts.len())
         .map(|_| OnceLock::new())
         .collect();

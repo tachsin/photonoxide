@@ -331,8 +331,9 @@ pub(crate) trait Scalar:
     + std::ops::SubAssign
     + std::ops::DivAssign
 {
-    /// √ε of the precision: static pivoting's threshold relative to ‖A‖ (Li and Demmel).
-    fn sqrt_epsilon() -> f64;
+    /// Static pivoting's threshold relative to ‖A‖: a pivot below it is perturbed to it (Li and
+    /// Demmel's √ε, double precision's in both).
+    fn pivot_threshold() -> f64;
 
     /// `v`, rounded to this precision.
     fn from_c64(v: c64) -> Self;
@@ -389,7 +390,7 @@ pub(crate) trait Scalar:
 }
 
 impl Scalar for c64 {
-    fn sqrt_epsilon() -> f64 {
+    fn pivot_threshold() -> f64 {
         f64::EPSILON.sqrt()
     }
 
@@ -482,8 +483,15 @@ impl Scalar for c64 {
 }
 
 impl Scalar for c32 {
-    fn sqrt_epsilon() -> f64 {
-        f64::from(f32::EPSILON).sqrt()
+    /// Double precision's, as photonoxide's own factors have it, not single's √ε (3.5 × 10⁻⁴):
+    /// a perturbation enters the refinement's convergence as u_f ρₙ + ε (Amestoy et al.,
+    /// 2023, Theorem 4.1), so at single's √ε it would dominate u_f = 6 × 10⁻⁸ a thousand times
+    /// over, and at double's (1.5 × 10⁻⁸) it doesn't. Measured on the guide of
+    /// docs/methods/mixed-precision.md at 24³: single's √ε perturbed 4 210 pivots, the L D Lᵀ
+    /// gave way to the LU and GMRES took 45 to 50 iterations a step; double's perturbed none, two
+    /// iterations a step.
+    fn pivot_threshold() -> f64 {
+        f64::EPSILON.sqrt()
     }
 
     fn from_c64(v: c64) -> c32 {
