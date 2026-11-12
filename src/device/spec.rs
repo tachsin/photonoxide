@@ -1080,8 +1080,9 @@ impl MaterialSpec {
     /// The material.
     ///
     /// A wurtzite crystal (aluminium nitride, AlGaN) is a film grown with its c axis, its optic
-    /// axis, normal to the wafer, and a layer takes it as its ordinary index n_o, the index a TE
-    /// mode's in-plane field sees ([`c_axis_film`]).
+    /// axis, normal to the wafer (Xiong et al., Nano Lett. 12, 3562 (2012), p. 3563), and a
+    /// layer takes it as its ordinary index n_o, the index a TE mode's in-plane field sees; a TM
+    /// mode would see more of n_e, which the material's notes say.
     ///
     /// # Errors
     ///

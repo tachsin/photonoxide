@@ -132,6 +132,7 @@ const BLANK: f64 = f64::NAN;
 /// [`SMITH_ENERGIES`]. Transcribed from the page images (PDF pp. 789–791 of the Internet
 /// Archive's scan, whose text layer garbles them); a blank ΔRp is NaN.
 #[rustfmt::skip]
+#[allow(clippy::approx_constant)] // 0.3010 mg/cm² is a printed entry, not log₁₀ 2
 pub const SMITH: [[[(f64, f64); 19]; 3]; 3] = [
     // Z1 = 5, Table A3.1, p. 769
     [
@@ -456,19 +457,15 @@ mod tests {
             for (b, col) in ion.iter().enumerate() {
                 for w in col.windows(2) {
                     assert!(w[1].0 > w[0].0, "Z1 {a} Z2 {b}: {w:?}");
-                    assert!(!(w[1].1 <= w[0].1), "Z1 {a} Z2 {b}: {w:?}");
+                    // a blank straggle is NaN
+                    assert!(w[0].1.is_nan() || w[1].1 > w[0].1, "Z1 {a} Z2 {b}: {w:?}");
                 }
-                if b > 0 {
-                    for k in 0..19 {
-                        assert!(ion[b][k].0 > ion[b - 1][k].0, "Z1 {a} Z2 {b} E {k}");
+                for (k, here) in col.iter().enumerate() {
+                    if b > 0 {
+                        assert!(here.0 > ion[b - 1][k].0, "Z1 {a} Z2 {b} E {k}");
                     }
-                }
-                if a > 0 {
-                    for k in 0..19 {
-                        assert!(
-                            SMITH[a][b][k].0 < SMITH[a - 1][b][k].0,
-                            "Z1 {a} Z2 {b} E {k}"
-                        );
+                    if a > 0 {
+                        assert!(here.0 < SMITH[a - 1][b][k].0, "Z1 {a} Z2 {b} E {k}");
                     }
                 }
             }
