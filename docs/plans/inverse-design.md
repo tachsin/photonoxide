@@ -322,7 +322,26 @@ threshold projection; the topology job too, since a run's record (JSON) has no n
 
 *Validation:* the shape gradient against differences; a circle's level-set shape derivative
 against the analytic dF/dR of a field identity; the Y-branch against Lalau-Keraly's 2D and 3D
-numbers. *Papers:* Lalau-Keraly 2013 (read), Piggott 2017 (in hand); Vercruysse 2019 (Sci. Rep. 9, 8999; to get).
+numbers. *Papers:* Lalau-Keraly 2013 (read), Piggott 2017 (in hand); Vercruysse 2019 (Sci. Rep. 9, 8999; in hand, read 2026-11-12).
+
+*Done 2026-11-12:* `topology::LevelSet` (φ at the cells' corners; each cell's fill from four
+triangles about its centre, exact for a linear φ and continuously differentiable as a corner
+changes sign; docs/methods/topology.md, "Level sets"). The shape derivative is taken on the cells
+rather than by an assembly per parameter as planned: the solver's ∂F/∂ε at every cell from one
+adjoint solve, through each fill's derivatives in its corners, so a node costs nothing beyond its
+four cells (`mode_power_derivative` stays for a geometry drawn as shapes). `LevelSetPenalty`,
+Vercruysse et al.'s Eqs. 1–3, with the arctan's argument in units of π/d (theirs takes a length).
+Cases: `topology/level-set-plane` (the fill exact for a linear φ, 1e-16), `-circle` (dA/dR of a
+circle drawn as a cone against 2πR, within 0.3 (h/R)²; the identity the plan asked for, every
+node moving with R), `-gradient` (2D FDFD against differences, within their resolution),
+`topology/penalty-gap` (the switch at a grating's period 2d, second order), `-curvature` (at a
+disc's radius d/2) and `-gradient`. The Y-branch's adjoint half in `optimize_ybranch`: L-BFGS-B
+on the taper's widths from Table 1's, the derivatives from the swarm's 2D model's adjoint and
+the cells' exact areas (within 1.8e-4 of differences), 0.039 dB in the device's 2D model after
+their 102 solves against the swarm's 0.028 dB after 1500 evaluations. Its 3D loss, to go beside
+their −0.07 dB (a level set's shape, its last ten iterations in 3D), is `--full`'s and not run
+yet: the 22 nm grid needs about 34 GB, more than this machine had free; left for a larger one
+(`RECORDED_3D_ADJOINT`). *I7 is done.*
 
 ### I8: Lithography inside the loop
 

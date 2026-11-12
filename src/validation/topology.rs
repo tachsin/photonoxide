@@ -218,5 +218,65 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "fourth-order differences: at β = ∞, 1.5e-10, 1.6e-10 and 1.6e-6 at δ = 1e-5, 1e-4 and 1e-3, and at β = 64, 4.8e-10, 4.3e-11 and 1.1e-9 (the_ssp_study), round-off below and truncation above; at δ = 1e-4 held to 1e-8",
             ),
         ),
+        (
+            "topology/level-set-plane",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-14,
+                Exact,
+                "an exact identity for a linear φ: the triangles' shares against the clipped cell's area, 1.1e-16 (the_level_set_study); held to 1e-14",
+            ),
+        ),
+        (
+            "topology/level-set-circle",
+            Rule::new(
+                Relative,
+                Order,
+                0.5 * (5.0 / 500.0) * (5.0 / 500.0),
+                Measured,
+                "the chords' error, second order in h/R, its sign with how the circle meets the cells: within 0.3 (h/R)² at 40, 20, 10 and 5 nm (the_level_set_study); held to 0.5 (h/R)², 5e-5 at 5 nm",
+            ),
+        ),
+        (
+            "topology/level-set-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-6,
+                Measured,
+                "fourth-order differences of the power: at δ = 1e-4 within what they resolve (5.8e-7 at a node of a small derivative, 2.6e-9 at a large one; the_level_set_study), truncation at 1e-3 (1.9e-6); held to 2e-6",
+            ),
+        ),
+        (
+            "topology/penalty-gap",
+            Rule::new(
+                Absolute,
+                Order,
+                1.0 / 1600.0,
+                Measured,
+                "the second difference's shortfall, second order in h/d: the switch at D = d (1 − c (h/d)²) with c = 0.87, 0.86, 0.86 and 0.80 at d/h = 10, 20, 40 and 80 (the_penalty_study); held to (h/d)², 6.3e-4 at d/h = 40",
+            ),
+        ),
+        (
+            "topology/penalty-curvature",
+            Rule::new(
+                Absolute,
+                Order,
+                0.05 / 40.0,
+                Measured,
+                "the nodes nearest the boundary: 4.7e-3, 5.0e-5 and 7e-6 at d/h = 10, 20 and 40 (the_penalty_study), below 0.05 h/d; held to 0.05 h/d, 1.25e-3 at d/h = 40",
+            ),
+        ),
+        (
+            "topology/penalty-gradient",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-8,
+                Measured,
+                "the penalty is smooth but at its ramps' and absolute values' kinks, which differences wider than 1e-7 cross at some node (1.8e-3 at 1e-6); at 1e-7, 8.3e-11 (the_penalty_study); held to 1e-8",
+            ),
+        ),
     ]
 }

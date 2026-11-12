@@ -37,6 +37,7 @@ mod area;
 pub(crate) mod checks;
 mod constraints;
 mod helmholtz;
+mod level;
 mod robust;
 pub mod ruler;
 pub mod smoothed;
@@ -48,6 +49,7 @@ pub use constraints::{
     Constrained, LengthConstraints, dilated_threshold, eroded_threshold, geometric_threshold,
 };
 pub use helmholtz::{DoubleFiltered, HelmholtzFilter};
+pub use level::{LevelSet, LevelSetPenalty};
 pub use robust::{
     Epigraph, Realizations, across_edge_1d, across_edge_2d, edge_shift_1d, edge_shift_2d,
     minimum_length,

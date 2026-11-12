@@ -35,6 +35,17 @@ Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimiz
   the widths w1–w13 (µm): 0.5000, 1.1832, 1.4668, 0.9511, 1.6000, 1.3899, 1.5374, 1.4749, 1.4149, 1.4602, 1.3066, 1.3296, 1.2000
   the device's 2D model: 0.496783 into each arm, 0.0280 dB
   insertion loss, 2D, 20 nm (dB)         0.028035   paper below 0.2              ok
+Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B from Table 1's, each evaluation a solve and its adjoint, at most 51 (102 solves)
+  dP/dw2 at Table 1's: adjoint -2.957688e-2, central differences -2.957142e-2 (1.8e-4)
+  dP/dw5 at Table 1's: adjoint 4.685902e-2, central differences 4.685905e-2 (7.4e-7)
+  dP/dw8 at Table 1's: adjoint -6.222073e-2, central differences -6.221850e-2 (3.6e-5)
+  dP/dw11 at Table 1's: adjoint -4.640159e-2, central differences -4.640164e-2 (1.2e-6)
+  adjoint against differences (relative)     0.000185   paper below 0.001        ok
+  51 evaluations, 102 solves; its best, 0.495567 into the upper arm in the swarm's model (the swarm's, after 1500: 0.497111)
+  the widths w1–w13 (µm): 0.5000, 0.5000, 0.6728, 1.2958, 1.2314, 1.2714, 1.3954, 1.3118, 1.3588, 1.3271, 1.2591, 1.2874, 1.2000
+  the device's 2D model: 0.495532 into each arm, 0.0390 dB (the swarm's 0.0280 dB)
+  insertion loss, 2D, adjoint (dB)       0.038987   paper below 0.2              ok
+  adjoint's 2D loss above the swarm's (dB)     0.010952   paper below 0.02       ok
 3D FDFD of the swarm's design, TE-like, at 1.55 µm:
   what --full found (recorded):
   44.0 nm cells: 0.468725 into each arm, 0.2805 dB
@@ -44,4 +55,4 @@ Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimiz
   extrapolated: 0.4773 ± 0.0029 into each arm, 0.202 ± 0.027 dB (Zhang et al.'s 3D FDTD: 0.13 dB, 48.5 % into each arm)
   Table 1's design in 3D on the same grids (docs/methods/devices.md): 0.168 ± 0.003 dB, +0.038 dB from Zhang et al.'s, a gap listed in #595
   insertion loss, 3D: 0.202 dB against 0.13 dB, +0.072 dB, beyond 0.05: a gap, reported and not checked
-all 1 within tolerance of the paper
+all 4 within tolerance of the paper

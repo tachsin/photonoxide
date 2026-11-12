@@ -165,6 +165,48 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"Hammond et al. 2025, Eqs. 7, 10–12: the chain rule through each pixel's value and the differences of its gradient; $F_2$ is twice differentiable, so the projection is too, even at $\beta = \infty$ away from changes in topology",
             run: ssp_gradient_case,
         },
+        Case {
+            id: "topology/level-set-plane",
+            title: r"A level set's fill ($\varphi$ at the cells' corners, each cell cut into four triangles about its centre) for $\varphi$ linear over a 20 × 15 region, the interface at 17° to the axes, against the exact share of each cell the half-plane $\varphi \gt 0$ covers (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"the fill is the area where the interpolated $\varphi$ is positive; a linear $\varphi$ is its own interpolant on each triangle (the centre's value the corners' mean), so the fill is the half-plane's share, here by clipping the cell (Sutherland and Hodgman) and the shoelace formula",
+            run: level_set_plane_case,
+        },
+        Case {
+            id: "topology/level-set-circle",
+            title: r"A circle of radius $R$ = 0.5 µm as the cone $\varphi = R - \lvert x - c\rvert$ on 5 nm cells: the derivative of its area $A = \sum_i f_i h^2$ in $R$, every node moving with it ($\sum_k \partial A/\partial\varphi_k$), relative to $2\pi R$ (relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"$dA/dR = 2\pi R$ for a disc; the fill's piecewise-linear interface is the circle's chords, second order in $h/R$; C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693: a level set's shape derivative is its boundary's velocity",
+            run: level_set_circle_case,
+        },
+        Case {
+            id: "topology/level-set-gradient",
+            title: r"2D FDFD ($E$ along $z$, 20 nm) beside a 220 nm slab, a 10 × 10-cell region's permittivities filled from a level set crossing it: the power into the slab's mode and its derivative in four nodes of $\varphi$ of cells the interface crosses, from one adjoint solve, against fourth-order differences ($\delta = 10^{-4}$) (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"the adjoint variable method as topology/fdfd-gradient, each cell's $\partial F/\partial\varepsilon$ through its fill's derivatives in its corners; Lalau-Keraly et al. 2013, Eq. 5",
+            run: level_set_gradient_case,
+        },
+        Case {
+            id: "topology/penalty-gap",
+            title: r"Vercruysse et al.'s gap term on a grating $\varphi = \cos(\pi (x - x_0)/D)$, feature size $d$ = 100 nm on nodes $d/40$ apart: the $D$ below which the term is on, by bisection, against $d$ (difference shown, in $d$)",
+            tier: Tier::Analytic,
+            source: r"M. Vercruysse, L. Su, R. Trivedi, N. V. Sapra, J. Vučković, Sci. Rep. 9, 8999 (2019), doi:10.1038/s41598-019-45026-0, Eq. 1: tight for a sinusoid of period $2d$, a grating of feature size $d$; the second difference of a cosine falls short of its second derivative by about $(\pi h/D)^2/12$ of it",
+            run: penalty_gap_case,
+        },
+        Case {
+            id: "topology/penalty-curvature",
+            title: r"Vercruysse et al.'s curvature term on a disc, $\varphi = a^2 - \lvert x - c\rvert^2$, $d$ = 100 nm on nodes $d/40$ apart: the radius below which the term is on, by bisection, against $d/2$ (difference shown, in $d/2$)",
+            tier: Tier::Analytic,
+            source: r"Vercruysse et al. 2019, Eq. 2: on the boundary the arctangent is $\pi/2$ and the radius of curvature must exceed $d/2$; here its argument is taken in units of $\pi/d$, which keeps that limit and its relaxation to 0 at the disc's centre",
+            run: penalty_curvature_case,
+        },
+        Case {
+            id: "topology/penalty-gradient",
+            title: r"Vercruysse et al.'s penalty (their Eq. 3, $\beta = 1/3$, $\zeta = 2$, $d$ = 100 nm) on a varied $\varphi$ of 24 × 20 nodes 10 nm apart: its gradient through the centred differences against fourth-order differences ($\delta = 10^{-7}$) at every seventh node (largest difference relative to the largest derivative, shown)",
+            tier: Tier::Analytic,
+            source: r"Vercruysse et al. 2019, Eqs. 1–3; forward-mode derivatives of each node's terms in its value and differences, then the differences' stencils transposed",
+            run: penalty_gradient_case,
+        },
     ]
 }
 
@@ -1291,4 +1333,281 @@ fn ssp_gradient_case() -> Outcome {
         ssp_gradient_error(64.0, 1e-4).max(ssp_gradient_error(f64::INFINITY, 1e-4)),
         1e-8,
     )
+}
+
+/// The area of the unit square [0, 1]² where a + b x + c y > 0, exactly: the square clipped by
+/// the half-plane (Sutherland and Hodgman), its area by the shoelace formula.
+fn half_plane_area(a: f64, b: f64, c: f64) -> f64 {
+    let f = |p: [f64; 2]| a + b * p[0] + c * p[1];
+    let square = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+    let mut kept: Vec<[f64; 2]> = Vec::new();
+    for k in 0..4 {
+        let (p, q) = (square[k], square[(k + 1) % 4]);
+        let (fp, fq) = (f(p), f(q));
+        if fp > 0.0 {
+            kept.push(p);
+        }
+        if (fp > 0.0) != (fq > 0.0) {
+            let t = fp / (fp - fq);
+            kept.push([p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])]);
+        }
+    }
+    let n = kept.len();
+    (0..n)
+        .map(|k| {
+            let (p, q) = (kept[k], kept[(k + 1) % n]);
+            p[0] * q[1] - q[0] * p[1]
+        })
+        .sum::<f64>()
+        .abs()
+        / 2.0
+}
+
+/// A level set linear over a 20 × 15 region (an interface at 17° to the axes): each cell's fill
+/// against the exact share of the cell the half-plane covers; the largest difference.
+pub(crate) fn level_set_plane_error() -> f64 {
+    let (nx, ny) = (20usize, 15usize);
+    let l = crate::topology::LevelSet::new([nx, ny], 1.0, [1.0, 2.0]).expect("a level set");
+    let (c, s) = (0.3f64.cos(), 0.3f64.sin());
+    let phi_at = |x: f64, y: f64| (x - 9.3) * c + (y - 7.1) * s;
+    let phi: Vec<f64> = (0..l.nodes())
+        .map(|k| {
+            let [x, y] = l.node_um(k);
+            phi_at(x, y)
+        })
+        .collect();
+    let fill = l.fill(&phi).expect("filled");
+    fill.iter()
+        .enumerate()
+        .map(|(p, f)| {
+            let (i, j) = ((p % nx) as f64, (p / nx) as f64);
+            (f - half_plane_area(phi_at(i, j), c, s)).abs()
+        })
+        .fold(0.0, f64::max)
+}
+
+/// A circle of radius 0.5 µm as a cone φ = R − |x − c| on pixels of `h_nm` over 1.4 µm: the
+/// derivative of the area Σ fill h² in R, every node's φ moving with R (Σₖ ∂A/∂φₖ), relative to
+/// 2πR less 1.
+pub(crate) fn level_set_circle_error(h_nm: f64) -> f64 {
+    let h = h_nm * 1e-3;
+    let n = (1.4 / h).round() as usize;
+    let l = crate::topology::LevelSet::new([n, n], h, [1.0, 2.0]).expect("a level set");
+    let centre = 0.7 + 0.13 * h; // off the nodes
+    let r = 0.5;
+    let phi: Vec<f64> = (0..l.nodes())
+        .map(|k| {
+            let [x, y] = l.node_um(k);
+            r - ((x - centre).powi(2) + (y - centre).powi(2)).sqrt()
+        })
+        .collect();
+    let d_area = l
+        .pullback(&phi, &vec![h * h; n * n])
+        .expect("pulled back")
+        .iter()
+        .sum::<f64>();
+    d_area / (2.0 * std::f64::consts::PI * r) - 1.0
+}
+
+/// 2D FDFD (E along z, 20 nm) beside a 220 nm slab, a 10 × 10-cell region's permittivities from
+/// a level set crossing it: the power into the slab's mode and its gradient in each node of φ,
+/// against fourth-order differences `delta` wide at four nodes (a corner, an edge, two inside).
+pub(crate) fn level_set_probes(delta: f64) -> Vec<Probe> {
+    let c = chain();
+    let (clad, core) = (1.444f64.powi(2), 3.476f64.powi(2));
+    let l = crate::topology::LevelSet::new([10, 10], 0.02, [clad, core]).expect("a level set");
+    let phi: Vec<f64> = (0..l.nodes())
+        .map(|k| {
+            let [x, y] = l.node_um(k);
+            0.06 - ((x - 0.07).powi(2) + (y - 0.04).powi(2)).sqrt() + 0.02 * (13.0 * x).sin()
+        })
+        .collect();
+    let lam = Wavelength::um(LAMBDA_UM).expect("a wavelength");
+    let cells_at = |phi: &[f64]| {
+        let mut cells = c.cells.clone();
+        c.placement
+            .embed(&l.permittivity(phi).expect("filled"), &mut cells)
+            .expect("placed");
+        cells
+    };
+    let base = Solver2d::from_cells(
+        c.grid,
+        Polarization::Ez,
+        lam,
+        &cells_at(&phi),
+        Boundaries::pml(20),
+    )
+    .expect("a problem");
+    let ports = two_ports(&base);
+    let source = base.mode_source(&ports[0].mode, Direction::Forward);
+    let field = base.solve_system(&source).expect("solved");
+    let (power, per_cell) = base
+        .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
+        .expect("a gradient");
+    let gradient = l
+        .gradient(&phi, &c.placement.restrict(&per_cell).expect("restricted"))
+        .expect("pulled back");
+    let residual = base.residual(&field, &source).expect("a residual");
+    // four nodes of cells the interface crosses, away from φ = 0 by more than the differences
+    let fill = l.fill(&phi).expect("filled");
+    let mut nodes: Vec<usize> = Vec::new();
+    for (p, f) in fill.iter().enumerate() {
+        if *f > 0.0 && *f < 1.0 {
+            let (i, j) = (p % 10, p / 10);
+            for k in [
+                j * 11 + i,
+                j * 11 + i + 1,
+                (j + 1) * 11 + i,
+                (j + 1) * 11 + i + 1,
+            ] {
+                if phi[k].abs() > 3.0 * delta && !nodes.contains(&k) {
+                    nodes.push(k);
+                }
+            }
+        }
+    }
+    let step = nodes.len().max(4) / 4;
+    let nodes: Vec<usize> = nodes.into_iter().step_by(step).take(4).collect();
+    nodes
+        .iter()
+        .map(|&k| {
+            let at = |d: f64| {
+                let mut p = phi.clone();
+                p[k] += d;
+                let s = base.reuse_cells(lam, &cells_at(&p)).expect("a problem");
+                let f = s.solve_system(&source).expect("solved");
+                f.mode_amplitudes(&ports[1].mode).0.norm_sqr()
+            };
+            Probe {
+                gradient: gradient[k],
+                power,
+                delta,
+                at: [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta)),
+                residual,
+            }
+        })
+        .collect()
+}
+
+fn level_set_plane_case() -> Outcome {
+    zero(level_set_plane_error(), 1e-14)
+}
+
+fn level_set_circle_case() -> Outcome {
+    zero(
+        level_set_circle_error(5.0).abs(),
+        0.5 * (5.0f64 / 500.0).powi(2),
+    )
+}
+
+fn level_set_gradient_case() -> Outcome {
+    let probes = level_set_probes(1e-4);
+    crate::verdict::note_numerical(probes.iter().map(Probe::resolution).fold(0.0, f64::max));
+    zero(
+        probes
+            .iter()
+            .map(|p| (p.gradient - p.differences()).abs() / p.gradient.abs())
+            .fold(0.0, f64::max),
+        2e-6,
+    )
+}
+
+/// Bisects `on` (true where the penalty is on) between `lo` (on) and `hi` (off).
+fn switch_point(mut lo: f64, mut hi: f64, on: impl Fn(f64) -> bool) -> f64 {
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        if on(mid) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+/// Vercruysse et al.'s gap term on a grating φ = cos(π(x − x₀)/D) (a crest on a node), feature
+/// size d = 100 nm on nodes `d / h` apart: the D below which the term is on, over d (their Eq. 1
+/// is tight at a period of 2d).
+pub(crate) fn penalty_gap_switch(d_over_h: f64) -> f64 {
+    let d = 0.1;
+    let h = d / d_over_h;
+    let n = (6.0 * d / h).round() as usize;
+    let l = crate::topology::LevelSet::new([n, 4], h, [1.0, 2.0]).expect("a level set");
+    let p = crate::topology::LevelSetPenalty::new(d).expect("a penalty");
+    let x0 = (n / 2) as f64 * h;
+    switch_point(0.5, 1.5, |ratio| {
+        let period = ratio * d;
+        let phi: Vec<f64> = (0..l.nodes())
+            .map(|k| (std::f64::consts::PI * (l.node_um(k)[0] - x0) / period).cos())
+            .collect();
+        p.terms(&l, &phi).expect("terms")[0] > 0.0
+    })
+}
+
+/// Vercruysse et al.'s curvature term on a disc, φ = a² − |x − c|² (an extremum at its centre on
+/// a node), d = 100 nm on nodes `d / h` apart: the radius below which the term is on, over d/2
+/// (their Eq. 2 holds the boundary's radius of curvature above d/2).
+pub(crate) fn penalty_curvature_switch(d_over_h: f64) -> f64 {
+    let d = 0.1;
+    let h = d / d_over_h;
+    let n = (2.0 * d / h).round() as usize;
+    let l = crate::topology::LevelSet::new([n, n], h, [1.0, 2.0]).expect("a level set");
+    let p = crate::topology::LevelSetPenalty::new(d).expect("a penalty");
+    let c = (n / 2) as f64 * h;
+    switch_point(0.2, 1.4, |ratio| {
+        let a = ratio * d / 2.0;
+        let phi: Vec<f64> = (0..l.nodes())
+            .map(|k| {
+                let [x, y] = l.node_um(k);
+                (a * a - (x - c).powi(2) - (y - c).powi(2)) / d
+            })
+            .collect();
+        p.terms(&l, &phi).expect("terms")[1] > 0.0
+    })
+}
+
+/// The penalty's gradient on a varied φ (24 × 20 nodes of 10 nm, d = 100 nm) against
+/// fourth-order differences `delta` wide at the nodes of every seventh index: the largest
+/// difference relative to the largest exact derivative.
+pub(crate) fn penalty_gradient_error(delta: f64) -> f64 {
+    let l = crate::topology::LevelSet::new([23, 19], 0.01, [1.0, 2.0]).expect("a level set");
+    let p = crate::topology::LevelSetPenalty::new(0.1).expect("a penalty");
+    let phi: Vec<f64> = (0..l.nodes())
+        .map(|k| {
+            let [x, y] = l.node_um(k);
+            0.03 * (31.0 * x).sin() * (23.0 * y + 0.4).cos() + 0.01 * (57.0 * (x + y)).sin()
+        })
+        .collect();
+    let (value, g) = p.evaluate(&l, &phi).expect("evaluated");
+    assert!(
+        value > 0.0,
+        "the case's φ violates the constraints somewhere"
+    );
+    let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    let mut worst = 0.0f64;
+    for k in (0..l.nodes()).step_by(7) {
+        let at = |s: f64| {
+            let mut q = phi.clone();
+            q[k] += s * delta;
+            p.evaluate(&l, &q).expect("evaluated").0
+        };
+        let fd = (at(-2.0) - 8.0 * at(-1.0) + 8.0 * at(1.0) - at(2.0)) / (12.0 * delta);
+        worst = worst.max((g[k] - fd).abs() / scale);
+    }
+    worst
+}
+
+fn penalty_gap_case() -> Outcome {
+    zero(
+        (penalty_gap_switch(40.0) - 1.0).abs(),
+        (1.0f64 / 40.0).powi(2),
+    )
+}
+
+fn penalty_curvature_case() -> Outcome {
+    zero((penalty_curvature_switch(40.0) - 1.0).abs(), 0.05 / 40.0)
+}
+
+fn penalty_gradient_case() -> Outcome {
+    zero(penalty_gradient_error(1e-7), 1e-8)
 }

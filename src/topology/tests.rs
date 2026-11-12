@@ -437,3 +437,68 @@ fn the_ssp_study() {
         }
     }
 }
+
+/// The level set's checks: the plane's fill, the circle's area derivative against the pixel, and
+/// the FDFD gradient against the step, with the nodes' gradients and values.
+#[test]
+#[ignore = "a study: cargo test --release --lib the_level_set_study -- --ignored --nocapture"]
+fn the_level_set_study() {
+    use crate::topology::checks::{
+        level_set_circle_error, level_set_plane_error, level_set_probes,
+    };
+    println!("plane: {:.3e}", level_set_plane_error());
+    for h in [40.0, 20.0, 10.0, 5.0] {
+        let e = level_set_circle_error(h);
+        println!(
+            "circle at {h} nm: {e:.4e} ({:.3} (h/R)²)",
+            e / (h / 500.0).powi(2)
+        );
+    }
+    for delta in [1e-5, 1e-4, 1e-3] {
+        for p in level_set_probes(delta) {
+            println!(
+                "δ {delta}: exact {:.6e}, differences {:.6e}, relative {:.2e}, resolution {:.2e}",
+                p.gradient,
+                p.differences(),
+                (p.gradient - p.differences()).abs() / p.gradient.abs(),
+                p.resolution()
+            );
+        }
+    }
+}
+
+#[test]
+fn a_cells_fill_is_exact_for_a_linear_level_set_and_continuous_where_a_corner_changes_sign() {
+    assert!(super::checks::level_set_plane_error() < 1e-14);
+    // a corner through zero: the fill and its derivative continuous
+    let at = |v: f64| super::level::cell_fill([v, -0.3, -0.5, 0.4]);
+    let (below, above) = (at(-1e-9), at(1e-9));
+    assert!((below.0 - above.0).abs() < 1e-8);
+    for k in 0..4 {
+        assert!(
+            (below.1[k] - above.1[k]).abs() < 1e-6,
+            "{k}: {below:?} {above:?}"
+        );
+    }
+}
+
+/// Vercruysse et al.'s penalty: the gap and curvature terms' switch points against the nodes, the
+/// gradient against the step.
+#[test]
+#[ignore = "a study: cargo test --release --lib the_penalty_study -- --ignored --nocapture"]
+fn the_penalty_study() {
+    use crate::topology::checks::{
+        penalty_curvature_switch, penalty_gap_switch, penalty_gradient_error,
+    };
+    for r in [10.0, 20.0, 40.0, 80.0] {
+        let (gap, bend) = (penalty_gap_switch(r), penalty_curvature_switch(r));
+        println!(
+            "d/h {r}: gap at D = {gap:.6} d ({:.3} (h/d)²), curvature at a = {bend:.6} d/2 ({:.3} h/d)",
+            (gap - 1.0) * r * r,
+            (bend - 1.0) * r
+        );
+    }
+    for delta in [1e-7, 1e-6, 1e-5, 1e-4] {
+        println!("gradient, δ {delta}: {:.3e}", penalty_gradient_error(delta));
+    }
+}

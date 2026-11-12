@@ -26,6 +26,10 @@ papers:
     doi: 10.1364/JOSAB.506412
   - cite: "A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, Opt. Express 33, 33620 (2025) (the subpixel-smoothed projection, Eqs. 7, 9–12 and 23; the crossing, Section 4.1)"
     doi: 10.1364/OE.563512
+  - cite: "C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, Opt. Express 21, 21693 (2013) (shape derivatives of a level set by the adjoint, Eq. 5)"
+    doi: 10.1364/OE.21.021693
+  - cite: "M. Vercruysse, L. Su, R. Trivedi, N. V. Sapra, J. Vučković, Sci. Rep. 9, 8999 (2019) (the gap and curvature constraints on a level set, Eqs. 1–3)"
+    doi: 10.1038/s41598-019-45026-0
 validation:
   - topology/projection-derivative
   - topology/projection-identities
@@ -48,6 +52,12 @@ validation:
   - topology/ssp-plane
   - topology/ssp-disc
   - topology/ssp-gradient
+  - topology/level-set-plane
+  - topology/level-set-circle
+  - topology/level-set-gradient
+  - topology/penalty-gap
+  - topology/penalty-curvature
+  - topology/penalty-gradient
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -323,6 +333,49 @@ their crossing (Section 4.1): the standard projection's gradient at a plain cros
 1.3e-2 at β = 16 to 8.6e-29 at β = 1024 while the smoothed one's settles at its β = ∞ value
 (their Fig. 5b), and both their optimizations reach their 99 % at β = ∞.
 
+## Level sets
+
+A level set describes the design by a function φ whose positive part is the core and whose
+zero set is the boundary: the design stays binary, and its shape moves where φ moves
+(Lalau-Keraly et al. 2013, Section 3). `topology::LevelSet` holds φ at the corners of a region's
+cells and gives each cell its share where φ > 0, the fill f, so that the cell's permittivity is
+ε₀ + f (ε₁ − ε₀). Each cell is cut into four triangles about its centre, where φ is the mean of
+the corners; on each triangle φ is linear, and the share of it where φ > 0 is, with a the corner
+of the odd sign and b, c the others,
+
+$$s = \frac{a^2}{(a - b)(a - c)}$$
+
+(or 1 − s when a is the one corner at or below 0). The fill is exact for a φ linear over the cell,
+and it and its first derivatives are continuous as a corner's value changes sign, so the
+permittivities are a smooth function of φ away from changes in topology. The derivative of any
+figure of merit in every node of φ then comes from one adjoint solve: the solver's ∂F/∂ε at each
+cell, times ε₁ − ε₀, through each fill's derivatives in its four corners (`LevelSet::gradient`).
+No assembly per parameter: a node moves only its four cells.
+
+**Fabrication constraints** (Vercruysse et al. 2019, Eqs. 1–3; `topology::LevelSetPenalty`). With
+φ_v = ‖∇φ‖ and φ_vv the first and second derivatives along the gradient and κ = ∇·(∇φ/‖∇φ‖) the
+curvature, the minimum gap d asks |φ_vv| < (π/d)² |φ| + β (π/d) φ_v, tight for a grating of
+period 2d, and the minimum radius of curvature d/2 asks 1/|κ| > arctan(φ_v/|φ|) d/π, which is d/2
+on the boundary and relaxes to 0 at an extremum of φ. Their penalty integrates each excess under a
+ramp R(x) = max(x, 0):
+
+$$f = \iint R\Bigl(\frac{\lvert\varphi_{vv}\rvert}{\frac{\pi}{d}\lvert\varphi\rvert + \beta\varphi_v} - \frac{\pi}{d}\Bigr) + \zeta \iint R\Bigl(\lvert\kappa\rvert \arctan\frac{d \varphi_v}{\pi\lvert\varphi\rvert} - \frac{\pi}{d}\Bigr),$$
+
+with their β = ⅓ and ζ = 2. Their arctan(φ_v/φ) takes a length, since φ_v/φ is per unit length;
+here it is in units of π/d, the scale of their Eq. 1, which keeps both of the limits the paper
+names. The derivatives are centred differences at the nodes inside the region's edge, and the
+gradient goes back through them by forward-mode derivatives of each node's terms. A node where
+∇φ vanishes has no direction to take them along and is left out.
+
+**Checked** (`topology/level-set-*`, `topology/penalty-*`): the fill against the half-plane's exact
+share of each cell for a linear φ, 1e-16; a circle drawn as the cone R − r, the area's derivative
+in R with every node moving, against 2πR, within 0.3 (h/R)² from 40 to 5 nm; 2D FDFD's power
+against four nodes of a level set from one adjoint solve, within what fourth-order differences
+resolve; the gap term's switch on a cosine grating at a period of 2d, second order in h/d (their
+"tight for a sinusoidal function with periodicity 2d"); the curvature term's switch on a disc at a
+radius of d/2; and the penalty's gradient against differences. The penalty is smooth but at the
+kinks of its ramps and absolute values, so the differences are taken 1e-7 wide.
+
 ## In use
 
 Two examples put the pieces together on 2D FDFD with genoxide's MMA, each on published problems:
@@ -396,6 +449,12 @@ image to a south port give the same powers in each mode to 10⁻⁹ (the job's t
 | `topology/ssp-plane` | the smoothed projection's fill $F_2$ against the parabolic kernel's share of a half-space at 201 distances, and the projection at β = ∞ of a linear field on 40 × 30 pixels against $F_2$ of each pixel's exact distance | 1.0e-11 (held to 1e-9; the quadrature's) |
 | `topology/ssp-disc` | at β = ∞, each pixel within R̂ of a 0.25 µm circle against the exact smoothed disc, 5 nm pixels | 8.5e-4 = 0.077 R̂/a (held to 0.1 R̂/a = 1.1e-3; first order on a curve) |
 | `topology/ssp-gradient` | the smoothed projection's gradient through a 50 nm filter against fourth-order differences, δ = 10⁻⁴, at β = 64 and ∞ | 1.6e-10 relative (held to 1e-8) |
+| `topology/level-set-plane` | a level set's fill for a linear φ over 20 × 15 cells against the half-plane's exact share of each cell | 1.1e-16 (held to 1e-14) |
+| `topology/level-set-circle` | the area's derivative in R of a circle drawn as the cone R − r on 5 nm cells, every node moving with R, against 2πR | 3.0e-5 relative = 0.30 (h/R)² (held to 0.5 (h/R)²) |
+| `topology/level-set-gradient` | 2D FDFD: the power into a slab's mode against four nodes of a level set filling a 10 × 10-cell region, one adjoint solve, against fourth-order differences, δ = 10⁻⁴ | 1.8e-7 relative, within what the differences resolve (held to 2e-6) |
+| `topology/penalty-gap` | Vercruysse et al.'s gap term on a cosine grating: the period below which it switches on, against 2d, nodes d/40 apart | 5.4e-4 d = 0.86 (h/d)² (held to (h/d)²) |
+| `topology/penalty-curvature` | their curvature term on a disc: the radius below which it switches on, against d/2, nodes d/40 apart | 7e-6 (held to 0.05 h/d) |
+| `topology/penalty-gradient` | the penalty's gradient against fourth-order differences, δ = 10⁻⁷ | 8.3e-11 relative (held to 1e-8) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
 β: $f'(x) = \mathop{\mathrm{Im}} f(x + ih)/h$ with $h = 10^{-30}$ for any analytic f.
