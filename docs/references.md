@@ -265,7 +265,7 @@ R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale c
 
 - Methods pages: [topology.md:22](methods/topology.md?plain=1#L22)
 - Code: [src/cases/topology/checks.rs:116](../src/cases/topology/checks.rs#L116), [src/topology/constraints.rs:28](../src/topology/constraints.rs#L28)
-- Other documents: [ROADMAP.md:847](../ROADMAP.md?plain=1#L847), [docs/plans/inverse-design.md:449](plans/inverse-design.md?plain=1#L449)
+- Other documents: [ROADMAP.md:847](../ROADMAP.md?plain=1#L847), [docs/plans/inverse-design.md:450](plans/inverse-design.md?plain=1#L450)
 
 #### Aryana et al. 2021
 
@@ -563,7 +563,7 @@ M. Born, E. Wolf, A. B. Bhatia, P. C. Clemmow, D. Gabor, A. R. Stokes, A. M. Tay
 
 B. Bourdin, "Filters in topology optimization", Numerical Meth Engineering 50, 2143 (2001). [doi:10.1002/nme.116](https://doi.org/10.1002/nme.116)
 
-- Other documents: [docs/plans/inverse-design.md:473](plans/inverse-design.md?plain=1#L473)
+- Other documents: [docs/plans/inverse-design.md:474](plans/inverse-design.md?plain=1#L474)
 
 #### Boyd 2020
 
@@ -1357,7 +1357,7 @@ J. A. Frantz, J. D. Myers, A. Clabeau, R. Y. Bekele, N. Hong, M. A. Vincenti, M.
 
 L. F. Frellsen, Y. Ding, O. Sigmund, L. H. Frandsen, "Topology optimized mode multiplexing in silicon-on-insulator photonic wire waveguides", Opt. Express 24, 16866 (2016). [doi:10.1364/OE.24.016866](https://doi.org/10.1364/OE.24.016866)
 
-- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782), [docs/plans/inverse-design.md:464](plans/inverse-design.md?plain=1#L464)
+- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782), [docs/plans/inverse-design.md:465](plans/inverse-design.md?plain=1#L465)
 
 #### Freund 1992
 
@@ -1625,7 +1625,7 @@ W. P. Grice, I. A. Walmsley, "Spectral information and distinguishability in typ
 
 J. K. Guest, J. H. Prévost, T. Belytschko, "Achieving minimum length scale in topology optimization using nodal design variables and projection functions", Numerical Meth Engineering 61, 238 (2004). [doi:10.1002/nme.1064](https://doi.org/10.1002/nme.1064)
 
-- Other documents: [docs/plans/inverse-design.md:477](plans/inverse-design.md?plain=1#L477)
+- Other documents: [docs/plans/inverse-design.md:478](plans/inverse-design.md?plain=1#L478)
 
 #### Gummel 1964
 
@@ -1771,7 +1771,7 @@ A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, "U
 - Methods pages: [topology.md:28](methods/topology.md?plain=1#L28)
 - Examples: [README.md:64](../examples/README.md?plain=1#L64), [optimize_crossing_ssp.rs:8](../examples/optimize_crossing_ssp.rs#L8)
 - Code: [src/cases/topology/checks.rs:151](../src/cases/topology/checks.rs#L151), [src/topology/smoothed.rs:7](../src/topology/smoothed.rs#L7)
-- Other documents: [docs/plans/inverse-design.md:446](plans/inverse-design.md?plain=1#L446)
+- Other documents: [docs/plans/inverse-design.md:447](plans/inverse-design.md?plain=1#L447)
 
 #### Han et al. 2023
 
@@ -2018,7 +2018,7 @@ T. W. Hughes, M. Minkov, Y. Shi, S. Fan, "Training of photonic neural networks t
 
 T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiation of Maxwell’s Equations", ACS Photonics 6, 3010 (2019). [doi:10.1021/acsphotonics.9b01238](https://doi.org/10.1021/acsphotonics.9b01238)
 
-- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/inverse-design.md:460](plans/inverse-design.md?plain=1#L460)
+- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/inverse-design.md:461](plans/inverse-design.md?plain=1#L461)
 
 #### Hughes et al. 2021
 
@@ -2563,7 +2563,7 @@ B. S. Lazarov, O. Sigmund, "Filters in topology optimization based on Helmholtz�
 - Methods pages: [topology.md:24](methods/topology.md?plain=1#L24)
 - Examples: [optimize_demux_robust.rs:9](../examples/optimize_demux_robust.rs#L9)
 - Code: [src/cases/topology/checks.rs:123](../src/cases/topology/checks.rs#L123), [src/topology/helmholtz.rs:6](../src/topology/helmholtz.rs#L6)
-- Other documents: [docs/plans/inverse-design.md:455](plans/inverse-design.md?plain=1#L455)
+- Other documents: [docs/plans/inverse-design.md:456](plans/inverse-design.md?plain=1#L456)
 
 #### Lee 2001
 
@@ -3448,7 +3448,7 @@ A. Y. Piggott, J. Petykiewicz, L. Su, J. Vučković, "Fabrication-constrained na
 
 A. Y. Piggott, E. Y. Ma, L. Su, G. H. Ahn, N. V. Sapra, D. Vercruysse, A. M. Netherton, A. S. P. Khope, J. E. Bowers, J. Vučković, "Inverse-Designed Photonics for Semiconductor Foundries", ACS Photonics 7, 569 (2020). [doi:10.1021/acsphotonics.9b01540](https://doi.org/10.1021/acsphotonics.9b01540)
 
-- Other documents: [ROADMAP.md:789](../ROADMAP.md?plain=1#L789), [docs/plans/inverse-design.md:470](plans/inverse-design.md?plain=1#L470)
+- Other documents: [ROADMAP.md:789](../ROADMAP.md?plain=1#L789), [docs/plans/inverse-design.md:471](plans/inverse-design.md?plain=1#L471)
 
 #### Ploeg et al. 2021
 
@@ -3563,7 +3563,7 @@ X. Qian, O. Sigmund, "Topological design of electromechanical actuators with rob
 
 - Methods pages: [topology.md:16](methods/topology.md?plain=1#L16)
 - Code: [src/cases/topology/checks.rs:74](../src/cases/topology/checks.rs#L74), [src/topology/robust.rs:13](../src/topology/robust.rs#L13)
-- Other documents: [docs/plans/inverse-design.md:452](plans/inverse-design.md?plain=1#L452)
+- Other documents: [docs/plans/inverse-design.md:453](plans/inverse-design.md?plain=1#L453)
 
 #### Quesada et al. 2018
 
@@ -4131,7 +4131,7 @@ R. Storn, K. Price, "Differential Evolution – A Simple and Efficient Heuristic
 
 L. Su, R. Trivedi, N. V. Sapra, A. Y. Piggott, D. Vercruysse, J. Vučković, "Fully-automated optimization of grating couplers", Opt. Express 26, 4023 (2018). [doi:10.1364/OE.26.004023](https://doi.org/10.1364/OE.26.004023)
 
-- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/inverse-design.md:466](plans/inverse-design.md?plain=1#L466)
+- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/inverse-design.md:467](plans/inverse-design.md?plain=1#L467)
 
 #### Su et al. 2020
 
@@ -4447,7 +4447,7 @@ D. Vercruysse, N. V. Sapra, L. Su, R. Trivedi, J. Vučković, "Analytical level 
 
 - Methods pages: [topology.md:32](methods/topology.md?plain=1#L32)
 - Code: [src/cases/topology/checks.rs:193](../src/cases/topology/checks.rs#L193), [src/topology/level.rs:329](../src/topology/level.rs#L329)
-- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787), [docs/plans/inverse-design.md:457](plans/inverse-design.md?plain=1#L457)
+- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787), [docs/plans/inverse-design.md:458](plans/inverse-design.md?plain=1#L458)
 
 #### Vermeulen et al. 2010
 
@@ -4876,7 +4876,7 @@ M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, "Minimum length scale in topology o
 
 - Methods pages: [topology.md:18](methods/topology.md?plain=1#L18)
 - Code: [src/cases/topology/checks.rs:109](../src/cases/topology/checks.rs#L109), [src/topology/constraints.rs:6](../src/topology/constraints.rs#L6)
-- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779), [docs/plans/inverse-design.md:443](plans/inverse-design.md?plain=1#L443)
+- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779), [docs/plans/inverse-design.md:444](plans/inverse-design.md?plain=1#L444)
 
 #### Zhu et al. 2021
 
