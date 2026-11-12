@@ -6,7 +6,7 @@
 decisions in [section 4](#4-decisions) were taken on 2026-11-10: I decided the recommended option
 of each of the eight, and the phases follow them. The Academy lesson [inverse-design.md](../../academy/inverse-design.md) is written last,
 once the milestone is built. Where the work stands and how to pick it up:
-[section 6](#6-starting-the-work).*
+[section 6](#6-where-the-work-stands).*
 
 The rule of [AGENTS.md](../../AGENTS.md) holds throughout: optimizers come from
 [genoxide](https://github.com/tachsin/genoxide). photonoxide supplies the objectives, their
@@ -481,47 +481,64 @@ Mason et al.'s co-optimized multiplexers (I11's target) have no journal version 
 the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the typeset version
 (Opt. Lett. 50, 117) would replace it.
 
-## 6. Starting the work
+## 6. Where the work stands
 
-*2026-11-09: the plan is final. The implementation starts on another machine; nothing was run on
-this one beyond I1's unit tests.*
+*2026-11-12: I1 to I7 are done on `feat/inverse-design-0.7`, pull request #796. The work goes on
+from here on another machine.*
 
-**On the branch** `feat/inverse-design-0.7` (from `main` at the 0.6.3 release, #761):
+**Done** (each phase's *Done* paragraph above has its numbers):
+- I1 to I3: densities, filters, projections, robust designs, length scales;
+- I4: the mode converter, the robust demultiplexer and the foundry bend;
+- I5: the topology job and its view in the run's window;
+- I6: the subpixel-smoothed projection, with the crossing;
+- I7: level sets, Vercruysse et al.'s penalty and the Y-branch's adjoint half.
 
-- this plan, ROADMAP's link to it and the docs index entry (committed);
-- a work-in-progress commit of I1, labelled `wip(topology): I1 in progress, not finished`:
-  - `src/topology/mod.rs`: `ConicFilter` (cut-off or padded edges), `Projection` (Eq. 9 with its
-    derivative, libm's tanh and cosh), `Density` (`physical`, `permittivity`, `pullback`,
-    `gradient`) and `Placement` (`embed`, `restrict`);
-  - `src/cases/topology/checks.rs`: the five cases of I1;
-  - `src/validation/topology.rs`: their rules;
-  - `src/topology/tests.rs`: six unit tests (they pass in a debug build), the chain test and the
-    step study (both ignored, release only);
-  - the registrations: `lib.rs`, the layering test (the geometry layer), `validation.rs`'s cases
-    and rules, and an area in `.github/areas.sh`;
-  - `docs/methods/topology.md`, its numbers still placeholders (`RESULT_*`, `STEP_STUDY`).
+The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to add.
 
-**What I1 still needs:**
+**Left on this branch, before #796 merges:**
 
-1. Run the step study in release and choose `topology/fdfd-gradient`'s δ from it (the error and
-   the resolution per δ, as `fdfd/adjoint-gradient-ez`'s); set the rule's tolerance and wording
-   from what it shows.
-2. Run the five cases, put their numbers in the methods page.
-3. `cargo fmt`, `clippy -D warnings` on the touched code, rustdoc.
-4. Amend nothing: a new commit `feat(topology): densities, the conic filter and the projection,
-   with the gradient pulled back (I1, part of #761)`.
+1. **The validation report.** `docs/validation.md` doesn't have the new cases yet: rewrite it with
+   `cargo run -p photonoxide-studio --release -- validate --write docs/validation.md` (every case,
+   some 3D; hours). Until then the report's check and the studio's `tests/methods.rs` fail.
+2. **The Y-branch's adjoint design in 3D.** `cargo run --release --example optimize_ybranch --
+   --full` solves the swarm's design and then the adjoint search's on the 44, 31.4 and 22 nm
+   grids; the 22 nm grid needs about 34 GB. Put the three numbers it prints for the adjoint
+   design into `RECORDED_3D_ADJOINT` in `examples/optimize_ybranch.rs`. Then rewrite its output:
+   `cargo run --release --quiet --example optimize_ybranch > examples/output/optimize_ybranch.txt`.
+   Its 3D loss is reported beside Lalau-Keraly et al.'s −0.07 dB, not checked.
+3. **A decision for tachsin: the testbed's eight published designs.** Their transmissions at the
+   testbed's 10 nm against the README's printed digits are in the ignored studies
+   `the_testbed_spectrum_study` and `the_testbed_grid_study`. They could become a validation case
+   at equal grids, but our grid's own change (0.009 dB) is above a third of the printed digits'
+   0.005 dB. The other choice is to list them in #595 as a gap.
 
-**The first commands:**
+**Left of the plan, after #796** (each its own pull request, part of #761; the phases above say
+what each holds and how it is validated):
+- I8: lithography inside the loop;
+- I9: adjoints for the other solvers;
+- I10: quantum objectives;
+- I11: device and circuit co-design;
+- I12: explore in 2D, verify in 3D;
+- the Academy lesson `academy/inverse-design.md`, written last.
+
+Section 5 lists the papers. Most are in tachsin's papers folder (`photonoxide-papers/`, its README
+says which are read and for what).
+
+**Pitfalls found on the way:**
+- **Turned grids:** a turned grid's window is placed by its own origin. The bend's first output
+  window used y's origin for x and read the wrong quantity (I4's *Corrected* note).
+- **Rounding tiny values:** `round12` must keep values below about 1e-297, whose scale overflows.
+- **Stage selection:** a stage's best must rank a design that meets the rules first; its start
+  is not exempt.
+- **Writing case texts:** a substitution that interpolates `$` (Perl's) strips a case's TeX.
+  The math test only counts dollars, so it won't notice.
+
+**The first commands on the next machine:**
 
 ```bash
 git fetch origin
 git switch feat/inverse-design-0.7
-git merge origin/main                      # main moves; merge, never rebase the branch
-cargo test --lib topology                  # the six unit tests
-cargo test --release --lib topology::tests::the_chain_step_study -- --ignored --nocapture
-just validate-cases "topology/"            # the five cases, in release
+git merge origin/main        # main moves; merge, never rebase the branch
+cargo test --release --lib topology
+cargo run -p photonoxide-studio --release -- validate --write docs/validation.md
 ```
-
-Then I2 to I12 in order, one commit each, the branch pushed as it goes and one pull request at
-the end (`feat(optimize): ... (part of #761)`). At the end, once: `just references`, `just
-schema`, `just validation`, the README counts, the full checks.
