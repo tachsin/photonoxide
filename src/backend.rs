@@ -51,9 +51,9 @@ pub use crate::dense::Threads;
 pub(crate) mod iterative;
 pub(crate) mod krylov;
 pub use iterative::{
-    IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, QmrRun, RowMatrix, iterative,
-    iterative_solvers, prefer_iterative, preferred_iterative, register_iterative,
-    register_iterative_unavailable,
+    Fine, IluFactors, IterativeSolver, MultigridCycle, MultigridLevel, PreparedMultigrid, QmrRun,
+    RowMatrix, Stencil, StencilLevel, iterative, iterative_solvers, prefer_iterative,
+    preferred_iterative, register_iterative, register_iterative_unavailable,
 };
 
 fn invalid(reason: impl Into<String>) -> Error {

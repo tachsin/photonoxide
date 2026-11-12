@@ -797,7 +797,7 @@ fn the_cycle_a_backend_takes_is_photonoxides_cycle() {
     ] {
         let operator = shifted(&lattice, &eps, &matrix, 0.5);
         let h = Hierarchy::new(&lattice, &eps, operator, options(shape, pre, post)).unwrap();
-        let cycle = h.cycle_for_backend().unwrap();
+        let cycle = h.cycle_for_backend(false).unwrap();
         assert_eq!(cycle.levels().len() + 1, h.shapes().len());
         assert_eq!(
             (cycle.shape(), cycle.pre(), cycle.post()),
@@ -840,10 +840,81 @@ fn the_cycle_a_backend_takes_is_photonoxides_cycle() {
     }
 }
 
+#[test]
+fn the_cycle_without_the_finest_matrix_a_backend_takes_is_photonoxides_cycle() {
+    // the stencil's level and the weighted restrictions, run as the neutral form's docs say,
+    // against the hierarchy's own, both coarse operators, for each shape
+    let (grid, eps, current) = small(12, true);
+    let (lattice, eps, _, b) = system(grid, eps, Boundaries3d::stretched_pml(3), &current);
+    for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
+        for (shape, pre, post) in [(CycleShape::V, 0, 1), (CycleShape::W, 1, 1)] {
+            let o = Multigrid {
+                coarse,
+                ..options(shape, pre, post)
+            };
+            let h = from_stencil(&lattice, &eps, o);
+            // not to a backend that takes only matrices
+            assert!(h.cycle_for_backend(false).is_err(), "{coarse:?}");
+            let cycle = h.cycle_for_backend(true).unwrap();
+            let finest = cycle.stencil().unwrap();
+            assert_eq!(cycle.levels().len() + 2, h.shapes().len());
+            assert_eq!((finest.pre(), finest.post()), (1, 1));
+            assert_eq!(cycle.unknowns(), grid.unknowns());
+            assert_eq!(finest.operator().unknowns(), grid.unknowns());
+            assert_eq!(
+                finest.scaling().is_some(),
+                coarse == Coarse::Rediscretized,
+                "{coarse:?}"
+            );
+            assert!(
+                cycle
+                    .levels()
+                    .iter()
+                    .all(|l| l.scaling().is_some() == (coarse == Coarse::Rediscretized))
+            );
+            for v in [b.clone(), sequence(grid.unknowns(), 5)] {
+                let (theirs, ours) = (cycle.cycle(&v), h.solve(&v));
+                let d: Vec<c64> = theirs.iter().zip(&ours).map(|(p, q)| p - q).collect();
+                assert!(
+                    norm(&d) < 1e-12 * norm(&ours),
+                    "{coarse:?}, {shape:?}({pre}, {post}): {:e}",
+                    norm(&d) / norm(&ours)
+                );
+            }
+        }
+    }
+}
+
 /// An iterative backend that runs GMRES with the cycle it is given, on the CPU and through the
-/// neutral form only, as a GPU's does; or, `qmr_only`, one that doesn't run it.
+/// neutral form only, as a GPU's does; or, `qmr_only`, one that doesn't run it. It runs the
+/// multigrid without the finest matrix too, through what it prepares, which it counts.
 struct CycleOnTheCpu {
     qmr_only: bool,
+}
+
+/// The preparations [`CycleOnTheCpu`] made.
+static PREPARED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// What [`CycleOnTheCpu`] keeps: GMRES's operator, copied.
+struct KeptOnTheCpu {
+    operator: Sparse,
+}
+
+impl crate::backend::PreparedMultigrid for KeptOnTheCpu {
+    fn gmres(
+        &self,
+        cycle: &crate::backend::MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, crate::fdfd::Convergence)> {
+        gmres_preconditioned(
+            &self.operator,
+            &Neutral(cycle),
+            b,
+            stopping,
+            cycle.restart(),
+        )
+    }
 }
 
 struct Neutral<'a, 'b>(&'a crate::backend::MultigridCycle<'b>);
@@ -899,6 +970,130 @@ impl crate::backend::IterativeSolver for CycleOnTheCpu {
         );
         gmres_preconditioned(&a, &Neutral(cycle), b, stopping, cycle.restart())
     }
+
+    fn runs_multigrid_stencil(&self) -> bool {
+        !self.qmr_only
+    }
+
+    fn prepare_multigrid(
+        &self,
+        fine: crate::backend::Fine<'_>,
+        cycle: &crate::backend::MultigridCycle<'_>,
+    ) -> Result<Option<Box<dyn crate::backend::PreparedMultigrid>>> {
+        // the matrix's cycle as before, each solve on its own
+        let crate::backend::Fine::Stencil(stencil) = fine else {
+            return Ok(None);
+        };
+        assert!(cycle.stencil().is_some());
+        PREPARED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // the stencil's operator by its columns, a product with each unit vector
+        let n = stencil.unknowns();
+        let mut rows: Vec<Vec<(usize, c64)>> = vec![Vec::new(); n];
+        let mut unit = vec![c64::new(0.0, 0.0); n];
+        for c in 0..n {
+            unit[c] = c64::new(1.0, 0.0);
+            for (r, v) in stencil.apply(&unit).into_iter().enumerate() {
+                if v != c64::new(0.0, 0.0) {
+                    rows[r].push((c, v));
+                }
+            }
+            unit[c] = c64::new(0.0, 0.0);
+        }
+        Ok(Some(Box::new(KeptOnTheCpu {
+            operator: Sparse::from_rows(rows),
+        })))
+    }
+}
+
+#[test]
+fn a_backend_runs_gmres_with_the_multigrid_without_the_finest_matrix_and_keeps_it() {
+    use crate::backend::{Choice, register_iterative};
+    use crate::fdfd::{Formulation, IterativeSolver3d, Product};
+    register_iterative(std::sync::Arc::new(CycleOnTheCpu { qmr_only: false })).unwrap();
+    let (grid, eps, current) = small(10, true);
+    let stop = Stopping {
+        tolerance: 1e-9,
+        max_iterations: 500,
+    };
+    for coarse in [Coarse::Galerkin, Coarse::Rediscretized] {
+        let new = || {
+            IterativeSolver3d::new_with(
+                grid,
+                Wavelength::um(1.55).unwrap(),
+                eps,
+                Boundaries3d::stretched_pml(3),
+                Formulation::ShinFan,
+                Product::MatrixFree,
+            )
+            .unwrap()
+            .with_multigrid(Multigrid {
+                coarse,
+                ..options(CycleShape::V, 0, 1)
+            })
+            .unwrap()
+        };
+        let (ours, own) = new().solve(&current, stop).unwrap();
+        let solver = new()
+            .with_iterative_backend(&Choice::Named("cycle-on-the-cpu".into()))
+            .unwrap();
+        let before = PREPARED.load(std::sync::atomic::Ordering::Relaxed);
+        let (theirs, how) = solver.solve(&current, stop).unwrap();
+        assert!(
+            how.iterations.abs_diff(own.iterations) <= 1,
+            "{coarse:?}: {} against {}",
+            how.iterations,
+            own.iterations
+        );
+        assert!(how.residual <= stop.tolerance, "{:e}", how.residual);
+        let d: Vec<c64> = (theirs.values().iter())
+            .zip(ours.values())
+            .map(|(p, q)| p - q)
+            .collect();
+        assert!(norm(&d) < 1e-6 * norm(ours.values()), "{coarse:?}");
+        // a second solve on the same solver takes what the first prepared
+        let (again, _) = solver.solve(&current, stop).unwrap();
+        assert_eq!(again.values(), theirs.values(), "{coarse:?}");
+        assert_eq!(
+            PREPARED.load(std::sync::atomic::Ordering::Relaxed) - before,
+            1,
+            "{coarse:?}: prepared once for two solves"
+        );
+    }
+    // a backend that runs the multigrid with matrices only is refused without the finest
+    // matrix, saying why
+    struct MatricesOnly;
+    impl crate::backend::IterativeSolver for MatricesOnly {
+        fn capabilities(&self) -> crate::backend::Capabilities {
+            crate::backend::Capabilities::new("matrices-only-for-tests", "1", "MIT OR Apache-2.0")
+        }
+        fn qmr_run(
+            &self,
+            _: &crate::backend::Matrix<'_>,
+            _: &[c64],
+            _: Stopping,
+        ) -> Result<crate::backend::QmrRun> {
+            Err(Error::invalid("tests", "runs no QMR"))
+        }
+        fn runs_multigrid(&self) -> bool {
+            true
+        }
+    }
+    register_iterative(std::sync::Arc::new(MatricesOnly)).unwrap();
+    let e = IterativeSolver3d::new_with(
+        grid,
+        Wavelength::um(1.55).unwrap(),
+        eps,
+        Boundaries3d::stretched_pml(3),
+        Formulation::ShinFan,
+        Product::MatrixFree,
+    )
+    .unwrap()
+    .with_multigrid(options(CycleShape::V, 0, 1))
+    .unwrap()
+    .with_iterative_backend(&Choice::Named("matrices-only-for-tests".into()))
+    .err()
+    .unwrap();
+    assert!(e.to_string().contains("finest level has none"), "{e}");
 }
 
 #[test]

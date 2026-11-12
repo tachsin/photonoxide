@@ -44,6 +44,8 @@ use crate::fdfd::krylov::Operator;
 /// symmetric similarity.
 pub(crate) struct MatrixFree {
     grid: Grid3d,
+    /// k₀², times 1 + iβ with the multigrid's shift β.
+    k2: c64,
     /// k₀² ε at each value of E.
     diagonal: Arc<Vec<c64>>,
     /// 1/(stretch × step) along each axis: at the nodes, and halfway after each.
@@ -149,6 +151,7 @@ impl MatrixFree {
             .collect();
         MatrixFree {
             grid,
+            k2,
             diagonal: Arc::new(eps.par_iter().map(|e| k2 * e).collect()),
             at_nodes: Arc::new(over(&lattice.nodes)),
             at_halves: Arc::new(over(&lattice.halves)),
@@ -174,6 +177,7 @@ impl MatrixFree {
     ) -> MatrixFree {
         MatrixFree {
             grid: self.grid,
+            k2: self.k2,
             diagonal: self.diagonal.clone(),
             at_nodes: self.at_nodes.clone(),
             at_halves: self.at_halves.clone(),
@@ -189,6 +193,25 @@ impl MatrixFree {
             work: Mutex::new((Vec::new(), Vec::new(), Vec::new())),
             transpose: OnceLock::new(),
         }
+    }
+
+    /// Shin and Fan's operator as a backend takes it ([`crate::backend::Stencil`]): `None` for
+    /// another (the curl-curl operator, a transpose, a similarity).
+    pub(crate) fn stencil(&self) -> Option<crate::backend::Stencil<'_>> {
+        let gd = self.grad_div.as_ref()?;
+        if gd.outside || self.left.is_some() || self.right.is_some() {
+            return None;
+        }
+        let g = self.grid;
+        Some(crate::backend::Stencil {
+            cells: [g.nx, g.ny, g.nz],
+            epsilon: &gd.eps,
+            node_inverse: &gd.inverse,
+            k0_squared: self.k2,
+            at_nodes: [0, 1, 2].map(|a| self.at_nodes[a].as_slice()),
+            at_halves: [0, 1, 2].map(|a| self.at_halves[a].as_slice()),
+            phases: self.up,
+        })
     }
 
     /// S and B = S A S⁻¹, complex symmetric: S² = D, scaled to a largest |d| of 1 as
@@ -636,7 +659,12 @@ mod tests {
                 assert!(off(&a, &b) < 1e-12, "{name}, {shift}: {}", off(&a, &b));
                 // no diagonal makes it symmetric
                 assert!(free.symmetrized().is_none());
+                // as a backend is given it, the same product to the bit on one thread
+                let stencil = free.stencil().unwrap();
+                assert_eq!(stencil.apply(&v), free.apply(&v), "{name}, {shift}");
+                assert!(free.transposed().stencil().is_none());
             }
+            assert!(free.stencil().is_none(), "{name}: the curl-curl operator");
         }
     }
 

@@ -307,6 +307,10 @@ pub(crate) struct Hierarchy {
     /// Each level's smoother as one pair of factors, for a backend: made the first time one
     /// asks ([`Hierarchy::cycle_for_backend`]).
     smoothers: std::sync::OnceLock<Option<Vec<crate::backend::IluFactors>>>,
+    /// What an iterative backend made of the hierarchy, kept for its next solves
+    /// ([`Hierarchy::gmres_on`]): the backend's address, and its prepared object (`None` where
+    /// it keeps nothing).
+    prepared: std::sync::Mutex<Option<(usize, Option<Box<dyn crate::backend::PreparedMultigrid>>)>>,
     /// One thread, for the solves with the coarsest factors: their sums then come in one
     /// order whatever the machine. A pool isn't `RefUnwindSafe`, but one that a panic left stays
     /// usable, so this keeps `IterativeSolver3d` unwind-safe, as it was before the multigrid.
@@ -1083,6 +1087,7 @@ impl Hierarchy {
                     lu,
                     coarsest: a,
                     smoothers: std::sync::OnceLock::new(),
+                    prepared: std::sync::Mutex::new(None),
                     one: std::panic::AssertUnwindSafe(one),
                     options,
                 });
@@ -1260,27 +1265,87 @@ impl Hierarchy {
 
     /// The cycle as a backend takes it ([`crate::backend::MultigridCycle`]): each level's
     /// smoother factorized as one pair of factors the first time (as much memory again as the
-    /// smoothers), the rest borrowed.
+    /// smoothers), the rest borrowed. With `stencil` (a backend that
+    /// [`crate::backend::IterativeSolver::runs_multigrid_stencil`]), a finest level without its
+    /// matrix goes as its stencil, and the coarse levels discretized again with their weighted
+    /// restrictions.
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a cycle a backend can't take: a level without its matrix, a
-    /// rediscretized one (its restriction isn't Pᵀ), or ILU(0) by Jacobi sweeps.
-    pub(crate) fn cycle_for_backend(&self) -> Result<crate::backend::MultigridCycle<'_>> {
-        if self.levels.iter().any(|l| l.scaling.is_some()) {
+    /// [`Error::InvalidValue`] for a cycle a backend can't take: without `stencil`, a level
+    /// without its matrix or a rediscretized one (its restriction isn't Pᵀ); and ILU(0) by Jacobi
+    /// sweeps.
+    pub(crate) fn cycle_for_backend(
+        &self,
+        stencil: bool,
+    ) -> Result<crate::backend::MultigridCycle<'_>> {
+        if !stencil && self.levels.iter().any(|l| l.scaling.is_some()) {
             return Err(Error::invalid(
                 "multigrid",
                 "a backend takes Galerkin's coarse operators, restricted by Pᵀ",
             ));
         }
-        let stored: Vec<(&Sparse, &BlockIlu0)> = self
-            .levels
+        type Transfers<'l> = (
+            crate::backend::RowMatrix<'l>,
+            crate::backend::RowMatrix<'l>,
+            Option<(&'l [c64], &'l [c64])>,
+        );
+        fn transfers(l: &Level) -> Transfers<'_> {
+            (
+                l.restriction.rows(l.prolongation.starts.len() - 1),
+                l.prolongation.rows(l.restriction.starts.len() - 1),
+                l.scaling
+                    .as_ref()
+                    .map(|(fine, coarse)| (fine.as_slice(), coarse.as_slice())),
+            )
+        }
+        // the finest level by its stencil
+        let (finest, rest) = match self.levels.split_first() {
+            Some((
+                l @ Level {
+                    stage:
+                        Stage::Stencil {
+                            operator,
+                            jacobi,
+                            pre,
+                            post,
+                        },
+                    ..
+                },
+                rest,
+            )) => {
+                if !stencil {
+                    return Err(Error::invalid(
+                        "multigrid",
+                        "a backend takes each level's matrix: the finest has none",
+                    ));
+                }
+                let operator = operator.stencil().ok_or_else(|| {
+                    Error::invalid("multigrid", "the finest level isn't Shin and Fan's stencil")
+                })?;
+                let (restriction, prolongation, scaling) = transfers(l);
+                (
+                    Some(crate::backend::StencilLevel {
+                        operator,
+                        jacobi,
+                        pre: *pre,
+                        post: *post,
+                        restriction,
+                        prolongation,
+                        scaling,
+                    }),
+                    rest,
+                )
+            }
+            _ => (None, self.levels.as_slice()),
+        };
+        let stored: Vec<(&Sparse, &BlockIlu0)> = rest
             .iter()
             .map(|l| match &l.stage {
                 Stage::Stored { matrix, smoother } => Ok((matrix, smoother)),
                 Stage::Stencil { .. } => Err(Error::invalid(
                     "multigrid",
-                    "a backend takes each level's matrix: the finest has none",
+                    "a backend takes each coarse level's matrix",
                 )),
             })
             .collect::<Result<_>>()?;
@@ -1289,30 +1354,71 @@ impl Hierarchy {
             .get_or_init(|| stored.iter().map(|(_, s)| s.factors()).collect())
             .as_ref()
             .ok_or_else(|| Error::invalid("multigrid", "a smoother by Jacobi sweeps"))?;
-        let levels = self
-            .levels
+        let levels = rest
             .iter()
             .zip(&stored)
             .zip(smoothers)
-            .map(
-                |((l, (matrix, _)), smoother)| crate::backend::MultigridLevel {
+            .map(|((l, (matrix, _)), smoother)| {
+                let (restriction, prolongation, scaling) = transfers(l);
+                crate::backend::MultigridLevel {
                     operator: matrix.rows(),
                     smoother,
-                    restriction: l.restriction.rows(l.prolongation.starts.len() - 1),
-                    prolongation: l.prolongation.rows(l.restriction.starts.len() - 1),
-                },
-            )
+                    restriction,
+                    prolongation,
+                    scaling,
+                }
+            })
             .collect();
         Ok(crate::backend::MultigridCycle {
             shape: self.options.shape,
             pre: self.options.pre,
             post: self.options.post,
             restart: self.options.restart,
+            stencil: finest,
             levels,
             coarsest: self.coarsest.rows(),
             lu: self.lu.as_ref(),
             one: &self.one,
         })
+    }
+
+    /// GMRES with this hierarchy's cycle on `solver`, GMRES's operator `fine`: through what the
+    /// backend made of it the first time ([`crate::backend::IterativeSolver::prepare_multigrid`]),
+    /// kept for the next solves on the same backend; or, if it keeps nothing, by
+    /// [`crate::backend::IterativeSolver::gmres_multigrid`] each time.
+    ///
+    /// # Errors
+    ///
+    /// The backend's, and as [`Hierarchy::cycle_for_backend`].
+    pub(crate) fn gmres_on(
+        &self,
+        solver: &Arc<dyn crate::backend::IterativeSolver>,
+        fine: crate::backend::Fine<'_>,
+        b: &[c64],
+        stopping: crate::fdfd::krylov::Stopping,
+    ) -> Result<(Vec<c64>, crate::fdfd::krylov::Convergence)> {
+        let cycle = self.cycle_for_backend(solver.runs_multigrid_stencil())?;
+        // the backend, by its object: the same one keeps what it made
+        let key = Arc::as_ptr(solver).cast::<()>() as usize;
+        let mut kept = self.prepared.lock().unwrap_or_else(|p| p.into_inner());
+        if kept.as_ref().is_none_or(|(k, _)| *k != key) {
+            // what another backend made is let go first: a GPU's memory is one
+            *kept = None;
+            *kept = Some((key, solver.prepare_multigrid(fine, &cycle)?));
+        }
+        match (kept.as_ref().and_then(|(_, p)| p.as_ref()), fine) {
+            (Some(prepared), _) => prepared.gmres(&cycle, b, stopping),
+            (None, crate::backend::Fine::Matrix(matrix)) => {
+                solver.gmres_multigrid(matrix, &cycle, b, stopping)
+            }
+            (None, _) => Err(Error::invalid(
+                "iterative backend",
+                format!(
+                    "{} kept nothing of a cycle without the finest matrix",
+                    solver.capabilities().name
+                ),
+            )),
+        }
     }
 
     /// One cycle from `level` down, for A x = b (or Aᵀ x = b, the transposed cycle), from

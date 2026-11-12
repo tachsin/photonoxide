@@ -3,7 +3,11 @@
 //!
 //! For GMRES with multigrid, photonoxide builds the cycle on the CPU (each level's operator,
 //! smoother factors and transfers, and the coarsest level's factorization) and hands it over as
-//! a [`MultigridCycle`]; the backend runs the restarted GMRES and the cycle.
+//! a [`MultigridCycle`]; the backend runs the restarted GMRES and the cycle. Without the finest
+//! matrix, the finest level and GMRES's operator are given as their [`Stencil`] instead, if the
+//! backend runs them ([`IterativeSolver::runs_multigrid_stencil`]). A backend may keep what it
+//! made of a hierarchy between solves ([`IterativeSolver::prepare_multigrid`]): an S-matrix's
+//! ports and a recycled sweep's solves on one solver then copy it up and analyse it once.
 //!
 //! For QMR, photonoxide keeps what surrounds a run: the restarts after a breakdown of the Lanczos
 //! process, and the tightened tolerance of QMR on a symmetric similar matrix
@@ -108,6 +112,343 @@ pub trait IterativeSolver: Send + Sync {
             "{} doesn't run GMRES with multigrid",
             self.capabilities().name
         )))
+    }
+
+    /// Whether it also runs the multigrid without its finest matrix: a cycle whose finest level
+    /// is a [`Stencil`] smoothed by damped Jacobi ([`MultigridCycle::stencil`]), restrictions
+    /// weighted as [`MultigridLevel::scaling`] says (coarse levels discretized again), and GMRES
+    /// on a stencil ([`Fine::Stencil`]); through [`IterativeSolver::prepare_multigrid`]. By
+    /// default, no: such a cycle isn't given to it.
+    fn runs_multigrid_stencil(&self) -> bool {
+        false
+    }
+
+    /// What it makes of GMRES's operator `fine` and the `cycle` before a solve (on a GPU: their
+    /// copies there and the triangular factors' analysis), kept for the solves that follow on
+    /// the same hierarchy, as a [`super::DirectSolver`]'s analysis and factorization are: each
+    /// solve then runs [`PreparedMultigrid::gmres`] as [`IterativeSolver::gmres_multigrid`] runs
+    /// one. `None` (the default): it keeps nothing, and each solve calls
+    /// [`IterativeSolver::gmres_multigrid`] with the matrix, which a stencil hasn't.
+    ///
+    /// # Errors
+    ///
+    /// The backend's: what it can't take, and what doesn't fit.
+    fn prepare_multigrid(
+        &self,
+        fine: Fine<'_>,
+        cycle: &MultigridCycle<'_>,
+    ) -> Result<Option<Box<dyn PreparedMultigrid>>> {
+        let _ = (fine, cycle);
+        Ok(None)
+    }
+}
+
+/// A hierarchy as a backend keeps it between solves ([`IterativeSolver::prepare_multigrid`]).
+pub trait PreparedMultigrid: Send + Sync {
+    /// Restarted GMRES from x₀ = 0 for `b`, as [`IterativeSolver::gmres_multigrid`], on what was
+    /// prepared; `cycle` is the one it was prepared from, for its coarsest solves
+    /// ([`MultigridCycle::coarsest_solve`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`IterativeSolver::gmres_multigrid`], and for a cycle of another size than the one
+    /// prepared.
+    fn gmres(
+        &self,
+        cycle: &MultigridCycle<'_>,
+        b: &[c64],
+        stopping: Stopping,
+    ) -> Result<(Vec<c64>, Convergence)>;
+}
+
+/// The operator GMRES multiplies by, as a backend is given it: the finest level's matrix, or,
+/// without it, its stencil (the unshifted operator: [`Stencil::k0_squared`] is real).
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum Fine<'a> {
+    /// By rows.
+    Matrix(RowMatrix<'a>),
+    /// Without its matrix.
+    Stencil(Stencil<'a>),
+}
+
+impl Fine<'_> {
+    /// Its rows.
+    pub fn rows(&self) -> usize {
+        match self {
+            Fine::Matrix(m) => m.rows(),
+            Fine::Stencil(s) => s.unknowns(),
+        }
+    }
+
+    /// A v, on one thread.
+    pub fn apply(&self, v: &[c64]) -> Vec<c64> {
+        match self {
+            Fine::Matrix(m) => m.apply(v),
+            Fine::Stencil(s) => s.apply(v),
+        }
+    }
+}
+
+/// Shin and Fan's operator on Yee's grid without its matrix, as a backend takes it: what
+/// `fdfd::three`'s matrix-free product reads (docs/methods/multigrid-stencil.md), one value of
+/// E per cell and component, laid out component by component (x, y, z), then k, j, i with i
+/// fastest. [`Stencil::apply`] is the product, A v = k₀²(1 + iβ) ε v − ∇ × ∇ × v +
+/// ∇(ε⁻¹ ∇ · (ε v)), two passes over the grid, E to H and to the nodes' potential, and back:
+///
+/// - **E, masked:** a value tangential to a wall at an axis' low end (E's component c at index 0
+///   along an axis a ≠ c that has walls) is held at zero: its row is the identity's, and it
+///   enters no difference.
+/// - **H = ∇ × E** at the faces, each difference forward along its axis times
+///   [`Stencil::at_halves`] there (1/(s h) halfway after the node); **φ = ε⁻¹ ∇ · (ε E)** at the
+///   nodes, each difference backward times [`Stencil::at_nodes`] there, times
+///   [`Stencil::node_inverse`].
+/// - **A v = k₀² ε E − ∇ × H + ∇φ** on each value not held at zero: ∇ × H's differences backward
+///   times [`Stencil::at_nodes`], ∇φ's forward times [`Stencil::at_halves`].
+/// - **Beyond an axis' end:** zero with walls; with a Bloch-periodic axis, the value across the
+///   high end times [`Stencil::phase`], across the low end times its inverse.
+#[derive(Clone, Copy)]
+pub struct Stencil<'a> {
+    pub(crate) cells: [usize; 3],
+    pub(crate) epsilon: &'a [c64],
+    pub(crate) node_inverse: &'a [c64],
+    pub(crate) k0_squared: c64,
+    pub(crate) at_nodes: [&'a [c64]; 3],
+    pub(crate) at_halves: [&'a [c64]; 3],
+    pub(crate) phases: [Option<c64>; 3],
+}
+
+impl std::fmt::Debug for Stencil<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Stencil")
+            .field("cells", &self.cells)
+            .field("k0_squared", &self.k0_squared)
+            .field("phases", &self.phases)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> Stencil<'a> {
+    /// The cells along x, y and z.
+    pub fn cells(&self) -> [usize; 3] {
+        self.cells
+    }
+
+    /// The unknowns, three a cell.
+    pub fn unknowns(&self) -> usize {
+        3 * self.cells.iter().product::<usize>()
+    }
+
+    /// ε at each value of E.
+    pub fn epsilon(&self) -> &'a [c64] {
+        self.epsilon
+    }
+
+    /// ε⁻¹ at each node (a cell's low corner, indexed as E's x component), the mean of the ε the
+    /// node's divergence takes; zero on a wall, whose potential the gradient leaves out.
+    pub fn node_inverse(&self) -> &'a [c64] {
+        self.node_inverse
+    }
+
+    /// k₀²(1 + iβ): β the multigrid's complex shift on its finest level, 0 for the operator GMRES
+    /// multiplies by.
+    pub fn k0_squared(&self) -> c64 {
+        self.k0_squared
+    }
+
+    /// 1/(s h) at each node along `axis` (0, 1, 2 for x, y, z): s the PML's stretch there, h the
+    /// step.
+    pub fn at_nodes(&self, axis: usize) -> &'a [c64] {
+        self.at_nodes[axis]
+    }
+
+    /// 1/(s h) halfway after each node along `axis`.
+    pub fn at_halves(&self, axis: usize) -> &'a [c64] {
+        self.at_halves[axis]
+    }
+
+    /// The phase a field takes across `axis`' high end if it is Bloch-periodic; `None` for walls.
+    pub fn phase(&self, axis: usize) -> Option<c64> {
+        self.phases[axis]
+    }
+
+    /// Whether E's `component` at (i, j, k) is held at zero, tangential to a wall.
+    pub fn fixed(&self, component: usize, at: [usize; 3]) -> bool {
+        (0..3).any(|a| a != component && at[a] == 0 && self.phases[a].is_none())
+    }
+
+    /// A v, on one thread, each value's sum in the order the type's docs give it: the product a
+    /// backend reproduces (to rounding: a GPU may fuse its multiplications and additions).
+    pub fn apply(&self, v: &[c64]) -> Vec<c64> {
+        let [nx, ny, nz] = self.cells;
+        let cells = nx * ny * nz;
+        let zero = c64::new(0.0, 0.0);
+        let index = |c: usize, i: usize, j: usize, k: usize| c * cells + (k * ny + j) * nx + i;
+        let n = [nx, ny, nz];
+        // the neighbour one step up or down axis a, with its phase: None beyond a wall
+        let step = |a: usize, m: usize, forward: bool| -> Option<(usize, c64)> {
+            let one = c64::new(1.0, 0.0);
+            if forward {
+                if m + 1 < n[a] {
+                    Some((m + 1, one))
+                } else {
+                    self.phases[a].map(|p| (0, p))
+                }
+            } else if m > 0 {
+                Some((m - 1, one))
+            } else {
+                self.phases[a].map(|p| (n[a] - 1, 1.0 / p))
+            }
+        };
+        let e: Vec<c64> = (0..3 * cells)
+            .map(|r| {
+                let (c, rest) = (r / cells, r % cells);
+                let at = [rest % nx, (rest / nx) % ny, rest / (nx * ny)];
+                if self.fixed(c, at) { zero } else { v[r] }
+            })
+            .collect();
+        // a field's value at a neighbour along axis a of (i, j, k), zero beyond a wall
+        let moved = |f: &[c64], c: usize, at: [usize; 3], a: usize, forward: bool| -> c64 {
+            match step(a, at[a], forward) {
+                Some((m, phase)) => {
+                    let mut to = at;
+                    to[a] = m;
+                    f[index(c, to[0], to[1], to[2])] * phase
+                }
+                None => zero,
+            }
+        };
+        let mut h = vec![zero; 3 * cells];
+        let mut phi = vec![zero; cells];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let at = [i, j, k];
+                    let here = |c: usize| e[index(c, i, j, k)];
+                    let (wx, wy, wz) = (
+                        self.at_halves[0][i],
+                        self.at_halves[1][j],
+                        self.at_halves[2][k],
+                    );
+                    h[index(0, i, j, k)] = (moved(&e, 2, at, 1, true) - here(2)) * wy
+                        - (moved(&e, 1, at, 2, true) - here(1)) * wz;
+                    h[index(1, i, j, k)] = (moved(&e, 0, at, 2, true) - here(0)) * wz
+                        - (moved(&e, 2, at, 0, true) - here(2)) * wx;
+                    h[index(2, i, j, k)] = (moved(&e, 1, at, 0, true) - here(1)) * wx
+                        - (moved(&e, 0, at, 1, true) - here(0)) * wy;
+                    // ε E's divergence at the node, each difference backward
+                    let u = |c: usize, to: Option<(usize, c64)>, a: usize| -> c64 {
+                        match to {
+                            Some((m, phase)) => {
+                                let mut p = at;
+                                p[a] = m;
+                                let r = index(c, p[0], p[1], p[2]);
+                                e[r] * self.epsilon[r] * phase
+                            }
+                            None => zero,
+                        }
+                    };
+                    let mine = |c: usize| {
+                        let r = index(c, i, j, k);
+                        e[r] * self.epsilon[r]
+                    };
+                    let dx = (mine(0) - u(0, step(0, i, false), 0)) * self.at_nodes[0][i];
+                    let dy = (mine(1) - u(1, step(1, j, false), 1)) * self.at_nodes[1][j];
+                    let dz = (mine(2) - u(2, step(2, k, false), 2)) * self.at_nodes[2][k];
+                    phi[index(0, i, j, k)] = self.node_inverse[index(0, i, j, k)] * (dx + dy + dz);
+                }
+            }
+        }
+        let mut out = vec![zero; 3 * cells];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let at = [i, j, k];
+                    let here = |c: usize| h[index(c, i, j, k)];
+                    let (wx, wy, wz) = (
+                        self.at_nodes[0][i],
+                        self.at_nodes[1][j],
+                        self.at_nodes[2][k],
+                    );
+                    let curl = [
+                        (here(2) - moved(&h, 2, at, 1, false)) * wy
+                            - (here(1) - moved(&h, 1, at, 2, false)) * wz,
+                        (here(0) - moved(&h, 0, at, 2, false)) * wz
+                            - (here(2) - moved(&h, 2, at, 0, false)) * wx,
+                        (here(1) - moved(&h, 1, at, 0, false)) * wx
+                            - (here(0) - moved(&h, 0, at, 1, false)) * wy,
+                    ];
+                    let node = phi[index(0, i, j, k)];
+                    let gradient = [
+                        (moved(&phi, 0, at, 0, true) - node) * self.at_halves[0][i],
+                        (moved(&phi, 0, at, 1, true) - node) * self.at_halves[1][j],
+                        (moved(&phi, 0, at, 2, true) - node) * self.at_halves[2][k],
+                    ];
+                    for c in 0..3 {
+                        let r = index(c, i, j, k);
+                        out[r] = if self.fixed(c, at) {
+                            v[r]
+                        } else {
+                            self.k0_squared * self.epsilon[r] * e[r] - curl[c] + gradient[c]
+                        };
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+/// The finest level of a [`MultigridCycle`] without its matrix: its operator as a [`Stencil`]
+/// (shifted: [`Stencil::k0_squared`] is k₀²(1 + iβ)), smoothed by damped Jacobi, and its
+/// transfers to the next level.
+#[derive(Clone, Copy, Debug)]
+pub struct StencilLevel<'a> {
+    pub(crate) operator: Stencil<'a>,
+    pub(crate) jacobi: &'a [c64],
+    pub(crate) pre: usize,
+    pub(crate) post: usize,
+    pub(crate) restriction: RowMatrix<'a>,
+    pub(crate) prolongation: RowMatrix<'a>,
+    pub(crate) scaling: Option<(&'a [c64], &'a [c64])>,
+}
+
+impl<'a> StencilLevel<'a> {
+    /// The level's operator.
+    pub fn operator(&self) -> Stencil<'a> {
+        self.operator
+    }
+
+    /// ω D⁻¹ at each value, D the operator's diagonal from its stencil: a sweep is
+    /// x ← x + ω D⁻¹ (b − A x), each value's product `r * jacobi[k]`.
+    pub fn jacobi(&self) -> &'a [c64] {
+        self.jacobi
+    }
+
+    /// Jacobi's sweeps before the level's coarse corrections ([`MultigridCycle::pre`] is the
+    /// coarser levels' ILU(0) steps).
+    pub fn pre(&self) -> usize {
+        self.pre
+    }
+
+    /// And after them.
+    pub fn post(&self) -> usize {
+        self.post
+    }
+
+    /// Pᵀ, as [`MultigridLevel::restriction`].
+    pub fn restriction(&self) -> RowMatrix<'a> {
+        self.restriction
+    }
+
+    /// P, as [`MultigridLevel::prolongation`].
+    pub fn prolongation(&self) -> RowMatrix<'a> {
+        self.prolongation
+    }
+
+    /// As [`MultigridLevel::scaling`].
+    pub fn scaling(&self) -> Option<(&'a [c64], &'a [c64])> {
+        self.scaling
     }
 }
 
@@ -218,6 +559,7 @@ pub struct MultigridLevel<'a> {
     pub(crate) smoother: &'a IluFactors,
     pub(crate) restriction: RowMatrix<'a>,
     pub(crate) prolongation: RowMatrix<'a>,
+    pub(crate) scaling: Option<(&'a [c64], &'a [c64])>,
 }
 
 impl<'a> MultigridLevel<'a> {
@@ -243,6 +585,31 @@ impl<'a> MultigridLevel<'a> {
     pub fn prolongation(&self) -> RowMatrix<'a> {
         self.prolongation
     }
+
+    /// For a next level discretized again (only given to a backend that
+    /// [`IterativeSolver::runs_multigrid_stencil`]): (D_f, W⁻¹), the residual restricted as
+    /// W⁻¹ ∘ Pᵀ(D_f ∘ r), D_f a value per value here (its cell's volume), W⁻¹ one per value of
+    /// the next level. `None`: restricted by Pᵀ alone.
+    pub fn scaling(&self) -> Option<(&'a [c64], &'a [c64])> {
+        self.scaling
+    }
+}
+
+/// The residual `r` restricted by `restriction`, weighted by `scaling` if it has one.
+fn restrict(
+    restriction: RowMatrix<'_>,
+    scaling: Option<(&[c64], &[c64])>,
+    r: &[c64],
+) -> Vec<c64> {
+    match scaling {
+        Some((fine, coarse)) => {
+            let scaled: Vec<c64> = r.iter().zip(fine).map(|(p, q)| p * q).collect();
+            let mut out = restriction.apply(&scaled);
+            out.iter_mut().zip(coarse).for_each(|(p, q)| *p *= q);
+            out
+        }
+        None => restriction.apply(r),
+    }
 }
 
 /// photonoxide's multigrid cycle as a backend takes it, built by photonoxide on the CPU: each
@@ -258,11 +625,19 @@ impl<'a> MultigridLevel<'a> {
 ///    xₗ ← xₗ + P cycle(l + 1, Pᵀ(bₗ − Aₗ xₗ)); on the coarsest level, the cycle is the direct
 ///    solve;
 /// 3. [`MultigridCycle::post`] smoothing steps, as in 1.
+///
+/// Without the finest matrix ([`MultigridCycle::stencil`], given only to a backend that
+/// [`IterativeSolver::runs_multigrid_stencil`]), level 0 is the stencil's: its smoothing steps
+/// are [`StencilLevel::pre`] and [`StencilLevel::post`] sweeps of damped Jacobi,
+/// xₗ ← xₗ + ω D⁻¹(bₗ − Aₗ xₗ) (the first from xₗ = 0 ω D⁻¹ bₗ), and [`MultigridCycle::levels`]
+/// are the levels below it. A level's residual is restricted as its scaling says
+/// ([`MultigridLevel::scaling`]).
 pub struct MultigridCycle<'a> {
     pub(crate) shape: CycleShape,
     pub(crate) pre: usize,
     pub(crate) post: usize,
     pub(crate) restart: usize,
+    pub(crate) stencil: Option<StencilLevel<'a>>,
     pub(crate) levels: Vec<MultigridLevel<'a>>,
     pub(crate) coarsest: RowMatrix<'a>,
     pub(crate) lu: &'a dyn super::Factorization,
@@ -292,9 +667,25 @@ impl<'a> MultigridCycle<'a> {
         self.restart
     }
 
-    /// The levels above the coarsest, finest first.
+    /// The levels above the coarsest with a matrix, finest first: below the stencil's, if the
+    /// cycle has one.
     pub fn levels(&self) -> &[MultigridLevel<'a>] {
         &self.levels
+    }
+
+    /// The finest level without its matrix, if it has none: then [`MultigridCycle::levels`]
+    /// start at the next.
+    pub fn stencil(&self) -> Option<&StencilLevel<'a>> {
+        self.stencil.as_ref()
+    }
+
+    /// The finest level's unknowns.
+    pub fn unknowns(&self) -> usize {
+        match (&self.stencil, self.levels.first()) {
+            (Some(s), _) => s.operator.unknowns(),
+            (None, Some(l)) => l.operator.rows(),
+            (None, None) => self.coarsest.rows(),
+        }
     }
 
     /// The coarsest level's operator, which photonoxide has factorized: a backend may solve
@@ -321,18 +712,52 @@ impl<'a> MultigridCycle<'a> {
         self.cycle_from(0, b, self.shape)
     }
 
+    /// The cycle's levels above the coarsest, the stencil's first if it has one.
+    fn depth(&self) -> usize {
+        self.levels.len() + usize::from(self.stencil.is_some())
+    }
+
     fn cycle_from(&self, level: usize, b: &[c64], shape: CycleShape) -> Vec<c64> {
-        if level == self.levels.len() {
+        if level == self.depth() {
             return self
                 .coarsest_solve(b)
                 .unwrap_or_else(|_| vec![c64::new(f64::NAN, f64::NAN); b.len()]);
         }
-        let l = &self.levels[level];
+        // the level's operator, smoother, steps and transfers
+        type Apply<'f> = Box<dyn Fn(&[c64]) -> Vec<c64> + 'f>;
+        let (operator, smoother, (pre, post), restriction, prolongation, scaling): (
+            Apply<'_>,
+            Apply<'_>,
+            _,
+            _,
+            _,
+            _,
+        ) = match (&self.stencil, level) {
+            (Some(s), 0) => (
+                Box::new(move |x| s.operator.apply(x)),
+                Box::new(move |r: &[c64]| r.iter().zip(s.jacobi).map(|(p, q)| p * q).collect()),
+                (s.pre, s.post),
+                s.restriction,
+                s.prolongation,
+                s.scaling,
+            ),
+            _ => {
+                let l = &self.levels[level - usize::from(self.stencil.is_some())];
+                (
+                    Box::new(move |x| l.operator.apply(x)),
+                    Box::new(move |r| l.smoother.solve(r)),
+                    (self.pre, self.post),
+                    l.restriction,
+                    l.prolongation,
+                    l.scaling,
+                )
+            }
+        };
         let residual = |x: &Option<Vec<c64>>| -> Vec<c64> {
             match x {
                 None => b.to_vec(),
                 Some(x) => {
-                    let ax = l.operator.apply(x);
+                    let ax = operator(x);
                     b.iter().zip(&ax).map(|(p, q)| p - q).collect()
                 }
             }
@@ -342,8 +767,8 @@ impl<'a> MultigridCycle<'a> {
             Some(x) => x.iter_mut().zip(&d).for_each(|(p, q)| *p += q),
         };
         let mut x: Option<Vec<c64>> = None;
-        for _ in 0..self.pre {
-            let d = l.smoother.solve(&residual(&x));
+        for _ in 0..pre {
+            let d = smoother(&residual(&x));
             add(&mut x, d);
         }
         let corrections = match shape {
@@ -352,12 +777,12 @@ impl<'a> MultigridCycle<'a> {
             CycleShape::F => vec![CycleShape::F, CycleShape::V],
         };
         for inner in corrections {
-            let coarse = l.restriction.apply(&residual(&x));
+            let coarse = restrict(restriction, scaling, &residual(&x));
             let correction = self.cycle_from(level + 1, &coarse, inner);
-            add(&mut x, l.prolongation.apply(&correction));
+            add(&mut x, prolongation.apply(&correction));
         }
-        for _ in 0..self.post {
-            let d = l.smoother.solve(&residual(&x));
+        for _ in 0..post {
+            let d = smoother(&residual(&x));
             add(&mut x, d);
         }
         x.unwrap_or_else(|| vec![c64::new(0.0, 0.0); b.len()])

@@ -1576,8 +1576,10 @@ impl Entry {
         matches!(self.kind, Kind::DenseLu { .. } | Kind::DenseProduct { .. })
     }
 
-    /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, which an
-    /// iterative backend can run ([`crate::backend::iterative`]): `fdfd3d-iterative/guide-*`,
+    /// Whether its solve is QMR, plain or with ILU(0), or GMRES with multigrid, with or without
+    /// its finest matrix, which an iterative backend can run ([`crate::backend::iterative`]; the
+    /// multigrid without the finest matrix on a backend that
+    /// [`crate::backend::IterativeSolver::runs_multigrid_stencil`]): `fdfd3d-iterative/guide-*`,
     /// `diel-*` and `strip-ports-*`, but for QMR without the matrix, which a backend can't be
     /// given.
     pub fn takes_an_iterative_backend(&self) -> bool {
@@ -1586,7 +1588,11 @@ impl Entry {
             | Kind::Diel { solve, .. }
             | Kind::StripPorts { solve, .. } => matches!(
                 solve,
-                super::Solve::Qmr | super::Solve::Ilu | super::Solve::Multigrid
+                super::Solve::Qmr
+                    | super::Solve::Ilu
+                    | super::Solve::Multigrid
+                    | super::Solve::MultigridStencil
+                    | super::Solve::MultigridRediscretized
             ),
             _ => false,
         }
