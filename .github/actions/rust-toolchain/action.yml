@@ -1,0 +1,41 @@
+name: Rust toolchain
+description: >-
+  Installs the Rust toolchain that rust-toolchain.toml at the repository's root pins (its channel
+  and components), and makes it the default. Run it after actions/checkout. The one place CI names
+  the Rust version is that file.
+
+inputs:
+  targets:
+    description: Extra compilation targets to install, comma separated (for a cross build).
+    default: ""
+
+outputs:
+  version:
+    description: The pinned version, as rust-toolchain.toml gives it.
+    value: ${{ steps.pin.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: pin
+      shell: bash
+      env:
+        TARGETS: ${{ inputs.targets }}
+      run: |
+        set -euo pipefail
+        file="$GITHUB_WORKSPACE/rust-toolchain.toml"
+        version=$(sed -n 's/^channel *= *"\([^"]*\)".*/\1/p' "$file")
+        components=$(sed -n 's/^components *= *\[\(.*\)\].*/\1/p' "$file" | tr -d '" ')
+        if [ -z "$version" ]; then
+          echo "::error::rust-toolchain.toml has no channel"
+          exit 1
+        fi
+        args=(--profile minimal --no-self-update)
+        # one flag for each, whatever separator a rustup version takes
+        for c in ${components//,/ }; do args+=(--component "$c"); done
+        for t in ${TARGETS//,/ }; do args+=(--target "$t"); done
+        rustup toolchain install "$version" "${args[@]}"
+        rustup default "$version"
+        rustc --version
+        cargo --version
+        echo "version=$version" >> "$GITHUB_OUTPUT"

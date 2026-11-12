@@ -57,7 +57,7 @@ jobs:
       - if: steps.chosen.outputs.run == 'true'
         uses: actions/checkout@v7
       - if: steps.chosen.outputs.run == 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/rust-toolchain
       - if: steps.chosen.outputs.run == 'true'
         uses: Swatinem/rust-cache@v2
       - name: Against the committed outputs

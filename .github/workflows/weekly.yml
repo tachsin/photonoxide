@@ -6,6 +6,11 @@ name: Weekly
 # Libraries workflow's installs on clean machines, since a package index can move when nothing
 # here does. A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
 # the next run that passes closes it. Run it by hand (Run workflow) to run it all at once.
+#
+# The Rust toolchain is pinned (rust-toolchain.toml; CONTRIBUTING.md, "How to bump Rust"), so a new
+# Rust release cannot turn a pull request red. "Rust stable ahead of the pin" is the early warning
+# for it: every week, whatever changed, clippy and the library's build on the latest stable. When
+# it fails, a new lint or a new error is waiting for the bump; it blocks no pull request.
 on:
   schedule:
     - cron: '17 4 * * 1'
@@ -76,9 +81,29 @@ jobs:
     name: Libraries
     uses: ./.github/workflows/libraries.yml
 
+  # the floating stable, against the pin: rust-toolchain.toml would make every cargo in the
+  # checkout use its version, so RUSTUP_TOOLCHAIN overrides it for the whole job
+  rust-ahead:
+    name: Rust stable ahead of the pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RUSTUP_TOOLCHAIN: stable
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v7
+      - name: The latest stable
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy --no-self-update
+          rustc --version
+          echo "the pin: $(grep '^channel' rust-toolchain.toml)"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo build --all-features
+
   issue:
     name: Report
-    needs: [changed, ci, python, systems, libraries]
+    needs: [changed, ci, python, systems, libraries, rust-ahead]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:

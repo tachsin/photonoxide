@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      # the repository's toolchain (rust-toolchain.toml makes rustc, below, ask for it)
+      - uses: ./.github/actions/rust-toolchain
       # every relative link in the Markdown points at something that exists
       - run: bash .github/scripts/check-links.sh
       # no math macro GitHub refuses to render, such as \operatorname
@@ -184,9 +186,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - uses: ./.github/actions/rust-toolchain
       # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
       # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
@@ -247,7 +247,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
       # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
@@ -330,7 +330,7 @@ jobs:
       EXAMPLES: ${{ matrix.examples }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-toolchain
       # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
       # and the systems, so the two caches don't hold the same things twice (#507)
       - uses: Swatinem/rust-cache@v2
@@ -438,9 +438,7 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: studio/pnpm-lock.yaml
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - uses: ./.github/actions/rust-toolchain
       # the studio keeps its target/ in rust-cache: through sccache its Tauri build was slower,
       # 17, 27 and 19 min on Linux, Windows and macOS against 12, 27 and 15 (#507)
       - uses: Swatinem/rust-cache@v2
@@ -459,6 +457,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    # rust-toolchain.toml pins the newest Rust for every cargo in this checkout: this job asks for
+    # its own, for rustup, rust-cache and sccache as well as cargo
+    env:
+      RUSTUP_TOOLCHAIN: "1.95"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.95
@@ -505,11 +507,16 @@ jobs:
         with:
           # the base commit, which the check builds as its baseline
           fetch-depth: 0
+      # the repository's toolchain, which the action below would otherwise replace with the latest
+      # stable (its rust-toolchain input wins over rust-toolchain.toml)
+      - id: rust
+        uses: ./.github/actions/rust-toolchain
       - id: check
         continue-on-error: true
         uses: obi1kenobi/cargo-semver-checks-action@v2.9
         with:
           package: photonoxide
+          rust-toolchain: ${{ steps.rust.outputs.version }}
           # empty (the latest release) for the release PR and for runs that aren't pull requests
           baseline-rev: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-plz-') && github.event.pull_request.base.sha || '' }}
       # the title and labels as they are now, not as the run's event had them, so that a rerun

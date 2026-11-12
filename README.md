@@ -219,9 +219,10 @@ directional coupler.
 
 You need:
 
-- **Rust**, the latest stable through [rustup](https://rustup.rs) (`rustup update`), 1.95 at
-  least. Each Rust release brings its own LLVM, so a newer toolchain is also a newer code
-  generator.
+- **Rust** through [rustup](https://rustup.rs), 1.95 at least. The repository pins the version
+  CI and its maintainers build with in [rust-toolchain.toml](rust-toolchain.toml): in a checkout,
+  `rustup toolchain install` fetches it. Each Rust release brings its own LLVM, so another
+  toolchain is also another code generator.
 - **[just](https://just.systems)** for the commands below. It is optional: each recipe in the
   [justfile](justfile) is one plain command.
 - **For the studio:** Node.js and pnpm, and on Linux WebKitGTK and Tauri's other
