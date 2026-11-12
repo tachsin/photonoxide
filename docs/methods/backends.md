@@ -464,6 +464,24 @@ make, which went to the GPU: their references, their one-port runs, and the solv
 correction after recycling's initial guess. Their block QMR, GCRO-DR and matrix-free solves
 stayed photonoxide's.
 
+Run again on 2026-11-12 for the multigrid without its finest matrix (#337), on the cases of
+`fdfd3d/` and `device/fdfd-3d-iterative` (`-- cusparse fdfd3d/ device/fdfd-3d-iterative`; the
+same GPU, driver 616.56, 4 threads): 14 of their 49 cases go through it now, every one within
+its tolerance. Nine of the ten above gave the same values; `fdfd3d/recycle-convergence` gives
+0.300000 on both sides, its case having changed since. These four are new, the stencil's
+solves:
+
+| Case | Runs | photonoxide | cusparse | Difference | Tolerance |
+|---|---|---|---|---|---|
+| `fdfd3d/multigrid-stencil-direct` | 2 | 3.23056e-10 | 3.23056e-10 | 7.3e-17 | 1e-08 |
+| `fdfd3d/multigrid-stencil-s-matrix` | 32 | 8.39236e-12 | 8.39287e-12 | 5.1e-16 | 1e-09 |
+| `fdfd3d/multigrid-stencil-refinement` | 9 | 1.100000 | 1.100000 | 0 | 1.5 |
+| `device/fdfd-3d-iterative` | 2 | 1.73203e-09 | 1.73203e-09 | 1.9e-16 | 1e-08 |
+
+`fdfd3d/multigrid-stencil-s-matrix`'s 32 runs are its plain sweeps' solves (its recycled ones
+are GCRO-DR's, photonoxide's); `fdfd3d/multigrid-stencil-threads` is all recycled, and makes
+none.
+
 ### Measured: the 3D iterative problems
 
 ```sh
