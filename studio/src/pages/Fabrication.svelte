@@ -11,7 +11,7 @@
   // A design on silicon on insulator can start from a bought SOI wafer or from bare silicon, the
   // SOI wafer made first by Smart Cut or SIMOX: as the design's job says (`start: smart_cut`,
   // `start: simox`), as the
-  // component's tab sent it, or as picked here.
+  // component's Fabricate button sent it, or as picked here.
   import { open } from "@tauri-apps/plugin-dialog";
   import { CircleCheck, FileUp, Layers, Play, TriangleAlert } from "@lucide/svelte";
   import { onMount, untrack } from "svelte";
@@ -349,6 +349,12 @@
           <span class="inline-flex items-center gap-1 rounded-lg bg-base-content/6 px-2 py-1 text-xs">
             <Layers size={13} class="faint" /> {page.platform.name}
             <Hint text="A design has one platform in the process library: its films decide it (its single-crystal film, or the guide film deposited on a bare silicon wafer)." />
+          </span>
+        {/if}
+        {#if page?.view.indices_elsewhere.length}
+          <span class="inline-flex items-center gap-1 rounded-lg bg-base-content/6 px-2 py-1 text-xs">
+            {page.view.indices_elsewhere.map(([film, at]) => `${film} at ${at} µm`).join(", ")}
+            <Hint text="The pictures take each film's permittivity at 1.55 µm, only to tell the films apart. These films' index models stop short of it, so theirs is taken at the end of the model's range nearest 1.55 µm." />
           </span>
         {/if}
         {#if prefer.length}

@@ -376,9 +376,18 @@ fn outlines_have_the_designs_areas(kind: &str, job: &Job, view: &FabricationView
             if drawn.is_empty() {
                 continue;
             }
-            // the outlines the page draws of this layer: the etched ones', or the scene's
-            let outlines: Vec<&Vec<[f64; 2]>> = if last.etched.iter().any(|e| e.layer == layer.name)
-            {
+            // the outlines the page draws of this layer: a film lifted off onto an etched floor's
+            // pieces (drawn where they landed, the planar layer as what fills it), the etched
+            // ones', or the scene's
+            let lifted: Vec<&Vec<[f64; 2]>> = last
+                .films
+                .iter()
+                .filter(|f| f.layer == layer.name)
+                .map(|f| &f.bottom)
+                .collect();
+            let outlines: Vec<&Vec<[f64; 2]>> = if !lifted.is_empty() {
+                lifted
+            } else if last.etched.iter().any(|e| e.layer == layer.name) {
                 last.etched
                     .iter()
                     .filter(|e| e.layer == layer.name)

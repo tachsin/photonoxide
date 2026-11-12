@@ -828,6 +828,45 @@ fn a_spec_refuses_what_isnt_a_design() {
     assert!(built(&layers("Si", "si")).is_ok());
     assert!(built(&layers("core", "si")).is_err());
     assert!(built(&layers("Si", "linbo3")).is_err());
+    // a wurtzite film is taken as its ordinary index, its c axis normal to the wafer
+    assert!(built(&layers("Si", "aln")).is_ok());
+}
+
+#[test]
+fn a_layer_takes_a_wurtzite_film_by_its_ordinary_index_and_says_so() {
+    use crate::material::catalogue::{self, Conditions};
+    use crate::units::Wavelength;
+    // inside both models' ranges (Rigler et al. 2015: 0.4 to 0.9 µm; 2013: to 1.064 µm)
+    let w = Wavelength::um(0.8).unwrap();
+    for id in ["aln", "algan"] {
+        let entry = catalogue::entry(id).unwrap();
+        let [o, _, e] = entry.principal(None, Conditions::default()).unwrap();
+        let layer = super::MaterialSpec::id(id).material().unwrap();
+        assert!(!layer.is_anisotropic(), "{id}");
+        // n_o to the bit, n_e not
+        assert_eq!(
+            layer.refractive_index(w).unwrap(),
+            o.refractive_index(w).unwrap(),
+            "{id}"
+        );
+        assert_ne!(
+            layer.refractive_index(w).unwrap(),
+            e.refractive_index(w).unwrap(),
+            "{id}"
+        );
+        assert!(!layer.name().ends_with("(o)"), "{}", layer.name());
+        let notes = &layer.provenance().notes;
+        assert!(
+            notes.contains("ordinary index") && notes.contains("TM"),
+            "{notes}"
+        );
+    }
+    let aln = super::MaterialSpec::id("aln").material().unwrap();
+    assert_eq!(aln.name(), "AlN");
+    assert_eq!(crate::fabrication::film_name(aln.name()), "AlN");
+    // every other anisotropic crystal still needs its orientation, in a task's stack
+    let e = super::MaterialSpec::id("linbo3").material().unwrap_err();
+    assert!(e.to_string().contains("orientation"), "{e}");
 }
 
 /// The fidelity a spec names.

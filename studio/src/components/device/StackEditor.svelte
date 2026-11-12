@@ -15,10 +15,22 @@
 
   let { stack = $bindable(), core, scene, problem = "" }: { stack: StackSpec; core: number | null; scene: Scene | null; problem?: string } = $props();
 
-  // the catalogue's isotropic materials, loaded once and shared
-  const shared = globalThis as { __isotropic?: Promise<MaterialEntry[]> };
+  /**
+   * A wurtzite crystal (AlN, AlGaN): a layer takes it as a film grown with its c axis normal to the
+   * wafer, by its ordinary index, the one a TE mode sees (the library's MaterialSpec::material).
+   */
+  const cAxisFilm = (m: MaterialEntry) => m.crystal.structure === "wurtzite" && m.crystal.optical.kind === "uniaxial";
+  /** The index models a layer takes: one index, or a c-axis film's with its ordinary index. */
+  const layerModels = (m: MaterialEntry | undefined) => {
+    if (!m) return [];
+    const film = cAxisFilm(m);
+    return m.index.filter((i) => i.axes.length === 1 || (film && i.axes.includes("ordinary")));
+  };
+
+  // the catalogue's materials a layer takes, loaded once and shared
+  const shared = globalThis as { __layered?: Promise<MaterialEntry[]> };
   let materials = $state<MaterialEntry[]>([]);
-  (shared.__isotropic ??= api.materials().then((all) => all.filter((m) => m.index.some((i) => i.axes.length === 1)))).then((m) => (materials = m)).catch(() => {});
+  (shared.__layered ??= api.materials().then((all) => all.filter((m) => layerModels(m).length > 0))).then((m) => (materials = m)).catch(() => {});
 
   const PRESETS = [
     { name: "soi_220", label: "220 nm SOI (soi_220)" },
@@ -62,7 +74,8 @@
 
 {#snippet pick(m: MaterialSpec, set: (m: MaterialSpec) => void, what: string)}
   {@const md = model(m)}
-  {@const isotropic = entry(m.id)?.index.filter((i) => i.axes.length === 1) ?? []}
+  {@const isotropic = layerModels(entry(m.id))}
+  {@const film = entry(m.id)}
   <div class="flex flex-wrap items-center gap-1.5">
     <select class="select select-xs w-36" value={m.id} aria-label={what} onchange={(e) => set({ id: e.currentTarget.value })}>
       {#if !entry(m.id)}<option value={m.id}>{m.id}</option>{/if}
@@ -74,6 +87,9 @@
       </select>
     {:else if md}
       <span class="text-[11px] faint" title={md.accuracy}>{md.name}</span>
+    {/if}
+    {#if film && cAxisFilm(film)}
+      <span class="text-[11px] faint" title="A uniaxial crystal, grown with its c axis normal to the wafer: the layer takes its ordinary index nₒ, the one a TE mode's in-plane field sees. A TM mode would see more of nₑ.">nₒ, c axis normal to the wafer</span>
     {/if}
     {#if md?.temperature}
       {@const t = md.temperature}
