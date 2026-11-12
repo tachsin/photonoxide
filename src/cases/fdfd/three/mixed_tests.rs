@@ -153,9 +153,9 @@ fn mixed(
     });
     let product = |x: &[c64]| {
         let mut out = vec![c64::new(0.0, 0.0); n];
-        for j in 0..n {
+        for (j, xj) in x.iter().enumerate() {
             for (i, v) in matrix.row_idx_of_col(j).zip(matrix.val_of_col(j)) {
-                out[i] += v * x[j];
+                out[i] += v * xj;
             }
         }
         out
@@ -254,7 +254,7 @@ fn single_precision_factors_say_so_where_they_arent_enough() {
     let reference = own.solve(&current).unwrap();
     let own_error = backward_error(&own.entries, reference.values(), &rhs);
     let (outcome, perturbed, _) = mixed(&own.lattice, &own.entries, &rhs, &mut |_| {});
-    let history = outcome.err().expect("the refinement can't converge here");
+    let history = outcome.expect_err("the refinement can't converge here");
     // photonoxide's own reaches the backward error the refinement aims at, p u
     assert!(own_error <= history.target, "{own_error:e} {history:?}");
     assert!(!history.converged && perturbed > 0, "{history:?}");
@@ -371,7 +371,9 @@ fn benchmark() {
     } else {
         let raw = std::fs::read(&reference_file).expect("run MP_MODE=double first");
         let reference: Vec<c64> = raw
-            .chunks_exact(16)
+            .as_chunks::<16>()
+            .0
+            .iter()
             .map(|b| {
                 c64::new(
                     f64::from_le_bytes(b[..8].try_into().unwrap()),

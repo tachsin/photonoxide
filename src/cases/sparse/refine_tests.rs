@@ -53,9 +53,9 @@ fn mixed(
     let n = a.ncols();
     let product = |x: &[c64]| {
         let mut out = vec![c64::new(0.0, 0.0); n];
-        for j in 0..n {
+        for (j, xj) in x.iter().enumerate() {
             for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
-                out[i] += v * x[j];
+                out[i] += v * xj;
             }
         }
         out

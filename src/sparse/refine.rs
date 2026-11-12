@@ -155,7 +155,7 @@ pub(crate) fn refine_observed(
             history.converged = true;
             return Ok((x, history));
         }
-        let stalled = before.is_some_and(|before| !(eta <= 0.5 * before));
+        let stalled = before.is_some_and(|before| eta > 0.5 * before);
         if !eta.is_finite() || stalled || history.inner.len() == STEPS {
             return Err(history);
         }

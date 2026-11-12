@@ -16,7 +16,7 @@
 //!   (docs/baselines.md). General matrices only.
 //! - `photonoxide-mixed`: photonoxide's own factorization in single precision, half the
 //!   factors' memory, each solve refined to double precision by GMRES
-//!   ([`crate::sparse::refine`], docs/methods/mixed-precision.md). A system too ill-conditioned
+//!   (docs/methods/mixed-precision.md). A system too ill-conditioned
 //!   for single-precision factors is an error that says so, with the refinement's history.
 //!   Only by name: `auto` never chooses it.
 //!
@@ -824,11 +824,11 @@ impl Analysis for MixedAnalysis {
         );
         let (mut rows, mut columns) = (vec![0.0f64; n], vec![0.0f64; n]);
         let (mut row_entries, mut column_entries) = (vec![0usize; n], 0usize);
-        for j in 0..n {
+        for (j, column) in columns.iter_mut().enumerate() {
             let mut count = 0;
             for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
                 rows[i] += v.norm();
-                columns[j] += v.norm();
+                *column += v.norm();
                 row_entries[i] += 1;
                 count += 1;
             }
