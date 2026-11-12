@@ -328,8 +328,8 @@ fn benchmark() {
     let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.into());
     let n: usize = var("MP_CELLS", "24").parse().unwrap();
     let mode = var("MP_MODE", "double");
-    let default_reference = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/data/mp-reference.bin");
+    let default_reference =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/mp-reference.bin");
     let reference_file = var("MP_REFERENCE", default_reference.to_str().unwrap());
     let (grid, boundaries, eps) = guide(n);
     let wavelength = Wavelength::um(1.55).unwrap();
