@@ -6,7 +6,10 @@ wavelength from a few solves, 2D and 3D (`eme::Spectrum`, the job's `[task.inter
 2026-11-06); bends by the conformal map (`Slice::bent`, the job's `radius_um` and `angle_deg`,
 2026-11-06, [their plan](eme-bends.md)); a job's own drawing cut into sections as a device is
 (its `stack`, `layer`, shapes and `x_um`, and `exact` for an exact cut;
-`jobs/eme-taper-drawn-3d.yaml`, 2026-11-07).*
+`jobs/eme-taper-drawn-3d.yaml`, 2026-11-07, #745); the expansion's façade function, Python's
+`photonoxide.eme`, the studio's view and a Gaussian beam launched on the modes (`Eme::launch`,
+the job's `[task.beam]`, 2026-11-08, #754); and a drawing read from a GDSII file by a
+`type = "gds"` shape (`eme/3d-drawing-gds`, 2026-11-08, #755).*
 
 **Status by part (2026-11-05):**
 
