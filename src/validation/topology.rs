@@ -54,7 +54,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-8,
                 Noted,
                 "fourth-order differences of the densities, as fdfd/adjoint-gradient-ez: the error they resolve, the powers' precision through their weights, falls as 1/δ (5.6e-12/δ at the corner pixel) and their truncation rises as δ⁴ (1.6 δ⁴ there, ×15.9 from δ = 1.6e-2 to 3.2e-2); the two meet near δ = 5e-3, and at δ = 2e-3 the truncation is 1 % of the resolution, 2.8e-9 at most, which is noted; held to 1e-8, a few times it",
-            ),
+            )
+            .varying(),
         ),
         (
             "topology/robust-edge-1d",
@@ -94,7 +95,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 3e-7,
                 Noted,
                 "fourth-order differences of each realization's power: at δ = 1e-3, 2e-3, 4e-3 and 8e-3 every error (3.9e-8, 2.5e-8, 8.1e-9, 1.4e-8) is below their resolution (2.7e-7, 1.4e-7, 6.7e-8, 3.4e-8), coarser than topology/fdfd-gradient's as the realizations' smallest gradients are smaller (the_robust_study); at δ = 4e-3 the resolution, 6.7e-8, is noted; held to 3e-7, above the report's three times it",
-            ),
+            )
+            .varying(),
         ),
         (
             "topology/ruler-shapes",
@@ -176,7 +178,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-8,
                 Measured,
                 "fourth-order differences of a function of the densities alone: 1.0e-8, 4.0e-10 and 1.7e-9 at δ = 1e-4, 1e-3 and 1e-2 (the_helmholtz_study), round-off below and truncation above; at δ = 1e-3 held to 1e-8",
-            ),
+            )
+            .varying(),
         ),
         (
             "topology/area-shapes",
@@ -246,7 +249,8 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 2e-6,
                 Measured,
                 "fourth-order differences of the power: at δ = 1e-4 within what they resolve (5.8e-7 at a node of a small derivative, 2.6e-9 at a large one; the_level_set_study), truncation at 1e-3 (1.9e-6); held to 2e-6",
-            ),
+            )
+            .varying(),
         ),
         (
             "topology/penalty-gap",
