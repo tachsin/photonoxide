@@ -147,21 +147,18 @@ impl Interop {
         }
         // the extension for the exported memory is turned on with the device where the driver
         // has it (wgpu-hal does); the feature only says so
-        let mut required_features = wgpu::Features::SHADER_F64;
+        // (on Linux, VK_KHR_external_memory_fd, which wgpu-hal turns on where the driver has it)
         #[cfg(windows)]
-        if adapter
-            .features()
-            .contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32)
-        {
-            required_features |= wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32;
-        }
-        #[cfg(windows)]
-        if !required_features.contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32) {
+        let export = wgpu::Features::VULKAN_EXTERNAL_MEMORY_WIN32;
+        #[cfg(not(windows))]
+        let export = wgpu::Features::empty();
+        if !adapter.features().contains(export) {
             return Err(format!(
                 "{}'s Vulkan driver can't export memory (VK_KHR_external_memory_win32)",
                 info.name
             ));
         }
+        let required_features = wgpu::Features::SHADER_F64 | export;
         let (device, queue) = wait(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("photonoxide multigrid stencil"),
             required_features,
