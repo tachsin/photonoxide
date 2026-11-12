@@ -521,8 +521,54 @@ against the exact one. What they say:
   at 24 000 and 81 000 on the guide: a step is a product and a few vector updates, each a call
   with its latency, and a small matrix stays in the CPU's cache. The guide's larger sizes
   weren't run, their reference fields taking over an hour.
-- **What wasn't run:** the matrix-free problems, which a backend can't be given (#337). A run
-  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs.
+- **What wasn't run here:** plain QMR without the matrix, which a backend can't be given; the
+  multigrid without its finest matrix is below. A run that wouldn't fit in the GPU's 8 GB is
+  refused, saying how much it needs.
+
+### Measured: the multigrid without its finest matrix (#337)
+
+```sh
+cargo run -p photonoxide-native --release --example gpu_iterative -- --rounds 2 fdfd3d-iterative/guide-multigrid-stencil-44 …
+```
+
+The four catalogue families of #337 on `cusparse` (the stencil on Vulkan beside it) and on
+photonoxide's own, alternating, each side's faster run of two kept, on 2026-11-12 on the same
+RTX 4060 (driver 616.56, CUDA 13.1, cuSPARSE 12.7.3) against the Core Ultra 7 265K on **4
+threads** (the machine was shared, and its builds and runs are kept to 4 threads; the tables
+above are on 20). A step's time counts everything the solve does, the hierarchy copied up and
+analysed included (once for the strip's two ports, which share it); the error is the entry's
+own check, the same for both sides.
+
+| Problem | Grid | Unknowns | Iterations, CPU / GPU | CPU solve (a step) | GPU solve (a step) | Speed-up | Error, CPU / GPU |
+|---|---|---|---|---|---|---|---|
+| `guide-multigrid-rediscretized-44` | 44 × 44 × 44 cells of 10 nm, stretched PMLs of 10 | 255 552 | 27 / 27 | 0.824 s (30.53 ms) | 0.666 s (24.68 ms) | 1.24 | 3.4e-6 / 3.4e-6 |
+| `guide-multigrid-rediscretized-68` | 68 × 68 × 68 cells of 10 nm, stretched PMLs of 14 | 943 296 | 29 / 29 | 3.024 s (104.27 ms) | 1.395 s (48.11 ms) | 2.17 | 1.3e-6 / 1.3e-6 |
+| `guide-multigrid-rediscretized-96` | 96 × 96 × 96 cells of 10 nm, stretched PMLs of 10 | 2 654 208 | 47 / 47 | 12.840 s (273.19 ms) | 3.852 s (81.95 ms) | 3.33 | 6.5e-6 / 6.5e-6 |
+| `guide-multigrid-stencil-44` | 44 × 44 × 44 cells of 10 nm, stretched PMLs of 10 | 255 552 | 22 / 22 | 0.790 s (35.93 ms) | 0.813 s (36.97 ms) | 0.97 | 2.3e-6 / 2.3e-6 |
+| `guide-multigrid-stencil-68` | 68 × 68 × 68 cells of 10 nm, stretched PMLs of 14 | 943 296 | 23 / 23 | 2.714 s (118.01 ms) | 1.827 s (79.45 ms) | 1.49 | 1.7e-6 / 1.7e-6 |
+| `guide-multigrid-stencil-96` | 96 × 96 × 96 cells of 10 nm, stretched PMLs of 10 | 2 654 208 | 33 / 33 | 9.957 s (301.74 ms) | 4.265 s (129.23 ms) | 2.33 | 2.7e-6 / 2.7e-6 |
+| `strip-ports-multigrid-rediscretized-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 84 / 84 | 16.578 s (197.36 ms) | 5.050 s (60.11 ms) | 3.28 | 1.1e-8 / 1.1e-8 |
+| `strip-ports-multigrid-rediscretized-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 88 / 88 | 8.716 s (99.04 ms) | 2.838 s (32.25 ms) | 3.07 | 4.8e-9 / 4.8e-9 |
+| `strip-ports-multigrid-rediscretized-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 95 / 95 | 2.235 s (23.53 ms) | 1.115 s (11.74 ms) | 2.00 | 1.6e-9 / 1.6e-9 |
+| `strip-ports-multigrid-stencil-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 62 / 62 | 13.181 s (212.60 ms) | 5.205 s (83.95 ms) | 2.53 | 3.5e-9 / 3.5e-9 |
+| `strip-ports-multigrid-stencil-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 61 / 61 | 7.314 s (119.90 ms) | 3.101 s (50.83 ms) | 2.36 | 9.9e-9 / 9.9e-9 |
+| `strip-ports-multigrid-stencil-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 62 / 62 | 1.905 s (30.72 ms) | 1.100 s (17.73 ms) | 1.73 | 2.5e-9 / 2.5e-9 |
+
+- **The same answers.** Every GPU run takes the CPU's iterations exactly and gives its error
+  to the two digits shown, within the problem's tolerance; every repeated GPU run gave the
+  same error to the bit.
+- **Faster from 10⁶ unknowns:** 1.5 to 3.3 times against 4 CPU threads, and more with the
+  coarse operators discretized again (2.2 to 3.3 times), whose coarse levels are smaller; the
+  strip with ports gains 1.7 to 2.0 times from 2 × 10⁵ unknowns. The 44³ guide is at par with
+  Galerkin's operators: the copies and the analysis are a fixed cost. With the hierarchy
+  prepared, an iteration at 68³ takes 34.6 ms on the GPU ([the plan's
+  measurement](../plans/backends.md#the-multigrid-without-its-finest-matrix-on-the-gpu-337-2026-11-12)),
+  against 79 ms a step here, where 23 iterations carry the hierarchy's copy and analysis.
+- **What fits:** the guide at 96³ (2.65 million unknowns) and the strip at 20 nm (1.8
+  million) fit in the 4060's 8 GB with either coarse operator. The 128³ guide (6.3 million)
+  wasn't run: GMRES's 40 vectors take 4 GB there and Galerkin's first coarse level about
+  5 GB more, and its reference solve, the stored matrix's multigrid, peaks at 34 GB of the
+  CPU's memory, more than this shared machine had free.
 
 ### AmgX
 
