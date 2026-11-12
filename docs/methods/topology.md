@@ -286,6 +286,43 @@ demultiplexer: double Helmholtz filtering and the eroded, nominal and dilated re
 optimized together). Each records its design, which the plain run solves and `--full` optimizes
 again.
 
+## The job
+
+A job's `[task]` of kind `"optimize"` with a `[task.design]` (and no `[device]` or `[circuit]`)
+optimizes a density design region (`photonoxide::job::Topology`), on 2D FDFD with E along z: the
+window and its cell, the core's and the cladding's indices, the guides as rectangles of the core,
+the ports, the source, the objectives, and the region with its filter, its β schedule, an
+optional robust threshold and the foundry's rules. [`jobs/topology-bend.yaml`](../../jobs/topology-bend.yaml)
+is a bend on 40 nm cells that runs in seconds; `docs/job.schema.json` has every field.
+
+- **Ports.** A west or east port is a column, its modes solved in its window
+  (`Solver2d::port_modes_within`) and measured going out of the design; a south or north port is
+  two rows, its mode that of the guide its row crosses, turned (`Solver2d::row_mode_functional`).
+  The window takes the cells whose centres lie inside it, the same on either side of a mirror. The
+  source is a west or east port's mode; an objective at the source's own port is a reflection.
+- **Terms.** Each objective's mode power over the source's at each of its wavelengths (and each
+  realization of a robust design) is one term, 1 − P maximized and P minimized; MMA minimizes the
+  worst by the epigraph. Each wavelength is solved once for every objective that takes it, and the
+  wavelengths and realizations side by side, their results taken in order.
+- **Stages.** Each value of β is a new MMA from the last stage's best design, the rules held from
+  `rules_from` (the last stage by default); the linewidth and spacing as g/ε − 1 ≤ 0 with Arrieta
+  et al.'s c and ε (a strip across the region's shorter side), the areas in pixels less 10⁻⁵ t.
+  A stage's best is the least worst term with every rule met, its start's when no evaluation
+  improves on it.
+- **The record.** The problem (`Event::Topology`, each term with its port, mode, goal, wavelength
+  and realization), each evaluation (its t, worst term, terms, rules, and the stage's best), the
+  physical density and |E_z|² every `record_every` evaluations and at each stage's end, and at the
+  end the binary design solved again with its minimum length (the testbed's ruler) and its small
+  islands and holes (`Event::TopologyOptimum`). The run's window shows them live: the design and
+  the field, the worst term and the rules over the run, the spectrum.
+- **Determinism.** Values and gradients are rounded to 12 significant digits before MMA takes
+  them; a run is the same to the bit on any number of threads (the studio's test runs one on 1
+  and 4).
+
+The job's gradient is the library's: each term's against fourth-order differences through the
+filter and the projection, the rules' rows likewise, and a bend to a north port and its mirror
+image to a south port give the same powers in each mode to 10⁻⁹ (the job's tests).
+
 ## Validation
 
 | Case | What | Measured |

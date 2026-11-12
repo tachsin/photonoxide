@@ -253,6 +253,28 @@ are counted in pixels for MMA's scaling. *I4 is done.*
 *Validation:* a run replays bit for bit and gives the same bits on 1 and 20 threads; the job's
 gradient against the library's; the studio's tests.
 
+*Done 2026-11-12:* an `"optimize"` task with a `[task.design]` (`job::Topology`,
+docs/methods/topology.md, "The job"): the window and cell, the core's and cladding's indices,
+guides as rectangles, west and east ports on columns and south and north ones on rows, the source,
+objectives (a mode's power at a port, the source's own for a reflection) over their wavelengths,
+the conic filter, β per stage with each stage's evaluations, the robust threshold, the linewidth,
+spacing and areas from a chosen stage. It shares the solver-alone `"optimize"` kind with the
+crosstalk correction, told apart by its table, in the schema as one of the two. The library reads,
+evaluates and records it (`Topology`, `TopologyStage::evaluate`, `TopologyRecorder`); the program
+runs genoxide's MMA on it a stage at a time. Records: the problem, every evaluation's t, worst
+term, terms, rules and the stage's best, the physical density and |E_z|² at a stride and at each
+stage's end, and the binary design at the end with its spectrum, its measured minimum length and
+its small islands and holes. The run's window shows them live (`TopologyResults`): the design
+(any recorded one by a slider), the field, the worst term and the rules over the run, the spectra.
+Tests: each term's gradient and the rules' rows against fourth-order differences, a bend to the
+north and its mirror image to the south the same to 10⁻⁹, a strip through the region T within 10⁻⁴
+of 1, the record's events, a stage's best ranked, and in the program a run the same bits on 1 and
+4 threads that improves on its start. `jobs/topology-bend.yaml` runs in seconds. The view is in the
+run's window, where `photonoxide run` shows a job, rather than on a device page's Optimize tab: a
+design region isn't one of a device's parameters; when a device gains one (I11), its Optimize tab
+takes the same view. Python checks the job (`check_job`) and, as for every `"optimize"` job, the
+program runs it. *I5 is done.*
+
 ### I6: Subpixel-smoothed projection
 
 Hammond et al. 2025's projection, which keeps the design differentiable at β = ∞ and passes from

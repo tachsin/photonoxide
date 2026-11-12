@@ -726,6 +726,103 @@ pub enum Event {
         /// The evaluations before it.
         evaluations: usize,
     },
+    /// A design region's optimization about to run (a `[task.design]`,
+    /// [`Topology`](crate::job::Topology)): the region, the filter and projection, the schedule,
+    /// each term the epigraph's worst is taken over, and the rules.
+    Topology {
+        /// The method, as the job names it: `"mma"`.
+        method: String,
+        /// genoxide's method: `"MMA"`.
+        optimizer: String,
+        /// The paper it implements, with its DOI.
+        paper: String,
+        /// The hard limit, minutes.
+        timeout_minutes: f64,
+        /// The region's pixels along x and y.
+        pixels: [usize; 2],
+        /// A pixel's side, nm: the grid's cell.
+        pixel_nm: f64,
+        /// The region along x and y, µm.
+        region_um: [[f64; 2]; 2],
+        /// The conic filter's radius, nm.
+        filter_nm: f64,
+        /// The projection's threshold.
+        eta: f64,
+        /// β at each stage.
+        beta: Vec<f64>,
+        /// Each stage's evaluations.
+        evaluations: Vec<u64>,
+        /// The robust realizations' threshold, if the design is robust.
+        robust_eta: Option<f64>,
+        /// Each term, in the order of an evaluation's values.
+        terms: Vec<optimize::TopologyTerm>,
+        /// The rules' names, in the order of an evaluation's rules.
+        rules: Vec<String>,
+        /// The first stage the rules hold at, from 0.
+        rules_from: usize,
+        /// The design and field are recorded every this many evaluations of a stage.
+        record_every: usize,
+    },
+    /// An evaluation of a design region's optimization.
+    TopologyEvaluation {
+        /// The evaluation, from 1.
+        index: usize,
+        /// Its stage, from 0.
+        stage: usize,
+        /// The stage's β.
+        beta: f64,
+        /// The epigraph's t, which MMA minimizes; none where the solve failed.
+        t: Option<f64>,
+        /// The worst term; none where the solve failed.
+        worst: Option<f64>,
+        /// Each term: 1 − P for a maximized objective, P for a minimized one.
+        values: Vec<f64>,
+        /// Each rule's g (≤ 0 when met), none before the rules' stage.
+        rules: Vec<f64>,
+        /// Whether every rule is met.
+        feasible: bool,
+        /// The stage's best evaluation so far.
+        best: Option<usize>,
+        /// Why the solve failed there.
+        error: Option<String>,
+    },
+    /// A design region's density (physical, after the filter and the projection), recorded every
+    /// few evaluations and at each stage's end.
+    Density {
+        /// The evaluation it is at.
+        index: usize,
+        /// Its stage, from 0.
+        stage: usize,
+        /// What it is, e.g. `"the design at β = 8"`.
+        label: String,
+        /// From 0 (the cladding) to 1 (the core), over the region in µm.
+        raster: Raster,
+    },
+    /// A design region's optimization's end: the last stage's best design, binary, solved.
+    TopologyOptimum {
+        /// The best evaluation of the last stage, from 1; none when no evaluation met the rules.
+        index: Option<usize>,
+        /// The last stage, from 0.
+        stage: usize,
+        /// Each term's P of the binary design (the measured mode's power over the source's), in
+        /// the order of [`Event::Topology`]'s terms of the nominal design.
+        powers: Vec<f64>,
+        /// Each term's wavelength, µm.
+        wavelengths_um: Vec<f64>,
+        /// Each term's objective, from 0.
+        objectives: Vec<usize>,
+        /// The binary design's minimum length, nm, by the testbed's metric
+        /// ([`crate::topology::ruler`]).
+        length_nm: f64,
+        /// Its islands below the minimum area, when the job has the rule.
+        islands: Option<usize>,
+        /// Its holes below the minimum enclosed area, when the job has the rule.
+        holes: Option<usize>,
+        /// Why it stopped: `"evaluations"`, `"timeout"` or `"requested"`.
+        stop: String,
+        /// The evaluations.
+        evaluations: usize,
+    },
     /// A reported number's grid study ([`crate::convergence`]): a mode's Re n_eff on the run's
     /// grid and on coarser ones, its estimated error and whether it is within the tolerance.
     GridConvergence {

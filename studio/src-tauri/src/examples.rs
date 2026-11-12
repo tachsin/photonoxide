@@ -509,6 +509,10 @@ pub fn jobs() -> Vec<JobExample> {
             "crosstalk-correction.yaml",
             include_str!("../../../jobs/crosstalk-correction.yaml"),
         ),
+        (
+            "topology-bend.yaml",
+            include_str!("../../../jobs/topology-bend.yaml"),
+        ),
         ("ppln-shg.yaml", include_str!("../../../jobs/ppln-shg.yaml")),
         (
             "eme-taper.yaml",

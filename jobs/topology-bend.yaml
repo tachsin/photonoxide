@@ -1,0 +1,57 @@
+# A 90° bend by topology optimization: a 2 × 2 µm design region between a silicon guide coming
+# in from the west and one leaving to the north, 0.5 µm wide in oxide, E along z, on 40 nm
+# cells; the worst over five wavelengths from 1.50 to 1.60 µm of the power left in the output's
+# fundamental mode, maximized by genoxide's MMA, every gradient by the adjoint. The projection is
+# sharpened over three stages, the last with 120 nm linewidth and spacing (Hammond et al. 2021's
+# rules, Arrieta et al.'s hyperparameters) and minimum areas of 0.1 µm² (islands) and 0.2 µm²
+# (holes). A 2D estimate on a coarse grid, never a device's performance; optimize_foundry_bend
+# is the published problem at 20 nm.
+#   photonoxide run jobs/topology-bend.yaml   (live in the window; --headless for batches)
+name: topology-bend
+timeout_minutes: 10
+
+task:
+  kind: optimize
+  method: mma
+  x_um: [-1.6, 2.8]       # the window, the PMLs inside it
+  y_um: [-0.8, 3.6]
+  step_nm: 40             # the cell, and the design's pixel
+  pml_cells: 15
+  core_index: 3.48        # silicon
+  cladding_index: 1.44    # oxide
+  record_every: 5         # the design and its field every 5 evaluations
+
+  guide:
+    - x_um: [-2.0, 0.0]
+      y_um: [0.75, 1.25]
+    - x_um: [0.75, 1.25]
+      y_um: [2.0, 4.0]
+
+  port:
+    - name: in
+      side: west          # a column: light along x
+      at_um: -0.6
+      window_um: [0.2, 1.8]
+    - name: out
+      side: north         # two rows: light along y, the guide's mode turned
+      at_um: 2.6
+      window_um: [0.2, 1.8]
+  source: in
+
+  objective:
+    - port: out           # the fundamental mode's power over the source's
+      goal: maximize
+      from_um: 1.5
+      to_um: 1.6
+      points: 5
+
+  design:
+    x_um: [0.0, 2.0]
+    y_um: [0.0, 2.0]
+    filter_nm: 120        # the conic filter's radius
+    beta: [8, 16, 32]     # the projection sharpened stage by stage, at eta = 1/2
+    evaluations: [40, 40, 60]
+    linewidth_nm: 120     # from the last stage
+    spacing_nm: 120
+    island_um2: 0.1       # the smallest island and hole, from the last stage too
+    hole_um2: 0.2
