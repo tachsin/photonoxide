@@ -20,9 +20,15 @@ papers:
     doi: 10.1016/S0168-583X(00)00525-5
   - cite: "Ö. Kabadayi, H. Gümüş, Phys. Status Solidi B 242, 2391 (2005) (O in Si and SiO₂: ranges from four stopping powers, SRIM and PRAL against de Souza's measurements, Fig. 3, p. 2397; SRIM about 18 % above them, p. 2399)"
     doi: 10.1002/pssb.200540082
-  - cite: "J. Lindhard, M. Scharff, H. E. Schiøtt, Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963) (LSS theory: reduced units, Eq. 2.8, and electronic stopping, Eq. 2.10, p. 8; the projected range, Eq. 4.5, p. 25)"
+  - cite: "J. Lindhard, M. Scharff, H. E. Schiøtt, Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963) (LSS theory: reduced units, Eq. 2.8, and electronic stopping, Eqs. 2.5 and 2.10, pp. 6 and 8; the projected range, Eq. 4.5, p. 25)"
     doi: ""
     ref: lindhard-scharff-schiott-1963
+  - cite: "G. Dearnaley, J. H. Freeman, R. S. Nelson, J. Stephen, Ion Implantation, North-Holland (1973), ISBN 9780444104885 (Appendix 3: B. J. Smith's 1971 normalised projected range and straggle tables, the method, pp. 766–767; Tables A3.1–A3.3, pp. 769–771)"
+    doi: ""
+    ref: dearnaley-1973
+  - cite: "J. F. Ziegler, J. P. Biersack, M. D. Ziegler, SRIM: The Stopping and Range of Ions in Matter, SRIM Co. (2008), ISBN 9780965420716 (Chapter 10: PRAL, Eqs. 10-20 to 10-27, pp. 10-6 to 10-12; the universal nuclear stopping, Eqs. 10-39 and 10-43 to 10-46, pp. 10-16 to 10-18)"
+    doi: ""
+    ref: ziegler-2008
   - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography and the HBr/O₂ etch, Sections II–IV)"
     doi: 10.1109/JLT.2009.2022282
   - cite: "R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, J. Vac. Sci. Technol. B 29, 06F309 (2011) (electron-beam lithography in HSQ and the Cl₂ etch)"
@@ -306,9 +312,20 @@ contact lithography of their 2020 paper.
 ### Aluminium nitride (a 1 µm guide in 650 nm of AlN)
 
 Aluminium nitride is sputtered, like titanium nitride, at a low temperature. The catalogue's AlN
-is uniaxial, which a library device's layer can't take yet, so its flows are made for the
-library's devices drawn in AlN (their nitride layer's film made aluminium nitride); the studio's
-device pages can't show one yet.
+is uniaxial. Sputtered, it grows "with c-axis orientation ([0002] direction) normal to the film
+plane" (Xiong et al. 2012, PDF p. 2), so a device's layer takes it by its ordinary index n_o,
+the one a TE mode's in-plane field sees, as Xiong et al. quote it (2.12 at 1550 nm). A TM mode,
+its field mostly along the c axis, would see more of n_e, about 0.05 higher (Rigler et al.
+2015); the layer's material says so, and a modes, structure, FDFD or FDTD job's `[task.stack]`
+takes the crystal with both indices. Any wurtzite film (AlN, AlGaN) is taken the same way; any
+other uniaxial crystal still needs its orientation. The flows below are the library's devices
+drawn in AlN. The studio shows one: the template `jobs/aln-flow.yaml`, Xiong et al.'s 1 µm guide.
+The catalogue's AlN model (Rigler et al. 2015) covers 0.4 to 0.9 µm and its silicon (Li 1980)
+1.2 to 14 µm, so no wavelength has both: an AlN guide on a silicon wafer can't be solved until
+the catalogue has an AlN model in the near infrared or a silicon one in the visible. A flow
+solves nothing. Its pictures take each film's permittivity at 1.55 µm only to tell the films
+apart, and where a film's model stops short of it, at the end of its range nearest 1.55 µm, AlN's
+at 0.9 µm; the Fabrication page and the view (`FabricationView::indices_elsewhere`) say which.
 
 | Layer | Film | Thickness | Drawn |
 |---|---|---|---|
@@ -717,6 +734,20 @@ Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸
 | TRIM (1997) | 60.1 | 115.8 | 169.7 | 224.1 | 330.5 | 430.3 | the same |
 | SRIM2003.26, read from the figure | 65.8 | 122.1 | 177.4 | 232.2 | 367.3 | 441.7 | Kabadayi and Gümüş 2005, Fig. 3, p. 2397 |
 | LSS, our arithmetic from the paper | | 118.9 | 180.5 | 241.2 | 357.9 | 467.7 | Lindhard, Scharff and Schiøtt 1963, Eq. 4.5, p. 25 |
+| Smith's table, read by Izumi | | | | | 370 | | Izumi et al. 1978, p. 593 |
+| measured by Izumi (Auger), after 1150 °C | | | | | 380 | | the same |
+| Smith's table, our reading: lines | 64.4 | 130.8 | 197.9 | 264.7 | 391.3 | 516.4 | `ion_range::smith`, Dearnaley et al. 1973, Appendix 3, pp. 769–771 |
+| Smith's table, our reading: curves | 63.7 | 130.9 | 199.6 | 268.2 | 401.6 | 528.3 | the same |
+| PRAL, universal nuclear and Lindhard–Scharff electronic stopping | 63.3 | 126.8 | 190.4 | 252.7 | 371.8 | 483.6 | `ion_range::pral`, Ziegler et al. 2008, Ch. 10 |
+| the same, for ¹⁸O | 63.0 | 126.6 | 190.9 | 254.3 | 376.5 | 491.9 | the same |
+
+| ΔRp of O in Si, nm | 25 keV | 50 keV | 75 keV | 100 keV | 150 keV | 200 keV | Source |
+|---|---|---|---|---|---|---|---|
+| measured (¹⁸O) | 18.1 | 33.4 | 35.7 | 58.7 | 66.1 | 56.9 | de Souza et al. 2001, Table 1, p. 48 |
+| TRIM (1997) | 23.3 | 38.5 | 51.6 | 64.0 | 80.5 | 94.1 | the same |
+| Smith's table, our reading: lines | 28.2 | 47.9 | 63.5 | 76.6 | 96.1 | 112.8 | `ion_range::smith` |
+| Smith's table, our reading: curves | 28.2 | 47.9 | 63.2 | 76.3 | 97.6 | 113.1 | the same |
+| PRAL, as above | 25.7 | 42.3 | 55.4 | 66.0 | 82.2 | 94.0 | `ion_range::pral` |
 
 - **The measured table** (J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, Nucl.
   Instrum. Methods Phys. Res. B 175–177, 46 (2001), doi:10.1016/S0168-583X(00)00525-5) has two
@@ -737,7 +768,66 @@ Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸
   angle in the laboratory from each collision's kinematics, and electronic collisions taken as
   not deflecting it. It lies within about 6 % of SRIM from 50 to 200 keV (−2.6 % to +5.9 %) and
   17–23 % above the measurements. A ±20 % change in its electronic stopping constant moves Rp by
-  about ∓9 %.
+  about ∓9 %. This row is arithmetic done once, not code: the traced cross section isn't in the
+  library.
+- **Smith's tables** (B. J. Smith 1971, printed in G. Dearnaley, J. H. Freeman, R. S. Nelson,
+  J. Stephen, *Ion Implantation*, North-Holland (1973), ref:dearnaley-1973, Appendix 3,
+  pp. 766–777) are the table Izumi took his 370 nm from (his Ref. 6). They print Rp and ΔRp in
+  mg/cm² of the substrate for ions of Z₁ = 5, 10, 20, … 80 in substrates of Z₂ = 10, 20, … 80,
+  at 10 to 100 keV in steps of 10 and 100 to 1000 keV in steps of 100, computed with "his
+  modified form of the program by Johnson and Gibbons (1969)", the substrate at unit density with
+  M = 21 for Z = 10 and 44 for Z = 20 (p. 766). The scan's text layer garbles the tables, so the
+  part oxygen (Z₁ = 8) in silicon (Z₂ = 14) needs, Z₁ = 5, 10, 20 in Z₂ = 10, 20, 30 at every
+  energy, is transcribed from the page images (Tables A3.1–A3.3, pp. 769–771) into
+  `ion_range::SMITH`; a test checks that every column rises with the energy and with Z₂ and falls
+  with Z₁. The appendix's method (p. 767): plot Rp and ΔRp against Z₁ on double logarithmic
+  paper, then against Z₂, read off the value and divide by the density (silicon's 2.33 g/cm³,
+  p. 767). It doesn't say how to draw the curves, and 150 keV isn't tabulated, so the energy is
+  read the same way between the tabulated ones, and both readings are in the library: straight
+  lines between the two neighbouring points, or the parabola through the three nearest. They
+  differ by 0–3 % in Rp and up to 1.5 % in ΔRp, the reading's own uncertainty. At 150 keV ours is
+  391–402 nm, 6–9 % above the 370 nm Izumi read from the same table and 3–6 % above the 380 nm
+  he measured. How Izumi read it isn't said; the gap isn't explained. The tables' masses are not
+  silicon's and oxygen's (on their line, Z = 14 would weigh about 30 u, not 28.1), which the
+  appendix's method doesn't correct.
+- **PRAL** (J. P. Biersack's projected range algorithm, as J. F. Ziegler, J. P. Biersack,
+  M. D. Ziegler, *SRIM: The Stopping and Range of Ions in Matter*, SRIM Co. (2008),
+  ref:ziegler-2008, Chapter 10, gives it) is the library's range model, `ion_range::pral`. Its
+  first order steps three equations up in energy from zero (Eqs. 10-20, 10-23 and 10-24, p. 10-7,
+  as Eqs. 10-21, 10-26 and 10-27 step them, pp. 10-7 and 10-12): dx̄/dE = 1/S_t −
+  μS_n·x̄/(2S_t·E), d⟨x²⟩/dE = (⟨z²⟩ − ⟨x²⟩)·μS_n/(E·S_t) + 2x̄/S_t and d⟨z²⟩/dE =
+  (⟨x²⟩ − ⟨z²⟩)·μS_n/(E·S_t), μ = M₂/M₁, and ΔRp² = ⟨x²⟩ − x̄² (Eq. 10-22). Eq. 10-26 prints
+  S_t·E in the denominator where Eq. 10-25, which it steps, has S_t; only S_t is a length per
+  energy, so the library follows Eq. 10-25. The nuclear stopping is the book's universal one
+  (Eqs. 10-43 to 10-46, pp. 10-17 and 10-18, with the universal screening length of Eq. 10-39);
+  the electronic stopping is Lindhard and Scharff's, ξₑ·8πe²a₀·(Z₁Z₂/Z)·v/v₀ with ξₑ = Z₁^(1/6)
+  (Lindhard, Scharff and Schiøtt, Eq. 2.5, p. 6), 49.6×10⁻¹⁵ eV·cm² at 100 keV, the k = 0.185 of
+  the row above; the book doesn't print SRIM's own electronic stopping for this pair. Electronic
+  straggling is left out, as in LSS, and so is the nuclear straggling Q_n of the book's second
+  order (Eqs. 10-28 to 10-30), whose fit (Eqs. 10-47 and 10-48, p. 10-18) is printed without its
+  units; the book says the first order reproduces LSS's ranges and Q_n mainly raises ΔRp
+  (p. 10-13). The equations are integrated by fourth-order Runge–Kutta in ln E; for power-law
+  stopping a test gives the book's closed forms (Eqs. 10-14 and 10-15) to 1e-7. For ¹⁸O the
+  ranges differ by under 2 % (−0.5 % at 25 keV to +1.7 % at 200 keV), within the 2 % de Souza et
+  al. allow (p. 47). Its Rp is 3–7 % above our LSS arithmetic, −4 to +10 % from SRIM's (+1.2 % at
+  150 keV) and 5–13 % above TRIM's; its ΔRp is within 11 % of TRIM's (at 150 and 200 keV within
+  2 %).
+
+**Against the measurement, a gap kept open.** PRAL's Rp is 14 % above de Souza et al.'s at
+25 keV and 21–29 % above from 50 to 200 keV (27.4 % at 150 keV, 21.4 % at 200 keV); its ΔRp
+12–65 % above. A validation case against Table 1 would take the measurement's stated error as its
+rule (relative, a reference: 3 nm at low energy and 5 % above 75 keV, p. 48), and PRAL lies 2.6
+to 9 times that away (4 to 6 times above 75 keV), so it isn't a case: the tolerance isn't
+widened to fit. The electronic
+stopping is where the difference would come from: Rp moves by −9 % and +12 % at 150 keV for a
+±20 % change in it (336.8 and 416.5 nm), and the measured 291.8 nm needs about 1.5 times
+Lindhard and Scharff's (296.2 nm), the measured 398.2 nm at 200 keV about 1.4 times. De Souza et
+al. read their result the same way: stopping powers of oxygen in amorphous silicon measured
+higher than TRIM's below 400 keV (p. 49). The book's own example uses 1.59 times Lindhard and
+Scharff's for boron in silicon (Fig. 10-3, p. 10-8). Which measurement the route follows, de
+Souza et al.'s or Izumi's, is a decision, not the model's: the calculations (Smith's table, LSS,
+SRIM and PRAL) agree with Izumi's 370–380 nm at 150 keV within 9 %, and de Souza et al.'s
+291.8 nm, measured beyond the 280 nm their silicon was amorphized to, is 18–27 % below them all.
 
 So at 200 keV the range is about 400–470 nm, the spread of these rows, and the measured values
 sit below every calculation. That still doesn't give the film. Going from Rp to the film would
@@ -800,12 +890,10 @@ about 1350 °C, oxygen diffusing in from the surface oxidizes the silicon at the
 Fig. 5 is a drawing without numbers.
 
 **What it does not claim.** It does not compute the oxide's depth from the energy, or how the
-film depends on the dose (it takes 0.2 µm for every dose of the route). It computes no projected
-range either: the rows above are the papers' and our arithmetic, not the library's. A check of a
-range model against de Souza's Table 1 would be a case with a rule (the measurement's stated
-error in Rp, 3 nm at low energy and 5 % above 75 keV, p. 48), but the route has no range model
-to check, so it waits for one. It has no oxide for anneals
-below 1300 °C, no straggle or profile, and no epitaxy over the film. It says nothing of the
+film depends on the dose (it takes 0.2 µm for every dose of the route). The range model
+(`fabrication::ion_range`) gives Rp and ΔRp by Smith's tables and by PRAL, but the route doesn't
+use them: no source in hand turns a range into a film. It has no oxide for anneals below
+1300 °C, no implanted profile beyond its two moments, and no epitaxy over the film. It says nothing of the
 defect density, the threading dislocations or the silicon pipes through a thin oxide.
 
 ## Executing a flow, and the round trip
@@ -916,8 +1004,13 @@ These are listed in every flow that meets them, and wait for a source:
 - for a flow that makes its SOI wafer by SIMOX, the film the anneal leaves for each dose (the
   flow takes about 0.2 µm at 200 keV for every dose of 1.2–2.2×10¹⁸ cm⁻²), and so what the
   sacrificial oxide takes off; the oxide's depth, which the oxygen's projected range alone
-  doesn't give (the range is measured, about 400 nm at 200 keV, but how the oxide grows about the
-  implanted profile isn't in hand); and the oxide after an anneal below 1300 °C.
+  doesn't give (the range is measured, 398 nm at 200 keV, and computed, 484 nm by PRAL and
+  516–528 nm from Smith's table, but how the oxide grows about the implanted profile isn't in
+  hand); which of the two measured ranges, de Souza et al.'s or Izumi's, the route follows; and
+  the oxide after an anneal below 1300 °C;
+- an index model of aluminium nitride in the near infrared, or of silicon in the visible: the
+  catalogue's have no wavelength in common, so an AlN guide on silicon can't be solved, and a
+  flow's pictures take AlN's index at 0.9 µm.
 
 ## In the studio
 
@@ -1043,10 +1136,17 @@ outline moved in or out at its top:
   drawn flat, as the stage draws it; over sloped walls each ridge's loft is its own, so the films
   of two ridges that would meet overlap instead of merging; and the corners are mitred, so a
   film's section has, at each convex corner, (1 − π/4)n² more area than a rounded one's.
-- **A film evaporated for a lift-off,** on the resist and in its openings, at the top the design
-  draws its layer at. Where an opening lies over a region etched open, the design (planar) still
-  draws the layer on top, and so does the frame, saying that the film would land on the floor
-  there.
+- **A film evaporated for a lift-off,** on the resist and in its openings, where it lands. On the
+  wafer's top it lies at the top the design draws its layer at. Where an opening lies over a
+  region of the top layer etched open (around a ridge, or in a trench), it lands on that
+  region's floor, the slab's top beside a partially etched rib, and is drawn there; evaporation's
+  poor step coverage, which lift-off relies on (Campbell, Section 11.9), puts nothing on the
+  walls. Around a sloped ridge the piece on the floor runs to the ridge's top outline, over the
+  wall's foot, which the picture draws over it. From the lift-off on, every frame draws what it
+  leaves where it landed, and the planar layer the design draws it on as what fills that layer
+  around it: the TFLN modulator's electrodes rest on the slab, 0.3 µm below the film's top, the
+  design's planar metal layer above the film drawn as the oxide (air until the cladding). The
+  stages keep the design's planar layer, so the round trip is unchanged, and the frame says so.
 
 The window of the frames grows to hold a conformal film reaching past the 1 µm it keeps around
 the shapes, with 0.5 µm to spare, so it can be wider than the window the design view and the

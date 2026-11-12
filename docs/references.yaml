@@ -810,6 +810,12 @@
   venue: "Journal of Applied Physics 36, 3770"
   year: 1965
 
+- key: dearnaley-1973
+  authors: "G. Dearnaley, J. H. Freeman, R. S. Nelson, J. Stephen"
+  title: "Ion Implantation"
+  venue: "North-Holland, ISBN 9780444104885"
+  year: 1973
+
 - doi: 10.1109/4235.996017
   authors: "K. Deb, A. Pratap, S. Agarwal, T. Meyarivan"
   title: "A fast and elitist multiobjective genetic algorithm: NSGA-II"
@@ -3893,6 +3899,12 @@
   title: "Integrated photonics on thin-film lithium niobate"
   venue: "Adv. Opt. Photon. 13, 242"
   year: 2021
+
+- key: ziegler-2008
+  authors: "J. F. Ziegler, J. P. Biersack, M. D. Ziegler"
+  title: "SRIM: The Stopping and Range of Ions in Matter"
+  venue: "SRIM Co., ISBN 9780965420716"
+  year: 2008
 
 - doi: 10.1364/OE.18.023598
   authors: "W. A. Zortman, D. C. Trotter, M. R. Watts"

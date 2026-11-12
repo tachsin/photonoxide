@@ -33,20 +33,20 @@
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 
-use super::device::{computed, spec_of};
+use super::device::{computed_with, spec_of};
 pub use super::fabrication_films::FrameFilm;
 use super::fabrication_frames::frames;
 pub use super::fabrication_frames::{
     FlowFrame, IMPRINT_RESIDUE, UNSTATED_COVERAGE, UNSTATED_RESIST_UM,
 };
 use super::kind::TaskKind;
-use super::scene::{SceneEtched, scene, scene_etched};
+use super::scene::{SceneEtched, scene_drawn, scene_etched};
 use super::{Event, task_error};
 use crate::Result;
 use crate::device::Spec;
 use crate::export::flow::FlowExport;
 use crate::fabrication::{
-    Assessment, Choices, FlowRecord, Physical, Platform, Start, assess, fabricate_from,
+    Assessment, Choices, Flow, FlowRecord, Physical, Platform, Start, assess, fabricate_from,
     generate_from, platform, round_trip, stages,
 };
 use crate::run::{Job, Run, Stop};
@@ -161,7 +161,7 @@ impl TaskKind for FabricationKind {
     }
 
     fn check(&self, job: &Job) -> Result<()> {
-        super::device_scene(job)?;
+        super::scene::device_scene_drawn(job)?;
         flow_of(job)?;
         if cut_of(job)?.is_some() {
             export_of(job)?;
@@ -170,25 +170,31 @@ impl TaskKind for FabricationKind {
     }
 
     fn preview(&self, job: &Job) -> Result<Event> {
-        super::device_scene(job)
+        super::scene::device_scene_drawn(job)
     }
 
     fn execute(&self, job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
-        computed(job, run, stop, |job, run, _, scene| {
-            run.record(&scene)?;
-            let (flow, assessment) = flow_of(job)?;
-            run.record(&Event::Flow {
-                flow: Box::new(flow),
-            })?;
-            run.record(&Event::FlowAssessment {
-                assessment: Box::new(assessment),
-            })?;
-            // the flow's JSON, traveller and cross-sections, beside the record
-            if !run.dir().as_os_str().is_empty() {
-                export_of(job)?.write(run.dir())?;
-            }
-            Ok(())
-        })
+        computed_with(
+            job,
+            run,
+            stop,
+            super::scene::device_scene_drawn,
+            |job, run, _, scene| {
+                run.record(&scene)?;
+                let (flow, assessment) = flow_of(job)?;
+                run.record(&Event::Flow {
+                    flow: Box::new(flow),
+                })?;
+                run.record(&Event::FlowAssessment {
+                    assessment: Box::new(assessment),
+                })?;
+                // the flow's JSON, traveller and cross-sections, beside the record
+                if !run.dir().as_os_str().is_empty() {
+                    export_of(job)?.write(run.dir())?;
+                }
+                Ok(())
+            },
+        )
     }
 
     fn farms(&self, _: &Job) -> bool {
@@ -290,6 +296,40 @@ pub struct FabricationView {
     /// Why SIMOX can't make the design's wafer, for silicon on insulator it can't: the film or
     /// the buried oxide beyond what its published conditions make.
     pub simox_refused: Option<String>,
+    /// The films whose index models stop short of the 1.55 µm the pictures take the
+    /// permittivities at, each with the wavelength, µm, its own is taken at instead: the end of
+    /// its model's range nearest 1.55 µm (the catalogue's aluminium nitride, 0.4 to 0.9 µm, at
+    /// 0.9 µm). The pictures use a permittivity only to tell the films apart.
+    pub indices_elsewhere: Vec<(String, f64)>,
+}
+
+/// The wavelength a flow's pictures take their films' permittivities at, µm, unless a film's
+/// model stops short of it.
+const DRAWN_AT_UM: f64 = 1.55;
+
+/// The films of `flow` whose index models stop short of `wavelength`, each with the wavelength
+/// (µm) a picture takes its permittivity at ([`super::scene::drawn_at`]), by name, once each.
+fn indices_elsewhere(flow: &Flow, wavelength: Wavelength) -> Vec<(String, f64)> {
+    use crate::fabrication::Operation;
+    let mut films: Vec<&crate::fabrication::Film> = Vec::new();
+    for step in &flow.steps {
+        match &step.operation {
+            Operation::Wafer { substrate, layers } => {
+                films.push(substrate);
+                films.extend(layers.iter().map(|(_, f)| f));
+            }
+            Operation::Deposit { film, .. } | Operation::Evaporate { film, .. } => films.push(film),
+            _ => {}
+        }
+    }
+    let mut out: Vec<(String, f64)> = Vec::new();
+    for f in films {
+        let at = super::scene::drawn_at(&f.optical, wavelength);
+        if at != wavelength && !out.iter().any(|(n, _)| *n == f.name) {
+            out.push((f.name.clone(), at.to_um()));
+        }
+    }
+    out
 }
 
 /// The wafer after a step: its scene ([`Event::Scene`], air where nothing is yet), and how each
@@ -305,7 +345,8 @@ pub struct Stage {
 
 /// The flow of `spec`'s design, preferring and avoiding processes by id, and the wafer after
 /// each step, over the design's shapes with 1 µm around them, from 0.5 µm into the substrate to 1
-/// µm above its top, at 1.55 µm.
+/// µm above its top, at 1.55 µm (a film whose model stops short of it at the nearest end of its
+/// range, [`FabricationView::indices_elsewhere`]).
 ///
 /// # Errors
 ///
@@ -456,12 +497,12 @@ pub fn fabrication_view_from(
     let (x, y) = ([x[0] - 1.0, x[1] + 1.0], [y[0] - 1.0, y[1] + 1.0]);
     let top = s.stack().thickness().to_um();
     let z = [-0.5, top + 1.0];
-    let wavelength = Wavelength::um(1.55)?;
+    let wavelength = Wavelength::um(DRAWN_AT_UM)?;
     let made = stages(&flow)?;
     let stages = made
         .iter()
         .map(|made| {
-            let mut drawn = scene(&made.structure, x, y, z, wavelength)?;
+            let mut drawn = scene_drawn(&made.structure, x, y, z, wavelength)?;
             named(&mut drawn, made);
             Ok(Stage {
                 scene: drawn,
@@ -480,6 +521,7 @@ pub fn fabrication_view_from(
         smart_cut: found.smart_cut,
         simox: found.simox,
         simox_refused: found.simox_refused,
+        indices_elsewhere: indices_elsewhere(&flow, wavelength),
     })
 }
 

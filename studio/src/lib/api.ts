@@ -1197,6 +1197,8 @@ export interface DeviceFabrication {
   simox: SimoxRoute | null;
   /** Why SIMOX can't make the design's wafer, for SOI it can't: its film or oxide beyond the published conditions. */
   simox_refused: string | null;
+  /** The films whose index models stop short of the 1.55 µm the pictures take permittivities at, each with the wavelength (µm) its own is taken at: the end of its range nearest 1.55 µm. */
+  indices_elsewhere: [string, number][];
 }
 
 /** Where a flow starts: the wafer as bought, or for SOI bare silicon by Smart Cut or SIMOX. */

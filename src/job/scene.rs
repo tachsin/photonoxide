@@ -499,10 +499,59 @@ pub(super) fn scene(
     z: [f64; 2],
     wavelength: Wavelength,
 ) -> Result<Event> {
+    scene_by(s, x, y, z, wavelength, false)
+}
+
+/// The scene of a structure as a fabrication picture draws it: [`scene`]'s, each medium's
+/// permittivity at `wavelength`, or where its model stops short of it at the nearest end of its
+/// range ([`drawn_eps`]).
+pub(super) fn scene_drawn(
+    s: &Structure,
+    x: [f64; 2],
+    y: [f64; 2],
+    z: [f64; 2],
+    wavelength: Wavelength,
+) -> Result<Event> {
+    scene_by(s, x, y, z, wavelength, true)
+}
+
+/// Re ε of `m` at `wavelength`, or, where its model stops short of it, at the nearest end of its
+/// range: what a fabrication picture draws a film with. A picture only tells the films apart by
+/// it (which is drawn clear), and a design's films needn't share a wavelength their models all
+/// cover (the catalogue's aluminium nitride has data from 0.4 to 0.9 µm, its silicon from 1.2
+/// µm).
+pub(crate) fn drawn_eps(m: &crate::material::Material, wavelength: Wavelength) -> Result<f64> {
+    Ok(m.permittivity(drawn_at(m, wavelength))?.re)
+}
+
+/// The wavelength [`drawn_eps`] takes `m`'s permittivity at.
+pub(crate) fn drawn_at(m: &crate::material::Material, wavelength: Wavelength) -> Wavelength {
+    let (lo, hi) = m.range();
+    if wavelength < lo {
+        lo
+    } else if wavelength > hi {
+        hi
+    } else {
+        wavelength
+    }
+}
+
+fn scene_by(
+    s: &Structure,
+    x: [f64; 2],
+    y: [f64; 2],
+    z: [f64; 2],
+    wavelength: Wavelength,
+    nearest: bool,
+) -> Result<Event> {
     let medium = |m: &crate::material::Material| -> Result<SceneMedium> {
         Ok(SceneMedium {
             material: m.name().to_owned(),
-            eps: m.permittivity(wavelength)?.re,
+            eps: if nearest {
+                drawn_eps(m, wavelength)?
+            } else {
+                m.permittivity(wavelength)?.re
+            },
         })
     };
     let stack = s.stack();
@@ -622,6 +671,17 @@ pub(super) fn device_scene(job: &Job) -> Result<Event> {
     design_scene(&device.geometry(values)?, values)
 }
 
+/// The scene of a job's `[device]` as a fabrication job draws it: [`device_scene`]'s, each
+/// medium's permittivity at the design's wavelength or, where its model stops short of it, at
+/// the nearest end of its range ([`drawn_eps`]). A fabrication job solves nothing.
+pub(super) fn device_scene_drawn(job: &Job) -> Result<Event> {
+    let (device, design) = device::spec_of(job)?.build()?;
+    let values = design.values();
+    let geometry = device.geometry(values)?;
+    let (x, y, z, wavelength) = design_window(&geometry, values)?;
+    scene_drawn(&geometry.structure, x, y, z, wavelength)
+}
+
 /// The scene of a device's design whose geometry at `values` is `geometry`: what a device
 /// job's preview shows ([`super::preview`]), for a caller that has the geometry already (the
 /// studio's Design tab), without the job's text written and read again.
@@ -634,6 +694,17 @@ pub fn design_scene(
     geometry: &crate::device::Geometry,
     values: &crate::device::Values,
 ) -> Result<Event> {
+    let (x, y, z, wavelength) = design_window(geometry, values)?;
+    scene(&geometry.structure, x, y, z, wavelength)
+}
+
+/// A design's scene's window and wavelength: its shapes and ports with 1 µm around them, from
+/// 1 µm below its core to 1 µm above, at its `wavelength` parameter (1.55 µm without one).
+#[allow(clippy::type_complexity)]
+fn design_window(
+    geometry: &crate::device::Geometry,
+    values: &crate::device::Values,
+) -> Result<([f64; 2], [f64; 2], [f64; 2], Wavelength)> {
     let shapes = scene_shapes(&geometry.structure);
     let points = shapes.iter().flat_map(|s| s.outline.iter().copied()).chain(
         geometry
@@ -661,11 +732,10 @@ pub fn design_scene(
         .stack()
         .layer(&core)
         .ok_or_else(|| task_error(format!("the stack has no layer {core}")))?;
-    scene(
-        &geometry.structure,
+    Ok((
         [x[0] - 1.0, x[1] + 1.0],
         [y[0] - 1.0, y[1] + 1.0],
         [bottom.to_um() - 1.0, top.to_um() + 1.0],
         Wavelength::um(values.get("wavelength").unwrap_or(1.55))?,
-    )
+    ))
 }

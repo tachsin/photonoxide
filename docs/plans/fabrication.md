@@ -57,8 +57,8 @@ It then shows the steps one by one as an animated cross-section, in words a newc
 - **What it shows.** An animated cross-section per step: films grow, resist is exposed, etches cut
   down with the design's sidewall angle, lift-off takes the metal off with the resist. Each step
   has plain narration and a glossary. The animation lives in:
-  - a **Fabrication tab**, opened by a **Fabricate** button on a component's page and in the run
-    view;
+  - a **Fabrication** view, opened by a **Fabricate** button on a component's page (the
+    Fabrication page, since #790) and as a tab in the run view;
   - the **Academy**, through a `::fabrication` directive and a lesson on how a chip is made;
   - the **examples listing**, as a button beside each example that builds a device.
 - **How it runs.** A `fabrication` task kind beside a `[device]`, through the `TaskKind` registry
@@ -452,7 +452,8 @@ none has a tolerance chosen by hand.
 
 - **On a component's page** (`DevicePage.svelte`), a sixth tab, **Fabrication**, joins Design,
   Overview, Model, Simulate, Study and Optimize. A **Fabricate** button in the page's header,
-  beside Run, opens it.
+  beside Run, opens it. *(Done as a tab (#628); the tab was removed in #790, and Fabricate now
+  opens the Fabrication page on the rail.)*
 - **What the tab shows:**
   - the cut, which the Design view's draggable cut sets;
   - the animation;
@@ -546,14 +547,14 @@ review, M a few days, L a week or more.
 
 | Phase | Size | What it delivers | Needs |
 |---|---|---|---|
-| **F1: The first flows, as data** | M | `photonoxide::fabrication`: the process library's types, `Stated`, the entries the three first designs need, the operations and the exact executor, `Device::physical` for the TFLN modulator and the metal-heater shifter, and the generator's rules for these designs. The `fabrication` task kind. Validation: the round trip for the three designs at their defaults and corners, the references test, determinism. | 0.5.4's devices |
-| **F2: The Fabrication tab, read-only** | M | `SceneShape` with its etch, so `CutView` draws ribs and sloped walls everywhere. The Fabrication tab and the Fabricate button on a component's page and in the run view, with each step's still cross-section, reasons, alternatives, sources and what's not specified. | F1 |
-| **F3: Animation and narration** | M | The 2D profile executor, `ProcessAnimation.svelte` with its controls and reduced motion, the plain narration, and the glossary with its sources. Validation: the profile against the structure. | F2 |
-| **F4: The rules in full** | L | Feature and gap measurement, aspect ratios, lithography by cited resolution, hard or soft mask by selectivity, etch stop or timed with its uncertainty, thermal-budget ordering, overlay, planarization, and alternatives ranked. Preferences and avoidances in the tab. A structure job's flow. Validation: the textbook cases and the papers' reported flows. | F1; the textbooks read |
-| **F5: The Academy and the examples** | S | The `::fabrication` directive, the lesson "How a chip is made", "How it is made" in the strip, MZI and coupler lessons, and Fabricate beside the examples. | F3 |
-| **F6: More platforms** | S each | One pull request per platform, each with its processes, sources and a round-tripped design: LPCVD silicon nitride, with the Damascene alternative for thick films (Bauters et al. 2011; Luke et al. 2013; Pfeiffer et al. 2016); phase-change cells, sputtered with lift-off and a cap, their switching temperatures as budgets (Ríos et al. 2015; Delaney et al. 2021); sputtered aluminium nitride (Xiong et al. 2012); gallium arsenide by epitaxy and etching (Dietrich et al. 2016). | F4 |
-| **F7: The façade and export** | S | `facade::device_fabrication` for Python and the program's other languages; the flow as JSON and CSV, and a printable report. | F4 |
-| **F8: Later, each when asked for** | L | The 3D animation; implant and diffusion steps once doped regions are drawn (0.8); a user's PDK (0.9) as a source of foundry capabilities; a flow's stated uncertainties as 0.11's process corners. | 0.8, 0.9, 0.11 |
+| **F1: The first flows, as data** *(done, #628)* | M | `photonoxide::fabrication`: the process library's types, `Stated`, the entries the three first designs need, the operations and the exact executor, `Device::physical` for the TFLN modulator and the metal-heater shifter, and the generator's rules for these designs. The `fabrication` task kind. Validation: the round trip for the three designs at their defaults and corners, the references test, determinism. | 0.5.4's devices |
+| **F2: The Fabrication tab, read-only** *(done, #628, #657; the component's own tab was removed in #790)* | M | `SceneShape` with its etch, so `CutView` draws ribs and sloped walls everywhere. The Fabrication tab and the Fabricate button on a component's page and in the run view, with each step's still cross-section, reasons, alternatives, sources and what's not specified. | F1 |
+| **F3: Animation and narration** *(done, #628, #643)* | M | The 2D profile executor, `ProcessAnimation.svelte` with its controls and reduced motion, the plain narration, and the glossary with its sources. Validation: the profile against the structure. | F2 |
+| **F4: The rules in full** *(done, #631)* | L | Feature and gap measurement, aspect ratios, lithography by cited resolution, hard or soft mask by selectivity, etch stop or timed with its uncertainty, thermal-budget ordering, overlay, planarization, and alternatives ranked. Preferences and avoidances in the tab. A structure job's flow. Validation: the textbook cases and the papers' reported flows. | F1; the textbooks read |
+| **F5: The Academy and the examples** *(done, #705)* | S | The `::fabrication` directive, the lesson "How a chip is made", "How it is made" in the strip, MZI and coupler lessons, and Fabricate beside the examples. | F3 |
+| **F6: More platforms** *(done, #635)* | S each | One pull request per platform, each with its processes, sources and a round-tripped design: LPCVD silicon nitride, with the Damascene alternative for thick films (Bauters et al. 2011; Luke et al. 2013; Pfeiffer et al. 2016); phase-change cells, sputtered with lift-off and a cap, their switching temperatures as budgets (Ríos et al. 2015; Delaney et al. 2021); sputtered aluminium nitride (Xiong et al. 2012); gallium arsenide by epitaxy and etching (Dietrich et al. 2016). | F4 |
+| **F7: The façade and export** *(done, #633, #750)* | S | `facade::device_fabrication` for Python and the program's other languages; the flow as JSON and CSV, and a printable report. | F4 |
+| **F8: Later, each when asked for** *(the 3D animation done, #643, #657; implants wait for 0.8, a user's PDK for 0.9, the corners for 0.11)* | L | The 3D animation; implant and diffusion steps once doped regions are drawn (0.8); a user's PDK (0.9) as a source of foundry capabilities; a flow's stated uncertainties as 0.11's process corners. | 0.8, 0.9, 0.11 |
 
 ### 6.1 Making the SOI wafer (S1 to S3)
 
@@ -684,7 +685,7 @@ reached on 2026-10-30.
 
 ## 8. Decisions
 
-These are for me to decide. Each has a recommendation; none is decided yet.
+These are for me to decide. Each has a recommendation. Decisions 1, 3, 4 and 5 are settled in practice, as the notes below say; decision 2, the foundry numbers, is still open and awaits me.
 
 1. **Which platforms first.**
    - (a) The three designs of the first slice (SOI, TFLN, the TiN heater on SOI), then LPCVD
@@ -694,6 +695,8 @@ These are for me to decide. Each has a recommendation; none is decided yet.
 
    *Recommended: (a).* All three are library devices today, so the round trip covers them from
    F1.
+   *Done in practice:* the platforms went in order (a): the three designs (#628), then nitride,
+   phase-change cells, AlN and GaAs (#635).
 2. **Foundry numbers.**
    - (a) The process library holds literature numbers only.
    - (b) It may also hold numbers from foundries' public design manuals, each with its version,
@@ -711,12 +714,17 @@ These are for me to decide. Each has a recommendation; none is decided yet.
 
    *Recommended: (b).* The first slice needs only 0.5.4's devices and stands on its own; F4's
    rules and F8 meet 0.9's PDKs and 0.11's corners.
+   *Done in practice:* (b): the engine reached main phase by phase, from #628 (shipped in 0.6.1)
+   to #705 (0.6.2), before 0.10.
 4. **Editing a flow.** Whether the tab lets a user reorder or replace steps by hand, with the
    round trip and the rules checking the result. *Recommended:* only preferences and avoidances
    until F4 is in place, then editing if asked for.
+   *Done in practice:* the Fabrication page offers "Use instead" on an alternative, a
+   preference, and no editing of steps.
 5. **The Academy's form.** A new lesson "How a chip is made" with the directive in existing
    lessons, or sections inside the existing lessons only. *Recommended:* the new lesson, plus a
    short "How it is made" subsection in the strip, MZI and coupler lessons.
+   *Done in practice:* the new lesson with subsections (#705).
 
 ## 9. Risks
 

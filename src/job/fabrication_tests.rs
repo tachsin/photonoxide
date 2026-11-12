@@ -220,6 +220,48 @@ fn a_fabrication_job_makes_its_wafer_by_simox_when_its_task_says_so() {
 }
 
 #[test]
+fn an_aln_design_has_its_flow_and_its_view_drawn_where_its_model_has_data() {
+    let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let job = Job::load(&here.join("jobs/aln-flow.yaml")).unwrap();
+    check(&job).unwrap();
+    let view = fabrication_of_job(&job, &[], &[]).unwrap();
+    assert_eq!(view.platform, Some(crate::fabrication::Platform::Aln));
+    assert!(view.flow.round_trip.as_ref().unwrap().exact());
+    // Xiong et al.'s sequence, in order
+    let processes: Vec<&str> = view.flow.steps.iter().map(|s| s.process.as_str()).collect();
+    let want = [
+        "si-wafer",
+        "thermal-oxidation",
+        "sputtering-aln",
+        "ebl-hsq",
+        "icp-aln-chlorine",
+        "resist-strip",
+    ];
+    let mut at = processes.iter();
+    assert!(want.iter().all(|w| at.any(|p| p == w)), "{processes:?}");
+    // the catalogue's AlN has data from 0.4 to 0.9 µm and its silicon from 1.2 µm: the pictures
+    // take AlN's permittivity at 0.9 µm, the end of its range nearest 1.55 µm, and say so
+    assert_eq!(view.indices_elsewhere, [("AlN".to_owned(), 0.9)]);
+    let aln = crate::device::MaterialSpec::id("aln").material().unwrap();
+    let at_09 = aln
+        .permittivity(crate::units::Wavelength::um(0.9).unwrap())
+        .unwrap()
+        .re;
+    let Event::Scene { layers, .. } = &view.frames.last().unwrap().scene else {
+        panic!("a scene")
+    };
+    let drawn = layers
+        .iter()
+        .find(|l| l.material.material == "AlN")
+        .unwrap();
+    assert_eq!(drawn.material.eps, at_09);
+    // the job's own scene is drawn the same way; a silicon design has every film at 1.55 µm
+    assert!(preview(&job).is_ok());
+    let strip = fabrication_of(&crate::device::Spec::new("waveguide"), &[], &[]).unwrap();
+    assert!(strip.indices_elsewhere.is_empty());
+}
+
+#[test]
 fn a_fabrication_job_starts_from_bare_silicon_only_when_its_task_says_so() {
     let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let made = Job::load(&here.join("jobs/strip-flow-smart-cut.yaml")).unwrap();
@@ -357,7 +399,14 @@ fn the_frames_play_the_flow_from_the_bare_wafer_to_the_design() {
                 .iter()
                 .any(|l| l.starts_with("resist"))
         );
-        assert!(last.films.is_empty(), "{:?}", last.films);
+        // no film over it but one lifted off onto an etched floor: the TFLN's electrodes
+        assert!(
+            last.films
+                .iter()
+                .all(|f| f.layer == "metal" && f.film == "Cu/Au"),
+            "{:?}",
+            last.films
+        );
         // while the resist is on the wafer, it is drawn as films over the layers, named for
         // itself, its bottom on the wafer and its top over the wafer's top
         for f in view.frames.iter().filter(|f| f.phase == "develop") {
@@ -380,6 +429,98 @@ fn the_frames_play_the_flow_from_the_bare_wafer_to_the_design() {
     }
     let tfln = fabrication_of_job(&Job::parse(TFLN).unwrap(), &[], &[]).unwrap();
     assert_eq!(tfln.platform, Some(crate::fabrication::Platform::Lnoi));
+}
+
+/// The area a frame film's bottom outline holds, µm², its holes taken out (outer rings run
+/// counterclockwise, holes clockwise, so the signed areas add).
+fn bottom_area(f: &FrameFilm) -> f64 {
+    let o = &f.bottom;
+    let mut area = 0.0;
+    let mut start = 0;
+    while start < o.len() {
+        let first = o[start];
+        let end = o[start + 1..]
+            .iter()
+            .position(|p| *p == first)
+            .map_or(o.len(), |k| start + 1 + k);
+        let ring = &o[start..end];
+        area += 0.5
+            * (0..ring.len())
+                .map(|i| {
+                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                    a[0] * b[1] - b[0] * a[1]
+                })
+                .sum::<f64>();
+        start = end + 1;
+    }
+    area
+}
+
+#[test]
+fn a_film_lifted_off_over_an_etched_region_is_drawn_on_its_floor() {
+    let job = Job::parse(TFLN).unwrap();
+    let view = fabrication_of_job(&job, &[], &[]).unwrap();
+    // the film's top and the slab's, from the design: its ribs etched 0.3 µm into 0.6 µm
+    let stage = view.stages.last().unwrap();
+    let rib = stage.etched.iter().find(|e| e.layer == "LN").unwrap();
+    let (top, floor) = (rib.z_um[1], rib.z_um[1] - rib.depth_um);
+    assert!((top - floor - 0.3).abs() < 1e-12);
+    let metal = 0.83;
+    let first = view
+        .frames
+        .iter()
+        .position(|f| f.films.iter().any(|p| p.film == "Cu/Au"))
+        .expect("the evaporation's frame");
+    // in the evaporation's frame, every piece of the metal in the openings lies on the slab
+    // (the electrodes are in the etched region, beside the ribs); the rest is on the resist
+    for f in &view.frames[first..] {
+        for p in f.films.iter().filter(|p| p.film == "Cu/Au") {
+            let on_floor = (p.z_um[0] - floor).abs() < 1e-9;
+            let on_resist = p.z_um[0] > top + 0.1;
+            assert!(on_floor || on_resist, "{}: {:?}", f.label, p.z_um);
+            assert!((p.z_um[1] - p.z_um[0] - metal).abs() < 1e-9, "{:?}", p.z_um);
+            assert!(f.phase != "lift_off" || on_floor, "{}", f.label);
+        }
+        assert!(
+            f.films
+                .iter()
+                .any(|p| p.film == "Cu/Au" && (p.z_um[0] - floor).abs() < 1e-9),
+            "{}",
+            f.label
+        );
+    }
+    // the last frame draws the electrodes there, and no shape on the planar metal layer, which
+    // the stage (the design, as the round trip checks it) still has
+    let last = view.frames.last().unwrap();
+    let Event::Scene { shapes, layers, .. } = &last.scene else {
+        panic!("a scene")
+    };
+    assert!(!shapes.iter().any(|s| s.layer == "metal"));
+    let planar = layers.iter().find(|l| l.name == "metal").unwrap();
+    assert_eq!(planar.material.material, planar.background.material);
+    let Event::Scene {
+        shapes: designed, ..
+    } = &stage.scene
+    else {
+        panic!("a scene")
+    };
+    assert!(designed.iter().any(|s| s.layer == "metal"));
+    // the electrodes' area: the signal's and the two grounds', each the arms' length long
+    let spec = super::device::spec_of(&job).unwrap();
+    let (device, design) = spec.build().unwrap();
+    let electrodes: f64 = device
+        .physical(design.values())
+        .unwrap()
+        .structure()
+        .shapes("metal")
+        .iter()
+        .map(|s| crate::geometry::Region::polygons(s, crate::geometry::Tolerance::default()).area())
+        .sum();
+    let drawn: f64 = last.films.iter().map(bottom_area).sum();
+    assert!(
+        (drawn - electrodes).abs() < 1e-9 * electrodes,
+        "{drawn} µm² drawn, {electrodes} µm² designed"
+    );
 }
 
 #[test]

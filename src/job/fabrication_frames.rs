@@ -22,24 +22,27 @@
 //!   deposition's, on the walls that times the process's step coverage (the middle of a stated
 //!   range; fully conformal, the frames' default, where no source states it). The frame after it
 //!   is the executor's stage again: flat after a polish, or as the design draws it.
-//! - **A film evaporated for a lift-off**, on the resist and in its openings.
+//! - **A film evaporated for a lift-off**, on the resist and in its openings: where an opening
+//!   lies over a region etched open, on that region's floor. From the lift-off on, the film it
+//!   leaves there is drawn where it landed, its planar layer as what fills it.
 //! - **A wafer the flow makes for itself** (Smart Cut or SIMOX), whose stages keep the design's
 //!   film throughout: what each step of the route does, from its numbers (`start_films`): the
 //!   implanted hydrogen's plane, the rest of the donor bonded on and the bonded interface until
 //!   the anneal, the film's excess until the polish and the sacrificial oxide, that oxide until
 //!   the strip; for SIMOX, the damaged silicon over the implanted oxide until the anneal.
 //!
-//! The last frame is the last stage, the structure the round trip checks.
+//! The last frame is the last stage, the structure the round trip checks, but for a film lifted
+//! off onto an etched floor, which it draws there.
 
 use serde::Serialize;
 
 use super::Event;
 use super::fabrication::named;
 use super::fabrication_films::{
-    Area, FrameFilm, Open, Paint, conformal, fill, minus, open_layers, prism, reach, rect,
+    Area, FrameFilm, Open, Paint, and, conformal, fill, minus, open_layers, prism, reach, rect,
     stand_in, top_of, union,
 };
-use super::scene::{SceneEtched, scene, scene_etched};
+use super::scene::{SceneEtched, drawn_eps, scene_drawn, scene_etched};
 use crate::Result;
 use crate::fabrication::{Flow, Made, Operation, Polarity, Quantity, Tone, Unit, process};
 use crate::material::{Material, silica};
@@ -214,11 +217,11 @@ impl Resist {
         self.over(&self.name, self.kept(), self.thickness)
     }
 
-    /// A stencil with `film`, `t` thick, put down over it: in its openings, at the top the
-    /// design draws the layer at, and on the resist around them.
-    fn evaporated(&self, film: &Paint, t: f64) -> Vec<FrameFilm> {
+    /// A stencil with `film`, `t` thick, put down over it: in its openings where it lands
+    /// (`landed`, [`Resist::landed`]), and on the resist around them.
+    fn evaporated(&self, film: &Paint, t: f64, landed: &[FrameFilm]) -> Vec<FrameFilm> {
         let mut out = self.developed();
-        out.extend(prism(film, self.gone(), self.top, self.top + t));
+        out.extend_from_slice(landed);
         out.extend(prism(
             film,
             self.kept(),
@@ -226,6 +229,36 @@ impl Resist {
             self.top + self.thickness + t,
         ));
         out
+    }
+
+    /// A film `t` thick evaporated into the stencil's openings, where it lands: on the wafer's
+    /// top, and where an opening lies over a region of the top layer etched open (around a
+    /// ridge, or in a trench), on that region's floor; with the open layer whose floor it
+    /// reaches, if any. Evaporation's poor step coverage, which lift-off relies on (Campbell,
+    /// Section 11.9), puts nothing on the walls. Around a sloped ridge the piece on the floor
+    /// runs to the ridge's top outline, over the wall's foot, which the picture draws over it.
+    fn landed(&self, film: &Paint, t: f64) -> (Vec<FrameFilm>, Option<&Open>) {
+        let openings = self.gone();
+        let surface = self
+            .open
+            .iter()
+            .find(|o| (o.z[1] - self.top).abs() < 1e-9 && o.floor < o.z[1] - 1e-12);
+        let Some(o) = surface else {
+            return (prism(film, openings, self.top, self.top + t), None);
+        };
+        let shapes = union(&o.shapes);
+        let (on_top, on_floor) = if o.ridge {
+            (and(openings, &shapes), minus(openings, &shapes))
+        } else {
+            (minus(openings, &shapes), and(openings, &shapes))
+        };
+        let floor = prism(film, &on_floor, o.floor, o.floor + t);
+        if floor.is_empty() {
+            return (prism(film, openings, self.top, self.top + t), None);
+        }
+        let mut out = prism(film, &on_top, self.top, self.top + t);
+        out.extend(floor);
+        (out, Some(o))
     }
 
     /// Its frames' notes: the thickness drawn, and how it lies over etched layers.
@@ -476,7 +509,7 @@ pub(super) fn frames(
     moments
         .into_iter()
         .map(|m| {
-            let mut drawn = scene(&m.made.structure, x, y, z, wavelength)?;
+            let mut drawn = scene_drawn(&m.made.structure, x, y, z, wavelength)?;
             named(&mut drawn, &m.made);
             Ok(FlowFrame {
                 step: m.step,
@@ -535,10 +568,13 @@ pub(crate) fn moments(
     }
     let (x, y) = ([x[0] - grow, x[1] + grow], [y[0] - grow, y[1] + grow]);
     let window = rect(x, y);
-    let eps = |m: &Material| -> Result<f64> { Ok(m.permittivity(wavelength)?.re) };
+    let eps = |m: &Material| -> Result<f64> { drawn_eps(m, wavelength) };
     let records = flow.record(None).steps;
     let mut moments: Vec<Moment> = Vec::new();
     let mut resist: Option<Resist> = None;
+    // a film evaporated whose pieces lie on an etched floor, then the step that lifts it off
+    let mut lifted: Option<Lifted> = None;
+    let mut lifted_at: Option<(usize, Lifted)> = None;
     for (k, (step, made)) in flow.steps.iter().zip(stages).enumerate() {
         let record = &records[k];
         let mut push = |phase: &str,
@@ -633,28 +669,40 @@ pub(crate) fn moments(
             Operation::Evaporate { film, thickness } => {
                 let (films, note) = match &resist {
                     Some(r) => {
+                        // the layer the lift-off after it makes, which its pieces belong to
+                        let layer = flow.steps[k + 1..]
+                            .iter()
+                            .find_map(|s| match &s.operation {
+                                Operation::LiftOff { layer } => Some(layer.clone()),
+                                _ => None,
+                            })
+                            .unwrap_or_else(|| film.name.clone());
                         let paint = Paint {
-                            layer: film.name.clone(),
+                            layer: layer.clone(),
                             film: film.name.clone(),
                             eps: eps(&film.optical)?,
                         };
+                        let t = thickness.to_um();
+                        let (landed, floor) = r.landed(&paint, t);
                         let mut note: Vec<String> = r.note().into_iter().collect();
-                        if !fill(&paint, &r.open, r.gone()).is_empty() {
+                        if let Some(o) = floor {
                             note.push(format!(
-                                "The design draws the {} on the top of the etched {}, over the \
-                                 regions etched open, as the planar model has every layer: it is \
-                                 drawn there, though in an opening over an etched region it would \
-                                 land on the region's floor.",
+                                "Where an opening lies over a region of the {} etched open, the \
+                                 {} lands on its floor, {} µm below the top: it is drawn there, \
+                                 and so is what the lift-off leaves, though the design (planar, \
+                                 as the model has every layer) draws its {} layer on the top.",
+                                o.name,
                                 film.name,
-                                r.open
-                                    .iter()
-                                    .map(|o| o.name.as_str())
-                                    .collect::<Vec<_>>()
-                                    .join(" and ")
+                                num(o.z[1] - o.floor),
+                                layer
                             ));
+                            lifted = Some(Lifted {
+                                layer,
+                                pieces: landed.clone(),
+                            });
                         }
                         (
-                            r.evaporated(&paint, thickness.to_um()),
+                            r.evaporated(&paint, t, &landed),
                             (!note.is_empty()).then(|| note.join(" ")),
                         )
                     }
@@ -674,6 +722,9 @@ pub(crate) fn moments(
                     Operation::Strip => Some("resist".to_owned()),
                     _ => record.layer.clone(),
                 };
+                if let (Operation::LiftOff { .. }, Some(l)) = (&step.operation, lifted.take()) {
+                    lifted_at = Some((k, l));
+                }
                 push(
                     &record.operation,
                     record.does.clone(),
@@ -761,7 +812,52 @@ pub(crate) fn moments(
             }
         }
     }
+    // from the lift-off on, the film it leaves is drawn where it landed, its planar layer as
+    // what fills it (the stages, which the round trip checks, keep the design's planar layer)
+    if let Some((at, l)) = lifted_at {
+        for m in moments.iter_mut().filter(|m| m.step >= at) {
+            m.made = unlifted(&m.made, &l.layer)?;
+            m.films.extend(l.pieces.iter().cloned());
+        }
+    }
     Ok((moments, x, y))
+}
+
+/// A film evaporated for a lift-off whose pieces lie on an etched floor: the layer the lift-off
+/// makes, and its pieces as they landed.
+struct Lifted {
+    layer: String,
+    pieces: Vec<FrameFilm>,
+}
+
+/// `made` with `layer`'s shapes taken off, the layer drawn as what fills it around them: the
+/// frames draw that layer's film as pieces where it landed instead.
+fn unlifted(made: &Made, layer: &str) -> Result<Made> {
+    let s = &made.structure;
+    let stack = s.stack();
+    let Some(i) = stack.layers().iter().position(|l| l.name == layer) else {
+        return Ok(made.clone());
+    };
+    let mut layers = stack.layers().to_vec();
+    layers[i].material = layers[i].background.clone();
+    let mut names = made.layers.clone();
+    names[i].0 = names[i].1.clone();
+    let mut structure = Structure::new(LayerStack::new(
+        stack.substrate().clone(),
+        layers,
+        stack.cladding().clone(),
+    )?);
+    for l in stack.layers().iter().filter(|l| l.name != layer) {
+        for (shape, etch) in s.shapes(&l.name).iter().zip(s.etches(&l.name)) {
+            structure.draw_etched(&l.name, shape.clone(), *etch)?;
+        }
+    }
+    Ok(Made {
+        structure,
+        substrate: made.substrate.clone(),
+        layers: names,
+        cladding: made.cladding.clone(),
+    })
 }
 
 /// How thick the rest of a Smart Cut donor is drawn above its implanted plane, µm: cut short, as
@@ -828,7 +924,7 @@ fn start_films(
             _ => None,
         })
     };
-    let eps = |m: &Material| -> Result<f64> { Ok(m.permittivity(wavelength)?.re) };
+    let eps = |m: &Material| -> Result<f64> { drawn_eps(m, wavelength) };
     let paint = |layer: &str, film: &str, eps: f64| Paint {
         layer: layer.into(),
         film: film.into(),

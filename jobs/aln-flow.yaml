@@ -1,0 +1,30 @@
+# How a 1 µm aluminium nitride guide 650 nm thick on 2 µm of oxide (Xiong et al. 2012's guides)
+# would be made: the oxide grown on a bare silicon wafer, the AlN sputtered, written in HSQ and
+# etched in Cl2/BCl3/Ar, the cladding PECVD oxide. AlN is a uniaxial crystal; sputtered, it grows
+# with its c axis normal to the wafer, and the layer takes its ordinary index, the one a TE mode
+# sees. The catalogue's AlN model covers 0.4 to 0.9 µm and its silicon 1.2 to 14 µm, so nothing
+# is solved here: the flow's pictures take AlN's permittivity at 0.9 µm, the others' at 1.55 µm.
+#   photonoxide run jobs/aln-flow.yaml
+name: aln-flow
+
+device:
+  kind: waveguide
+  stack:
+    core: AlN
+    substrate: si
+    cladding: sio2
+    layer:
+      - name: BOX
+        thickness_um: 2.0
+        material: sio2
+        background: sio2
+      - name: AlN
+        thickness_um: 0.65
+        material: aln
+        background: sio2
+  parameters:
+    width: 1 um
+    thickness: 650 nm
+
+task:
+  kind: fabrication
