@@ -72,6 +72,26 @@
 //! swarm's 0.202 dB and level with Table 1's 0.168 dB, 0.10 dB above their 0.07 dB. Reported, not
 //! checked.
 //!
+//! **Lithography inside the loop** (S. Raza (Khan), M. Hammood, N. A. F. Jaeger, L. Chrostowski,
+//! "Fabrication-aware inverse design with shape optimization for photonic integrated circuits",
+//! Opt. Lett. 50, 117 (2024), [doi:10.1364/OL.543961](https://doi.org/10.1364/OL.543961), read in
+//! the manuscript, arXiv:2410.07353). Their Y-branch's figure of merit is computed on what a
+//! lithography model predicts the design prints as, its gradient through the model (their Eq. 2).
+//! Their models, UBC's DUV model in Calibre and PreFab's network for EBL, are neither open nor
+//! stated; here the proxy of `topology::Lithography`, a Gaussian blur and a threshold at ½, with
+//! σ the widest that prints a 150 nm line within 1 % of its width (58.16 nm): S. K. Selvaraja et
+//! al., J. Lightwave Technol. 27, 4076 (2009),
+//! [doi:10.1109/JLT.2009.2022282](https://doi.org/10.1109/JLT.2009.2022282), Section II-B and
+//! Fig. 6, print lines from 150 nm up on target by 193 nm lithography and ask 1 % of a line's
+//! width. Both designs are the adjoint search's (L-BFGS-B from Table 1's, 51 evaluations): the
+//! standard one on the drawn model, the other on the printed one (each evaluation printing the
+//! design, the adjoint pulled back through the proxy). Printed, the standard design loses
+//! 0.0543 dB against 0.0387 dB drawn; the one designed printed loses 0.0357 dB printed (0.0670 dB
+//! drawn: it is drawn to print right). Their test of a simulation, the design made with the model
+//! printing better than the standard one, is checked; their Table 1 (0.067 dB as designed, 0.089
+//! printed and 0.068 designed printed for DUV) is their own device at 1320 nm with their models,
+//! printed beside ours as context.
+//!
 //! ```sh
 //! cargo run --release --example optimize_ybranch             # the 2D search
 //! cargo run --release --example optimize_ybranch -- --full   # and its 3D check
@@ -94,6 +114,7 @@ use photonoxide::device::{Device, FdfdGrid, StripYBranch, Values};
 use photonoxide::fdfd::{Boundaries, Direction, Grid, Polarization, PortMode, Solver2d};
 use photonoxide::geometry::{Point, Shape};
 use photonoxide::mode::slab::Slab;
+use photonoxide::topology::{Edge, Lithography};
 use photonoxide::units::{Length, Wavelength};
 use rayon::prelude::*;
 
@@ -135,6 +156,17 @@ const RECORDED_3D: [f64; 3] = [0.46872531214085456, 0.4731107712154683, 0.475224
 const RECORDED_3D_ADJOINT: [f64; 3] = [0.47431246309412595, 0.4771019364481287, 0.4790499665941155];
 /// Lalau-Keraly et al.'s 3D insertion loss, dB (their Fig. 3, a level set's shape).
 const LALAU_KERALY_3D: f64 = 0.07;
+/// The lithography proxy's basis (Selvaraja et al. 2009, Section II-B and Fig. 6): 193 nm
+/// lithography printed lines from 150 nm up on target, and photonic circuits ask for 1 % of a
+/// line's width; the proxy's threshold, ½ (a wide line prints at its drawn width).
+const LINEAR_FROM: f64 = 0.15;
+const ACCURACY: f64 = 0.01;
+const THRESHOLD: f64 = 0.5;
+/// Khan et al.'s Table 1, their Y-branch (EBL and DUV): the insertion loss at 1320 nm, dB, as
+/// designed (ideal), and predicted by each lithography model for the standard design and for
+/// the one designed with the model.
+const KHAN_YBRANCH: [(&str, f64, f64, f64); 2] =
+    [("EBL", 0.067, 0.072, 0.067), ("DUV", 0.067, 0.089, 0.068)];
 
 /// The device's values with the taper's widths `w` (w1 … w13).
 fn values(device: &StripYBranch, w: &[f64]) -> photonoxide::Result<Values> {
@@ -215,13 +247,17 @@ struct Model {
     clad: f64,
     /// The arms' share of each cell (fixed), where they are.
     arms: Vec<f64>,
+    /// The lithography proxy each design is printed by, if any.
+    litho: Option<Lithography>,
     template: Solver2d,
     input: PortMode,
     outputs: [PortMode; 2],
 }
 
 impl Model {
-    fn new(device: &StripYBranch) -> photonoxide::Result<Model> {
+    /// The model of the drawn design, or with `litho` (σ, µm, and the threshold) the model of
+    /// what the lithography proxy prints from it.
+    fn new(device: &StripYBranch, litho: Option<(f64, f64)>) -> photonoxide::Result<Model> {
         let geometry = device.geometry(&values(device, &TABLE)?)?;
         let wavelength = Wavelength::um(WAVELENGTH)?;
         // the materials inside and beside the film, and the slab's TE index
@@ -283,8 +319,12 @@ impl Model {
             })
             .collect();
         let (core, clad) = (index * index, clad * clad);
-        let mut eps = vec![c64::new(0.0, 0.0); nx * ny];
-        fill(&grid, &arms, (core, clad), &TABLE, &mut eps);
+        // the proxy on the model's own grid
+        let litho = litho
+            .map(|(sigma, t)| Lithography::new([nx, ny, 1], STEP, sigma, t, Edge::Renormalized))
+            .transpose()?;
+        // the ports' modes from the model's own guides, printed if it prints
+        let eps = permittivities(&shares(&grid, &arms, litho.as_ref(), &TABLE)?, (core, clad));
         let template = Solver2d::from_cells_on(
             grid,
             Polarization::Hz,
@@ -302,26 +342,43 @@ impl Model {
             core,
             clad,
             arms,
+            litho,
             template,
             input,
             outputs: [upper, lower],
         })
     }
 
+    /// Each cell's permittivity for the taper's widths `w`, drawn or printed.
+    fn cells(&self, w: &[f64]) -> photonoxide::Result<Vec<c64>> {
+        Ok(permittivities(
+            &shares(&self.grid, &self.arms, self.litho.as_ref(), w)?,
+            (self.core, self.clad),
+        ))
+    }
+
     /// The power into the upper arm and its derivatives in w2 … w12: one solve and its adjoint
-    /// (`Solver2d::mode_power_gradient`, ∂P/∂ε at every cell), each width's ∂ε/∂w by central
-    /// differences of the cells' exact areas, which take no solve.
+    /// (`Solver2d::mode_power_gradient`, ∂P/∂ε at every cell), pulled back through the proxy
+    /// if the model prints (`Lithography::pullback`, Khan et al.'s Eq. 2), each width's ∂m/∂w
+    /// by central differences of the cells' exact areas, which take no solve.
     fn power_gradient(&self, w: &[f64]) -> photonoxide::Result<(f64, Vec<f64>)> {
-        let cells = |w: &[f64]| {
-            let mut eps = vec![c64::new(0.0, 0.0); self.grid.nx * self.grid.ny];
-            fill(&self.grid, &self.arms, (self.core, self.clad), w, &mut eps);
-            eps
-        };
         let lam = Wavelength::um(WAVELENGTH)?;
-        let s = self.template.reuse_cells(lam, &cells(w))?;
+        let s = self.template.reuse_cells(lam, &self.cells(w)?)?;
         let field = s.solve_system(&s.mode_source(&self.input, Direction::Forward))?;
         let upper = &self.outputs[0];
         let (p, per_cell) = s.mode_power_gradient(&field, upper, Direction::Forward)?;
+        // ∂P/∂m per cell: the drawn design's ∂ε/∂m is the contrast, a printed one's goes
+        // through the proxy first
+        let by_mask = match &self.litho {
+            Some(l) => {
+                let contrast: Vec<f64> = per_cell
+                    .iter()
+                    .map(|g| g * (self.core - self.clad))
+                    .collect();
+                Some(l.pullback(&mask(&self.grid, &self.arms, w), &contrast)?)
+            }
+            None => None,
+        };
         let dy = self.grid.dy;
         let scale = upper.power(dy) / self.input.power(dy);
         let gradient = (1..w.len() - 1)
@@ -330,14 +387,25 @@ impl Model {
                 let at = |d: f64| {
                     let mut v = w.to_vec();
                     v[k] += d;
-                    cells(&v)
+                    mask(&self.grid, &self.arms, &v)
                 };
                 let (up, down) = (at(SHAPE_STEP), at(-SHAPE_STEP));
-                let d: f64 = per_cell
-                    .iter()
-                    .zip(up.iter().zip(&down))
-                    .map(|(g, (a, b))| g * (a.re - b.re))
-                    .sum();
+                let d: f64 = match &by_mask {
+                    Some(g) => g
+                        .iter()
+                        .zip(up.iter().zip(&down))
+                        .map(|(g, (a, b))| g * (a - b))
+                        .sum(),
+                    None => {
+                        let cells = |m: &[f64]| permittivities(m, (self.core, self.clad));
+                        let (up, down) = (cells(&up), cells(&down));
+                        per_cell
+                            .iter()
+                            .zip(up.iter().zip(&down))
+                            .map(|(g, (a, b))| g * (a.re - b.re))
+                            .sum()
+                    }
+                };
                 d * scale / (2.0 * SHAPE_STEP)
             })
             .collect();
@@ -346,11 +414,9 @@ impl Model {
 
     /// The power into the upper and the lower arm's TE0 for the taper's widths `w`.
     fn power(&self, w: &[f64]) -> photonoxide::Result<[f64; 2]> {
-        let mut eps = vec![c64::new(0.0, 0.0); self.grid.nx * self.grid.ny];
-        fill(&self.grid, &self.arms, (self.core, self.clad), w, &mut eps);
         let s = self
             .template
-            .reuse_cells(Wavelength::um(WAVELENGTH)?, &eps)?;
+            .reuse_cells(Wavelength::um(WAVELENGTH)?, &self.cells(w)?)?;
         let field = s.solve_system(&s.mode_source(&self.input, Direction::Forward))?;
         let dy = self.grid.dy;
         let p_in = self.input.power(dy);
@@ -361,9 +427,32 @@ impl Model {
     }
 }
 
-/// Each cell's permittivity, its area's mean: the taper (the not-a-knot spline through `w`) and
+/// Each cell's share of silicon, drawn (`mask`) or printed by `litho`.
+fn shares(
+    g: &Grid,
+    arms: &[f64],
+    litho: Option<&Lithography>,
+    w: &[f64],
+) -> photonoxide::Result<Vec<f64>> {
+    let drawn = mask(g, arms, w);
+    match litho {
+        Some(l) => l.print(&drawn),
+        None => Ok(drawn),
+    }
+}
+
+/// Each cell's permittivity from its share of silicon.
+fn permittivities(shares: &[f64], (core, clad): (f64, f64)) -> Vec<c64> {
+    shares
+        .iter()
+        .map(|f| c64::new(clad + (core - clad) * f, 0.0))
+        .collect()
+}
+
+/// Each cell's share of silicon, its area's: the taper (the not-a-knot spline through `w`) and
 /// the leads exactly along each of 8 sub-columns, the arms from their shares.
-fn fill(g: &Grid, arms: &[f64], (core, clad): (f64, f64), w: &[f64], eps: &mut [c64]) {
+fn mask(g: &Grid, arms: &[f64], w: &[f64]) -> Vec<f64> {
+    let mut shares = vec![0.0; g.nx * g.ny];
     let h = TAPER / (w.len() - 1) as f64;
     let m = not_a_knot(w, h);
     let width = |x: f64| -> Option<(f64, f64)> {
@@ -406,10 +495,136 @@ fn fill(g: &Grid, arms: &[f64], (core, clad): (f64, f64), w: &[f64], eps: &mut [
                 .sum::<f64>()
                 / (8.0 * g.dy);
             let k = j * g.nx + i;
-            let f = (share + arms[k]).min(1.0);
-            eps[k] = c64::new(clad + (core - clad) * f, 0.0);
+            shares[k] = (share + arms[k]).min(1.0);
         }
     }
+    shares
+}
+
+/// The adjoint's derivatives of `model`'s power at Table 1's widths against central differences
+/// of the power at four of them: the largest relative difference.
+fn check_derivatives(model: &Model) -> photonoxide::Result<f64> {
+    let (_, exact) = model.power_gradient(&TABLE)?;
+    let mut worst = 0.0f64;
+    for k in [1usize, 4, 7, 10] {
+        let at = |d: f64| -> photonoxide::Result<f64> {
+            let mut w = TABLE.to_vec();
+            w[k] += d;
+            Ok(model.power(&w)?[0])
+        };
+        let differences = (at(1e-4)? - at(-1e-4)?) / 2e-4;
+        let relative = (exact[k - 1] - differences).abs() / exact[k - 1].abs();
+        println!(
+            "  dP/dw{} at Table 1's: adjoint {:.6e}, central differences {differences:.6e} ({relative:.1e})",
+            k + 1,
+            exact[k - 1]
+        );
+        worst = worst.max(relative);
+    }
+    Ok(worst)
+}
+
+/// Genoxide's L-BFGS-B on `model`'s power into the upper arm from Table 1's widths, at most
+/// ADJOINT evaluations, each a solve and its adjoint: the best widths w1 … w13, the evaluations
+/// and the solves.
+fn adjoint_search(model: &Model) -> (Vec<f64>, u64, usize) {
+    let solves = std::sync::atomic::AtomicUsize::new(0);
+    let gradient_fitness = |x: &Reals, gradient: &mut [f64]| -> f64 {
+        solves.fetch_add(2, std::sync::atomic::Ordering::Relaxed);
+        match model.power_gradient(&widths(x)) {
+            Ok((p, g)) => {
+                for (a, b) in gradient.iter_mut().zip(&g) {
+                    *a = -(b * 1e9).round() / 1e9;
+                }
+                -(p * 1e9).round() / 1e9
+            }
+            Err(_) => f64::NAN,
+        }
+    };
+    let lbfgsb = Lbfgsb::builder(Real::new(vec![BOUNDS.0..=BOUNDS.1; 11]).expect("bounds"))
+        .initial_genome(Reals::from(TABLE[1..12].to_vec()))
+        .gradient_tolerance(0.0)
+        .function_tolerance(0.0)
+        .minimize()
+        .build()
+        .expect("a valid L-BFGS-B");
+    let outcome = Engine::new(lbfgsb, Differentiable(&gradient_fitness))
+        .stop_when(Stop::evaluations(ADJOINT))
+        .run()
+        .expect("a run");
+    (
+        widths(outcome.best_genome()),
+        outcome.evaluations(),
+        solves.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// The proxy's σ, µm: the widest Gaussian that prints an isolated line LINEAR_FROM wide within
+/// ACCURACY of its width at THRESHOLD (`Lithography::line_width`), by bisection.
+fn duv_sigma() -> f64 {
+    let (mut lo, mut hi) = (0.0, LINEAR_FROM);
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        let printed = Lithography::line_width(LINEAR_FROM, mid, THRESHOLD);
+        if LINEAR_FROM - printed <= ACCURACY * LINEAR_FROM {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    lo
+}
+
+/// Khan et al.'s lithography inside the loop: the standard (`drawn`) design and one found by the
+/// same search on the printed model, each drawn and printed.
+fn lithography_in_the_loop(
+    checks: &mut common::Checks,
+    device: &StripYBranch,
+    drawn: &Model,
+    standard: &[f64],
+) -> photonoxide::Result<()> {
+    let sigma = duv_sigma();
+    println!(
+        "Khan et al.'s lithography inside the loop: each design printed by a proxy, a Gaussian blur of σ = {:.2} nm and a threshold at {THRESHOLD} (the widest blur that prints a {:.0} nm line, Selvaraja et al.'s narrowest on target, within {:.0} % of its width: {:.2} nm), in the swarm's 2D model",
+        1000.0 * sigma,
+        1000.0 * LINEAR_FROM,
+        100.0 * ACCURACY,
+        1000.0 * Lithography::line_width(LINEAR_FROM, sigma, THRESHOLD)
+    );
+    let printing = Model::new(device, Some((sigma, THRESHOLD)))?;
+    let worst = check_derivatives(&printing)?;
+    checks.at_most(
+        "adjoint through the proxy against differences (relative)",
+        worst,
+        1e-3,
+    );
+    let (aware, evaluations, solves) = adjoint_search(&printing);
+    println!(
+        "  designed printed (Khan et al.'s FAID): the same L-BFGS-B from Table 1's on the printed model, {evaluations} evaluations, {solves} solves"
+    );
+    let shown: Vec<String> = aware.iter().map(|w| format!("{w:.4}")).collect();
+    println!("  its widths w1–w13 (µm): {}", shown.join(", "));
+    let each = |m: &Model, w: &[f64]| -> photonoxide::Result<f64> {
+        let p = m.power(w)?;
+        Ok(loss(0.5 * (p[0] + p[1])))
+    };
+    let (sd, sp) = (each(drawn, standard)?, each(&printing, standard)?);
+    let (ad, ap) = (each(drawn, &aware)?, each(&printing, &aware)?);
+    println!("  insertion loss (dB)          drawn    printed");
+    println!("  the adjoint's design        {sd:.4}    {sp:.4}");
+    println!("  designed printed            {ad:.4}    {ap:.4}");
+    for (process, ideal, standard, aware) in KHAN_YBRANCH {
+        println!(
+            "  Khan et al.'s Table 1, their Y-branch at 1320 nm, {process}: {ideal} as designed, {standard} printed, {aware} designed printed (their device, wavelength and models: context, not compared)"
+        );
+    }
+    // their test of a simulation: the design made with the model prints better than the standard one
+    checks.at_most(
+        "printed loss, designed printed less the standard's (dB)",
+        ap - sp,
+        0.0,
+    );
+    Ok(())
 }
 
 /// The 3D solves of `w` on the three grids: the power into each arm on each grid.
@@ -540,7 +755,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .with_averaging(Averaging::Diagonal)
             .with_samples(1),
     );
-    let model = Model::new(&device)?;
+    let model = Model::new(&device, None)?;
     let wavelength = Wavelength::um(WAVELENGTH)?;
     let mut setup = common::Setup::new();
     setup.device(&device, &values(&device, &TABLE)?, wavelength);
@@ -676,56 +891,13 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B from Table 1's, each evaluation a solve and its adjoint, at most {ADJOINT} ({} solves)",
         2 * ADJOINT
     );
-    let (_, exact) = model.power_gradient(&TABLE)?;
-    let mut worst = 0.0f64;
-    for k in [1usize, 4, 7, 10] {
-        let at = |d: f64| -> photonoxide::Result<f64> {
-            let mut w = TABLE.to_vec();
-            w[k] += d;
-            Ok(model.power(&w)?[0])
-        };
-        let differences = (at(1e-4)? - at(-1e-4)?) / 2e-4;
-        let relative = (exact[k - 1] - differences).abs() / exact[k - 1].abs();
-        println!(
-            "  dP/dw{} at Table 1's: adjoint {:.6e}, central differences {differences:.6e} ({relative:.1e})",
-            k + 1,
-            exact[k - 1]
-        );
-        worst = worst.max(relative);
-    }
+    let worst = check_derivatives(&model)?;
     checks.at_most("adjoint against differences (relative)", worst, 1e-3);
-    let solves = std::sync::atomic::AtomicUsize::new(0);
-    let gradient_fitness = |x: &Reals, gradient: &mut [f64]| -> f64 {
-        solves.fetch_add(2, std::sync::atomic::Ordering::Relaxed);
-        match model.power_gradient(&widths(x)) {
-            Ok((p, g)) => {
-                for (a, b) in gradient.iter_mut().zip(&g) {
-                    *a = -(b * 1e9).round() / 1e9;
-                }
-                -(p * 1e9).round() / 1e9
-            }
-            Err(_) => f64::NAN,
-        }
-    };
-    let lbfgsb = Lbfgsb::builder(Real::new(vec![BOUNDS.0..=BOUNDS.1; 11]).expect("bounds"))
-        .initial_genome(Reals::from(TABLE[1..12].to_vec()))
-        .gradient_tolerance(0.0)
-        .function_tolerance(0.0)
-        .minimize()
-        .build()
-        .expect("a valid L-BFGS-B");
-    let outcome = Engine::new(lbfgsb, Differentiable(&gradient_fitness))
-        .stop_when(Stop::evaluations(ADJOINT))
-        .run()
-        .expect("a run");
-    let adjoint = widths(outcome.best_genome());
+    let (adjoint, evaluations, solves) = adjoint_search(&model);
     let ours = model.power(&adjoint)?;
     println!(
         "  {} evaluations, {} solves; its best, {:.6} into the upper arm in the swarm's model (the swarm's, after {EVALUATIONS}: {:.6})",
-        outcome.evaluations(),
-        solves.load(std::sync::atomic::Ordering::Relaxed),
-        ours[0],
-        swarm[0]
+        evaluations, solves, ours[0], swarm[0]
     );
     let shown: Vec<String> = adjoint.iter().map(|w| format!("{w:.4}")).collect();
     println!("  the widths w1–w13 (µm): {}", shown.join(", "));
@@ -743,6 +915,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         loss(pa) - loss(p),
         0.02,
     );
+
+    lithography_in_the_loop(&mut checks, &device, &model, &adjoint)?;
 
     println!("3D FDFD of the swarm's design, TE-like, at {WAVELENGTH} µm:");
     if full {
