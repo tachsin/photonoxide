@@ -39,6 +39,7 @@ mod constraints;
 mod helmholtz;
 mod robust;
 pub mod ruler;
+pub mod smoothed;
 #[cfg(test)]
 mod tests;
 
@@ -51,6 +52,7 @@ pub use robust::{
     Epigraph, Realizations, across_edge_1d, across_edge_2d, edge_shift_1d, edge_shift_2d,
     minimum_length,
 };
+pub use smoothed::SmoothedProjection;
 
 /// How the filter treats the region's edges.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -338,6 +340,8 @@ pub struct Density {
     eps: [f64; 2],
     filter: Option<ConicFilter>,
     projection: Option<Projection>,
+    /// Hammond et al. 2025's subpixel-smoothed projection, in place of `projection`.
+    smoothed: Option<SmoothedProjection>,
 }
 
 impl Density {
@@ -363,6 +367,7 @@ impl Density {
             eps,
             filter: None,
             projection: None,
+            smoothed: None,
         })
     }
 
@@ -383,8 +388,24 @@ impl Density {
     pub fn with_projection(self, projection: Projection) -> Density {
         Density {
             projection: Some(projection),
+            smoothed: None,
             ..self
         }
+    }
+
+    /// The same region with Hammond et al. 2025's subpixel-smoothed projection after the filter,
+    /// in place of the threshold projection: β may be infinite ([`SmoothedProjection`]).
+    pub fn with_smoothed_projection(self, projection: SmoothedProjection) -> Density {
+        Density {
+            projection: None,
+            smoothed: Some(projection),
+            ..self
+        }
+    }
+
+    /// The subpixel-smoothed projection, if any.
+    pub fn smoothed_projection(&self) -> Option<SmoothedProjection> {
+        self.smoothed
     }
 
     /// The number of pixels.
@@ -451,6 +472,9 @@ impl Density {
     /// [`Error::InvalidValue`] for a density that isn't one value per pixel.
     pub fn physical(&self, rho: &[f64]) -> Result<Vec<f64>> {
         let filtered = self.filtered(rho)?;
+        if let Some(s) = self.smoothed {
+            return s.apply(self.shape, self.pixel_um, &filtered);
+        }
         Ok(match self.projection {
             Some(p) => filtered.iter().map(|&x| p.value(x)).collect(),
             None => filtered,
@@ -481,13 +505,16 @@ impl Density {
     pub fn pullback(&self, rho: &[f64], d_physical: &[f64]) -> Result<Vec<f64>> {
         self.check_len(d_physical, "gradient")?;
         let filtered = self.filtered(rho)?;
-        let d_filtered: Vec<f64> = match self.projection {
-            Some(p) => filtered
-                .iter()
-                .zip(d_physical)
-                .map(|(&x, &g)| g * p.derivative(x))
-                .collect(),
-            None => d_physical.to_vec(),
+        let d_filtered: Vec<f64> = match (self.smoothed, self.projection) {
+            (Some(s), _) => s.transpose(self.shape, self.pixel_um, &filtered, d_physical)?,
+            (None, projection) => match projection {
+                Some(p) => filtered
+                    .iter()
+                    .zip(d_physical)
+                    .map(|(&x, &g)| g * p.derivative(x))
+                    .collect(),
+                None => d_physical.to_vec(),
+            },
         };
         match &self.filter {
             Some(f) => f.transpose(&d_filtered),

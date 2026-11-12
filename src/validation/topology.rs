@@ -188,5 +188,35 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "sums of at most 1600 ones over 10⁴, exact in binary but for their last bits: held to 1e-14",
             ),
         ),
+        (
+            "topology/ssp-plane",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                1e-9,
+                Measured,
+                "Simpson's rule on 20 000 intervals once the arc's square root is taken out: 1.0e-11 (the_ssp_study), the projection of a linear field exact; held to 1e-9",
+            ),
+        ),
+        (
+            "topology/ssp-disc",
+            Rule::new(
+                Absolute,
+                Order,
+                0.1 * 0.55 * 5.0 / 250.0,
+                Measured,
+                "the planar fill on a curve, first order in R̂/a: 0.078 R̂/a at 20, 10, 5 and 2.5 nm pixels (the_ssp_study); held to 0.1 R̂/a, 1.1e-3 at 5 nm",
+            ),
+        ),
+        (
+            "topology/ssp-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-8,
+                Measured,
+                "fourth-order differences: at β = ∞, 1.5e-10, 1.6e-10 and 1.6e-6 at δ = 1e-5, 1e-4 and 1e-3, and at β = 64, 4.8e-10, 4.3e-11 and 1.1e-9 (the_ssp_study), round-off below and truncation above; at δ = 1e-4 held to 1e-8",
+            ),
+        ),
     ]
 }

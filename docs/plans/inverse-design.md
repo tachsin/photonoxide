@@ -291,7 +291,24 @@ pixel by the interface it implies.
 *Validation:* a straight and a curved interface whose fill fraction per pixel is exact, at the
 order the paper states; the gradient against differences at large and infinite β; their
 convergence comparison against the standard projection on one of their problems (reproduced on
-the mode converter). *Papers:* Hammond 2025 (Opt. Express 33, 33620; to get, section 5).
+the mode converter). *Papers:* Hammond 2025 (Opt. Express 33, 33620; in hand, read 2026-11-12).
+
+*Done 2026-11-12:* `topology::SmoothedProjection` and `Density::with_smoothed_projection` (their
+Eqs. 7, 10–12 with R̂ = 0.55 Δx, β up to ∞, the gradient through each pixel's value and its
+differences; docs/methods/topology.md, "The subpixel-smoothed projection"). Cases:
+`topology/ssp-plane` (F₂ against the parabolic kernel's share of a half-space by quadrature, and
+the projection of a linear field against F₂ of the exact distance, 1.0e-11), `topology/ssp-disc`
+(each pixel near a circle against the exact smoothed disc: first order in R̂/a, 0.078 R̂/a from 20
+to 2.5 nm, the planar fill's own error on a curve) and `topology/ssp-gradient` (against
+differences at β = 64 and ∞, 1.6e-10). The comparison is on their own crossing rather than the
+mode converter, since it is the problem their Figs. 2, 5 and 6 report:
+`optimize_crossing_ssp` reaches their 99 % by topology optimization to β = ∞ (0.9993) and by shape
+optimization at β = ∞ from a plain cross (0.9952); the standard projection's gradient falls to
+8.6e-29 at β = 1024 while the smoothed one's settles at its β = ∞ value (Fig. 5b); from the plain
+cross the smoothed projection reaches 99 % in 23 to 28 evaluations at every β, the standard one at
+β = 16 only within 60 (Fig. 2). The robust realizations and the length constraints keep the
+threshold projection; the topology job too, since a run's record (JSON) has no number for β = ∞.
+*I6 is done.*
 
 ### I7: Level sets and shape derivatives
 

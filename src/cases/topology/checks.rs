@@ -57,7 +57,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "topology/robust-edge-1d",
             title: r"The 1D hat filter's density across a solid half-line's edge on a pixel boundary, at every pixel centre within a radius of it, against $\frac12(1 - t)^2$ ($t$ the distance in radii, outside; its reflection inside) less the pixels' own offset $\frac18(\Delta/R)^2$, for $R/\Delta$ = 5, 20 and 80 (largest departure shown)",
             tier: Tier::Analytic,
-            source: r"the hat's share of weight beyond a distance $x$, $\int_x^R (R - s)\,ds / R^2$; on pixels, the sum $\sum_{k > i} (R - k)$ over whole pixels is the integral less $\Delta^2/8$, exactly, when $R/\Delta$ is whole (the discrete midpoint rule on a linear function cut at a pixel boundary)",
+            source: r"the hat's share of weight beyond a distance $x$, $\int_x^R (R - s) ds / R^2$; on pixels, the sum $\sum_{k \gt i} (R - k)$ over whole pixels is the integral less $\Delta^2/8$, exactly, when $R/\Delta$ is whole (the discrete midpoint rule on a linear function cut at a pixel boundary)",
             run: robust_edge_1d,
         },
         Case {
@@ -104,7 +104,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "topology/constraint-gradient",
-            title: r"The minimum linewidth and spacing constraints (Zhou et al.'s Eqs. 10 and 11, indicators $\bar\rho\, e^{-c\lvert\nabla\tilde\rho\rvert^2}$ and $(1 - \bar\rho)\, e^{-c\lvert\nabla\tilde\rho\rvert^2}$, $c = (R/\Delta)^4$) on a 24 × 20 region (20 nm pixels, a conic filter of 3 pixels, $\beta = 8$, 90 nm lines and gaps, so $\eta_e = 0.9375$ and $\eta_d = 0.0625$): their gradients through the min, the indicator's exponential, the projection and the filter's transpose, against fourth-order differences of the densities ($\delta = 10^{-3}$) at five pixels, corners and edges among them (largest relative difference shown)",
+            title: r"The minimum linewidth and spacing constraints (Zhou et al.'s Eqs. 10 and 11, indicators $\bar\rho  e^{-c\lvert\nabla\tilde\rho\rvert^2}$ and $(1 - \bar\rho)  e^{-c\lvert\nabla\tilde\rho\rvert^2}$, $c = (R/\Delta)^4$) on a 24 × 20 region (20 nm pixels, a conic filter of 3 pixels, $\beta = 8$, 90 nm lines and gaps, so $\eta_e = 0.9375$ and $\eta_d = 0.0625$): their gradients through the min, the indicator's exponential, the projection and the filter's transpose, against fourth-order differences of the densities ($\delta = 10^{-3}$) at five pixels, corners and edges among them (largest relative difference shown)",
             tier: Tier::Analytic,
             source: r"M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, Comput. Methods Appl. Mech. Engrg. 293, 266 (2015), doi:10.1016/j.cma.2015.05.003, Eqs. 8–11 and Section 2.2; Hammond et al. 2021, Eqs. 10–13",
             run: constraint_gradient_case,
@@ -143,6 +143,28 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"A. M. Hammond, A. Oskooi, S. G. Johnson, S. E. Ralph, Opt. Express 29, 23916 (2021), doi:10.1364/OE.431188, Section 4, Eqs. 21 and 22: on a binary pattern the dilated ring around a region adds nothing ($\bar\rho = 0$ outside an island, 1 outside a hole), so each value is the small regions' area",
             run: area_shapes_case,
+        },
+        Case {
+            id: "topology/ssp-plane",
+            title: r"Hammond et al. 2025's subpixel-smoothed projection across a straight interface: their fill (d/\hat R)20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400Eq. 10) against the parabolic kernel's share of a half-space at 201 distances across hat R and the projection at eta = \infty a linear 	ilde\rho20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400a ramp at 17° on 40 × 30 pixels of 10 nm) against  each pixel's exact distance to its level set (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7, 9–12 and 23: the kernel hat k_2 \propto 1 - (r/\hat R)^2 along the third axis is (\hat R^2 - \rho^2)^{3/2}/2\pi\hat R^5 the plane, integrated over the half-space by quadrature; a linear 	ilde\rho its gradient exactly by differences, so  exact",
+            run: ssp_plane_case,
+        },
+        Case {
+            id: "topology/ssp-disc",
+            title: r"The subpixel-smoothed projection at eta = \infty a curved interface: a disc of radius 60 0.25 µm, 	ilde\rho cone about its centre, on 5 nm pixels (hat R60 2.75 nm); each pixel within hat R the circle against the kernel's share of the disc there, the exact smoothed disc (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"Hammond et al. 2025, Eq. 6: the fill takes the interface as a plane across the smoothing sphere, an error first order in hat R/a a curve; the exact smoothed disc by quadrature of the kernel over arcs of the circle",
+            run: ssp_disc_case,
+        },
+        Case {
+            id: "topology/ssp-gradient",
+            title: r"The subpixel-smoothed projection's gradient through a conic filter of 50 nm on a 30 × 24 region of 10 nm pixels, at eta60 64 and infty 
+- of  = \sum_i w_i \hat{\tilde\rho}_i20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400fixed varied weights) against fourth-order differences (delta = 10^{-4}20 20 102 502 12 61 79 80 81 98 503 701 33 100 204 250 395 398 399 400 at every seventh pixel (largest difference relative to the largest derivative, shown)",
+            tier: Tier::Analytic,
+            source: r"Hammond et al. 2025, Eqs. 7, 10–12: the chain rule through each pixel's value and the differences of its gradient;  twice differentiable, so the projection is too, even at eta = \infty from changes in topology",
+            run: ssp_gradient_case,
         },
     ]
 }
@@ -1097,4 +1119,177 @@ pub(crate) fn area_shapes_error() -> f64 {
 
 fn area_shapes_case() -> Outcome {
     zero(area_shapes_error(), 1e-14)
+}
+
+/// The 2D kernel the subpixel-smoothed projection's fill implies: Hammond et al. 2025's parabolic
+/// k̂₂ of radius `r` (their Eq. 23) integrated along the extruded third axis,
+/// 5 (r² − ρ²)^{3/2} / (2π r⁵) at distance ρ.
+fn ssp_kernel(rho: f64, r: f64) -> f64 {
+    let h2 = (r * r - rho * rho).max(0.0);
+    5.0 * h2 * h2.sqrt() / (2.0 * std::f64::consts::PI * r.powi(5))
+}
+
+/// ∫ₐᵇ k(ρ) ρ θ(ρ) dρ by Simpson's rule on ρ = a + (b − a) u², which takes the square root that
+/// θ (an arc's angle) has at a.
+fn ssp_ring_integral(a: f64, b: f64, r: f64, theta: impl Fn(f64) -> f64) -> f64 {
+    if b <= a {
+        return 0.0;
+    }
+    let n = 20_000;
+    let f = |u: f64| {
+        let rho = a + (b - a) * u * u;
+        ssp_kernel(rho, r) * rho * theta(rho) * 2.0 * (b - a) * u
+    };
+    let h = 1.0 / n as f64;
+    let mut s = f(0.0) + f(1.0);
+    for k in 1..n {
+        s += f(k as f64 * h) * if k % 2 == 1 { 4.0 } else { 2.0 };
+    }
+    s * h / 3.0
+}
+
+/// The kernel's share of the solid side of a plane at signed distance `d` (positive on the void
+/// side), radius `r`: the convolution their Eq. 9 takes, by quadrature.
+fn ssp_plane_fill(d: f64, r: f64) -> f64 {
+    if d < 0.0 {
+        return 1.0 - ssp_plane_fill(-d, r);
+    }
+    ssp_ring_integral(d, r, r, |rho| 2.0 * (d / rho).min(1.0).acos())
+}
+
+/// The kernel's share of a disc of radius `a` seen from a point `x` from its centre, radius `r`,
+/// by quadrature: the exact smoothed disc.
+fn ssp_disc_fill(x: f64, a: f64, r: f64) -> f64 {
+    let pi = std::f64::consts::PI;
+    // the circle of radius ρ about the point lies wholly inside the disc below |a − x| (when the
+    // point is inside) and wholly outside it (when outside); above, an arc of it
+    let split = (a - x).abs().min(r);
+    let inner = if x < a {
+        ssp_ring_integral(0.0, split, r, |_| 2.0 * pi)
+    } else {
+        0.0
+    };
+    let arc = |rho: f64| {
+        let c = (a * a - x * x - rho * rho) / (2.0 * x * rho);
+        if c >= 1.0 {
+            2.0 * pi
+        } else if c <= -1.0 {
+            0.0
+        } else {
+            2.0 * pi - 2.0 * c.acos()
+        }
+    };
+    inner + ssp_ring_integral(split, r, r, arc)
+}
+
+/// A straight interface: (i) their Eq. 10's F₂ against the kernel's share of a half-space by
+/// quadrature at 201 distances across R̂; (ii) the smoothed projection at β = ∞ of a linear ρ̃
+/// (a ramp at 17° to the axes on 40 × 30 pixels of 10 nm) against F₂ of each pixel's exact
+/// distance to its level set. The larger difference.
+pub(crate) fn ssp_plane_error() -> f64 {
+    use crate::topology::smoothed::{RADIUS, fill};
+    let mut worst = 0.0f64;
+    for k in 0..=200 {
+        let t = -1.0 + 0.01 * k as f64;
+        worst = worst.max((fill(t) - ssp_plane_fill(t, 1.0)).abs());
+    }
+    let (nx, ny, h) = (40usize, 30usize, 0.01);
+    let (c, s) = (0.3f64.cos(), 0.3f64.sin());
+    let slope = 2.0; // per µm: the ramp crosses ½ over 0.25 µm
+    let at = |p: usize| {
+        let (x, y) = ((p % nx) as f64 * h, (p / nx) as f64 * h);
+        0.5 + slope * ((x - 0.2) * c + (y - 0.15) * s)
+    };
+    let filtered: Vec<f64> = (0..nx * ny).map(at).collect();
+    let ssp = crate::topology::SmoothedProjection::new(f64::INFINITY, 0.5).expect("a projection");
+    let out = ssp.apply([nx, ny, 1], h, &filtered).expect("applied");
+    for (p, v) in out.iter().enumerate() {
+        let d = (0.5 - filtered[p]) / slope;
+        worst = worst.max((v - fill(d / (RADIUS * h))).abs());
+    }
+    worst
+}
+
+/// A disc of radius 0.25 µm, ρ̃ a cone 0.5 + (a − r)/0.2 µm about its centre on pixels of `h_nm`
+/// over 0.8 µm: at β = ∞, each pixel within R̂ of the circle against the kernel's share of the
+/// disc there (the exact smoothed disc), the largest difference.
+pub(crate) fn ssp_disc(h_nm: f64) -> f64 {
+    use crate::topology::smoothed::RADIUS;
+    let h = h_nm * 1e-3;
+    let a = 0.25;
+    let n = (0.8 / h).round() as usize;
+    let centre = 0.5 * n as f64 * h;
+    let radius = |p: usize| {
+        let x = ((p % n) as f64 + 0.5) * h - centre;
+        let y = ((p / n) as f64 + 0.5) * h - centre;
+        (x * x + y * y).sqrt()
+    };
+    let filtered: Vec<f64> = (0..n * n).map(|p| 0.5 + (a - radius(p)) / 0.2).collect();
+    let ssp = crate::topology::SmoothedProjection::new(f64::INFINITY, 0.5).expect("a projection");
+    let out = ssp.apply([n, n, 1], h, &filtered).expect("applied");
+    let r = RADIUS * h;
+    let mut worst = 0.0f64;
+    for (p, v) in out.iter().enumerate() {
+        let x = radius(p);
+        if (x - a).abs() < r {
+            worst = worst.max((v - ssp_disc_fill(x, a, r)).abs());
+        }
+    }
+    worst
+}
+
+/// The smoothed projection's gradient against fourth-order differences of F = Σ wᵢ ρ̃̂ᵢ (fixed
+/// varied weights) through a conic filter of 50 nm on a 30 × 24 region of 10 nm pixels, at
+/// β = `beta` (infinite for a level set), at the pixels within the filter's reach of a pixel
+/// near the level set: the largest difference relative to the largest exact derivative.
+pub(crate) fn ssp_gradient_error(beta: f64, delta: f64) -> f64 {
+    let (ni, nj) = (30usize, 24usize);
+    let n = ni * nj;
+    let d = Density::new([ni, nj, 1], 0.01, [1.0, 12.11])
+        .expect("a density")
+        .with_filter(0.05, Edge::Renormalized)
+        .expect("a filter")
+        .with_smoothed_projection(
+            crate::topology::SmoothedProjection::new(beta, 0.5).expect("a projection"),
+        );
+    let rho: Vec<f64> = (0..n)
+        .map(|p| 0.5 + 0.35 * (0.3 * (p % ni) as f64).sin() * (0.23 * (p / ni) as f64 + 0.2).cos())
+        .collect();
+    let w: Vec<f64> = (0..n).map(|p| (0.71 * p as f64).sin()).collect();
+    let f = |r: &[f64]| -> f64 {
+        d.physical(r)
+            .expect("physical")
+            .iter()
+            .zip(&w)
+            .map(|(a, b)| a * b)
+            .sum()
+    };
+    let g = d.pullback(&rho, &w).expect("pulled back");
+    let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    let mut worst = 0.0f64;
+    for p in (0..n).step_by(7) {
+        let at = |s: f64| {
+            let mut r = rho.clone();
+            r[p] += s * delta;
+            f(&r)
+        };
+        let fd = (at(-2.0) - 8.0 * at(-1.0) + 8.0 * at(1.0) - at(2.0)) / (12.0 * delta);
+        worst = worst.max((g[p] - fd).abs() / scale);
+    }
+    worst
+}
+
+fn ssp_plane_case() -> Outcome {
+    zero(ssp_plane_error(), 1e-9)
+}
+
+fn ssp_disc_case() -> Outcome {
+    zero(ssp_disc(5.0), 0.1 * 0.55 * 5.0 / 250.0)
+}
+
+fn ssp_gradient_case() -> Outcome {
+    zero(
+        ssp_gradient_error(64.0, 1e-4).max(ssp_gradient_error(f64::INFINITY, 1e-4)),
+        1e-8,
+    )
 }

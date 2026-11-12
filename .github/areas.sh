@@ -90,7 +90,7 @@ area fdfd \
 area topology \
   "src/topology/* src/cases/topology/* src/validation/topology.rs examples/designs/*" \
   "fdfd" \
-  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend"
+  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend optimize_crossing_ssp"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \

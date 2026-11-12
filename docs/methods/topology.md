@@ -1,7 +1,7 @@
 ---
 title: "Densities, filters, projections, robust designs and length scales"
 module: topology
-summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit; and minimum linewidth and spacing as constraints with their gradients."
+summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit; and minimum linewidth and spacing as constraints with their gradients; and the subpixel-smoothed projection, differentiable up to β = ∞."
 order: 23.7
 papers:
   - cite: "F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 24 December 2010; the June 2011 issue) (the filter, Eqs. 4–5; the chain rule, Eq. 7; the projection, Eq. 9)"
@@ -24,6 +24,8 @@ papers:
     doi: 10.1002/nme.3072
   - cite: "M. Chen et al., J. Opt. Soc. Am. B 41, A161 (2024) (the a-posteriori minimum length scale, Section 2, Eqs. 1–3; the testbed's mode converter, Section 3.C)"
     doi: 10.1364/JOSAB.506412
+  - cite: "A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, Opt. Express 33, 33620 (2025) (the subpixel-smoothed projection, Eqs. 7, 9–12 and 23; the crossing, Section 4.1)"
+    doi: 10.1364/OE.563512
 validation:
   - topology/projection-derivative
   - topology/projection-identities
@@ -43,6 +45,9 @@ validation:
   - topology/helmholtz-edge
   - topology/double-filter-gradient
   - topology/area-shapes
+  - topology/ssp-plane
+  - topology/ssp-disc
+  - topology/ssp-gradient
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -275,6 +280,49 @@ $\tilde c = c/R^2$, L the strip's length and |Ω| the region's size (their Eq. 1
 parts; their Eq. 19 keeps the first term): `geometric_threshold(c_tilde, share)`, about 1e-8 for
 $\tilde c = 64$ and R a hundredth of the region. They hold the constraint as g/ε − 1 ≤ 0.
 
+## The subpixel-smoothed projection
+
+The threshold projection's derivative vanishes almost everywhere as β grows and its second
+derivative blows up near η, so a design sharpened towards binary optimizes ever more slowly and
+not at all at β = ∞. Hammond et al. 2025 smooth the projected design over a sphere of radius
+$\hat R$ a little wider than a pixel instead, as if the step at the filtered field's level set were
+convolved with a kernel at infinite resolution (`topology::SmoothedProjection`,
+`Density::with_smoothed_projection`). Their Section 3 makes it local: the filtered field is
+nearly linear over $\hat R$, so at each pixel the distance to the level set is
+
+$$d = \frac{\eta - \tilde\rho}{\lVert\nabla\tilde\rho\rVert}$$
+
+(their Eq. 7; the gradient here by centred differences, one-sided at the region's edges), and
+within $\hat R$ of it the value is
+
+$$\hat{\tilde\rho} = \bigl(1 - F(d)\bigr)\,\hat\rho_- + F(d)\,\hat\rho_+, \qquad \hat\rho_\pm = P\bigl(\tilde\rho \pm \hat R \lVert\nabla\tilde\rho\rVert F(\mp d)\bigr)$$
+
+(Eqs. 11 and 12), the projection $P(\tilde\rho)$ itself farther away. $F$ is their fill $F_2$
+(Eq. 10), ½ − (15/16) t + (5/8) t³ − (3/16) t⁵ with t = d/R̂: the share of a sphere on the solid
+side of a plane, weighted by the parabolic kernel $\hat k_2 \propto 1 - (r/\hat R)^2$ (Eq. 23),
+twice differentiable and 0 and 1 beyond ±R̂. At β = ∞, $P$ is the step and the value near the
+interface is $F(d)$ alone: a level set, binary but for a layer a pixel thick, whose gradient is
+finite. $\hat R$ = 0.55 Δx, theirs. The gradient goes back through each pixel's value and the
+differences of its gradient (its stencil's transpose), then the filter's.
+
+Where two interfaces meet within about $\hat R$, $\nabla\tilde\rho$ vanishes, d runs off to
+infinity and the value falls back to $P(\tilde\rho)$: at finite β nothing worse than the threshold
+projection, at β = ∞ a jump where the topology changes. Their schedule therefore sharpens β in a
+few stages to ∞ once the topology has settled (16, 32, ∞), and shape-optimizes there. The robust
+realizations and the length constraints are written for the threshold projection and refuse a
+density with this one.
+
+**Checked** (`topology/ssp-plane`, `-disc`, `-gradient`): $F_2$ against the parabolic kernel's share
+of a half-space by quadrature (the kernel extruded along the third axis is
+$5(\hat R^2 - \rho^2)^{3/2}/2\pi\hat R^5$ in the plane), 1e-11, and the projection of a linear field
+against $F_2$ of each pixel's exact distance; on a disc, each pixel near the circle against the
+exact smoothed disc, an error first order in $\hat R/a$ (0.078 $\hat R/a$ at every pixel from 20 to
+2.5 nm), the planar fill's own on a curve; the gradient against fourth-order differences at
+β = 64 and ∞, 1.6e-10. [`optimize_crossing_ssp`](../../examples/optimize_crossing_ssp.rs) takes
+their crossing (Section 4.1): the standard projection's gradient at a plain cross falls from
+1.3e-2 at β = 16 to 8.6e-29 at β = 1024 while the smoothed one's settles at its β = ∞ value
+(their Fig. 5b), and both their optimizations reach their 99 % at β = ∞.
+
 ## In use
 
 Two examples put the pieces together on 2D FDFD with genoxide's MMA, each on published problems:
@@ -345,6 +393,9 @@ image to a south port give the same powers in each mode to 10⁻⁹ (the job's t
 | `topology/double-filter-gradient` | the double filtering's gradient against fourth-order differences, δ = 10⁻³ | 4.0e-10 relative (held to 1e-8) |
 | `topology/area-shapes` | the area constraints on binary squares: an island of 0.04 µm² below a 0.08 µm² minimum, one of 0.16 µm², a hole of 0.09 µm² below 0.2 µm², an island touching the edge | within round-off (each its area's share or 0; held to 1e-14) |
 | `topology/robust-epigraph` | the epigraph's Jacobian through the three realizations' FDFD gradients (thresholds 0.75, 0.5, 0.25) against differences of each realization's power, δ = 4 × 10⁻³ | 8.1e-9 relative, below the resolution of 6.7e-8 (held to 3e-7) |
+| `topology/ssp-plane` | the smoothed projection's fill  the parabolic kernel's share of a half-space at 201 distances, and the projection at β = ∞ of a linear field on 40 × 30 pixels against  each pixel's exact distance | 1.0e-11 (held to 1e-9; the quadrature's) |
+| `topology/ssp-disc` | at β = ∞, each pixel within R̂ of a 0.25 µm circle against the exact smoothed disc, 5 nm pixels | 8.5e-4 = 0.077 R̂/a (held to 0.1 R̂/a = 1.1e-3; first order on a curve) |
+| `topology/ssp-gradient` | the smoothed projection's gradient through a 50 nm filter against fourth-order differences, δ = 10⁻⁴, at β = 64 and ∞ | 1.6e-10 relative (held to 1e-8) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
 β: $f'(x) = \mathop{\mathrm{Im}} f(x + ih)/h$ with $h = 10^{-30}$ for any analytic f.

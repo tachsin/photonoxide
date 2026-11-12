@@ -412,3 +412,28 @@ fn the_area_constraints_erode_islands_and_fill_holes() {
     assert!(super::AreaConstraints::new([0, 3], 0.01, 1.0, 1.0).is_err());
     assert!(c.evaluate(&[0.0; 3]).is_err());
 }
+
+/// The subpixel-smoothed projection's checks at several pixels and steps: the plane, the disc's
+/// per-pixel error against the pixel, the gradient against the step.
+#[test]
+#[ignore = "a study: cargo test --release --lib the_ssp_study -- --ignored --nocapture"]
+fn the_ssp_study() {
+    use crate::topology::checks::{ssp_disc, ssp_gradient_error, ssp_plane_error};
+    println!("plane: {:.3e}", ssp_plane_error());
+    for h in [20.0, 10.0, 5.0, 2.5] {
+        let worst = ssp_disc(h);
+        let r = 0.55 * h;
+        println!(
+            "disc at {h} nm: worst {worst:.4e} ({:.3} R̂/a)",
+            worst / (r / 250.0)
+        );
+    }
+    for beta in [8.0, 64.0, 256.0, f64::INFINITY] {
+        for delta in [1e-5, 1e-4, 1e-3] {
+            println!(
+                "gradient at β {beta}, δ {delta}: {:.3e}",
+                ssp_gradient_error(beta, delta)
+            );
+        }
+    }
+}

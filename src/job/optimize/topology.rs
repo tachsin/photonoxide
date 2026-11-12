@@ -872,6 +872,10 @@ fn round12(x: f64) -> f64 {
         return x;
     }
     let scale = 10f64.powi(11 - x.abs().log10().floor() as i32);
+    if !scale.is_finite() {
+        // below about 1e-297 the scale overflows: such a value is kept as it is
+        return x;
+    }
     (x * scale).round() / scale
 }
 

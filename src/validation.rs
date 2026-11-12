@@ -1070,7 +1070,7 @@ pub fn cases() -> Vec<Case> {
             id: "fdfd/adjoint-gradient-row",
             title: r"2D FDFD, $E$ along $z$: a sharp 90° bend of a 0.4 µm guide ($n = 3.4$ in 1.444, 20 nm cells), the power into its output's mode measured on two rows (the output runs along $y$), the mode solved on a straight guide turned onto the bend's columns: the adjoint gradient of that linear functional's power against fourth-order central differences ($\delta = 1.6 \times 10^{-2}$) at a cell in the corner, one in the vertical guide and one in the cladding (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"the adjoint variable method as fdfd/adjoint-gradient-ez, for any linear functional $a = c^T u$: $A^T\lambda = \bar a\, c$; with $E$ along $z$ a guide turned by 90° carries its straight self's mode, measured on rows as on columns (a unit test turns a straight guide's field onto such a grid and finds the column port's amplitude to 1e-12)",
+            source: r"the adjoint variable method as fdfd/adjoint-gradient-ez, for any linear functional $a = c^T u$: $A^T\lambda = \bar a c$; with $E$ along $z$ a guide turned by 90° carries its straight self's mode, measured on rows as on columns (a unit test turns a straight guide's field onto such a grid and finds the column port's amplitude to 1e-12)",
             run: fdfd_adjoint_row,
         },
         Case {

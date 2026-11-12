@@ -1,0 +1,20 @@
+Setup
+  domain: 5 × 5 µm of oxide between PMLs of 20 cells, 20 nm cells; a 3 × 3 µm design region at the centre
+  guides: 0.5 µm wide, crossing at the centre; E along z; 1.55 µm; the west guide's fundamental mode in, the east guide's out
+  design: 150 × 150 densities averaged over the square's eight symmetries, a conic filter of 100 nm, the subpixel-smoothed projection at η = ½ (R̂ = 0.55 cells); genoxide's MMA on 1 − T
+  tolerance: their 99 % at β = ∞ (Figs. 2 and 6); the standard projection's gradient at β = 1024 below 1 % of the smoothed one's, and the smoothed one's within 5 % of its β = ∞ value (Fig. 5b)
+  materials:
+    silicon: ε 12
+    oxide: ε 2.0736
+
+The gradient's norm at the plain cross (Fig. 5b):
+    β   16: smoothed 1.3406e-2, standard 1.2983e-2
+    β   64: smoothed 8.1317e-3, standard 1.2915e-3
+    β  256: smoothed 8.1023e-3, standard 2.2755e-8
+    β 1024: smoothed 8.1049e-3, standard 8.5759e-29
+    β    ∞: smoothed 8.1049e-3, standard 0 (a step)
+  standard over smoothed gradient at β = 1024     0.000000   paper below 0.01    ok
+  smoothed gradient at β = 1024 against β = ∞     0.000005   paper below 0.05    ok
+The topology-optimized design, binary (its smoothed boundary rounded to the pixels): T 0.9988
+  1 − T, the recorded design binary      0.001221   paper below 0.01             ok
+all 3 within tolerance of the paper
