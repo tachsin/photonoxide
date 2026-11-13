@@ -52,6 +52,7 @@ use num_complex::Complex64 as c64;
 
 use crate::averaging::{Layout, Shares};
 use crate::geometry::{Bounds, Point, Region, Shape};
+use crate::portable;
 use crate::sparse::{Analysis, Multifrontal};
 use crate::stack::{Fill, Structure};
 use crate::units::Length;
@@ -1208,7 +1209,7 @@ fn reach(shape: &Shape, from: [f64; 2], to: [f64; 2]) -> Option<f64> {
             a = m;
         }
     }
-    let length = (to[0] - from[0]).hypot(to[1] - from[1]);
+    let length = portable::hypot(to[0] - from[0], to[1] - from[1]);
     Some(0.5 * (a + b) * length)
 }
 

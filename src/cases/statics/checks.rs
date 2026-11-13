@@ -8,6 +8,7 @@ use super::{
 };
 use crate::electro::{Conductor, Current, EPSILON_0, Electrostatic};
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::thermal::{Heat, Scheme, Stepping};
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Rule, Tier};
@@ -22,7 +23,7 @@ fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
 }
 
 fn order(coarse: f64, fine: f64, ratio: f64) -> f64 {
-    (coarse / fine).ln() / ratio.ln()
+    portable::ln(coarse / fine) / portable::ln(ratio)
 }
 
 /// Two layers between a fixed temperature below and above: oxide (1.4 W/(m·K), 2 µm) under
@@ -236,9 +237,9 @@ fn slab_series(q: f64, k: f64, d: f64, alpha: f64, y: f64, t: f64) -> f64 {
     let mut sum = q * y * (d - y) / (2.0 * k);
     for n in (1..=4001).step_by(2) {
         let n = f64::from(n);
-        sum -= 4.0 * q * d * d / (k * (n * PI).powi(3))
-            * (n * PI * y / d).sin()
-            * (-(n * PI / d).powi(2) * alpha * t).exp();
+        sum -= 4.0 * q * d * d / (k * portable::powi(n * PI, 3))
+            * portable::sin(n * PI * y / d)
+            * portable::exp(-portable::powi(n * PI / d, 2) * alpha * t);
     }
     sum
 }
@@ -248,7 +249,8 @@ fn slab_series_mean(q: f64, k: f64, d: f64, alpha: f64, t: f64) -> f64 {
     let mut sum = q * d * d / (12.0 * k);
     for n in (1..=4001).step_by(2) {
         let n = f64::from(n);
-        sum -= 8.0 * q * d * d / (k * (n * PI).powi(4)) * (-(n * PI / d).powi(2) * alpha * t).exp();
+        sum -= 8.0 * q * d * d / (k * portable::powi(n * PI, 4))
+            * portable::exp(-portable::powi(n * PI / d, 2) * alpha * t);
     }
     sum
 }
@@ -303,7 +305,7 @@ pub(crate) fn lumped_rc() -> (f64, f64, f64) {
         .transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&silicon))
         .expect("a transient");
     let rise = history
-        .crossing(0, 0.0, steady, 1.0 - (-1.0f64).exp())
+        .crossing(0, 0.0, steady, 1.0 - portable::exp(-1.0f64))
         .expect("a rise");
     let cutoff = heat.cutoff(&silicon).expect("a cutoff");
     let exact_cutoff = 1.0 / (2.0 * PI * tau);
@@ -362,7 +364,7 @@ pub(crate) fn coaxial(n: usize) -> f64 {
         .conductor(Conductor::shape(outer, 0.0))
         .conductor(Conductor::shape(inner, 1.0));
     let field = problem.solve().expect("a solve");
-    let exact = 2.0 * PI * EPSILON_0 * eps / (b / a).ln();
+    let exact = 2.0 * PI * EPSILON_0 * eps / portable::ln(b / a);
     (field.held()[1] - exact).abs() / exact
 }
 
@@ -373,9 +375,9 @@ pub(crate) fn coaxial(n: usize) -> f64 {
 pub(crate) fn line_source(n: usize) -> f64 {
     let (k, h, a, power) = (1.4, 1.0, 0.1, 1.0);
     let exact = |x: f64, y: f64| {
-        let r = x.hypot(y - h);
-        let image = x.hypot(y + h);
-        power / (2.0 * PI * k) * (image / r).ln()
+        let r = portable::hypot(x, y - h);
+        let image = portable::hypot(x, y + h);
+        power / (2.0 * PI * k) * portable::ln(image / r)
     };
     let grid = Grid::new(
         Axis::uniform(-2.0, 2.0, n).expect("an axis"),
@@ -403,7 +405,7 @@ pub(crate) fn line_source(n: usize) -> f64 {
     for j in 0..grid.y().cells() {
         for i in 0..grid.x().cells() {
             let (x, y) = (grid.x().centre(i), grid.y().centre(j));
-            if x.hypot(y - h) > 2.0 * a {
+            if portable::hypot(x, y - h) > 2.0 * a {
                 worst = worst.max((t.value(i, j) - exact(x, y)).abs());
             }
         }
@@ -700,7 +702,7 @@ pub(crate) fn jacques_tin_heater_times(grading: &Grading, step_s: f64) -> Vec<f6
                 .expect("the strip");
             heat.transient(&stepping, 0.0, &|_| 1.0, std::slice::from_ref(&strip))
                 .expect("a turn-on")
-                .crossing(0, 0.0, steady, 1.0 - (-1.0f64).exp())
+                .crossing(0, 0.0, steady, 1.0 - portable::exp(-1.0f64))
                 .expect("a rise")
         })
         .collect()
@@ -788,7 +790,7 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::Analytic,
             source: r"$T = q y (L - y) / 2k$",
             run: || {
-                let peak = 1.0 / (1.0 * 2.0 * 1e-12) * (2e-6f64).powi(2) / (8.0 * 1.4);
+                let peak = 1.0 / (1.0 * 2.0 * 1e-12) * portable::powi(2e-6f64, 2) / (8.0 * 1.4);
                 let e = heated_slab(80) / peak;
                 Outcome {
                     measured: e,
