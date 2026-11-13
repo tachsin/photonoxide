@@ -59,7 +59,7 @@ canaries $RAYON_NUM_THREADS="4":
         sparse::multifrontal::tests::the_factors_are_the_same_bits_on_any_number_of_threads \
         backend::krylov::tests::krylov_solvers_are_the_same_bit_for_bit_on_any_number_of_threads \
         backend::krylov::tests::the_threaded_product_is_the_sequential_one_bit_for_bit \
-        backend::krylov::block_tests::block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads \
+        backend::krylov::block::tests::block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads \
         fdfd::three::tests::qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_it \
         nonlinear::fft::tests::matches_the_direct_sum_and_inverts \
         mode::slab::tests::the_books_slab_gives_its_effective_indices \

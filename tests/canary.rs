@@ -66,7 +66,7 @@
 //! | `sparse::multifrontal::tests::the_factors_are_the_same_bits_on_any_number_of_threads` | src/sparse/multifrontal.rs:1468 | sparse LU, bits over threads |
 //! | `backend::krylov::tests::krylov_solvers_are_the_same_bit_for_bit_on_any_number_of_threads` | src/backend/krylov.rs:1865 | QMR, GMRES, bits over threads |
 //! | `backend::krylov::tests::the_threaded_product_is_the_sequential_one_bit_for_bit` | src/backend/krylov.rs:1970 | sparse product, bits over threads |
-//! | `backend::krylov::block_tests::block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads` | src/backend/krylov/block_tests.rs:287 | block QMR, bits over threads |
+//! | `backend::krylov::block::tests::block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads` | src/backend/krylov/block_tests.rs:287 | block QMR, bits over threads |
 //! | `fdfd::three::tests::qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_it` | src/cases/fdfd/three/tests.rs:1795 | matrix-free QMR's iterations |
 //! | `nonlinear::fft::tests::matches_the_direct_sum_and_inverts` | src/nonlinear/fft.rs:96 | FFT against the direct sum |
 //! | `mode::slab::tests::the_books_slab_gives_its_effective_indices` | src/mode/slab.rs:213 | slab against the book |
