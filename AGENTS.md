@@ -97,12 +97,15 @@ just release-marks                                     # the release PR's marks:
 just site-check                                        # after a release and a deploy: tachsin.gr's overview, roadmap and Python reference against the latest release
 ```
 
-CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
-unit tests, validation cases and examples (not the 3D devices) of the areas a change touches and
-of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
+CI runs in tiers (issue #315). **Tier 1**, every PR, in few jobs on Linux: Lint (with MSRV, the
+Windows and macOS compile check and the studio's lint), one job of the unit tests and one of the
+validation cases and examples (.github/run-pool.sh runs them side by side) of the areas a change
+touches and of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
 in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
-or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
+or test-read file gets its line in the map. A change to CI's own files alone runs actionlint, the
+shards' check (.github/check-shards.sh) and a smoke run, not the suite. Every push to main runs
+everything (not the 3D devices) in shards, holding up no PR. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
 crates.io. A PR runs on Linux alone (no Windows or macOS runner but for the release PR and
