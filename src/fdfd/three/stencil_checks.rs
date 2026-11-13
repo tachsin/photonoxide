@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 use super::multigrid::{Multigrid, jacobi_on_error};
 use super::{Boundaries3d, Grid3d, Solver3d};
 use crate::fdfd::Edges;
+use crate::portable;
 use crate::units::Wavelength;
 
 /// Y. A. Erlangga, C. W. Oosterlee, C. Vuik, SIAM J. Sci. Comput. 27, 1471 (2006),
@@ -92,8 +93,8 @@ fn smoothing_factor(n: usize, beta: f64, omega: f64) -> Option<(f64, f64)> {
             let mut e = vec![c64::new(0.0, 0.0); grid.unknowns()];
             for j in 0..n {
                 for i in 0..n {
-                    let v = (std::f64::consts::PI * (l * i) as f64 * h).sin()
-                        * (std::f64::consts::PI * (m * j) as f64 * h).sin();
+                    let v = portable::sin(std::f64::consts::PI * (l * i) as f64 * h)
+                        * portable::sin(std::f64::consts::PI * (m * j) as f64 * h);
                     e[grid.index(super::Axis::Z, (i, j, 0))] = c64::new(v, 0.0);
                 }
             }
@@ -178,7 +179,8 @@ pub(crate) fn plane_wave_damping() -> (f64, f64) {
                             for i in 0..n[0] {
                                 let phase =
                                     theta[0] * i as f64 + theta[1] * j as f64 + theta[2] * k as f64;
-                                e[grid.index(component, (i, j, k))] = c64::from_polar(1.0, phase);
+                                e[grid.index(component, (i, j, k))] =
+                                    portable::complex::from_polar(1.0, phase);
                             }
                         }
                     }
@@ -194,10 +196,13 @@ pub(crate) fn plane_wave_damping() -> (f64, f64) {
                     departure = departure.max((off / norm).sqrt());
                     let lambda = mass
                         - (0..3)
-                            .map(|a| 4.0 * (theta[a] / 2.0).sin().powi(2) / (h[a] * h[a]))
+                            .map(|a| {
+                                4.0 * portable::powi(portable::sin(theta[a] / 2.0), 2)
+                                    / (h[a] * h[a])
+                            })
                             .sum::<f64>();
                     let symbol = 1.0 - omega * lambda / d;
-                    worst = worst.max((s - symbol).norm());
+                    worst = worst.max(portable::complex::abs(s - symbol));
                 }
             }
         }

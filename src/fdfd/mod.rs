@@ -43,6 +43,7 @@ use num_complex::Complex64 as c64;
 
 use crate::averaging::Averaging;
 use crate::backend::Choice;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 use direct::{Direct, Plan};
@@ -224,8 +225,11 @@ fn graded(
     (reflection, order): (f64, f64),
 ) -> c64 {
     let profile = |depth: f64, d: f64| {
-        let sigma = (order + 1.0) * (-reflection.ln()) / (2.0 * k0 * d);
-        c64::new(1.0, sigma * (depth / d).clamp(0.0, 1.0).powf(order))
+        let sigma = (order + 1.0) * (-portable::ln(reflection)) / (2.0 * k0 * d);
+        c64::new(
+            1.0,
+            sigma * portable::powf((depth / d).clamp(0.0, 1.0), order),
+        )
     };
     let (dl, dh) = (layers.0 as f64 * h, layers.1 as f64 * h);
     if dl > 0.0 && pos < span.0 + dl {
@@ -669,7 +673,11 @@ impl Solver2d {
                 "every value must be finite",
             ));
         }
-        if eps_y.iter().chain(&eps_x).any(|e| e.norm() == 0.0) {
+        if eps_y
+            .iter()
+            .chain(&eps_x)
+            .any(|e| portable::complex::abs(*e) == 0.0)
+        {
             return Err(Error::invalid(
                 "fdfd permittivity",
                 "with H along z, the permittivity on a face between cells can't be 0",
@@ -859,7 +867,7 @@ pub(crate) fn assemble(
                 let turns = if n < 0 { -1.0 } else { 1.0 };
                 Some((
                     n.rem_euclid(len as i64) as usize,
-                    c64::from_polar(1.0, turns * k * len as f64 * step),
+                    portable::complex::from_polar(1.0, turns * k * len as f64 * step),
                 ))
             }
             Edges::Pml { .. } => None,

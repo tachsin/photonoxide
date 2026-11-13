@@ -11,6 +11,7 @@ use super::{ACCURATE, Axis, Boundaries3d, Edges, Grid3d, Lattice, Solver3d, posi
 use crate::backend::{Choice, MIXED};
 use crate::fdfd::direct::Plan;
 use crate::fdfd::krylov::Sparse;
+use crate::portable;
 use crate::sparse::refine::{INNER_ITERATIONS, Refinement, System, refine_observed};
 use crate::sparse::{Analysis, Multifrontal};
 use crate::units::Wavelength;
@@ -111,12 +112,16 @@ fn residual(entries: &Entries, x: &[c64], rhs: &[c64]) -> f64 {
 /// The normwise backward error ‖rhs − A x‖∞ / (‖A‖∞ ‖x‖∞ + ‖rhs‖∞), as the refinement
 /// measures it.
 fn backward_error(entries: &Entries, x: &[c64], rhs: &[c64]) -> f64 {
-    let largest = |v: &[c64]| v.iter().map(|z| z.norm()).fold(0.0, f64::max);
+    let largest = |v: &[c64]| {
+        v.iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max)
+    };
     let applied = apply(entries, x);
     let r: Vec<c64> = rhs.iter().zip(&applied).map(|(b, a)| b - a).collect();
     let mut rows = vec![0.0f64; x.len()];
     for t in entries {
-        rows[t.row] += t.val.norm();
+        rows[t.row] += portable::complex::abs(t.val);
     }
     let norm = rows.iter().copied().fold(0.0, f64::max);
     largest(&r) / (norm * largest(x) + largest(rhs))
@@ -164,7 +169,7 @@ fn mixed(
     let (mut rows, mut counts) = (vec![0.0f64; n], vec![0usize; n]);
     for j in 0..n {
         for (i, v) in matrix.row_idx_of_col(j).zip(matrix.val_of_col(j)) {
-            rows[i] += v.norm();
+            rows[i] += portable::complex::abs(*v);
             counts[i] += 1;
         }
     }

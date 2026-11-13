@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 use super::{Axis, Boundaries3d, Grid3d, Port3d, PortMode3d, Solver3d};
 use crate::fdfd::{Boundaries, Edges, Grid, Polarization, Side, Solver2d};
 use crate::mode::Polarization as Kind;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 /// Silicon and oxide at 1.55 µm, as everywhere in these checks.
@@ -225,13 +226,13 @@ pub(crate) fn straight_strip() -> (f64, c64) {
     let solver = strip_solver(20, |_| 0.5, 0.0);
     let ports = two_ports(&solver, 7, 12);
     let beta = ports[0].mode.beta();
-    let expected = (c64::new(0.0, 1.0) * beta * 5.0 * 0.05).exp();
+    let expected = portable::complex::exp(c64::new(0.0, 1.0) * beta * 5.0 * 0.05);
     let s = solver.s_matrix(&ports).unwrap();
     let worst = [
-        s[0][0].norm(),
-        s[1][1].norm(),
-        (s[1][0] - expected).norm(),
-        (s[0][1] - expected).norm(),
+        portable::complex::abs(s[0][0]),
+        portable::complex::abs(s[1][1]),
+        portable::complex::abs(s[1][0] - expected),
+        portable::complex::abs(s[0][1] - expected),
     ]
     .into_iter()
     .fold(0.0, f64::max);
@@ -289,7 +290,7 @@ pub(crate) fn closed_step(gap: usize) -> (Vec<Vec<c64>>, usize) {
             .port_modes(Axis::X, plane, 8)
             .unwrap()
             .into_iter()
-            .filter(|m| m.beta().im.abs() < 1e-9 * m.beta().norm())
+            .filter(|m| m.beta().im.abs() < 1e-9 * portable::complex::abs(m.beta()))
             .collect()
     };
     let (left, right) = (propagating(8), propagating(nx - 9));
@@ -316,7 +317,7 @@ pub(crate) fn unitarity(s: &[Vec<c64>]) -> f64 {
         for p in 0..n {
             let sum: c64 = (0..n).map(|k| s[k][q].conj() * s[k][p]).sum();
             let delta = if p == q { 1.0 } else { 0.0 };
-            worst = worst.max((sum - delta).norm());
+            worst = worst.max(portable::complex::abs(sum - delta));
         }
     }
     worst
@@ -430,7 +431,9 @@ pub(crate) fn two_d_s_difference(polarization: Polarization) -> f64 {
             let turn = c64::new(0.0, -1.0) * (beta[q] * delta[q] + beta[p] * delta[p]);
             // both solvers' backward modes have the forward ones' tangential E, so the reflections
             // agree in sign too
-            worst = worst.max((s3[q][p] * turn.exp() - s2[q][p]).norm());
+            worst = worst.max(portable::complex::abs(
+                s3[q][p] * portable::complex::exp(turn) - s2[q][p],
+            ));
         }
     }
     worst

@@ -7,6 +7,7 @@ use super::port_checks::{OXIDE, SILICON};
 use super::{Axis, Boundaries3d, Formulation, Grid3d, IterativeSolver3d, Port3d};
 use crate::Result;
 use crate::fdfd::{BlockConvergence, Side, Stopping};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// How the coupler is solved.
@@ -109,7 +110,7 @@ pub(crate) fn block_against_single(
         .iter()
         .flatten()
         .zip(block.iter().flatten())
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     Ok((worst, how, runs.iter().map(|c| c.iterations).sum()))
 }
@@ -166,11 +167,15 @@ pub(crate) fn dependent_columns() -> f64 {
         tolerance: 1e-10,
         max_iterations: 100_000,
     };
-    let largest = |v: &[c64]| v.iter().map(|z| z.norm()).fold(0.0, f64::max);
+    let largest = |v: &[c64]| {
+        v.iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max)
+    };
     let off = |x: &[c64], y: &[c64]| {
         x.iter()
             .zip(y)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max)
             / largest(y)
     };
@@ -303,7 +308,7 @@ pub(crate) fn against_direct(tolerances: &[f64]) -> Vec<f64> {
                     .iter()
                     .flatten()
                     .zip(exact.iter().flatten())
-                    .map(|(p, q)| (p - q).norm())
+                    .map(|(p, q)| portable::complex::abs(p - q))
                     .fold(0.0, f64::max),
                 Err(_) => f64::NAN,
             }
@@ -365,7 +370,7 @@ mod tests {
             .iter()
             .flatten()
             .zip(block.iter().flatten())
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max);
         println!(
             "{solve:?}: {} x {} x {} cells of {} nm ({} unknowns), {} ports, tolerance {tolerance:e}, {} threads",

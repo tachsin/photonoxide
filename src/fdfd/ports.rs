@@ -33,6 +33,7 @@
 use num_complex::Complex64 as c64;
 
 use super::{Edges, Field2d, Polarization, Solver2d, stretch};
+use crate::portable;
 use crate::{Error, Result};
 
 /// Which way along x a wave travels.
@@ -84,7 +85,7 @@ impl PortMode {
     /// The power the mode carries forward at unit amplitude, per unit length along z, η₀ = 1:
     /// the scheme's flux between the column and the next.
     pub fn power(&self, dy: f64) -> f64 {
-        let step = (c64::new(0.0, 1.0) * self.beta * self.dx).exp();
+        let step = portable::complex::exp(c64::new(0.0, 1.0) * self.beta * self.dx);
         self.profile
             .iter()
             .zip(&self.eps_face)
@@ -98,7 +99,7 @@ impl PortMode {
     /// clear of the PMLs; where its tail reaches into a PML the two differ, by about the share of
     /// its power there.
     fn reciprocal_power(&self, dy: f64) -> c64 {
-        (self.beta * self.dx).sin() * dy / (2.0 * self.k0 * self.dx)
+        portable::complex::sin(self.beta * self.dx) * dy / (2.0 * self.k0 * self.dx)
     }
 
     /// The share of a column's field `v` in this mode: Σ w φ v (Σ w φ² = 1).
@@ -268,21 +269,23 @@ impl Solver2d {
             .into_iter()
             .map(|p| {
                 // β from β_d: the grid's difference along x
-                let beta_d = p.value.sqrt();
+                let beta_d = portable::complex::sqrt(p.value);
                 let beta_d = if beta_d.re < 0.0 { -beta_d } else { beta_d };
-                let beta = 2.0 / g.dx * (beta_d * g.dx / 2.0).asin();
+                let beta = 2.0 / g.dx * portable::complex::asin(beta_d * g.dx / 2.0);
                 // the window's values in the column, zero outside it
                 let mut profile = vec![c64::new(0.0, 0.0); ny];
                 profile[start..start + m].copy_from_slice(&p.vector);
                 // Σ w φ² = 1, which makes a lossless guide's mode real
                 let norm: c64 = weights.iter().zip(&profile).map(|(w, v)| w * v * v).sum();
-                let scale = one / norm.sqrt();
+                let scale = one / portable::complex::sqrt(norm);
                 profile.iter_mut().for_each(|v| *v *= scale);
                 // the sign: the largest value positive
                 let peak = profile
                     .iter()
                     .copied()
-                    .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+                    .max_by(|a, b| {
+                        portable::complex::abs(*a).total_cmp(&portable::complex::abs(*b))
+                    })
                     .unwrap_or(one);
                 if peak.re < 0.0 {
                     profile.iter_mut().for_each(|v| *v = -*v);
@@ -324,7 +327,9 @@ impl Solver2d {
         let incident: Vec<c64> = (0..g.ny)
             .flat_map(|j| {
                 (0..g.nx).map(move |i| {
-                    amplitude * mode.profile[j] * (i_beta * ((i as i64 - c) as f64 * g.dx)).exp()
+                    amplitude
+                        * mode.profile[j]
+                        * portable::complex::exp(i_beta * ((i as i64 - c) as f64 * g.dx))
                 })
             })
             .collect();
@@ -382,7 +387,7 @@ impl Solver2d {
         let n = ports.len();
         let roots: Vec<c64> = ports
             .iter()
-            .map(|p| p.mode.reciprocal_power(self.grid.dy).sqrt())
+            .map(|p| portable::complex::sqrt(p.mode.reciprocal_power(self.grid.dy)))
             .collect();
         let mut incoming = faer::Mat::<c64>::zeros(n, n);
         let mut outgoing = faer::Mat::<c64>::zeros(n, n);
@@ -422,7 +427,7 @@ impl Field2d {
         let c = mode.column;
         let column = |i: usize| (0..self.grid.ny).map(move |j| self.at(i, j));
         let (p0, p1) = (mode.share(column(c)), mode.share(column(c + 1)));
-        let step = (c64::new(0.0, 1.0) * mode.beta * self.grid.dx).exp();
+        let step = portable::complex::exp(c64::new(0.0, 1.0) * mode.beta * self.grid.dx);
         let forward = (p1 - p0 / step) / (step - 1.0 / step);
         (forward, twin(mode.polarization) * (p0 - forward))
     }

@@ -3,6 +3,7 @@ use crate::fdfd::krylov::{
     Preconditioner, Sparse, Stopping, gmres_preconditioned, qmr, qmr_preconditioned,
 };
 use crate::fdfd::three::{Boundaries3d, Grid3d, Solver3d};
+use crate::portable;
 use crate::units::Wavelength;
 
 fn norm(v: &[c64]) -> f64 {
@@ -133,7 +134,7 @@ fn as_solver(h: &Hierarchy, a: &Sparse, b: &[c64], cycles: usize, transpose: boo
 /// The mean reduction per cycle over the last `last` cycles of a residual history.
 fn factor(history: &[f64], last: usize) -> f64 {
     let n = history.len();
-    (history[n - 1] / history[n - 1 - last]).powf(1.0 / last as f64)
+    portable::powf(history[n - 1] / history[n - 1 - last], 1.0 / last as f64)
 }
 
 #[test]
@@ -400,7 +401,7 @@ fn the_transfers_carry_a_bloch_sides_phase_on_every_level() {
                 for q in 0..cells {
                     let i = q % s[0];
                     let x = grid.x0 + i as f64 * grid.dx * n as f64 / s[0] as f64;
-                    v[cells + q] = c64::from_polar(1.0, k * x);
+                    v[cells + q] = portable::complex::from_polar(1.0, k * x);
                 }
                 v
             };
@@ -409,12 +410,12 @@ fn the_transfers_carry_a_bloch_sides_phase_on_every_level() {
             let worst = through
                 .iter()
                 .zip(&exact)
-                .map(|(p, q)| (p - q).norm())
+                .map(|(p, q)| portable::complex::abs(p - q))
                 .fold(0.0, f64::max);
             // linear interpolation's error, (k Δ)²/8 for Δ the coarse step
             let spacing = grid.dx * n as f64 / coarse[0] as f64;
             assert!(
-                worst < (k * spacing).powi(2) / 8.0 * 1.01,
+                worst < portable::powi(k * spacing, 2) / 8.0 * 1.01,
                 "{kind:?} level {l}: {worst}"
             );
         }
@@ -443,9 +444,12 @@ fn each_coarse_operator_is_pt_a_p() {
         let mut off = 0.0f64;
         for c in 0..v.len() {
             let expected = if reached(c) { through[c] } else { v[c] };
-            off = off.max((direct[c] - expected).norm());
+            off = off.max(portable::complex::abs(direct[c] - expected));
         }
-        let scale = direct.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let scale = direct
+            .iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max);
         assert!(off < 1e-12 * scale, "{off:e} of {scale:e}");
     }
 }
@@ -469,7 +473,7 @@ fn every_transposed_cycle_is_the_cycles_transpose() {
         let forward = bilinear(&u, &h.solve(&v));
         let backward = bilinear(&v, &h.solve_transpose(&u));
         assert!(
-            (forward - backward).norm() < 1e-10 * forward.norm(),
+            portable::complex::abs(forward - backward) < 1e-10 * portable::complex::abs(forward),
             "{shape:?}({pre}, {post}): {forward} against {backward}"
         );
     }
@@ -492,7 +496,8 @@ fn every_transposed_cycle_is_the_cycles_transpose() {
             let forward = bilinear(&u, &h.solve(&v));
             let backward = bilinear(&v, &h.solve_transpose(&u));
             assert!(
-                (forward - backward).norm() < 1e-10 * forward.norm(),
+                portable::complex::abs(forward - backward)
+                    < 1e-10 * portable::complex::abs(forward),
                 "{coarse:?} {shape:?}: {forward} against {backward}"
             );
         }
@@ -1392,7 +1397,9 @@ fn rediscretized_against_galerkin() {
                     rest / (shape[0] * shape[1]),
                 ];
                 let s: f64 = (0..3)
-                    .map(|a| (std::f64::consts::PI * (at[a] as f64 + 0.5) / shape[a] as f64).sin())
+                    .map(|a| {
+                        portable::sin(std::f64::consts::PI * (at[a] as f64 + 0.5) / shape[a] as f64)
+                    })
                     .product();
                 c64::new(s, 0.3 * s)
             })
@@ -1409,8 +1416,11 @@ fn rediscretized_against_galerkin() {
                 rest / (shape[0] * shape[1]),
             ];
             let away = (0..3).all(|a| at[a] >= 1 && at[a] + 1 < shape[a]);
-            if s.norm() > 0.0 && away && (s - 1.0).norm() > worst_volume {
-                worst_volume = (s - 1.0).norm();
+            if portable::complex::abs(*s) > 0.0
+                && away
+                && portable::complex::abs(s - 1.0) > worst_volume
+            {
+                worst_volume = portable::complex::abs(s - 1.0);
                 if std::env::var("MG_WHERE").is_ok() {
                     println!("  R 1 at component {} {at:?}: {s}", q / cells);
                 }

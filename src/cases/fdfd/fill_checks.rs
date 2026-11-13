@@ -9,6 +9,7 @@ use super::{Boundaries, Direction, Edges, Grid, Polarization, Solver2d};
 use crate::averaging::{Averaging, Plane};
 use crate::geometry::{Point, Shape};
 use crate::mode::slab::Slab;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -227,8 +228,8 @@ pub(crate) fn radius_derivative(polarization: Polarization, averaging: Averaging
 /// The least-squares slope of log |error| against log h: the order of convergence.
 pub(crate) fn order(points: &[(f64, f64)]) -> f64 {
     let n = points.len() as f64;
-    let xs: Vec<f64> = points.iter().map(|p| p.0.ln()).collect();
-    let ys: Vec<f64> = points.iter().map(|p| p.1.abs().ln()).collect();
+    let xs: Vec<f64> = points.iter().map(|p| portable::ln(p.0)).collect();
+    let ys: Vec<f64> = points.iter().map(|p| portable::ln(p.1.abs())).collect();
     let (mx, my) = (xs.iter().sum::<f64>() / n, ys.iter().sum::<f64>() / n);
     let sxy: f64 = xs.iter().zip(&ys).map(|(x, y)| (x - mx) * (y - my)).sum();
     let sxx: f64 = xs.iter().map(|x| (x - mx) * (x - mx)).sum();
@@ -270,7 +271,7 @@ pub(crate) fn last_order(errors: &[(f64, f64)]) -> f64 {
     let [.., (h1, e1), (h2, e2)] = errors else {
         return f64::NAN;
     };
-    (e1.abs() / e2.abs()).ln() / (h1 / h2).ln()
+    portable::ln(e1.abs() / e2.abs()) / portable::ln(h1 / h2)
 }
 
 /// The photonic crystal of Farjadpour et al.'s Fig. 1, as we draw it: a square lattice of
@@ -448,7 +449,10 @@ pub(crate) fn strip_s(
     let s = solver
         .s_matrix(&[port(18, Side::Left), port(41, Side::Right)])
         .unwrap();
-    (s[0][0].norm_sqr(), (s[1][0] - s[0][1]).norm())
+    (
+        s[0][0].norm_sqr(),
+        portable::complex::abs(s[1][0] - s[0][1]),
+    )
 }
 
 /// The same strip in 3D: 220 nm of the catalogue's silicon on its oxide (`LayerStack::soi_220`)
@@ -492,7 +496,10 @@ pub(crate) fn strip_s_3d(pieces: &[Shape], averaging: Averaging) -> (f64, f64) {
     let s = solver
         .s_matrix(&[port(12, Side::Left), port(27, Side::Right)])
         .unwrap();
-    (s[0][0].norm_sqr(), (s[1][0] - s[0][1]).norm())
+    (
+        s[0][0].norm_sqr(),
+        portable::complex::abs(s[1][0] - s[0][1]),
+    )
 }
 
 /// The strip drawn in pieces against it drawn whole, on the same grid, by every average from

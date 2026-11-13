@@ -22,6 +22,7 @@
 use num_complex::Complex64 as c64;
 
 use super::{Direction, Edges, Field2d, Polarization, PortMode, Solver2d, stretch};
+use crate::portable;
 use crate::{Error, Result};
 
 impl Solver2d {
@@ -227,7 +228,7 @@ impl Solver2d {
                     let turns = if n < 0 { -1.0 } else { 1.0 };
                     Some((
                         n.rem_euclid(len as i64) as usize,
-                        c64::from_polar(1.0, turns * k * len as f64 * step),
+                        portable::complex::from_polar(1.0, turns * k * len as f64 * step),
                     ))
                 }
                 Edges::Pml { .. } => None,
@@ -315,7 +316,7 @@ impl Solver2d {
 /// The weights of a mode's projections on its two neighbouring lines that give its amplitude
 /// going `direction` at the first (see [`Field2d::mode_amplitudes`]).
 fn projection(mode: &PortMode, direction: Direction) -> (c64, c64) {
-    let step = (c64::new(0.0, 1.0) * mode.beta * mode.dx).exp();
+    let step = portable::complex::exp(c64::new(0.0, 1.0) * mode.beta * mode.dx);
     let d = step - 1.0 / step;
     match direction {
         Direction::Forward => (-1.0 / (step * d), 1.0 / d),

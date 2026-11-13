@@ -38,6 +38,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Axis, Boundaries3d, Field3d, Grid3d, Lattice};
 use crate::fdfd::{Direction, Edges, Side};
+use crate::portable;
 use crate::{Error, Result};
 
 /// A mode of a 3D port: a waveguide's cross-section on a plane of nodes normal to an axis.
@@ -167,12 +168,14 @@ impl PortMode3d {
         let steps = m as f64 - self.plane as f64;
         let i_beta = c64::new(0.0, 1.0) * self.beta * self.step;
         match direction {
-            Direction::Forward => self.e(component, (u, v)) * (i_beta * steps).exp(),
+            Direction::Forward => {
+                self.e(component, (u, v)) * portable::complex::exp(i_beta * steps)
+            }
             Direction::Backward => {
-                let phase = (-i_beta * steps).exp();
+                let phase = portable::complex::exp(-i_beta * steps);
                 if component == self.axis {
                     // E_a changes sign with β: −e_a e^(−iβΔa/2) on the half-plane after
-                    -self.e(component, (u, v)) * (-i_beta).exp() * phase
+                    -self.e(component, (u, v)) * portable::complex::exp(-i_beta) * phase
                 } else {
                     self.e(component, (u, v)) * phase
                 }
@@ -493,7 +496,7 @@ impl Lattice {
             let at_plane =
                 |r: usize| -> c64 { number(r).map_or(c64::new(0.0, 0.0), |k| pair.vector[k]) };
             let build = |beta_d: c64| -> PortMode3d {
-                let beta = 2.0 / h * (beta_d * h / 2.0).asin();
+                let beta = 2.0 / h * portable::complex::asin(beta_d * h / 2.0);
                 let mut tangential = vec![c64::new(0.0, 0.0); 2 * per];
                 for (t, &k) in local.iter().enumerate() {
                     if k != usize::MAX {
@@ -501,7 +504,7 @@ impl Lattice {
                     }
                 }
                 // E_a = i ∇_t · (ε E_t) / (β_d ε_a), on the half-plane after: e^(iβΔa/2) on
-                let half = (c64::new(0.0, 0.5) * beta * h).exp();
+                let half = portable::complex::exp(c64::new(0.0, 0.5) * beta * h);
                 let mut normal = vec![c64::new(0.0, 0.0); per];
                 for v in 0..size[1] {
                     for u in 0..size[0] {
@@ -538,12 +541,14 @@ impl Lattice {
                     &|r| mode.value(self, r, Direction::Forward),
                     &|r| mode.value(self, r, Direction::Backward),
                 );
-                let mut scale = 1.0 / norm.sqrt();
+                let mut scale = 1.0 / portable::complex::sqrt(norm);
                 let peak = mode
                     .tangential
                     .iter()
                     .copied()
-                    .max_by(|p, q| p.norm().total_cmp(&q.norm()))
+                    .max_by(|p, q| {
+                        portable::complex::abs(*p).total_cmp(&portable::complex::abs(*q))
+                    })
                     .unwrap_or(c64::new(1.0, 0.0));
                 if (peak * scale).re < 0.0 {
                     scale = -scale;
@@ -560,7 +565,7 @@ impl Lattice {
             // crosses PMLs has a small Im β from them, of either sign (a PML doesn't absorb an
             // evanescent tail): it propagates all the same, and taken as decaying, half of them
             // went backward
-            let beta_d = pair.value.sqrt();
+            let beta_d = portable::complex::sqrt(pair.value);
             let propagating = propagates(beta_d);
             let beta_d = if !propagating && beta_d.im < 0.0 || propagating && beta_d.re < 0.0 {
                 -beta_d

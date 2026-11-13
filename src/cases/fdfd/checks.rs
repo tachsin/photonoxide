@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Boundaries, Direction, Edges, Field2d, Grid, Polarization, Port, Side, Solver2d};
 use crate::mode::multilayer::Multilayer;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 /// The PMLs' thickness in the slab and PML runs, cells.
@@ -57,7 +58,7 @@ pub(crate) fn slab_run(
         x0: 0.0,
         y0: -(below as f64) * h,
     };
-    let kx = k0 * cover * angle.sin();
+    let kx = k0 * cover * portable::sin(angle);
     let boundaries = Boundaries {
         x: Edges::Bloch { k: kx },
         y: Edges::Pml {
@@ -81,7 +82,7 @@ pub(crate) fn slab_run(
     let source_row = row(0.62);
     let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
     for i in 0..grid.nx {
-        source[source_row * grid.nx + i] = c64::from_polar(1.0, kx * grid.x(i));
+        source[source_row * grid.nx + i] = portable::complex::from_polar(1.0, kx * grid.x(i));
     }
     let full = Solver2d::new(grid, polarization, lam, |_, y| layered(y), boundaries)
         .unwrap()
@@ -171,28 +172,30 @@ pub(crate) fn pml_reflection_on(polarization: Polarization, (h, cells): (f64, us
     .unwrap();
     let mut source = vec![c64::new(0.0, 0.0); grid.nx * grid.ny];
     for i in 0..grid.nx {
-        source[rows(2.0) * grid.nx + i] = c64::from_polar(1.0, kx * grid.x(i));
+        source[rows(2.0) * grid.nx + i] = portable::complex::from_polar(1.0, kx * grid.x(i));
     }
     let field = solver.solve(&source).unwrap();
     // between the source and the bottom PML the field is the downgoing wave and whatever
     // the PML sends back: separate them by their discrete wavenumber
-    let ky = ((k0 * 1.444).powi(2) - (2.0 / h * (kx * h / 2.0).sin()).powi(2)).sqrt();
-    let kd = 2.0 * (ky * h / 2.0).asin() / h; // the grid's own wavenumber
+    let ky = (portable::powi(k0 * 1.444, 2)
+        - portable::powi(2.0 / h * portable::sin(kx * h / 2.0), 2))
+    .sqrt();
+    let kd = 2.0 * portable::asin(ky * h / 2.0) / h; // the grid's own wavenumber
     let (j1, j2) = (rows(0.8), rows(1.2));
     let (u1, u2) = (field.at(0, j1), field.at(0, j2));
     // u = a e^{-i kd y} + b e^{+i kd y}
     let (e1m, e1p) = (
-        c64::from_polar(1.0, -kd * grid.y(j1)),
-        c64::from_polar(1.0, kd * grid.y(j1)),
+        portable::complex::from_polar(1.0, -kd * grid.y(j1)),
+        portable::complex::from_polar(1.0, kd * grid.y(j1)),
     );
     let (e2m, e2p) = (
-        c64::from_polar(1.0, -kd * grid.y(j2)),
-        c64::from_polar(1.0, kd * grid.y(j2)),
+        portable::complex::from_polar(1.0, -kd * grid.y(j2)),
+        portable::complex::from_polar(1.0, kd * grid.y(j2)),
     );
     let det = e1m * e2p - e1p * e2m;
     let a = (u1 * e2p - e1p * u2) / det;
     let b = (e1m * u2 - u1 * e2m) / det;
-    (b / a).norm()
+    portable::complex::abs(b / a)
 }
 
 /// A slab waveguide along x, centred on y = 0, `thickness(x)` µm of `core` index in `clad`,
@@ -260,13 +263,13 @@ pub(crate) fn straight_guide_error(polarization: Polarization) -> f64 {
     let solver = guide(polarization, 0.02, 2.0, (3.476, 1.444), |_| 0.22);
     let ports = two_ports(&solver);
     let length = (ports[1].mode.column() - ports[0].mode.column()) as f64 * 0.02;
-    let expected = (c64::new(0.0, 1.0) * ports[0].mode.beta() * length).exp();
+    let expected = portable::complex::exp(c64::new(0.0, 1.0) * ports[0].mode.beta() * length);
     let s = solver.s_matrix(&ports).unwrap();
     [
-        s[0][0].norm(),
-        s[1][1].norm(),
-        (s[1][0] - expected).norm(),
-        (s[0][1] - expected).norm(),
+        portable::complex::abs(s[0][0]),
+        portable::complex::abs(s[1][1]),
+        portable::complex::abs(s[1][0] - expected),
+        portable::complex::abs(s[0][1] - expected),
     ]
     .into_iter()
     .fold(0.0, f64::max)
@@ -345,7 +348,7 @@ impl Probe {
     /// on the one probe where it shows (`the_adjoint_checks_step_study`), 6e-13 there, 4e-5 of
     /// that probe's resolution; the round-off is a quarter of δ = 1e-3's.
     pub(crate) fn resolution(&self) -> f64 {
-        let u = 10f64.powf((2.0 * self.residual).log10().ceil());
+        let u = portable::powf(10f64, portable::log10(2.0 * self.residual).ceil());
         18.0 / 12.0 * u * self.power.abs() / (self.delta * self.gradient.abs())
     }
 }
@@ -367,11 +370,11 @@ pub(crate) fn gradient_probes(polarization: Polarization, delta: f64) -> Vec<Pro
         .map(|(i, j)| {
             let (x, y) = (grid.x(i), grid.y(j));
             let e = if y.abs() < 0.11 {
-                3.476f64.powi(2)
+                portable::powi(3.476f64, 2)
             } else if (0.9..1.1).contains(&x) && (0.11..0.31).contains(&y) {
                 6.0
             } else {
-                1.444f64.powi(2)
+                portable::powi(1.444f64, 2)
             };
             c64::new(e, 0.0)
         })

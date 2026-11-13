@@ -2,6 +2,7 @@ use num_complex::Complex64 as c64;
 
 use super::*;
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::units::Length;
 
 fn re(v: f64) -> c64 {
@@ -86,21 +87,21 @@ fn the_mixed_terms_are_the_cross_derivative_on_a_plane_wave() {
     let entries = super::super::assemble(g, Polarization::Hz, k0, &[], &eps_y, &eps_x, &b);
     let entries = with_mixed(entries, g, k0, &eta, &b);
     let u: Vec<c64> = (0..nx * ny)
-        .map(|r| c64::from_polar(1.0, kx * g.x(r % nx) + ky * g.y(r / nx)))
+        .map(|r| portable::complex::from_polar(1.0, kx * g.x(r % nx) + ky * g.y(r / nx)))
         .collect();
     let mut au = vec![c64::new(0.0, 0.0); nx * ny];
     for t in &entries {
         au[t.row] += t.val * u[t.col];
     }
     // the scheme's own symbol: the centred differences' and the four-point means'
-    let sx = 2.0 * (kx * h / 2.0).sin() / h;
-    let sy = 2.0 * (ky * h / 2.0).sin() / h;
-    let mixed = 2.0 * xy * (kx * h).sin() / h * (ky * h).sin() / h;
+    let sx = 2.0 * portable::sin(kx * h / 2.0) / h;
+    let sy = 2.0 * portable::sin(ky * h / 2.0) / h;
+    let mixed = 2.0 * xy * portable::sin(kx * h) / h * portable::sin(ky * h) / h;
     let symbol = k0 * k0 - yy * sx * sx - xx * sy * sy + mixed;
     for r in 0..nx * ny {
         let ratio = au[r] / u[r];
         assert!(
-            (ratio - symbol).norm() < 1e-9 * symbol.abs().max(1.0),
+            portable::complex::abs(ratio - symbol) < 1e-9 * symbol.abs().max(1.0),
             "{r} {ratio} {symbol}"
         );
     }
@@ -144,7 +145,10 @@ fn a_uniform_tensors_mixed_terms_are_symmetric_and_a_disks_are_not() {
         for (&(r, c), &v) in &m {
             let w = m.get(&(c, r)).copied().unwrap_or_default();
             let mirror = if bloch { w.conj() } else { w };
-            assert!((v - mirror).norm() < 1e-9 * v.norm(), "{r} {c} {v} {w}");
+            assert!(
+                portable::complex::abs(v - mirror) < 1e-9 * portable::complex::abs(v),
+                "{r} {c} {v} {w}"
+            );
         }
     }
     let lam = Wavelength::um(1.55).unwrap();

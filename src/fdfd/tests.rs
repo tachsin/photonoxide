@@ -1,5 +1,6 @@
 use super::checks::*;
 use super::*;
+use crate::portable;
 
 /// A plane wave at `angle` from air onto 220 nm of silicon on oxide, at 1.55 µm, on a grid of
 /// `h` µm: the reflectance and transmittance from the fluxes, and what the transfer matrices
@@ -18,7 +19,10 @@ fn a_slab_reflects_and_transmits_as_the_transfer_matrices_say_at_second_order() 
                 (r - r_exact).abs()
             })
             .collect();
-        let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+        let orders: Vec<f64> = errors
+            .windows(2)
+            .map(|e| portable::log2(e[0] / e[1]))
+            .collect();
         assert!(errors[2] < 2e-3, "{polarization:?}: errors {errors:?}");
         assert!(
             orders.iter().all(|&p| p > 1.7),
@@ -76,7 +80,7 @@ fn the_pml_reflects_by_its_cell_count_far_above_its_grading() {
     // grading, not by their size, falling as a power of the count (m + 1 = 4 for the cubic
     // grading, measured 4.01 and 4.00)
     let ky = 1.444 * (1.0 - 0.3_f64 * 0.3).sqrt();
-    let graded = 1e-8_f64.powf(ky);
+    let graded = portable::powf(1e-8, ky);
     for polarization in [Polarization::Ez, Polarization::Hz] {
         let r = |h: f64, cells: usize| pml_reflection_on(polarization, (h, cells));
         let (r20, r40, r80) = (r(0.02, 20), r(0.01, 40), r(0.005, 80));
@@ -88,12 +92,12 @@ fn the_pml_reflects_by_its_cell_count_far_above_its_grading() {
         // log2 of the ratio to 4 (measured 1 %)
         let half = r(0.01, 20);
         assert_eq!(
-            (r20 / half).log2().round(),
+            portable::log2(r20 / half).round(),
             0.0,
             "{polarization:?}: {r20} {half}"
         );
         for (a, b) in [(r20, r40), (r40, r80)] {
-            let order = (a / b).log2();
+            let order = portable::log2(a / b);
             assert_eq!(order.round(), 4.0, "{polarization:?}: {a} then {b}");
         }
     }
@@ -118,11 +122,23 @@ fn each_component_sees_its_own_average_and_bad_problems_are_errors() {
         reflection: 1e-8,
         order: 3.0,
     };
-    assert!((averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 2, 8) - 2.0).norm() < 1e-12);
-    assert!((averaged(&eps, (grid.x(1), grid.y(0)), (1.0, 1.0), 2, 8) - 3.0).norm() < 1e-12);
+    assert!(
+        portable::complex::abs(averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 2, 8) - 2.0)
+            < 1e-12
+    );
+    assert!(
+        portable::complex::abs(averaged(&eps, (grid.x(1), grid.y(0)), (1.0, 1.0), 2, 8) - 3.0)
+            < 1e-12
+    );
     // across the interface (E_x): harmonic, 1 / ((1/1 + 1/3) / 2) = 1.5; along it (E_y): 2
-    assert!((averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 0, 8) - 1.5).norm() < 1e-12);
-    assert!((averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 1, 8) - 2.0).norm() < 1e-12);
+    assert!(
+        portable::complex::abs(averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 0, 8) - 1.5)
+            < 1e-12
+    );
+    assert!(
+        portable::complex::abs(averaged(&eps, (grid.x(0), grid.y(0)), (1.0, 1.0), 1, 8) - 2.0)
+            < 1e-12
+    );
     let solver = Solver2d::new(grid, Polarization::Ez, lam, eps, walls).unwrap();
     assert!(solver.solve(&[c64::new(1.0, 0.0)]).is_err());
 
@@ -163,7 +179,10 @@ fn a_port_mode_is_the_exact_slab_mode_at_second_order() {
             .iter()
             .map(|&h| port_mode_error(polarization, h))
             .collect();
-        let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+        let orders: Vec<f64> = errors
+            .windows(2)
+            .map(|e| portable::log2(e[0] / e[1]))
+            .collect();
         assert!(errors[2] < 3e-4, "{polarization:?}: {errors:?}");
         assert!(
             orders.iter().all(|&p| p > 1.9),
@@ -186,7 +205,7 @@ fn a_step_is_reciprocal_and_a_te_mode_reflects_as_fresnel_says() {
         let (s, n1, n2) = step(polarization);
         let (s21, s12) = (s[1][0], s[0][1]);
         assert!(
-            (s21 - s12).norm() < 1e-10 * s21.norm(),
+            portable::complex::abs(s21 - s12) < 1e-10 * portable::complex::abs(s21),
             "{polarization:?}: S21 {s21} S12 {s12}"
         );
         // a lossless step: what isn't reflected or transmitted in the mode radiates. For TE the
@@ -195,7 +214,7 @@ fn a_step_is_reciprocal_and_a_te_mode_reflects_as_fresnel_says() {
         // confinement makes the step radiate 6 %
         let (r, t) = (s[0][0].norm_sqr(), s21.norm_sqr());
         let radiated = 1.0 - r - t;
-        let fresnel = ((n1 - n2) / (n1 + n2)).powi(2);
+        let fresnel = portable::powi((n1 - n2) / (n1 + n2), 2);
         match polarization {
             Polarization::Ez => {
                 assert!(radiated > 0.0 && radiated < 1e-3, "Ez: R {r} T {t}");
@@ -233,7 +252,7 @@ fn a_reused_analysis_gives_the_same_answer_at_another_wavelength() {
     for q in 0..2 {
         for p in 0..2 {
             assert!(
-                (a[q][p] - b[q][p]).norm() < 1e-12,
+                portable::complex::abs(a[q][p] - b[q][p]) < 1e-12,
                 "{q}{p}: {} vs {}",
                 a[q][p],
                 b[q][p]
@@ -320,7 +339,7 @@ fn windowed_ports_see_one_guide_each() {
     let lone = guide(Polarization::Ez, h, 2.0, (3.476, 1.444), |_| 0.22);
     let alone = lone.port_modes(column(&lone, 0.3), 1).unwrap().remove(0);
     for p in &ports {
-        let d = (p.mode.effective_index() - alone.effective_index()).norm();
+        let d = portable::complex::abs(p.mode.effective_index() - alone.effective_index());
         assert!(d < 1e-5, "{d}");
     }
     let s = solver.s_matrix(&ports).unwrap();
@@ -328,24 +347,28 @@ fn windowed_ports_see_one_guide_each() {
     // the window mode's β 1.2e-5 lower, 1.7e-5 rad over the 1.4 µm); what is left is the
     // guides' evanescent coupling across the gap, 2.5e-6, and reflections of 3e-7
     let beta = alone.beta();
-    let through = (c64::new(0.0, 1.0) * beta * ((b - a) as f64 * h)).exp();
+    let through = portable::complex::exp(c64::new(0.0, 1.0) * beta * ((b - a) as f64 * h));
     for (from, to) in [(0, 2), (1, 3)] {
         assert!(
-            (s[to][from] - through).norm() < 1e-5,
+            portable::complex::abs(s[to][from] - through) < 1e-5,
             "{from}->{to}: {} vs {through}",
             s[to][from]
         );
-        assert!(s[from][from].norm() < 1e-6, "{from}: {}", s[from][from]);
+        assert!(
+            portable::complex::abs(s[from][from]) < 1e-6,
+            "{from}: {}",
+            s[from][from]
+        );
     }
     assert!(
-        s[3][0].norm() < 1e-5 && s[2][1].norm() < 1e-5,
+        portable::complex::abs(s[3][0]) < 1e-5 && portable::complex::abs(s[2][1]) < 1e-5,
         "{} {}",
         s[3][0],
         s[2][1]
     );
     let worst = (0..4)
         .flat_map(|q| (0..4).map(move |p| (q, p)))
-        .map(|(q, p)| (s[q][p] - s[p][q]).norm())
+        .map(|(q, p)| portable::complex::abs(s[q][p] - s[p][q]))
         .fold(0.0, f64::max);
     assert!(worst < 1e-10, "{worst}");
 }
@@ -421,18 +444,20 @@ fn a_backward_source_launches_the_twin_with_the_same_tangential_e_at_unit_amplit
         let (forward, backward) = field.mode_amplitudes(mode);
         assert!(
             // forward: what the far PML sends back, 5e-6
-            (backward - 1.0).norm() < 1e-9 && forward.norm() < 1e-4,
+            portable::complex::abs(backward - 1.0) < 1e-9 && portable::complex::abs(forward) < 1e-4,
             "{polarization:?}: {forward} {backward}"
         );
         let peak = (0..solver.grid().ny)
             .max_by(|&a, &b| {
-                mode.profile()[a]
-                    .norm()
-                    .total_cmp(&mode.profile()[b].norm())
+                portable::complex::abs(mode.profile()[a])
+                    .total_cmp(&portable::complex::abs(mode.profile()[b]))
             })
             .unwrap();
         let ratio = field.at(mode.column(), peak) / mode.profile()[peak];
-        assert!((ratio - twin).norm() < 1e-4, "{polarization:?}: {ratio}");
+        assert!(
+            portable::complex::abs(ratio - twin) < 1e-4,
+            "{polarization:?}: {ratio}"
+        );
     }
 }
 
@@ -650,12 +675,16 @@ fn faers_lu_as_the_backend_gives_the_same_field_to_rounding() {
     // it takes no symmetric form: the system's LU
     assert!(!faer.lu.symmetric());
     let (a, b) = (own.solve(&source).unwrap(), faer.solve(&source).unwrap());
-    let largest = a.values.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = a
+        .values
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let off = a
         .values
         .iter()
         .zip(&b.values)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     assert!(off < 1e-11 * largest, "{off} of {largest}");
     let (a, b) = (
@@ -665,7 +694,7 @@ fn faers_lu_as_the_backend_gives_the_same_field_to_rounding() {
     let off = a
         .iter()
         .zip(&b)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     assert!(off < 1e-11 * largest, "{off} of {largest}");
 }
@@ -745,12 +774,16 @@ fn auto_takes_the_backend_this_machines_records_say_and_says_why() {
         plain.solve(&source).unwrap(),
         chosen.solve(&source).unwrap(),
     );
-    let largest = a.values.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = a
+        .values
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let off = a
         .values
         .iter()
         .zip(&b.values)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     assert!(off < 1e-11 * largest, "{off} of {largest}");
     // a solver reused for another wavelength keeps the backend and the reason: one decision
@@ -799,7 +832,10 @@ fn a_mode_measured_on_rows_of_the_turned_grid_is_the_column_ports_amplitude() {
         .collect();
     let a: num_complex::Complex64 = c.iter().zip(&u).map(|(c, u)| c * u).sum();
     let want = field.mode_amplitudes(mode).0;
-    assert!((a - want).norm() < 1e-12 * want.norm(), "{a} {want}");
+    assert!(
+        portable::complex::abs(a - want) < 1e-12 * portable::complex::abs(want),
+        "{a} {want}"
+    );
     // and H along z is refused
     let h = Solver2d::from_cells(
         turned,
