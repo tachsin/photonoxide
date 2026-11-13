@@ -1,5 +1,6 @@
 use super::*;
 use crate::backend::krylov::{Ilu0, Sparse, gmres_preconditioned};
+use crate::portable;
 
 /// A complex, nonsymmetric, diagonally dominant matrix of n rows, shifted by `shift` on its
 /// diagonal, and a right-hand side: the same on every run.
@@ -59,7 +60,7 @@ fn a_recycled_space_saves_iterations_on_the_same_matrix_and_the_next() {
     for (i, ci) in space.c.iter().enumerate() {
         for (j, cj) in space.c.iter().enumerate() {
             let expected = if i == j { 1.0 } else { 0.0 };
-            assert!((dot_conj(ci, cj) - expected).norm() < 1e-12);
+            assert!(portable::complex::abs(dot_conj(ci, cj) - expected) < 1e-12);
         }
     }
     // again, on another right-hand side of the same matrix: no products spent on C

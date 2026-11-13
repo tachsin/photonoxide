@@ -44,6 +44,7 @@ use num_complex::Complex64 as c64;
 use super::{
     CHUNK, Convergence, Operator, Preconditioner, RightPreconditioned, Stopping, norm, rotate,
 };
+use crate::portable;
 use crate::{Error, Result};
 
 /// A candidate Lanczos vector is deflated when its biorthogonalized part is at most this
@@ -611,7 +612,7 @@ impl<A: Operator> Run<'_, A> {
                     break;
                 }
             }
-            if self.delta[k].norm() < BREAKDOWN {
+            if portable::complex::abs(self.delta[k]) < BREAKDOWN {
                 return Ending::Broken;
             }
             self.release();
@@ -739,7 +740,7 @@ impl<A: Operator> Run<'_, A> {
         let spread: f64 = d
             .terms
             .iter()
-            .map(|&(k, c)| c.norm() * self.scales[k])
+            .map(|&(k, c)| portable::complex::abs(c) * self.scales[k])
             .sum();
         if spread > 0.0 {
             let bound = self.tolerances[d.system] * self.scales[d.system] / spread;
@@ -792,7 +793,7 @@ impl<A: Operator> Run<'_, A> {
             turns.push(g);
         }
         let diagonal = col[j - r0];
-        if diagonal.norm() == 0.0 {
+        if portable::complex::abs(diagonal) == 0.0 {
             return Some(Ending::Broken);
         }
         // the same rotations on the right-hand side's rows j … last (their Eq. 5.7)
@@ -813,10 +814,11 @@ impl<A: Operator> Run<'_, A> {
             .iter()
             .filter(|(i, _)| *i >= r0)
             .map(|(i, p)| (p.as_slice(), col[i - r0]))
-            .filter(|(_, u)| u.norm() != 0.0)
+            .filter(|(_, u)| portable::complex::abs(*u) != 0.0)
             .collect();
         debug_assert!(
-            (r0..j).all(|i| col[i - r0].norm() == 0.0 || self.directions.iter().any(|d| d.0 == i)),
+            (r0..j).all(|i| portable::complex::abs(col[i - r0]) == 0.0
+                || self.directions.iter().any(|d| d.0 == i)),
             "a direction needed has been let go"
         );
         let mut targets: Vec<(&mut [c64], c64)> = Vec::with_capacity(self.active.len());
@@ -861,8 +863,8 @@ impl<A: Operator> Run<'_, A> {
             let rows: Vec<Vec<c64>> = self.window.iter().cloned().collect();
             let gamma = null_vector(&rows, self.active.len());
             let (pos, _) = gamma.iter().enumerate().fold((0, -1.0), |best, (i, g)| {
-                if g.norm() > best.1 {
-                    (i, g.norm())
+                if portable::complex::abs(*g) > best.1 {
+                    (i, portable::complex::abs(*g))
                 } else {
                     best
                 }
@@ -987,12 +989,13 @@ impl<A: Operator> Run<'_, A> {
 
 /// The Givens rotation (c, s) of [`rotate`] that zeroes b against a.
 fn givens(a: c64, b: c64) -> (f64, c64) {
-    if b.norm() == 0.0 {
+    if portable::complex::abs(b) == 0.0 {
         (1.0, c64::new(0.0, 0.0))
-    } else if a.norm() == 0.0 {
+    } else if portable::complex::abs(a) == 0.0 {
         (0.0, c64::new(1.0, 0.0))
     } else {
-        let c = a.norm() / a.norm().hypot(b.norm());
+        let c = portable::complex::abs(a)
+            / portable::hypot(portable::complex::abs(a), portable::complex::abs(b));
         (c, (c * b / a).conj())
     }
 }

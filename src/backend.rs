@@ -42,6 +42,7 @@ use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, SparseColMatRef, SymbolicSparseColMatRef, Triplet};
 use num_complex::{Complex32 as c32, Complex64 as c64};
 
+use crate::portable;
 use crate::sparse;
 use crate::{Error, Result};
 
@@ -833,8 +834,8 @@ impl Analysis for MixedAnalysis {
         for (j, column) in columns.iter_mut().enumerate() {
             let mut count = 0;
             for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
-                rows[i] += v.norm();
-                *column += v.norm();
+                rows[i] += portable::complex::abs(*v);
+                *column += portable::complex::abs(*v);
                 row_entries[i] += 1;
                 count += 1;
             }
@@ -1102,8 +1103,14 @@ pub(crate) mod tests {
                 }
             }
         }
-        let scale = b.iter().map(|v| v.norm()).fold(0.0, f64::max);
-        r.iter().map(|v| v.norm()).fold(0.0, f64::max) / scale
+        let scale = b
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
+        r.iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max)
+            / scale
     }
 
     #[test]
