@@ -18,6 +18,8 @@
 #               checks docs/validation.md's head and list of cases, which every job's rows share
 #   release_os  the same on Windows and macOS (examples only, Tier 2 and 3), each job building its own
 #   test        the unit tests' jobs: {os, part, filters, native}: the filters (and --skip's) given
+#               (with POOLED=true, a pull request's run: one job on each system, no split; the
+#               release entries are then run side by side in one job, .github/run-pool.sh)
 #               to the test binaries, and whether photonoxide-native's tests run there too
 #               (in the same Cargo command as photonoxide's where the job runs every test)
 #   build_cases     true when a Linux job runs validation cases: the build makes their binary
@@ -302,6 +304,16 @@ fi
 native1=$native native2=false
 if [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
 for os in $test_systems; do
+  if [ "${POOLED:-false}" = true ]; then
+    # a pull request's run: one job on each system, every filter in one `cargo test` (its test
+    # threads keep the runner's cores busy), no split
+    if [ "$tests" = "*" ]; then
+      test_entry "$os" "all" "" "$native"
+    elif [ -n "$tests" ] || [ "$native" = true ]; then
+      test_entry "$os" "the changed areas" "$tests" "$native"
+    fi
+    continue
+  fi
   if [ -n "$first" ] || [ "$native1" = true ]; then test_entry "$os" "1 of 2" "$first" "$native1"; fi
   if [ -n "$second" ] || [ "$native2" = true ]; then test_entry "$os" "2 of 2" "$second" "$native2"; fi
 done

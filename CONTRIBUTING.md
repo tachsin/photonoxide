@@ -131,12 +131,12 @@ runs, by the area map ([What CI runs](#what-ci-runs)):
 - **Docs:** every relative link in the Markdown leads to a file or folder that exists
   (`.github/scripts/check-links.sh`; anchors aren't checked), and the references index is
   current, as [Citing a source](#citing-a-source) describes;
-- **Studio, on Linux:** `pnpm build`, which renders every lesson's and methods page's math with KaTeX, and
-  `cargo test -p photonoxide-studio`, which checks each lesson as academy/README.md lists, that
-  every methods page is in one category of `CATEGORIES` and linked from docs/README.md, and the
-  README's counts;
-- **Lint** and **MSRV**, which build the workspace, as they do for every change that reaches an
-  area.
+- **Lint**, which builds the workspace (and checks it on the minimum Rust), and runs the studio's
+  `pnpm build`, which renders every lesson's and methods page's math with KaTeX.
+
+The studio's tests, which check each lesson as academy/README.md lists, that every methods page is
+in one category of `CATEGORIES` and linked from docs/README.md, and the README's counts, run on
+your workstation before the push (`just studio-check`; the pre-push hook runs them), not in CI.
 
 CI reads a methods page's front matter (`studio/src-tauri/tests/methods.rs`: no unknown key, case
 ids and examples that exist, DOIs of the form Crossref writes; the references index checks the
@@ -228,7 +228,7 @@ The task isn't one internally tagged enum (`#[serde(tag = "kind")]`) because suc
 
 CI runs in three tiers, so that a PR waits only for what its change can break:
 
-1. **Every PR and every push to `main`:** the docs' links, `cargo fmt`, clippy, the MSRV check, and the unit tests, validation cases and examples of the areas the change touches and of the areas that use them, on Linux ([What CI runs on a PR](#what-ci-runs-on-a-pr)); Windows and macOS in the Weekly run. No CI job runs the studio's tests or photonoxide-native's: [the studio's run on your workstation](#studio-tests-run-on-your-workstation-not-in-ci), [native's by hand](#native-tests-are-run-by-hand). The area map is [`.github/areas.sh`](.github/areas.sh); `git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh` shows what it picks for your branch. A file in no area (the library's root, `units`, `geometry`, `Cargo.toml`, …) runs everything; a PR of docs that no test reads runs only the links. A validation case's row is checked against `docs/validation.md` whenever its area runs. A PR that changes the library (`src/` or the root `Cargo.toml`) has its public API compared with its base on `main` by [cargo-semver-checks](https://github.com/obi1kenobi/cargo-semver-checks) (the "Semver" job). A break fails it unless the title has a `!` or the PR the `breaking` label; after adding either, rerun the job. To run it here: `cargo semver-checks check-release -p photonoxide --baseline-rev origin/main`.
+1. **Every PR:** the docs' links, `cargo fmt`, clippy, the MSRV check, and the unit tests, validation cases and examples of the areas the change touches and of the areas that use them, on Linux, in few jobs ([What CI runs on a PR](#what-ci-runs-on-a-pr)). **Every push to `main`:** everything on Linux, in shards, holding up no PR. Windows and macOS in the Weekly run. No CI job runs the studio's tests or photonoxide-native's: [the studio's run on your workstation](#studio-tests-run-on-your-workstation-not-in-ci), [native's by hand](#native-tests-are-run-by-hand). The area map is [`.github/areas.sh`](.github/areas.sh); `git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh` shows what it picks for your branch. A file in no area (the library's root, `units`, `geometry`, `Cargo.toml`, …) runs everything; a PR of docs that no test reads runs only the links. A validation case's row is checked against `docs/validation.md` whenever its area runs. A PR that changes the library (`src/` or the root `Cargo.toml`) has its public API compared with its base on `main` by [cargo-semver-checks](https://github.com/obi1kenobi/cargo-semver-checks) (the "Semver" job). A break fails it unless the title has a `!` or the PR the `breaking` label; after adding either, rerun the job. To run it here: `cargo semver-checks check-release -p photonoxide --baseline-rev origin/main`.
 2. **The release PR, a PR labelled `full-ci`, and a change that can alter the dependencies or the features** (a package in `Cargo.lock` added, removed or at another version; a line of the root `Cargo.toml`'s dependency, feature, patch or `[workspace]` tables: [`.github/dependencies.sh`](.github/dependencies.sh)): everything: every test (and on one thread), every example including the 3D devices, the whole validation report; on Linux, Windows and macOS for the release PR and `full-ci`, on Linux for a dependency change (on the three in the Weekly run).
 3. **Every Monday, when code changed that week** (`.github/workflows/weekly.yml`): the same, every Python wheel, the Windows and macOS comparison (`systems.yml`). The external libraries' installs (`libraries.yml`) run by hand only. A failure opens or updates the issue "Weekly run failed", which lists the week's commits.
 
@@ -236,26 +236,27 @@ Nothing ships without a green release PR and weekly run. A large change can ask 
 
 ### What CI runs on a PR
 
-A PR waits only for what its change can break, on Linux, with no test of the studio and none of photonoxide-native's (below); `main` is checked further after the merge. The minutes are a PR's wall time when runners are free, estimated from the measured job and step times of 103 runs in November 2026 (before this split: 22.5 minutes at the median, 17 for a PR of docs the studio reads).
+A PR waits only for what its change can break, on Linux, in few jobs: What changed, Docs, Lint, Semver (a change to `src/` or the root `Cargo.toml`), one job of unit tests, one job of validation cases and examples, and "CI passed", which collects them. No test of the studio and none of photonoxide-native's (below). Everything else runs after the merge: every push to `main` runs every unit test, case and example, in shards, without holding up any PR. The minutes are a PR's wall time when runners are free, estimated from the measured case and example times of main's run of 13 November 2026 (the cases and examples of a wide change take longer in one job than they did in shards: see the last column's ranges).
 
-| The PR changes | What runs | Minutes |
-|---|---|---|
-| Docs nothing reads (most Markdown, the site, the other workflows, `.github/scripts`) | Docs (links, math, the references index, the hooks, shellcheck) | 1 |
-| What the studio reads as text: `README.md`, `ROADMAP.md`, `CHANGELOG.md`, `academy/`, `docs/methods/`, `examples/README.md`, the studio's web view (`studio/src`) | Docs, Lint, MSRV, the studio's lint and build (no test) | 5 to 8 |
-| The studio's Rust code (`studio/`) | Docs, Lint, MSRV, the studio's lint and build | 5 to 8 |
-| The library (`src/`) | Docs, Lint, MSRV, Semver, the library checked for Windows and macOS from Linux, the changed areas' unit tests, validation cases and examples (one release build, then only the cases' groups and examples' jobs that have something to run), the studio's lint and build if it uses the area | 15 to 28 |
-| `native/` | Docs, Lint (its clippy), MSRV, the studio's lint and build (no test of native's) | 5 to 8 |
-| `rust-toolchain.toml`, `ci.yml`, the area map, the shards, `dependencies.sh`, `.github/actions` | everything, on Linux | 25 to 30 |
-| `Cargo.lock`'s packages, or the root `Cargo.toml`'s dependency, feature, patch or `[workspace]` tables | Tier 2: everything, on Linux (Windows and macOS in the Weekly run) | 30 to 40 |
-| The root `Cargo.toml` otherwise (`exclude`, metadata, comments, `[profile.*]`) | Tier 1: every unit test, case and example on Linux | 25 to 30 |
-| The release PR, or any PR with the `full-ci` label | Tier 2, on Linux, Windows and macOS | 45 to 90 |
-| A draft PR | nothing: every job is skipped until the PR is marked ready for review | 0 |
+| The PR changes | Jobs | What runs | Minutes |
+|---|---|---|---|
+| Docs nothing reads (most Markdown, the site, the other workflows' docs, `.github/scripts`, `docker/`) | 3 | Docs (links, math, the references index, the hooks, shellcheck) | 1 |
+| What the studio reads as text, or the studio's code (`README.md`, `ROADMAP.md`, `CHANGELOG.md`, `academy/`, `docs/methods/`, `studio/`) | 4 | Docs, Lint (with the studio's lint and build; no test) | 6 to 8 |
+| `native/` | 4 | Docs, Lint (its clippy; no test of native's) | 6 to 8 |
+| The library (`src/`): an area few others use (topology) | 7 | Docs, Lint (with the MSRV check, the library compiled for Windows and macOS from Linux, the canaries), Semver, the changed areas' unit tests in one job, their cases and examples in one job | 8 |
+| The library: an area others use (eme; device; fdtd) | 7 | the same; the cases and examples of every area that uses it, side by side on the runner's cores | 12 to 21; 15 to 29; 21 to 39 |
+| The library: an area nearly everything uses (mode, material), or a file of no area (the library's root, `units`, `geometry`) | 7 | the same, for nearly every case and example | 25 to 65 |
+| CI's own files (`.github/workflows`, `.github/actions`, the scripts at `.github/`'s top: the area map, the shards, ...) | 5 | Docs, "CI's own files" (actionlint, the shards' exactly-once check over every case and the area map on set file lists: `bash .github/check-shards.sh`), a smoke run of the cases and examples' job | 4 to 5 |
+| `Cargo.lock`'s packages, or the root `Cargo.toml`'s dependency, feature, patch or `[workspace]` tables | 34 | Tier 2: everything, in shards, on Linux (Windows and macOS in the Weekly run) | 30 to 40 |
+| The release PR, or any PR with the `full-ci` label | | Tier 2, in shards, on Linux, Windows and macOS | 45 to 90 |
+| A draft PR | 0 | nothing: every job is skipped until the PR is marked ready for review | 0 |
 
+- **The cases and examples in one job.** "Validation and examples" builds the validation report's test binary and the changed areas' examples (through sccache, about a minute and a half), then runs the groups of cases the shards would give jobs of their own, each in one process, and each example in one, side by side, as many at once as the runner has cores and at most two of the 3D groups (`.github/run-pool.sh`). Each task's output is printed whole when it ends, with its time.
 - **Draft until done.** Open the PR as a draft; develop with the local checks (`just`, the pre-push hook); mark it ready for review once, when it is done: CI runs then, once. Don't push again and again to a PR that is ready, and don't merge `main` into it by hand: the merge queue checks it merged onto the latest `main` (the "CI passed" check, run on the queue's merge commit) before it lands.
-- **Windows and macOS.** A PR starts no Windows or macOS runner, but the release PR and one labelled `full-ci`. The "Check for Windows and macOS" job compiles the library (every feature, its tests too) for both from Linux. The Weekly run takes every unit test and example to Windows and macOS, runs the canaries there (fast checks of what can differ by system: the system's maths library, the dense kernels, threads, files), and the Systems workflow compares the validation report and the 3D devices; so do the release PR and `full-ci`. A push to `main` and the merge queue run on Linux. In November 2026 they caught nothing that Linux did not.
-- **`main`.** A push to `main` runs what its PR ran, on Linux, compared with the last commit whose run on `main` passed: a newer push stops the older run, and checks its commits too.
-- **One release build.** The validation cases and the examples run, on Linux, from one build of their binaries (the "Release build" job), and docs/validation.md's head and list of cases are checked in one job, not in each.
-- See what CI will run for your branch: `git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh`, then `| bash .github/shards.sh 1` for its jobs.
+- **Windows and macOS.** A PR starts no Windows or macOS runner, but the release PR and one labelled `full-ci`. Lint compiles the library (every feature, its tests too) for both from Linux (its "Check for Windows and macOS" step). The Weekly run takes every unit test and example to Windows and macOS, runs the canaries there (fast checks of what can differ by system: the system's maths library, the dense kernels, threads, files), and the Systems workflow compares the validation report and the 3D devices; so do the release PR and `full-ci`. A push to `main` and the merge queue run on Linux. In November 2026 they caught nothing that Linux did not.
+- **`main`.** Every push to `main` runs everything on Linux: every unit test (in two jobs), every case and every example but the 3D devices, in shards (the "Release build" job builds the binaries once and 19 jobs fetch and run them). It holds up no PR. A newer push stops the older run, which checks nothing less: each runs everything. It compares `main` with the last commit whose run passed, for a dependency change since (Tier 2: the 3D devices and the tests on one thread too).
+- **One release build, where it pays.** A sharded run (`main`, Tier 2 and 3) builds the binaries once and its jobs fetch them: a build is about a minute and a half through sccache, the artifact (117 MB) uploads in 10 seconds and downloads in 3, so 19 jobs save about half an hour of building. A PR's one job of cases and examples builds its own: an artifact would only add the upload, the download and a job's start.
+- See what CI will run for your branch: `git diff --name-only origin/main...HEAD | AREAS_RANGE=origin/main...HEAD bash .github/areas.sh`, then `| POOLED=true bash .github/shards.sh 1` for its jobs; `bash .github/check-shards.sh` prints the jobs of a few typical PRs.
 
 ### Studio tests run on your workstation, not in CI
 
@@ -278,7 +279,7 @@ No CI job runs photonoxide-native's tests; CI lints it (rustfmt, clippy, in Lint
 
 photonoxide follows [Semantic Versioning](https://semver.org/). Before 1.0, Cargo's rules for `0.x` apply: a breaking change to the public API, or a deliberate change of a model or a default that changes results (a different method for the same job), is a minor release (0.1.x → 0.2.0); new functionality and fixes are patch releases. A fix that corrects a wrong result is a fix even when numbers move: the old numbers were errors, not a promise, and the PR title (`fix:`) and the changelog say which results changed.
 
-The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the CI's MSRV job are raised with it (`build!: …`).
+The minimum Rust follows the dependencies: when a dependency's current release needs a newer Rust, `rust-version` and the version in Lint's MSRV step are raised with it (`build!: …`).
 
 ### How to bump Rust
 
@@ -286,7 +287,7 @@ The Rust that builds photonoxide is pinned: [`rust-toolchain.toml`](rust-toolcha
 
 1. Update on the workstation (`rustup update`), then change `channel` in `rust-toolchain.toml` to the version it installed. That is the only place the version is written; `rustup toolchain install` in the checkout fetches it.
 2. Fix the new lints and errors in the same pull request.
-3. Run the MSRV job, which builds on the `rust-version` of `Cargo.toml` on its own toolchain (it sets `RUSTUP_TOOLCHAIN` for it), and, before merging, the Weekly workflow's "Rust stable ahead of the pin" job (Run workflow), which builds on the newest stable.
+3. Let Lint's MSRV step run (it builds on the `rust-version` of `Cargo.toml` on its own toolchain, setting `RUSTUP_TOOLCHAIN` for it), and, before merging, the Weekly workflow's "Rust stable ahead of the pin" job (Run workflow), which builds on the newest stable.
 
 That job also runs every Monday: when it fails, a new Rust release has brought a lint or an error, and the bump is due. The [Dependencies](https://tachsin.gr/projects/photonoxide/dependencies) page lists the toolchain beside the newest stable release.
 

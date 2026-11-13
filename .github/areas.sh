@@ -18,6 +18,10 @@
 #              "every" (every test of the studio)
 #   studio_skip  in the fast tier, the slow tests it skips (.github/studio-slow-tests.txt, less
 #              those a changed file of theirs runs), separated by spaces
+#   ci         true when CI's own files changed (the workflows, .github/actions, the scripts
+#              and lists at .github/'s top: the area map, the shards, ...): CI checks itself
+#              (actionlint, the shards' exactly-once check over every case, a smoke run of the
+#              cases and examples), and runs no area for them
 #   systems    "linux", or "all" with --all; CI's "What changed" job sets it from the event
 #              (Linux on a pull request but the release PR's and full-ci's, the three systems
 #              on every push to main and the Weekly run), not from the files
@@ -329,7 +333,7 @@ ignored() {
     # the list of sources, which the Docs job's references check reads (docs/references.md)
     docs/references.yaml) return 0 ;;
     # the full suite on your own machine, the hooks that start it, and the justfile's recipes
-    .github/full-suite.sh | .github/hooks/* | justfile) return 0 ;;
+    .github/full-suite.sh | .github/lints.sh | .github/studio-tests.sh | .github/hooks/* | justfile) return 0 ;;
     # the codebase report on the release PR, which its own workflow runs
     .github/codebase-report.sh | .github/workflows/codebase-report.yml) return 0 ;;
     # the cross-code harness (openEMS run on your own machine, `just openems`), a crate of its
@@ -337,9 +341,6 @@ ignored() {
     crosscode/*) return 0 ;;
     # the container images (docker/, .dockerignore), which their own workflow builds and checks
     docker/* | .dockerignore) return 0 ;;
-    # this workflow, the map and the shards run everything; the others run as themselves
-    .github/workflows/ci.yml | .github/areas.sh | .github/shards.sh) return 1 ;;
-    .github/workflows/*) return 0 ;;
     assets/* | studio/scripts/* | LICENSE* | .gitignore | .gitattributes) return 0 ;;
   esac
   return 1
@@ -348,6 +349,7 @@ ignored() {
 declare -A touched hit run
 everything=false
 code=false
+ci=false
 systems=linux
 # a change that runs every test of the studio, not its fast tier alone
 studio_slow=false
@@ -363,6 +365,17 @@ if [ "${1:-}" = --all ]; then
 else
   while IFS= read -r f; do
     [ -n "$f" ] || continue
+    # CI's own files: CI checks itself (the ci key, above), and no area runs for them. The
+    # studio's apt script is the studio's (its lint runs it); the scripts run on your own
+    # machine (the full suite, the lints the hooks run, the studio's tests, the codebase report),
+    # the hooks and .github/scripts are the Docs job's (below)
+    case "$f" in
+      .github/apt-get-update.sh | .github/full-suite.sh | .github/lints.sh | .github/studio-tests.sh | .github/codebase-report.sh) ;;
+      .github/workflows/* | .github/actions/* | .github/*.sh | .github/*.txt | .github/*.yaml)
+        ci=true
+        continue
+        ;;
+    esac
     if ignored "$f"; then continue; fi
     changed+=("$f")
     case "$f" in
@@ -435,6 +448,7 @@ slow_skips() {
 
 if [ "$everything" = true ]; then
   echo "code=true"
+  echo "ci=$ci"
   echo "areas=${areas[*]}"
   echo "tests=*"
   echo "native=true"
@@ -498,6 +512,7 @@ if [ -n "${run[studio]:-}" ]; then
 fi
 
 echo "code=$code"
+echo "ci=$ci"
 echo "areas=$(echo "$names" | once)"
 echo "tests=$(echo "$t" | once)"
 echo "native=$([ -n "${run[native]:-}" ] && echo true || echo false)"
