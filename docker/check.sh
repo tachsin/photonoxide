@@ -8,9 +8,9 @@
 #   bash docker/check.sh compare <out> <out>          two such outs hold the same bits
 #
 # The built-in jobs are three of `photonoxide new`'s templates (modes, fdfd and fdtd): each run's
-# record (events.jsonl, with the seconds its finished event gives blanked, and events.bin), its
-# results.json (without its seconds) and its tables go into <out>/<template>/, to be compared
-# byte for byte: a number written the same is the same f64, to the bit.
+# record (events.jsonl without what the clock decides, and events.bin), its results.json
+# (without its seconds) and its tables go into <out>/<template>/, to be compared byte for byte:
+# a number written the same is the same f64, to the bit.
 set -euo pipefail
 
 TEMPLATES=(modes fdfd fdtd)
@@ -36,7 +36,10 @@ run_templates() {
     local dir
     dir=$(ls -d "runs-$t"/*/ | head -n 1)
     mkdir -p "$out/$t"
-    sed -E '/^\{"type":"finished"/ s/"seconds":[^,}]*/"seconds":null/' "${dir}events.jsonl" >"$out/$t/events.jsonl"
+    # what the clock decides left out: the times (seconds), and FDTD's progress and its spectra
+    # so far, recorded every few seconds; its last spectra are kept
+    grep -v -E '^\{"type":"fdtd_progress"|^\{"type":"fdtd_spectrum".*"last":false' "${dir}events.jsonl" |
+      sed -E 's/"seconds":[^,}]*/"seconds":null/g' >"$out/$t/events.jsonl"
     # results.json's seconds, at its top level, on a line of its own
     grep -v '^  "seconds": ' "${dir}results.json" >"$out/$t/results.json"
     for f in "${dir}"events.bin "${dir}"*.csv; do
@@ -139,8 +142,8 @@ image() {
     local most=0
     for _ in $(seq 1 100); do
       local now
-      now=$(docker exec "$name" sh -c 'grep "^Threads:" /proc/1/status' 2>/dev/null | awk '{print $2}' || true)
-      [ -n "$now" ] && [ "$now" -gt "$most" ] && most=$now
+      now=$(docker exec "$name" sh -c 'grep "^Threads:" /proc/1/status' 2>/dev/null | awk '$1 == "Threads:" {print $2}' || true)
+      [[ $now =~ ^[0-9]+$ ]] && [ "$now" -gt "$most" ] && most=$now
       [ "$(docker inspect -f '{{.State.Running}}' "$name")" = true ] || break
       sleep 0.1
     done
