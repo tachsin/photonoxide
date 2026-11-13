@@ -111,6 +111,12 @@ gpu:
 gpu-report:
     cargo test --release --features gpu --test gpu_report -- --ignored
 
+# photonoxide-native's tests, which CI doesn't run: against its test library, and against the
+# external libraries installed here (the Libraries workflow runs them on clean machines, by hand:
+# `gh workflow run Libraries`)
+native-tests:
+    cargo test --all-features -p photonoxide-native
+
 # the external libraries found on this machine (CUDA, cuSPARSE, cuDSS, oneMKL, ...)
 libraries:
     cargo run -p photonoxide-native --example libraries
@@ -156,10 +162,17 @@ studio: studio-install
 studio-dev: studio-install
     pnpm tauri dev
 
-# type-check and build the studio's window (fails on warnings)
-[working-directory: 'studio']
-studio-check: studio-install
-    pnpm build
+# the studio's fast tests, which CI doesn't run (the pre-push hook does, when a push changes what
+# the studio reads): its window's lint, type-check, build and tests, then every test of the studio
+# but the slow physics solves of .github/studio-slow-tests.txt (needs bash)
+studio-check:
+    bash .github/studio-tests.sh fast
+
+# the studio's slow tests alone, the physics solves of .github/studio-slow-tests.txt (a minute or
+# more each; needs bash): before a push that changes the studio's Rust code, a job or circuit
+# file, or a library area the studio uses
+studio-slow:
+    bash .github/studio-tests.sh slow
 
 # lint the studio's TypeScript, and its Svelte files' script blocks, with oxlint (fails on warnings)
 [working-directory: 'studio']
