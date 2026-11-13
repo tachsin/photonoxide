@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 use super::checks::{courant_for, dft_e, grid, guide};
 use super::*;
 use crate::fdfd::{Boundaries3d, Direction, Solver3d};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// The closed lossy box of `checks::spectrum_against_fdfd` (ε = 2.1, σ = 2/µm, 16 × 14 × 12
@@ -53,8 +54,8 @@ pub(crate) fn transforms_against_hand() -> f64 {
                     for i in low.0..=high.0 {
                         let a = s.dft(n).value(Field::E, c, (i, j, k), f).unwrap();
                         let b = values[g.index(c, (i, j, k))];
-                        worst = worst.max((a - b).norm());
-                        largest = largest.max(b.norm());
+                        worst = worst.max(portable::complex::abs(a - b));
+                        largest = largest.max(portable::complex::abs(b));
                     }
                 }
             }
@@ -84,7 +85,7 @@ pub(crate) fn flux_against_fdfd() -> f64 {
     let spectrum = pulse.spectrum(Field::E, dt, steps, frequency);
     let g = s.grid();
     let tilde = s.leapfrog_wavenumber(frequency);
-    let loss = 2.0 * (frequency.angular() * dt / 2.0).cos() / tilde;
+    let loss = 2.0 * portable::cos(frequency.angular() * dt / 2.0) / tilde;
     let solver = Solver3d::new(
         g,
         Wavelength::um(std::f64::consts::TAU / tilde).unwrap(),
@@ -261,7 +262,7 @@ pub(crate) fn modes_against_fdfd() -> f64 {
         .unwrap();
     let dt = s.dt();
     let tilde = s.leapfrog_wavenumber(frequency);
-    let loss = sigma * (frequency.angular() * dt / 2.0).cos() / tilde;
+    let loss = sigma * portable::cos(frequency.angular() * dt / 2.0) / tilde;
     let solver = Solver3d::new(
         g,
         s.fdfd_wavelength(frequency).unwrap(),
@@ -289,12 +290,17 @@ pub(crate) fn modes_against_fdfd() -> f64 {
     let measured = s.mode_amplitudes(monitor);
     let largest = expected
         .iter()
-        .flat_map(|&(a, b)| [a.norm(), b.norm()])
+        .flat_map(|&(a, b)| [portable::complex::abs(a), portable::complex::abs(b)])
         .fold(0.0f64, f64::max);
     expected
         .iter()
         .zip(&measured)
-        .flat_map(|(&(a, b), &(c, d))| [(a - c / source).norm(), (b - d / source).norm()])
+        .flat_map(|(&(a, b), &(c, d))| {
+            [
+                portable::complex::abs(a - c / source),
+                portable::complex::abs(b - d / source),
+            ]
+        })
         .fold(0.0f64, f64::max)
         / largest
 }
@@ -355,14 +361,15 @@ pub(crate) fn cavity_resonances() -> (usize, f64) {
         .flat_map(|m| (1..ny).map(move |n| (m, n)))
         .map(|(m, n)| {
             let sin2 = |q: usize, cells: usize| {
-                (std::f64::consts::PI * q as f64 / (2.0 * cells as f64))
-                    .sin()
-                    .powi(2)
+                portable::powi(
+                    portable::sin(std::f64::consts::PI * q as f64 / (2.0 * cells as f64)),
+                    2,
+                )
             };
             let lambda = 4.0 / (h * h) * (sin2(m, nx) + sin2(n, ny));
             let b = 1.0 + ca - cb * dt * lambda;
             // the root with Im u < 0: e^(−iωΔt) for ω > 0
-            let root = c64::new(b * b - 4.0 * ca, 0.0).sqrt();
+            let root = portable::complex::sqrt(c64::new(b * b - 4.0 * ca, 0.0));
             let u = 0.5 * (c64::new(b, 0.0) - root);
             if u.im < 0.0 {
                 u
@@ -376,10 +383,10 @@ pub(crate) fn cavity_resonances() -> (usize, f64) {
         .iter()
         .map(|r| {
             let omega = c64::new(std::f64::consts::TAU * r.frequency, -r.decay);
-            let u = (c64::new(0.0, -1.0) * omega * dt).exp();
+            let u = portable::complex::exp(c64::new(0.0, -1.0) * omega * dt);
             exact
                 .iter()
-                .map(|e| (e - u).norm())
+                .map(|e| portable::complex::abs(e - u))
                 .fold(f64::INFINITY, f64::min)
         })
         .fold(0.0f64, f64::max);
@@ -460,7 +467,7 @@ pub(crate) fn slab_resonance(h: f64) -> (f64, f64) {
     )
     .unwrap();
     let r = (n_index - 1.0) / (n_index + 1.0);
-    let omega = c64::new(2.0 * std::f64::consts::PI, r.ln()) / (n_index * thickness);
+    let omega = c64::new(2.0 * std::f64::consts::PI, portable::ln(r)) / (n_index * thickness);
     let best = found
         .iter()
         .filter(|x| x.error < 1e-6)
@@ -545,7 +552,7 @@ pub(crate) fn guide_2d(bend: bool) -> Scattering {
         at[1] = ((low - g.y0) / h) as usize;
     }
     at[output_axis.index()] = out + 3;
-    let component = if input.e(Axis::Z, (n / 2, 0)).norm() > 0.0 {
+    let component = if portable::complex::abs(input.e(Axis::Z, (n / 2, 0))) > 0.0 {
         Axis::Z
     } else {
         output_axis.others().0
@@ -590,7 +597,7 @@ pub(crate) fn harmonic_synthetic() -> f64 {
             terms
                 .iter()
                 .map(|&(f, decay, d)| {
-                    d * c64::new(-decay * t, -std::f64::consts::TAU * f * t).exp()
+                    d * portable::complex::exp(c64::new(-decay * t, -std::f64::consts::TAU * f * t))
                 })
                 .sum()
         })
@@ -615,7 +622,7 @@ pub(crate) fn harmonic_synthetic() -> f64 {
             (r.frequency - f)
                 .abs()
                 .max((r.decay - decay).abs())
-                .max((r.amplitude - d).norm() / d.norm())
+                .max(portable::complex::abs(r.amplitude - d) / portable::complex::abs(d))
         })
         .fold(0.0f64, f64::max)
 }

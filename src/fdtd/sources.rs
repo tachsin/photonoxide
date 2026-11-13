@@ -36,6 +36,7 @@ use std::ops::Range;
 
 use super::*;
 use crate::fdfd::{Direction, PortMode3d};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// A current over many values of E (an electric current J) or of H̃ (a magnetic current M),
@@ -168,7 +169,7 @@ impl Simulation {
     /// The leapfrog's own angular frequency for a source at `frequency`,
     /// ω̃ = (2/Δt) sin(ωΔt/2): FDFD at ω̃ is what the run settles to (rad/µm, with c = 1).
     pub fn leapfrog_wavenumber(&self, frequency: Frequency) -> f64 {
-        2.0 / self.dt * (frequency.angular() * self.dt / 2.0).sin()
+        2.0 / self.dt * portable::sin(frequency.angular() * self.dt / 2.0)
     }
 
     /// The wavelength 2π/ω̃ at which FDFD solves the equations this run settles to for a source
@@ -895,7 +896,7 @@ impl PlaneWaveRun {
             } else {
                 continue;
             };
-            let sigma = sigma_max * (into / absorber as f64).min(1.0).powi(3);
+            let sigma = sigma_max * portable::powi((into / absorber as f64).min(1.0), 3);
             let half_e = sigma * dt / (2.0 * wave.eps);
             ca[i] = (1.0 - half_e) / (1.0 + half_e);
             cb[i] = dt / wave.eps / (1.0 + half_e);
@@ -1054,8 +1055,8 @@ fn beam_profile(
     };
     let t = beam.tilt.index();
     let mut u = [0.0; 3];
-    u[a] = sign * beam.angle.cos();
-    u[t] = beam.angle.sin();
+    u[a] = sign * portable::cos(beam.angle);
+    u[t] = portable::sin(beam.angle);
     let mut crossing = [0.0; 3];
     crossing[a] = grid.node(beam.axis, beam.plane);
     crossing[b.index()] = beam.centre.0;
@@ -1094,9 +1095,13 @@ fn beam_profile(
         let r2 = (0..3).map(|i| rho[i] * rho[i]).sum::<f64>() - z * z;
         let q = c64::new(z, -rayleigh);
         let ratio = c64::new(0.0, -rayleigh) / q;
-        let envelope = if transverse >= 2 { ratio } else { ratio.sqrt() };
+        let envelope = if transverse >= 2 {
+            ratio
+        } else {
+            portable::complex::sqrt(ratio)
+        };
         let phase = c64::new(0.0, 1.0) * (k * r2 / (2.0 * q) + k * z);
-        let value = envelope * phase.exp();
+        let value = envelope * portable::complex::exp(phase);
         e.map(|v| value * v)
     }
 }
@@ -1166,15 +1171,15 @@ impl PlaneSpectrum {
         let mut big_k = Vec::with_capacity(n[0] * n[1]);
         for mc in 0..n[1] {
             for mb in 0..n[0] {
-                let kb = 2.0 / steps[0] * (kt[0][mb] * steps[0] / 2.0).sin();
-                let kc = 2.0 / steps[1] * (kt[1][mc] * steps[1] / 2.0).sin();
+                let kb = 2.0 / steps[0] * portable::sin(kt[0][mb] * steps[0] / 2.0);
+                let kc = 2.0 / steps[1] * portable::sin(kt[1][mc] * steps[1] / 2.0);
                 let square = eps * k0 * k0 - kb * kb - kc * kc;
                 let normal = if square >= 0.0 {
                     c64::new(square.sqrt(), 0.0)
                 } else {
                     c64::new(0.0, (-square).sqrt())
                 } * sign;
-                let k_normal = 2.0 / step_a * (normal * step_a / 2.0).asin();
+                let k_normal = 2.0 / step_a * portable::complex::asin(normal * step_a / 2.0);
                 let w = mc * n[0] + mb;
                 let (eb, ec) = (coefficients[0][w], coefficients[1][w]);
                 let mut vector = [c64::new(0.0, 0.0); 3];
@@ -1182,7 +1187,7 @@ impl PlaneSpectrum {
                 kvec[axis.index()] = normal;
                 kvec[b.index()] = c64::new(kb, 0.0);
                 kvec[c.index()] = c64::new(kc, 0.0);
-                if normal.norm() > 1e-12 * k0 {
+                if portable::complex::abs(normal) > 1e-12 * k0 {
                     vector[b.index()] = eb;
                     vector[c.index()] = ec;
                     vector[axis.index()] = -(kb * eb + kc * ec) / normal;
@@ -1238,7 +1243,7 @@ impl PlaneSpectrum {
                         (k[x.index()] * e[y.index()] - k[y.index()] * e[x.index()]) / self.k0
                     }
                 };
-                value * (c64::new(0.0, 1.0) * self.ka[w] * offset).exp()
+                value * portable::complex::exp(c64::new(0.0, 1.0) * self.ka[w] * offset)
             })
             .collect();
         let positions = transverse_positions(grid, self.axis, &self.window, field, component);
@@ -1280,7 +1285,7 @@ fn transform(
     // along b: out(p, v) = Σ_q values(q, v) e^(sign i k x), with (k, x) indexed by (p, q) or
     // (q, p): from samples to waves p is the wave and q the sample, the other way round back
     let phase = |t: usize, wave: usize, sample: usize| -> c64 {
-        c64::new(0.0, sign * k[t][wave] * x[t][sample]).exp()
+        portable::complex::exp(c64::new(0.0, sign * k[t][wave] * x[t][sample]))
     };
     let to_waves = sign < 0.0;
     let table = |t: usize| -> Vec<c64> {
@@ -1415,7 +1420,7 @@ mod tests {
             planes[&(field as u8, c.index(), k)][j * g.nx + i]
         };
         let largest = (0..g.nx * g.ny)
-            .map(|r| value(Field::E, Axis::X, [r % g.nx, r / g.nx, 7]).norm())
+            .map(|r| portable::complex::abs(value(Field::E, Axis::X, [r % g.nx, r / g.nx, 7])))
             .fold(0.0f64, f64::max);
         let n = [g.nx, g.ny, g.nz];
         let shift = |at: [usize; 3], axis: Axis, by: i64| -> [usize; 3] {
@@ -1430,7 +1435,9 @@ mod tests {
                 // E's tangential components on the plane: the beam's
                 for c in [Axis::X, Axis::Y] {
                     let p = g.e_position(c, (i, j, 7));
-                    let error = (value(Field::E, c, [i, j, 7]) - profile(p)[c.index()]).norm();
+                    let error = portable::complex::abs(
+                        value(Field::E, c, [i, j, 7]) - profile(p)[c.index()],
+                    );
                     on_plane = on_plane.max(error / largest);
                 }
                 for k in 6..10 {
@@ -1444,7 +1451,8 @@ mod tests {
                             - (value(Field::E, a, shift(at, b, 1)) - value(Field::E, a, at))
                                 / step(b);
                         let h = value(Field::H, c, at);
-                        faraday = faraday.max((curl_e / c64::new(0.0, k0) - h).norm() / largest);
+                        faraday = faraday
+                            .max(portable::complex::abs(curl_e / c64::new(0.0, k0) - h) / largest);
                         // ∇ × H̃ = −ik₀εE at E_c, back differences
                         let curl_h = (value(Field::H, b, at)
                             - value(Field::H, b, shift(at, a, -1)))
@@ -1453,7 +1461,8 @@ mod tests {
                                 / step(b);
                         let e = value(Field::E, c, at);
                         ampere = ampere.max(
-                            (curl_h + c64::new(0.0, k0 * eps) * e).norm() / (k0 * eps * largest),
+                            portable::complex::abs(curl_h + c64::new(0.0, k0 * eps) * e)
+                                / (k0 * eps * largest),
                         );
                     }
                 }

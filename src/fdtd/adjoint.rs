@@ -61,6 +61,7 @@ use super::monitors::{Dft, Series};
 use super::{Field, SAMPLES, Simulation, Waveform, averaged, invalid, kernel};
 use crate::Result;
 use crate::fdfd::{Axis, Direction, Edges, Grid3d};
+use crate::portable;
 use crate::units::Frequency;
 
 /// A design region: a box of the grid's cells, each with a density ρ, whose permittivity
@@ -714,7 +715,7 @@ impl Simulation {
             .find(|s| s.field == field && s.axis == axis && (s.from..s.from + s.count).contains(&m))
         {
             let q = m - s.from;
-            v += s.a[q] / (1.0 - s.b[q] * c64::from_polar(1.0, omega * self.dt));
+            v += s.a[q] / (1.0 - s.b[q] * portable::complex::from_polar(1.0, omega * self.dt));
         }
         v
     }
@@ -945,11 +946,13 @@ impl Simulation {
             let now = snapshot(self);
             // each monitor against its own largest transform
             let settled = now.iter().zip(&before).all(|(now, before)| {
-                let largest = now.iter().fold(0.0f64, |m, v| m.max(v.norm()));
+                let largest = now
+                    .iter()
+                    .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
                 let change = now
                     .iter()
                     .zip(before)
-                    .fold(0.0f64, |m, (a, b)| m.max((a - b).norm()));
+                    .fold(0.0f64, |m, (a, b)| m.max(portable::complex::abs(a - b)));
                 change <= tolerance * largest
             });
             if self.time() >= finished && settled {

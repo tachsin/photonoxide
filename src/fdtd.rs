@@ -139,13 +139,13 @@ pub fn grid_frequency(k: [f64; 3], cells: [f64; 3], dt: f64, index: f64) -> c64 
     let sum: f64 = k
         .iter()
         .zip(cells)
-        .map(|(&k, d)| ((k * d / 2.0).sin() / d).powi(2))
+        .map(|(&k, d)| portable::powi(portable::sin(k * d / 2.0) / d, 2))
         .sum();
     let s = dt / index * sum.sqrt();
     if s <= 1.0 {
-        c64::new(2.0 / dt * s.asin(), 0.0)
+        c64::new(2.0 / dt * portable::asin(s), 0.0)
     } else {
-        c64::new(std::f64::consts::PI / dt, 2.0 / dt * s.acosh())
+        c64::new(std::f64::consts::PI / dt, 2.0 / dt * portable::acosh(s))
     }
 }
 
@@ -167,11 +167,14 @@ pub fn grid_wavenumber(
         return None;
     }
     let u = direction.map(|u| u / norm);
-    let target = (index * (frequency.angular() * dt / 2.0).sin() / dt).powi(2);
+    let target = portable::powi(
+        index * portable::sin(frequency.angular() * dt / 2.0) / dt,
+        2,
+    );
     let f = |k: f64| -> f64 {
         u.iter()
             .zip(cells)
-            .map(|(&u, d)| ((k * u * d / 2.0).sin() / d).powi(2))
+            .map(|(&u, d)| portable::powi(portable::sin(k * u * d / 2.0) / d, 2))
             .sum::<f64>()
             - target
     };
@@ -806,12 +809,10 @@ impl Simulation {
             // σ, κ at a position along the axis (in cells from node 0), for a slab of `cells`
             let profile = |depth_cells: f64, cells: usize| -> (f64, f64) {
                 let d = cells as f64 * h;
-                let x = (depth_cells / cells as f64)
-                    .clamp(0.0, 1.0)
-                    .powf(cpml.order);
+                let x = portable::powf((depth_cells / cells as f64).clamp(0.0, 1.0), cpml.order);
                 let sigma_max = cpml
                     .sigma
-                    .unwrap_or((cpml.order + 1.0) * (-cpml.reflection.ln()) / (2.0 * d));
+                    .unwrap_or((cpml.order + 1.0) * (-portable::ln(cpml.reflection)) / (2.0 * d));
                 (sigma_max * x, 1.0 + (cpml.kappa - 1.0) * x)
             };
             let at = |pos: f64| -> (f64, f64) {
@@ -830,7 +831,7 @@ impl Simulation {
             let dt = self.dt;
             let coefficients = |pos: f64| -> (f64, f64) {
                 let (sigma, kappa) = at(pos);
-                let b = (-(sigma / kappa + cpml.alpha) * dt).exp();
+                let b = portable::exp(-(sigma / kappa + cpml.alpha) * dt);
                 let denominator = sigma * kappa + kappa * kappa * cpml.alpha;
                 let a = if sigma > 0.0 && denominator > 0.0 {
                     sigma * (b - 1.0) / denominator

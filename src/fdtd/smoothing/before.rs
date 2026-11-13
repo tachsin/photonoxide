@@ -4,6 +4,7 @@
 
 use crate::Result;
 use crate::geometry::{Point, Shape};
+use crate::portable;
 
 type Matrix = [[f64; 3]; 3];
 
@@ -101,7 +102,7 @@ impl Body {
     ///
     /// As [`Body::ellipsoid`].
     pub(crate) fn ellipse(center: [f64; 2], semi_axes: [f64; 2], angle: f64) -> Result<Body> {
-        let (s, c) = angle.sin_cos();
+        let (s, c) = portable::sin_cos(angle);
         Body::ellipsoid(
             [center[0], center[1], 0.0],
             [semi_axes[0], semi_axes[1], f64::INFINITY],
@@ -160,7 +161,7 @@ impl Body {
             Kind::Extruded { bounds, .. } => {
                 let dx = (bounds[0] - p[0]).max(p[0] - bounds[2]).max(0.0);
                 let dy = (bounds[1] - p[1]).max(p[1] - bounds[3]).max(0.0);
-                dx.hypot(dy) > r
+                portable::hypot(dx, dy) > r
             }
             Kind::Etched { bounds, z, run, .. } => {
                 let out = (z[1] - z[0]) * run;
@@ -171,7 +172,7 @@ impl Body {
                     .max(p[1] - bounds[3] - out)
                     .max(0.0);
                 let dz = (z[0] - p[2]).max(p[2] - z[1]).max(0.0);
-                dx.hypot(dy).hypot(dz) > r
+                portable::hypot(portable::hypot(dx, dy), dz) > r
             }
             _ => false,
         }
@@ -212,7 +213,7 @@ impl Body {
                 // the wall: d − (top − z) cot θ over its gradient's length, the distance to
                 // its plane through the outline's nearest point
                 let (d, n) = planar(shape, p[0], p[1]);
-                let length = run.hypot(1.0);
+                let length = portable::hypot(*run, 1.0);
                 let wall = (
                     (d - (z[1] - p[2]) * run) / length,
                     [n[0] / length, n[1] / length, run / length],
@@ -237,7 +238,7 @@ impl Body {
 fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
     let radial = |center: &Point, x: f64, y: f64| {
         let (dx, dy) = (x - center.x.to_um(), y - center.y.to_um());
-        let r = dx.hypot(dy);
+        let r = portable::hypot(dx, dy);
         let n = if r > 0.0 {
             [dx / r, dy / r]
         } else {
@@ -259,7 +260,7 @@ fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
             let sign = [dx.signum(), dy.signum()];
             if q[0] > 0.0 || q[1] > 0.0 {
                 let v = [q[0].max(0.0), q[1].max(0.0)];
-                let d = v[0].hypot(v[1]);
+                let d = portable::hypot(v[0], v[1]);
                 (d, [sign[0] * v[0] / d, sign[1] * v[1] / d])
             } else if q[0] > q[1] {
                 (q[0], [sign[0], 0.0])
@@ -293,10 +294,10 @@ fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
                 let (ex, ey) = (bx - ax, by - ay);
                 let t = (((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
                 let nearest = [ax + t * ex, ay + t * ey];
-                let d = (x - nearest[0]).hypot(y - nearest[1]);
+                let d = portable::hypot(x - nearest[0], y - nearest[1]);
                 if d < best.0 {
                     // counterclockwise: the edge's outward normal is (e_y, −e_x)
-                    let l = ex.hypot(ey);
+                    let l = portable::hypot(ex, ey);
                     best = (d, nearest, [ey / l, -ex / l]);
                 }
             }

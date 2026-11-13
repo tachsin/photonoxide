@@ -8,6 +8,7 @@ use super::super::checks::{grid, noise};
 use super::super::{Cpml, Current, Field, PlaneWave, Simulation, Source, Waveform};
 use super::*;
 use crate::fdfd::Edges;
+use crate::portable;
 use crate::units::Frequency;
 
 /// A harmonic of a signal: Re(c e^(−iωt)), decaying at the rate γ.
@@ -64,7 +65,7 @@ pub(crate) fn harmonics(signals: &[Vec<f64>], dt: f64) -> Vec<Harmonic> {
         });
         let c = lu.solve(rhs);
         for a in 0..k {
-            amplitude[a] = amplitude[a].max(c[(a, 0)].norm());
+            amplitude[a] = amplitude[a].max(portable::complex::abs(c[(a, 0)]));
         }
     }
     poles
@@ -72,8 +73,8 @@ pub(crate) fn harmonics(signals: &[Vec<f64>], dt: f64) -> Vec<Harmonic> {
         .zip(amplitude)
         .filter(|(z, _)| z.im < 0.0 || z.im == 0.0 && z.re > 0.0)
         .map(|(z, amplitude)| Harmonic {
-            omega: -z.arg() / dt,
-            decay: -z.norm().ln() / dt,
+            omega: -portable::complex::arg(*z) / dt,
+            decay: -portable::ln(portable::complex::abs(*z)) / dt,
             // a real signal's pair: 2|c|
             amplitude: 2.0 * amplitude,
         })
@@ -100,11 +101,11 @@ pub(crate) fn anisotropic_lattice(periods: [usize; 2]) -> Structure {
 /// The rotation by Euler angles (z, x, z), its rows the rotated axes.
 pub(crate) fn rotation([alpha, beta, gamma]: [f64; 3]) -> [[f64; 3]; 3] {
     let z = |t: f64| {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         [[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]]
     };
     let x = |t: f64| {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         [[1.0, 0.0, 0.0], [0.0, c, s], [0.0, -s, c]]
     };
     let product = |a: [[f64; 3]; 3], b: [[f64; 3]; 3]| -> [[f64; 3]; 3] {
@@ -235,7 +236,7 @@ impl Lattice<'_> {
                     );
                     let p = grid.h_position(Axis::Z, ijk);
                     let phase = std::f64::consts::TAU * (k[0] * p[0] + k[1] * p[1]);
-                    (Axis::Z, ijk, c64::new(phase.cos(), 0.0))
+                    (Axis::Z, ijk, c64::new(portable::cos(phase), 0.0))
                 })
                 .collect();
             s.add_current(Current {
@@ -350,7 +351,7 @@ pub(crate) fn slab_reflection(
         let t = s.time();
         let ei = s.incident(wave, Field::E, Axis::X, (0, 0, inside));
         for (q, f) in frequencies.iter().enumerate() {
-            let w = c64::new(0.0, std::f64::consts::TAU * f * t).exp();
+            let w = portable::complex::exp(c64::new(0.0, std::f64::consts::TAU * f * t));
             scattered[q][0] += s.e(Axis::X)[front] * w;
             scattered[q][1] += s.e(Axis::Y)[front] * w;
             incident[q] += ei * w;
@@ -363,10 +364,10 @@ pub(crate) fn slab_reflection(
         .map(|(q, f)| {
             // the grid's own wavenumber in vacuum: sin(kh/2)/h = sin(ωΔt/2)/Δt
             let omega = std::f64::consts::TAU * f;
-            let k = 2.0 / h * ((h / dt) * (omega * dt / 2.0).sin()).asin();
+            let k = 2.0 / h * portable::asin((h / dt) * portable::sin(omega * dt / 2.0));
             let (zp, zi) = (front as f64 * h, inside as f64 * h);
-            let shift =
-                c64::new(0.0, k * (zi - zp)).exp() * c64::new(0.0, -2.0 * k * (za - zp)).exp();
+            let shift = portable::complex::exp(c64::new(0.0, k * (zi - zp)))
+                * portable::complex::exp(c64::new(0.0, -2.0 * k * (za - zp)));
             [0, 1].map(|c| scattered[q][c] / incident[q] * shift)
         })
         .collect()
@@ -383,8 +384,8 @@ pub(crate) fn slab_exact(eps: Permittivity) -> Vec<[c64; 2]> {
     // the principal axes of [[a, b], [b, c]]
     let mean = 0.5 * (a + c);
     let radius = (0.25 * (a - c) * (a - c) + b * b).sqrt();
-    let angle = 0.5 * (2.0 * b).atan2(a - c);
-    let (sn, cs) = angle.sin_cos();
+    let angle = 0.5 * portable::atan2(2.0 * b, a - c);
+    let (sn, cs) = portable::sin_cos(angle);
     let thickness = 0.3;
     [0.8, 1.0, 1.2]
         .iter()
@@ -392,7 +393,10 @@ pub(crate) fn slab_exact(eps: Permittivity) -> Vec<[c64; 2]> {
             let airy = |lambda: f64| {
                 let n = lambda.sqrt();
                 let r12 = (1.0 - n) / (1.0 + n);
-                let phase = c64::new(0.0, 2.0 * n * std::f64::consts::TAU * f * thickness).exp();
+                let phase = portable::complex::exp(c64::new(
+                    0.0,
+                    2.0 * n * std::f64::consts::TAU * f * thickness,
+                ));
                 r12 * (1.0 - phase) / (1.0 - r12 * r12 * phase)
             };
             let (r1, r2) = (airy(mean + radius), airy(mean - radius));
@@ -409,7 +413,12 @@ pub(crate) fn slab_error(h: f64, eps: Permittivity, scheme: impl Into<Scheme>) -
     measured
         .iter()
         .zip(&exact)
-        .flat_map(|(m, e)| [(m[0] - e[0]).norm(), (m[1] - e[1]).norm()])
+        .flat_map(|(m, e)| {
+            [
+                portable::complex::abs(m[0] - e[0]),
+                portable::complex::abs(m[1] - e[1]),
+            ]
+        })
         .fold(0.0, f64::max)
 }
 
@@ -422,7 +431,7 @@ pub(crate) fn tilted_crystal() -> Permittivity {
 /// Layers of ε = 12 and 1, half a period each, the period Λ = 1/√5 µm along n = (1, 2)/√5, offset
 /// so that no interface meets a node: periodic on a square of 1 µm, and at an angle to the grid.
 pub(crate) fn tilted_layers([p, q]: [f64; 2]) -> Structure {
-    let l = p.hypot(q);
+    let l = portable::hypot(p, q);
     let period = 1.0 / l;
     let n = [p / l, q / l, 0.0];
     let t = [q / l, -p / l, 0.0];
@@ -444,13 +453,13 @@ pub(crate) fn tilted_layers([p, q]: [f64; 2]) -> Structure {
 /// them at β = 2π/Λ (k = (2, −1) 2π on the square) and in phase from period to period: the root
 /// of ½ tr(M₁M₂) = 1, Mᵢ each layer's transfer matrix of (H̃_z, ε⁻¹ ∂H̃_z/∂s), by secant steps.
 pub(crate) fn tilted_layers_exact([p, q]: [f64; 2], guess: f64) -> f64 {
-    let period = 1.0 / p.hypot(q);
+    let period = 1.0 / portable::hypot(p, q);
     let beta = std::f64::consts::TAU / period;
     let trace = |f: f64| {
         let omega = std::f64::consts::TAU * f;
         let layer = |eps: f64, d: f64| {
-            let k = c64::new(eps * omega * omega - beta * beta, 0.0).sqrt();
-            let (c, s) = ((k * d).cos(), (k * d).sin());
+            let k = portable::complex::sqrt(c64::new(eps * omega * omega - beta * beta, 0.0));
+            let (c, s) = (portable::complex::cos(k * d), portable::complex::sin(k * d));
             [[c, s / k * eps], [-k / eps * s, c]]
         };
         let (a, b) = (layer(12.0, period / 2.0), layer(1.0, period / 2.0));
@@ -730,7 +739,7 @@ pub(crate) fn disc_growth(
         }
         largest = largest.max(ratio);
         if ratio > 1e20 {
-            grown.push((s.time(), ratio.ln()));
+            grown.push((s.time(), portable::ln(ratio)));
         }
         if ratio > 1e200 {
             break;
@@ -761,7 +770,7 @@ pub(crate) fn disc_growth(
 /// nodes; the images that reach the cell from the 26 cells about it too.
 pub(crate) fn ellipsoid_crystal() -> Structure {
     let turn = |axis: usize, t: f64| -> Matrix {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
         let mut m = [[0.0; 3]; 3];
         m[axis][axis] = 1.0;
@@ -794,7 +803,7 @@ pub(crate) fn ellipsoid_crystal() -> Structure {
     // the ellipsoid's half-extent along each grid axis
     let extent: [f64; 3] = std::array::from_fn(|k| {
         (0..3)
-            .map(|i| (semi[i] * axes[i][k]).powi(2))
+            .map(|i| portable::powi(semi[i] * axes[i][k], 2))
             .sum::<f64>()
             .sqrt()
     });
@@ -895,7 +904,7 @@ pub(crate) fn ellipsoid_bands(scheme: impl Into<Scheme>, n: usize) -> Vec<f64> {
     let dt = s.dt();
     let found: Vec<f64> = harmonics(&signals, every as f64 * dt)
         .iter()
-        .map(|m| (2.0 / dt * (m.omega * dt / 2.0).sin()) / std::f64::consts::TAU * cell[0])
+        .map(|m| (2.0 / dt * portable::sin(m.omega * dt / 2.0)) / std::f64::consts::TAU * cell[0])
         .collect();
     ELLIPSOID_BANDS
         .iter()
@@ -918,8 +927,8 @@ fn both_models() -> Result<Vec<(Body, super::before::Body)>> {
     use crate::geometry::{Point, Polygon, Shape};
     use crate::units::Length;
     let (a, b) = (0.4f64, 1.1f64);
-    let (sa, ca) = a.sin_cos();
-    let (sb, cb) = b.sin_cos();
+    let (sa, ca) = portable::sin_cos(a);
+    let (sb, cb) = portable::sin_cos(b);
     // a rotation about z by a, then about x by b
     let axes = [
         [ca, sa * cb, sa * sb],

@@ -28,6 +28,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -59,7 +60,10 @@ pub(crate) fn bessel(m: u32, z: c64) -> (c64, c64) {
         term *= quarter / (f64::from(k) * f64::from(m + k));
         psi_k += 1.0 / f64::from(k);
         psi_mk += 1.0 / f64::from(m + k);
-        if term.norm() <= 1e-18 * j.norm().max(lead.norm()) && f64::from(k) > half.norm() {
+        if portable::complex::abs(term)
+            <= 1e-18 * portable::complex::abs(j).max(portable::complex::abs(lead))
+            && f64::from(k) > portable::complex::abs(half)
+        {
             break;
         }
     }
@@ -77,7 +81,7 @@ pub(crate) fn bessel(m: u32, z: c64) -> (c64, c64) {
         }
     }
     let pi = std::f64::consts::PI;
-    let y = -finite / pi + 2.0 / pi * half.ln() * j - weighted / pi;
+    let y = -finite / pi + 2.0 / pi * portable::complex::ln(half) * j - weighted / pi;
     (j, y)
 }
 
@@ -147,7 +151,7 @@ impl Ring {
     /// (n|ω|b ≤ 15) or the secant iteration doesn't converge.
     pub(crate) fn resonance(&self, m: u32, guess: c64) -> Result<c64> {
         let tau = std::f64::consts::TAU;
-        let reach = |omega: c64| self.eps.sqrt() * omega.norm() * self.outer;
+        let reach = |omega: c64| self.eps.sqrt() * portable::complex::abs(omega) * self.outer;
         let mut x0 = guess * tau;
         let mut x1 = x0 * (1.0 + 1e-4);
         let mut f0 = self.determinant(m, x0);
@@ -164,7 +168,7 @@ impl Ring {
             }
             let x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
             (x0, f0, x1) = (x1, f1, x2);
-            if (x1 - x0).norm() <= 1e-14 * x1.norm() {
+            if portable::complex::abs(x1 - x0) <= 1e-14 * portable::complex::abs(x1) {
                 return Ok(x1 / tau);
             }
         }
@@ -189,7 +193,7 @@ pub(crate) fn wronskian_error() -> f64 {
             let z = c64::new(re, im);
             let [j, dj, y, dy] = with_derivatives(m, z);
             let exact = 2.0 / (std::f64::consts::PI * z);
-            worst = worst.max(((j * dy - dj * y - exact) / exact).norm());
+            worst = worst.max(portable::complex::abs((j * dy - dj * y - exact) / exact));
         }
     }
     worst
@@ -236,13 +240,17 @@ mod tests {
                 let (j1, y1) = bessel(m, z);
                 let (j2, y2) = bessel(m + 1, z);
                 let scale = f64::from(2 * m) / z;
-                let tolerance = 1e-9 * (j0.norm() + j2.norm() + y0.norm() + y2.norm());
+                let tolerance = 1e-9
+                    * (portable::complex::abs(j0)
+                        + portable::complex::abs(j2)
+                        + portable::complex::abs(y0)
+                        + portable::complex::abs(y2));
                 assert!(
-                    (scale * j1 - j0 - j2).norm() < tolerance,
+                    portable::complex::abs(scale * j1 - j0 - j2) < tolerance,
                     "J at {z}, order {m}"
                 );
                 assert!(
-                    (scale * y1 - y0 - y2).norm() < tolerance,
+                    portable::complex::abs(scale * y1 - y0 - y2) < tolerance,
                     "Y at {z}, order {m}"
                 );
             }

@@ -1,5 +1,6 @@
 use super::checks::*;
 use super::*;
+use crate::portable;
 use crate::units::Wavelength;
 
 #[test]
@@ -227,7 +228,7 @@ fn a_dipole_between_values_keeps_its_integral() {
     let values = &s.currents[0].values;
     assert_eq!(values.len(), 8);
     let sum: c64 = values.iter().map(|v| v.2).sum::<c64>() * (g.dx * g.dy * g.dz);
-    assert!((sum - amplitude).norm() < 1e-15, "{sum}");
+    assert!(portable::complex::abs(sum - amplitude) < 1e-15, "{sum}");
     // outside the span of E_x's values along x
     assert!(
         s.add_dipole(Dipole {
@@ -335,7 +336,7 @@ fn a_gaussian_beam_keeps_its_waist_and_divergence() {
     eprintln!(
         "tilted beam: centre's slope {slope:.6} (predicted {predicted:.6}, tan 10 degrees {:.6}), \
          backward {:.2e}",
-        10f64.to_radians().tan(),
+        portable::tan(10f64.to_radians()),
         tilted.backward
     );
     assert!(
@@ -505,7 +506,7 @@ fn energy_rate(energy: &[f64], from: f64, to: f64) -> f64 {
     let points: Vec<(f64, f64)> = energy
         .iter()
         .enumerate()
-        .map(|(n, e)| ((n + 1) as f64 * 50.0, e.ln()))
+        .map(|(n, e)| ((n + 1) as f64 * 50.0, portable::ln(*e)))
         .filter(|&(t, _)| t >= from && t <= to)
         .collect();
     let m = points.len() as f64;
@@ -687,7 +688,7 @@ fn grid_wavenumber_inverts_the_relation() {
         let dt = time_step(&[d], courant);
         let k = grid_wavenumber(f, [1.0, 0.0, 0.0], [d; 3], dt, 1.0).unwrap();
         let w = f.angular();
-        let leading = (w * d).powi(2) * (1.0 - courant * courant) / 24.0;
+        let leading = portable::powi(w * d, 2) * (1.0 - courant * courant) / 24.0;
         if courant == 1.0 {
             assert!((k / w - 1.0).abs() < 1e-14);
         } else {
@@ -707,11 +708,12 @@ fn grid_wavenumber_inverts_the_relation() {
         1.0,
     );
     let s: f64 = 1.1;
-    assert!(((w.im * dt).exp() - (s + (s * s - 1.0).sqrt()).powi(2)).abs() < 1e-12);
+    assert!((portable::exp(w.im * dt) - portable::powi(s + (s * s - 1.0).sqrt(), 2)).abs() < 1e-12);
     // in 2D at C = 1 a wave along an axis reaches sin(ωΔt/2) = Δt/Δ = 1/√2 at most; along the
     // diagonal, 1
     let dt = time_step(&[d, d], 1.0);
-    let high = Frequency::natural(2.0 / dt * 0.9_f64.asin() / std::f64::consts::TAU).unwrap();
+    let high =
+        Frequency::natural(2.0 / dt * portable::asin(0.9_f64) / std::f64::consts::TAU).unwrap();
     assert!(grid_wavenumber(high, [1.0, 0.0, 0.0], [d; 3], dt, 1.0).is_none());
     assert!(grid_wavenumber(high, [1.0, 1.0, 0.0], [d; 3], dt, 1.0).is_some());
 }

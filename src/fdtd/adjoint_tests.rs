@@ -2,6 +2,7 @@ use super::adjoint_checks::*;
 use super::kernel::{Blocking, Tiling};
 use super::{Boundaries, Design, Simulation};
 use crate::fdfd::{Axis, Edges};
+use crate::portable;
 
 /// A design on a small grid with a background that varies across it, and the permittivity
 /// with the design's densities in its cells, as a function.
@@ -185,7 +186,10 @@ fn with_cpmls_the_gradient_converges_to_fdfds_with_the_step() {
 #[cfg_attr(debug_assertions, ignore = "slow unoptimized: run with --release")]
 fn a_slabs_gradient_converges_to_airys_at_second_order() {
     let errors = slab_errors();
-    let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+    let orders: Vec<f64> = errors
+        .windows(2)
+        .map(|e| portable::log2(e[0] / e[1]))
+        .collect();
     eprintln!("slab: {errors:?} orders {orders:?}");
     assert!(orders.iter().all(|&o| (o - 2.0).abs() < 0.2), "{orders:?}");
 }

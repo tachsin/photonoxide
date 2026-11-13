@@ -3,6 +3,7 @@
 use num_complex::Complex64 as c64;
 
 use super::mie::Mie;
+use crate::portable;
 
 /// The rows of Mie's Table I, α².
 const ROWS: [f64; 9] = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 2.5];
@@ -163,7 +164,7 @@ pub(crate) fn first_electric(permittivity: Option<c64>, size_squared: f64) -> c6
     }
     let size = size_squared.sqrt();
     // Mie's m′ = n − iκ; photonoxide's is its conjugate
-    let index = permittivity.map(|e| e.conj().sqrt());
+    let index = permittivity.map(|e| portable::complex::sqrt(e.conj()));
     let mie = Mie::new(size, index).expect("Table I's spheres are valid");
     mie.mie_coefficients()[0].0 / (2.0 * size * size_squared)
 }
@@ -423,11 +424,14 @@ pub(crate) const TABLE_ONE_OFF: [(u32, f64); 5] =
 /// than 0.016 are [`TABLE_ONE_OFF`], of all 66.
 pub(crate) fn table_one_agreement() -> (f64, bool) {
     let entries = table_one_entries();
-    let mut deviations: Vec<f64> = entries.iter().map(|e| (e.series - e.mie).norm()).collect();
+    let mut deviations: Vec<f64> = entries
+        .iter()
+        .map(|e| portable::complex::abs(e.series - e.mie))
+        .collect();
     deviations.sort_by(f64::total_cmp);
     let off: Vec<(u32, f64)> = entries
         .iter()
-        .filter(|e| (e.series - e.mie).norm() > 0.016)
+        .filter(|e| portable::complex::abs(e.series - e.mie) > 0.016)
         .map(|e| (e.wavelength, e.size_squared))
         .collect();
     (

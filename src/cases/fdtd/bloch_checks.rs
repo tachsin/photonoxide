@@ -6,6 +6,7 @@ use super::media_checks::{alone, both, column, drude_lorentz};
 use super::*;
 use crate::fdfd::{Boundaries3d, Solver3d};
 use crate::mode::multilayer::Multilayer;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 /// The steady complex amplitude of every E at `frequency` in a complex run driven by
@@ -21,7 +22,7 @@ fn complex_amplitude(
     let mut amplitude = vec![c64::new(0.0, 0.0); 3 * cells];
     for _ in 0..periods * steps_per_period {
         s.step();
-        let w = c64::new(0.0, omega * s.time()).exp();
+        let w = portable::complex::exp(c64::new(0.0, omega * s.time()));
         for c in Axis::ALL {
             let im = s.e_imaginary(c).expect("a complex run");
             for (r, (&a, &b)) in s.e(c).iter().zip(im).enumerate() {
@@ -97,7 +98,10 @@ pub(crate) fn against_fdfd(dispersive: bool) -> f64 {
         current[c * g.cells() + r] += a;
     }
     let tilde = s.leapfrog_wavenumber(frequency);
-    let loss = c64::new(0.0, sigma * (frequency.angular() * dt / 2.0).cos() / tilde);
+    let loss = c64::new(
+        0.0,
+        sigma * portable::cos(frequency.angular() * dt / 2.0) / tilde,
+    );
     let lam = Wavelength::um(std::f64::consts::TAU / tilde).unwrap();
     let inside = medium.leapfrog_permittivity(frequency, dt);
     let fdfd_eps = move |x: f64, y: f64, z: f64| {
@@ -120,11 +124,14 @@ pub(crate) fn against_fdfd(dispersive: bool) -> f64 {
     .unwrap()
     .solve(&current)
     .unwrap();
-    let largest = fdfd.values().iter().fold(0.0f64, |m, v| m.max(v.norm()));
+    let largest = fdfd
+        .values()
+        .iter()
+        .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
     fdfd.values()
         .iter()
         .zip(&amplitude)
-        .fold(0.0f64, |m, (a, b)| m.max((a - b).norm()))
+        .fold(0.0f64, |m, (a, b)| m.max(portable::complex::abs(a - b)))
         / largest
 }
 
@@ -186,7 +193,7 @@ pub(crate) fn multilayer(h: f64, tm: bool) -> (f64, Vec<(f64, f64, f64, f64)>) {
         series
             .iter()
             .enumerate()
-            .map(|(n, v)| v * c64::new(0.0, omega * (n + 1) as f64 * dt).exp())
+            .map(|(n, v)| v * portable::complex::exp(c64::new(0.0, omega * (n + 1) as f64 * dt)))
             .sum()
     };
     let films: Vec<(c64, Length)> = (0..PAIRS)
@@ -203,7 +210,7 @@ pub(crate) fn multilayer(h: f64, tm: bool) -> (f64, Vec<(f64, f64, f64, f64)>) {
         .iter()
         .map(|&f| {
             let measured = (dft(&full, f) / dft(&empty, f)).norm_sqr();
-            let angle = (KX / (std::f64::consts::TAU * f)).asin();
+            let angle = portable::asin(KX / (std::f64::consts::TAU * f));
             let exact = stack
                 .reflection(polarization, Wavelength::um(1.0 / f).unwrap(), angle)
                 .unwrap()
@@ -229,9 +236,9 @@ pub(crate) fn analytic_bands(k: f64, top: f64) -> Vec<f64> {
     let period = d1 + d2;
     let f = |nu: f64| {
         let w = std::f64::consts::TAU * nu;
-        (n1 * w * d1).cos() * (n2 * w * d2).cos()
-            - 0.5 * (n1 / n2 + n2 / n1) * (n1 * w * d1).sin() * (n2 * w * d2).sin()
-            - (k * period).cos()
+        portable::cos(n1 * w * d1) * portable::cos(n2 * w * d2)
+            - 0.5 * (n1 / n2 + n2 / n1) * portable::sin(n1 * w * d1) * portable::sin(n2 * w * d2)
+            - portable::cos(k * period)
     };
     let points = 20_000;
     let mut out = Vec::new();
@@ -322,8 +329,8 @@ pub(crate) fn bands(h: f64, k: f64) -> Vec<f64> {
         .enumerate()
         .map(|(n, v)| {
             let x = std::f64::consts::TAU * n as f64 / m;
-            let w =
-                0.35875 - 0.48829 * x.cos() + 0.14128 * (2.0 * x).cos() - 0.01168 * (3.0 * x).cos();
+            let w = 0.35875 - 0.48829 * portable::cos(x) + 0.14128 * portable::cos(2.0 * x)
+                - 0.01168 * portable::cos(3.0 * x);
             v * w
         })
         .collect();
@@ -334,9 +341,9 @@ pub(crate) fn bands(h: f64, k: f64) -> Vec<f64> {
             let d: c64 = window
                 .iter()
                 .enumerate()
-                .map(|(n, v)| v * c64::new(0.0, w * n as f64 * dt).exp())
+                .map(|(n, v)| v * portable::complex::exp(c64::new(0.0, w * n as f64 * dt)))
                 .sum();
-            (f, d.norm())
+            (f, portable::complex::abs(d))
         })
         .collect();
     let largest = spectrum.iter().fold(0.0f64, |m, p| m.max(p.1));
@@ -358,7 +365,7 @@ pub(crate) fn bands(h: f64, k: f64) -> Vec<f64> {
             num += series[n + 1] * series[n].conj();
             den += series[n].norm_sqr();
         }
-        -(num / den).arg() / dt / std::f64::consts::TAU
+        -portable::complex::arg(num / den) / dt / std::f64::consts::TAU
     };
     // each band's run on a thread of its own
     std::thread::scope(|s| {

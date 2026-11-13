@@ -8,6 +8,7 @@ use super::checks::grid;
 use super::*;
 use crate::fdfd::{Boundaries3d, Direction, PortMode3d, Solver3d};
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::units::Length;
 
 /// A port's window: the cells along its plane's two axes.
@@ -31,7 +32,12 @@ impl Band {
         self.fdtd
             .iter()
             .zip(&self.fdfd)
-            .flat_map(|(a, b)| [(a[0] - b[0]).norm(), (a[1] - b[1]).norm()])
+            .flat_map(|(a, b)| {
+                [
+                    portable::complex::abs(a[0] - b[0]),
+                    portable::complex::abs(a[1] - b[1]),
+                ]
+            })
             .fold(0.0, f64::max)
     }
 }
@@ -116,7 +122,7 @@ pub(crate) fn band(problem: &Guided) -> Band {
                 let mut w = 0.0f64;
                 for u in 0..g.n(b) {
                     for v in 0..g.n(c) {
-                        w = w.max(m.e(component, (u, v)).norm());
+                        w = w.max(portable::complex::abs(m.e(component, (u, v))));
                     }
                 }
                 w
@@ -240,7 +246,7 @@ pub(crate) fn guide_2d(h: f64, bend: bool, smoothed: bool) -> Band {
     let yc = y0 + radius;
     let eps = move |x: f64, y: f64, _: f64| {
         let inside = if bend {
-            let r = (x - xc).hypot(y - yc);
+            let r = portable::hypot(x - xc, y - yc);
             (x <= xc && (y - y0).abs() < width / 2.0)
                 || (y >= yc && (x - xc - radius).abs() < width / 2.0)
                 || (x > xc && y < yc && (r - radius).abs() < width / 2.0)
@@ -389,7 +395,7 @@ pub(crate) fn bend_3d(cpml: usize) -> Band {
     let xc = g.x0 + h * (n[0] as f64 - cpml as f64 - 10.5) - radius;
     let yc = y0 + radius;
     let eps = move |x: f64, y: f64, z: f64| {
-        let r = (x - xc).hypot(y - yc);
+        let r = portable::hypot(x - xc, y - yc);
         let inside = z.abs() < thick / 2.0
             && ((x <= xc && (y - y0).abs() < width / 2.0)
                 || (y >= yc && (x - xc - radius).abs() < width / 2.0)
@@ -441,8 +447,8 @@ mod tests {
                 b.frequencies[k],
                 b.fdtd[k][0],
                 b.fdfd[k][0],
-                b.fdtd[k][1].norm(),
-                b.fdfd[k][1].norm()
+                portable::complex::abs(b.fdtd[k][1]),
+                portable::complex::abs(b.fdfd[k][1])
             );
         }
     }
@@ -458,7 +464,8 @@ mod tests {
         assert!(
             b.fdtd
                 .iter()
-                .all(|s| (s[0].norm() - 1.0).abs() < 2e-3 && s[1].norm() < 1e-3)
+                .all(|s| (portable::complex::abs(s[0]) - 1.0).abs() < 2e-3
+                    && portable::complex::abs(s[1]) < 1e-3)
         );
     }
 
