@@ -4,6 +4,7 @@
 
 use std::fmt;
 
+use crate::portable;
 use serde::{Deserialize, Serialize};
 
 /// Where a value comes from: a reference's key ([`super::Reference::key`]) and the place in it.
@@ -175,7 +176,7 @@ pub(crate) fn number(v: f64) -> String {
     if v == 0.0 {
         return "0".into();
     }
-    let digits = (3 - v.abs().log10().floor() as i32).max(0) as usize;
+    let digits = (3 - portable::log10(v.abs()).floor() as i32).max(0) as usize;
     let s = format!("{v:.digits$}");
     if s.contains('.') {
         s.trim_end_matches('0').trim_end_matches('.').to_string()
