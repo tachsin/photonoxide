@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 use super::checks::strip_pieces;
 use super::*;
 use crate::geometry::{Polygon, Shape};
+use crate::portable;
 use crate::units::Length;
 
 fn re(v: f64) -> c64 {
@@ -108,7 +109,7 @@ fn drawn_shapes_fill_their_union_and_the_last_drawn_hides_what_it_covers() {
     let b = Shape::circle(Point::um(d / 2.0, 0.0), Length::um(r)).unwrap();
     let mut plane = Plane::new(re(1.0));
     plane.draw(a, re(4.0)).draw(b, re(4.0));
-    let lens = 2.0 * r * r * (d / (2.0 * r)).acos() - d / 2.0 * (4.0 * r * r - d * d).sqrt();
+    let lens = 2.0 * r * r * portable::acos(d / (2.0 * r)) - d / 2.0 * (4.0 * r * r - d * d).sqrt();
     let union = 2.0 * PI * r * r - lens;
     let h = 0.03;
     let mut area = 0.0;
@@ -138,7 +139,7 @@ fn drawn_shapes_fill_their_union_and_the_last_drawn_hides_what_it_covers() {
 fn the_tensor_is_the_harmonic_mean_across_an_oblique_interface_and_the_mean_along_it() {
     // a half-plane through the cell at 30°, as a large triangle-free polygon
     let t = 30f64.to_radians();
-    let (nx, ny) = (t.cos(), t.sin());
+    let (nx, ny) = (portable::cos(t), portable::sin(t));
     // the line nx x + ny y = 0.01; the region below it
     let (tx, ty) = (-ny, nx);
     let o = [0.01 * nx, 0.01 * ny];
@@ -167,7 +168,8 @@ fn the_tensor_is_the_harmonic_mean_across_an_oblique_interface_and_the_mean_alon
     let along_n = [xx * nx + xy * ny, xy * nx + yy * ny];
     let along_t = [xx * tx + xy * ty, xy * tx + yy * ty];
     for (v, want) in [(along_n, [a * nx, a * ny]), (along_t, [b * tx, b * ty])] {
-        let off = (v[0] - want[0]).norm().max((v[1] - want[1]).norm());
+        let off =
+            portable::complex::abs(v[0] - want[0]).max(portable::complex::abs(v[1] - want[1]));
         assert!(off < 1e-12, "{off:e}");
     }
     // the shares are the triangle the line cuts off: exact
@@ -201,7 +203,7 @@ fn abutting_shapes_of_one_material_leave_no_seam_in_the_shares_or_the_normals() 
                 let (a, b) = (one.shares(cell), plane.shares(cell));
                 assert_eq!(a.is_uniform(), b.is_uniform(), "{cell:?}: {a:?} {b:?}");
                 assert!(
-                    (a.mean() - b.mean()).norm() < 1e-13,
+                    portable::complex::abs(a.mean() - b.mean()) < 1e-13,
                     "{cell:?}: {a:?} {b:?}"
                 );
                 match (a.normal, b.normal) {
@@ -214,7 +216,9 @@ fn abutting_shapes_of_one_material_leave_no_seam_in_the_shares_or_the_normals() 
                 }
                 for along in 0..2 {
                     for avg in [Averaging::Diagonal, Averaging::Tensor] {
-                        let d = (a.component(along, avg) - b.component(along, avg)).norm();
+                        let d = portable::complex::abs(
+                            a.component(along, avg) - b.component(along, avg),
+                        );
                         assert!(d < 1e-12, "{cell:?} {along} {avg:?}: {d:e}");
                     }
                 }
@@ -273,15 +277,19 @@ fn a_shape_over_a_seam_sees_the_material_under_it_as_one_region() {
             // to the booleans' tolerance: their polygons within 1e-7 of the 8 µm strip, a few
             // 1e-9 of a cell's shares
             for (x, y) in [(a.mean(), b.mean()), (a.harmonic(), b.harmonic())] {
-                assert!((x - y).norm() < 1e-6, "{cell:?}: {a:?} {b:?}");
+                assert!(
+                    portable::complex::abs(x - y) < 1e-6,
+                    "{cell:?}: {a:?} {b:?}"
+                );
             }
             assert_eq!(a.normal.is_some(), b.normal.is_some(), "{cell:?}");
             let seam = pieces.iter().filter(|p| p.fill(cell) > 0.0).count() > 1;
             if !seam {
                 for along in 0..2 {
-                    let d = (a.component(along, Averaging::Tensor)
-                        - b.component(along, Averaging::Tensor))
-                    .norm();
+                    let d = portable::complex::abs(
+                        a.component(along, Averaging::Tensor)
+                            - b.component(along, Averaging::Tensor),
+                    );
                     assert!(d < 1e-6, "{cell:?} {along}: {d:e} {a:?} {b:?}");
                 }
             }
@@ -317,7 +325,7 @@ fn a_piece_drawn_over_a_shape_of_another_material_hides_it() {
         excess += (plane.shares(cell).mean().re - bare.shares(cell).mean().re) * h * h;
     }
     let (r, a): (f64, f64) = (0.2, 0.05 - 0.037);
-    let left = r * r * (a / r).acos() - a * (r * r - a * a).sqrt();
+    let left = r * r * portable::acos(a / r) - a * (r * r - a * a).sqrt();
     let exact = (4.0 - 12.1) * left;
     assert!(
         (excess - exact).abs() < 1e-8 * exact.abs(),

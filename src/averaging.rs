@@ -38,6 +38,7 @@ use std::sync::{Mutex, OnceLock};
 use num_complex::Complex64 as c64;
 
 use crate::geometry::{Bounds, Index, Point, Region, Shape};
+use crate::portable;
 use crate::{Error, Result};
 
 /// How a solver's cell is given its permittivity: by samples (the default) or from the fill
@@ -477,15 +478,15 @@ impl<K: Copy + PartialEq> Layout<K> {
                     (share(&yp, k) - share(&ym, k)) / (2.0 * ey),
                 ]
             })
-            .max_by(|a, b| a[0].hypot(a[1]).total_cmp(&b[0].hypot(b[1])))?;
-        let size = gradient[0].hypot(gradient[1]);
+            .max_by(|a, b| portable::hypot(a[0], a[1]).total_cmp(&portable::hypot(b[0], b[1])))?;
+        let size = portable::hypot(gradient[0], gradient[1]);
         if !(size > 0.0 && size.is_finite()) {
             return Some(n);
         }
         // a component within rounding of nothing (the differences' 1e-12 or so) is nothing:
         // an interface along a grid axis keeps its normal exactly
         let unit = gradient.map(|g| if g.abs() <= 1e-9 * size { 0.0 } else { g });
-        let size = unit[0].hypot(unit[1]);
+        let size = portable::hypot(unit[0], unit[1]);
         Some([unit[0] / size, unit[1] / size])
     }
 
