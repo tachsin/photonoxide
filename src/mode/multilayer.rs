@@ -316,7 +316,10 @@ impl Multilayer {
             let gamma = Self::gamma(polarization, n, alpha);
             let phi = alpha * k * d;
             // libm's, the same bits on every system: what an optimization runs on
-            let (c, s) = (crate::portable::cos_c(phi), crate::portable::sin_c(phi));
+            let (c, s) = (
+                crate::portable::complex::cos(phi),
+                crate::portable::complex::sin(phi),
+            );
             let m: M = [[c, -i * s / gamma], [-i * gamma * s, c]];
             // in the thickness: dΦ/dd = kα, γ fixed
             let dphi = alpha * k;

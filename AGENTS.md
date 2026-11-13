@@ -216,6 +216,9 @@ checks their rows (and the report's head and list of cases); the release PR chec
   - GitHub's runners have no GPU: the GPU's tests skip there and say so, and run on tachsin's machine before each release, which writes docs/validation-gpu.md. docs/validation.md must be the same with or without a GPU.
 - **The Rust toolchain is pinned.** `rust-toolchain.toml` names the version every cargo in the checkout uses, and CI reads the same file; a bump is a pull request of its own that also fixes the new lints (CONTRIBUTING.md, "How to bump Rust"). Never write a Rust version into a workflow: a job that needs another one (the MSRV job) sets `RUSTUP_TOOLCHAIN`, a command `cargo +1.95`.
 - **Minimum Rust follows the dependencies.** Use a dependency's current release; when it needs a newer Rust than `rust-version`, raise `rust-version` and the CI's MSRV job to what it needs, in the same PR, and say so in the PR.
+- **The same numbers on every system** (#822; CONTRIBUTING.md has the how). *The same numbers on every system: compute with + − × ÷ and sqrt, and take every other function from `photonoxide::portable` (exp, ln, powf, powi, sin, cos, tan, atan2, hypot, the hyperbolic functions, cbrt, erf, and the complex functions). clippy.toml forbids the system's versions (`f64::sin`, `powi`, `Complex::norm`, `exp`, `sqrt`, … and `mul_add`). Sum in a fixed order, never across rayon's splits. A test may call the system's functions only as an independent reference.*
+  - Never add `#[allow(clippy::disallowed_methods)]` to make clippy pass: take the portable function. `.github/scripts/check-portable.sh` counts the allows against `.github/portable-allows`, which may only go down.
+  - `libm::` only inside `src/portable/`; no `mul_add`; `src/portable/` never imports `crate::`.
 - **Validation before features.** A solver or device isn't done without three things:
   - an analytic test;
   - a reproduction of a published result;

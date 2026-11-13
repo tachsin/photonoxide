@@ -3,6 +3,8 @@
 //! known to have it) not having it is a failure, and with the value `symmetric` (macOS 26) so
 //! is not having the complex symmetric factorization.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;

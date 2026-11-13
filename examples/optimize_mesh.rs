@@ -39,6 +39,8 @@
 //! cargo run --release --example optimize_mesh
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::{FRAC_PI_2, PI, TAU};

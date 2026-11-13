@@ -91,10 +91,11 @@ impl GaussianBlur {
         let mut weights: Vec<f64> = (0..=reach)
             .map(|k| {
                 if k == 0 {
-                    libm::erf(0.5 * a)
+                    crate::portable::erf(0.5 * a)
                 } else {
                     let k = k as f64;
-                    0.5 * (libm::erfc((k - 0.5) * a) - libm::erfc((k + 0.5) * a))
+                    0.5 * (crate::portable::erfc((k - 0.5) * a)
+                        - crate::portable::erfc((k + 0.5) * a))
                 }
             })
             .collect();
@@ -231,7 +232,7 @@ fn erfc_inv(y: f64) -> f64 {
     let (mut lo, mut hi) = (-6.0f64, 6.0f64);
     for _ in 0..60 {
         let mid = 0.5 * (lo + hi);
-        if libm::erfc(mid) > y {
+        if crate::portable::erfc(mid) > y {
             lo = mid;
         } else {
             hi = mid;
@@ -239,9 +240,9 @@ fn erfc_inv(y: f64) -> f64 {
     }
     let mut x = 0.5 * (lo + hi);
     for _ in 0..2 {
-        let slope = -2.0 / std::f64::consts::PI.sqrt() * libm::exp(-x * x);
+        let slope = -2.0 / std::f64::consts::PI.sqrt() * crate::portable::exp(-x * x);
         if slope != 0.0 {
-            x -= (libm::erfc(x) - y) / slope;
+            x -= (crate::portable::erfc(x) - y) / slope;
         }
     }
     x
@@ -340,7 +341,8 @@ impl Lithography {
     pub fn line_width(width_um: f64, sigma_um: f64, threshold: f64) -> f64 {
         let s = std::f64::consts::SQRT_2 * sigma_um;
         let h = 0.5 * width_um;
-        let blur = |x: f64| 0.5 * (libm::erf((h - x) / s) + libm::erf((h + x) / s));
+        let blur =
+            |x: f64| 0.5 * (crate::portable::erf((h - x) / s) + crate::portable::erf((h + x) / s));
         if blur(0.0) <= threshold {
             return 0.0;
         }

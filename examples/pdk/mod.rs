@@ -43,6 +43,9 @@
 //! port's mode over the incident mode's, at the same frequency. The paper's sources and
 //! monitors sit on the ports themselves, 0.3 to 0.6 µm from ours along a straight guide.
 
+#![allow(clippy::disallowed_methods)]
+// until #822 converts it to `photonoxide::portable`
+
 // each example compiles this module on its own and uses only part of it
 #![allow(dead_code)]
 

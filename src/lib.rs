@@ -49,6 +49,9 @@
 //!   permanents, output probabilities with partly distinguishable photons, an exact sampler,
 //!   Hong–Ou–Mandel dips with the photons' spectra, and the Reck and Clements meshes.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
+//! - [`portable`]: the maths functions (exp, ln, powf, powi, sin, atan2, hypot, erf, ...) and
+//!   the complex ones with the same bits on every system, which the library takes instead of
+//!   the system's.
 //! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
 //!   or whole jobs (a population, corners) sent to workers and gathered by index.
 //! - [`facade`]: a small, stable façade of plain types, which the Python package wraps.
@@ -68,52 +71,88 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod averaging;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod backend;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod bench;
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod canary_tests;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod circuit;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod compact;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod convergence;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod dense;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod device;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod eigen;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod electro;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod eme;
 pub mod error;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod etch;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod export;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod expr;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fabrication;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod facade;
 pub mod farm;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fdfd;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fdtd;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod generator;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod geometry;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod job;
 #[cfg(test)]
 mod layering;
 mod lstsq;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod material;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod mode;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod nonlinear;
 pub mod parallel;
-mod portable;
+pub mod portable;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod quantum;
 pub mod raster;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod run;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod shifter;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod sparse;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod stack;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod statics;
 mod stop;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod sweep;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod thermal;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod topology;
 mod traffic;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod units;
+#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod validation;
 mod verdict;
 

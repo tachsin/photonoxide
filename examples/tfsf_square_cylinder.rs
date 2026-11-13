@@ -46,6 +46,8 @@
 //! cargo run --release --example tfsf_square_cylinder
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::{EULER_GAMMA, PI, TAU};

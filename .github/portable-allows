@@ -1,0 +1,5 @@
+# How many lines of the Rust sources mention clippy::disallowed_methods: the areas and crates not
+# converted to photonoxide::portable yet, and the tests that take the system's maths functions as
+# an independent reference (#822). .github/scripts/check-portable.sh holds the count to this
+# number; it may only go down, so lower it as areas are converted.
+91

@@ -9,6 +9,8 @@
 //! to `progress.log` in their folders under `crosscode/target/tmp/openems/`; a finished run of
 //! the same model is taken again.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::fmt::Write as _;
 use std::path::Path;
 

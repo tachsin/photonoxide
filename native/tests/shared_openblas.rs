@@ -14,6 +14,8 @@
 //! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got. On
 //! macOS with conda-forge's OpenMP OpenBLAS the whole test stalled (#595).
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};

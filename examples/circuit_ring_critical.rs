@@ -13,6 +13,8 @@
 //! cargo run --release --example circuit_ring_critical
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::TAU;

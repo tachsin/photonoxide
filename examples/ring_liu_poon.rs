@@ -126,6 +126,8 @@
 //! cargo run --release --example ring_liu_poon              # the free spectral range
 //! cargo run --release --example ring_liu_poon -- --full    # 3D, 15 and 20 cells a wavelength
 //! ```
+
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
 mod common;
 mod pdk;
 

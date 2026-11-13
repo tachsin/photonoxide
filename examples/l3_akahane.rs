@@ -46,6 +46,8 @@
 //! cargo run --release --example l3_akahane -- --full   # 12 and 16 cells, 1000 µm/c records
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::PI;

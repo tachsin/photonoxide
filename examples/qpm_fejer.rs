@@ -19,6 +19,8 @@
 //! cargo run --release --example qpm_fejer
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::process::ExitCode;

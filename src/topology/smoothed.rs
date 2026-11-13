@@ -103,8 +103,8 @@ impl SmoothedProjection {
             }
         } else {
             let (b, e) = (self.beta, self.eta);
-            (libm::tanh(b * e) + libm::tanh(b * (x - e)))
-                / (libm::tanh(b * e) + libm::tanh(b * (1.0 - e)))
+            (crate::portable::tanh(b * e) + crate::portable::tanh(b * (x - e)))
+                / (crate::portable::tanh(b * e) + crate::portable::tanh(b * (1.0 - e)))
         }
     }
 
@@ -114,8 +114,8 @@ impl SmoothedProjection {
             0.0
         } else {
             let (b, e) = (self.beta, self.eta);
-            let sech = 1.0 / libm::cosh(b * (x - e));
-            b * sech * sech / (libm::tanh(b * e) + libm::tanh(b * (1.0 - e)))
+            let sech = 1.0 / crate::portable::cosh(b * (x - e));
+            b * sech * sech / (crate::portable::tanh(b * e) + crate::portable::tanh(b * (1.0 - e)))
         }
     }
 

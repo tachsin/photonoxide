@@ -1,6 +1,8 @@
 //! Discovery, loading, versions, errors and the smoke test, against the workspace's test
 //! library (`native/testlib`), so that CI tests them with no real library installed.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::process::Command;

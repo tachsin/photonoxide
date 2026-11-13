@@ -13,6 +13,8 @@
 //! - `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds of OpenBLAS's calls checked while it is loaded
 //!   again (default 3; the OpenBLAS loop workflow sets more).
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

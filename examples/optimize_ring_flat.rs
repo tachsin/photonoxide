@@ -36,6 +36,8 @@
 //! cargo run --release --example optimize_ring_flat
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::cell::Cell;

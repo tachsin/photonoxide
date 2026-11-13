@@ -407,6 +407,29 @@ mod tests {
         assert!(twice.is_empty(), "modules in two layers: {twice:?}");
     }
 
+    /// `portable` (#822) imports nothing of the crate, its tests included: std, `libm` and
+    /// num-complex only, so that it can become a crate of its own with a `git mv`.
+    #[test]
+    fn the_portable_module_is_self_contained() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/portable");
+        let mut found = Vec::new();
+        for entry in fs::read_dir(&dir).expect("src/portable") {
+            let path = entry.expect("an entry of src/portable").path();
+            let text = fs::read_to_string(&path).expect("a file of src/portable");
+            for (n, line) in text.lines().enumerate() {
+                let code = line.split("//").next().unwrap_or("");
+                if code.contains("crate::") {
+                    found.push(format!("{}:{}: {}", path.display(), n + 1, line.trim()));
+                }
+            }
+        }
+        assert!(
+            found.is_empty(),
+            "src/portable/ imports the crate:\n{}",
+            found.join("\n")
+        );
+    }
+
     #[test]
     fn layers_depend_in_one_direction() {
         // a layer may only name layers listed before it, so the table has no cycle

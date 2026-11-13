@@ -204,7 +204,7 @@ impl StripRing {
                 for g in self.gaps(values) {
                     let d = DECAY_STEP.min(g / 2.0);
                     let (narrower, here, wider) = (c(g - d)?, c(g)?, c(g + d)?);
-                    couplings.push((here, libm::log(narrower / wider) / (2.0 * d)));
+                    couplings.push((here, crate::portable::ln(narrower / wider) / (2.0 * d)));
                 }
                 let coupling_grid = Strip::grid(&self.strip.pair_section(
                     w,
@@ -248,8 +248,8 @@ impl StripRing {
             let curved = (TAU * r / gamma).sqrt();
             let phi = c * (lc + curved);
             // libm's sine, the same bits on every system (crate::portable)
-            settings.push(libm::sin(phi).powi(2));
-            let dk = libm::sin(2.0 * phi);
+            settings.push(crate::portable::sin(phi).powi(2));
+            let dk = crate::portable::sin(2.0 * phi);
             by_radius.push(dk * c * PI / (gamma * curved));
             by_length.push(dk * c);
         }

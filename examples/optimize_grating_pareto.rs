@@ -186,6 +186,8 @@
 //! cargo run --release --example optimize_grating_pareto -- --dispersion --fine  # on 10 x 5 nm
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::{LN_10, PI};

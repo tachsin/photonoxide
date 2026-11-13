@@ -408,8 +408,8 @@ impl MmiModes {
             .iter()
             .enumerate()
             .map(|(v, m)| match indices.get(v) {
-                None => crate::portable::exp_c(c64::new(0.0, m.beta * length)),
-                Some(Some(n)) => crate::portable::exp_c(c64::new(0.0, k * n * length)),
+                None => crate::portable::complex::exp(c64::new(0.0, m.beta * length)),
+                Some(Some(n)) => crate::portable::complex::exp(c64::new(0.0, k * n * length)),
                 Some(None) => c64::new(0.0, 0.0),
             })
             .collect();
@@ -441,7 +441,7 @@ impl MmiModes {
             .zip(&self.couplings[port])
             .zip(&self.norms)
             .map(|((m, c), n)| {
-                c * m.field(y) / n * crate::portable::exp_c(c64::new(0.0, m.beta * z))
+                c * m.field(y) / n * crate::portable::complex::exp(c64::new(0.0, m.beta * z))
             })
             .sum()
     }

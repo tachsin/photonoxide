@@ -1,6 +1,8 @@
 //! oneMKL's PARDISO against photonoxide's own solver, on this machine. Skipped, and saying so,
 //! where oneMKL isn't found (CI has none).
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;

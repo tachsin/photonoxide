@@ -31,6 +31,8 @@
 //! cargo run --release --example optimize_ring_pareto
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::PI;

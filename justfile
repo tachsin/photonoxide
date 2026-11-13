@@ -35,7 +35,8 @@ test:
 test-one-thread:
     cargo test -- --test-threads=1
 
-# the platform canaries, on 4 threads: the building blocks (the system's libm, faer's kernels, the
+# the platform canaries, on 4 threads: the building blocks (the system's libm and, bit for bit,
+# photonoxide::portable; faer's kernels, the
 # sparse LU, QMR and GMRES, the FFT, a mode and an FDFD solve, threads, FDTD's bits, a job file
 # with CRLF) against exact values or themselves, then the existing tests they reuse, by name
 # (tests/canary.rs lists them all; CONTRIBUTING.md, "Platform canaries")

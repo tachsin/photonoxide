@@ -1,5 +1,7 @@
 # what the examples print, compared byte for byte by CI and locally: LF everywhere
 examples/output/*.txt text eol=lf
+# the designs examples read back (split on blank lines): LF everywhere
+examples/designs/*.hex text eol=lf
 python/examples/output/*.txt text eol=lf
 # shell scripts and git hooks: bash on Windows reads them too, and a carriage return breaks it
 *.sh text eol=lf

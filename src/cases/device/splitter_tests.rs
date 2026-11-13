@@ -242,7 +242,7 @@ fn survey() {
             let (s, d) = super::solve::sampled("w", &g, "Si", &[um(1.55)], &grid, three).unwrap();
             let m = s.s_matrix(um(1.55), &[]).unwrap();
             let n = s.ports()[0].mode.as_ref().unwrap().effective_index;
-            let expect = crate::portable::exp_c(num_complex::Complex64::new(
+            let expect = crate::portable::complex::exp(num_complex::Complex64::new(
                 0.0,
                 2.0 * std::f64::consts::PI * n / 1.55 * 2.0,
             ));
