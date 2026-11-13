@@ -260,6 +260,11 @@ area facade \
   "material mode job circuit compact device" \
   "facade::" "" ""
 
+# the platform canaries (CONTRIBUTING.md, "Platform canaries"): their own files and the
+# justfile, whose `canaries` recipe CI runs (Lint, for any change with unit tests); the tests they
+# reuse by name are their areas'
+area canary   "tests/canary.rs tests/data/canary/* src/canary_tests.rs src/canary_tests/* justfile"   ""   "canary_" "" ""
+
 # the layering test (src/layering.rs; the layers are in docs/architecture.md): it reads every
 # file under src/, so any change to the source runs it, whatever area the change is in (below,
 # where files are matched), and it makes no file shared

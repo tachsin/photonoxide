@@ -342,16 +342,17 @@ jobs:
           rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin
           cargo check --all-features --all-targets --target x86_64-pc-windows-msvc
           cargo check --all-features --all-targets --target aarch64-apple-darwin
-      # the canaries (tests/canary*.rs: fast checks of what can differ by system), on Linux here;
-      # the Weekly workflow runs them on Windows and macOS. Skipped while there are none
+      # the platform canaries, the justfile's `canaries` recipe (tests/canary.rs, the library's
+      # canary_ tests and the tests they reuse by name, in release; the recipe is their one list),
+      # on Linux here for every change with unit tests; the Weekly workflow runs them on Windows
+      # and macOS
+      - if: needs.changes.outputs.tests != '' && hashFiles('tests/canary*.rs') != ''
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
       - name: The canaries, on Linux
         if: needs.changes.outputs.tests != '' && hashFiles('tests/canary*.rs') != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          args=()
-          for f in tests/canary*.rs; do args+=(--test "$(basename "$f" .rs)"); done
-          cargo test --release --all-features "${args[@]}"
+        run: just canaries
       # The studio's lints and build, when the change reaches it: its web view type-checked and
       # built (oxlint, svelte-check, vite; the window's Rust code embeds it), rustfmt and clippy on
       # its crates. Its tests run on the workstation, not here (`just studio-check`, `just
