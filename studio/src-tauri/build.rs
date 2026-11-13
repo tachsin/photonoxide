@@ -7,6 +7,8 @@ mod ours;
 fn main() {
     build_info();
     references_index();
+    // the window's build: its config, capabilities and icons (not in a build without it)
+    #[cfg(feature = "window")]
     tauri_build::build();
 }
 

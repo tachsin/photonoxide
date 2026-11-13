@@ -24,6 +24,7 @@ pub fn compare(a: &str, b: &str) -> Ordering {
 }
 
 /// Days since 1970 as a day of the Gregorian calendar (Hinnant's `civil_from_days`).
+#[cfg(any(test, feature = "window"))]
 pub fn date(days: i64) -> String {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);

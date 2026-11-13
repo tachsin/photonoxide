@@ -24,6 +24,9 @@ use serde::Serialize;
 use tauri::Manager;
 
 use crate::examples;
+// the run's tables and files, and a job's text read in its format: the headless program's too
+pub use crate::exports::{RunExports, run_exports};
+pub(crate) use crate::job_text::{job_format, parse_job};
 use crate::settings::{self, Settings};
 use crate::tasks::{Progress, Tasks};
 
@@ -1074,34 +1077,6 @@ fn check_text(text: &str, format: Format, workspace: &Path) -> JobCheck {
     }
 }
 
-/// The format a job's text is written in, by its first line that isn't a comment: TOML for a
-/// table's header or a `key = value`, JSON for an object, YAML otherwise. The built-in jobs are
-/// YAML (#430) and the studio's own forms write TOML, and both reach the same commands.
-pub(crate) fn job_format(text: &str) -> Format {
-    let first = text
-        .lines()
-        .map(str::trim)
-        .find(|l| !l.is_empty() && !l.starts_with('#'));
-    let toml_key = |l: &str| {
-        l.split_once('=').is_some_and(|(k, _)| {
-            let k = k.trim();
-            !k.is_empty()
-                && k.chars()
-                    .all(|c| c.is_ascii_alphanumeric() || "_-.\"' ".contains(c))
-        })
-    };
-    match first {
-        Some(l) if l.starts_with('{') => Format::Json,
-        Some(l) if l.starts_with('[') || toml_key(l) => Format::Toml,
-        _ => Format::Yaml,
-    }
-}
-
-/// A job from its text, in the format it is written in ([`job_format`]).
-pub(crate) fn parse_job(text: &str) -> photonoxide::Result<Job> {
-    Job::parse_as(text, job_format(text))
-}
-
 /// A job's text as its top-level table, in the format it is written in; empty when it doesn't read.
 pub(crate) fn job_table(text: &str) -> toml::Table {
     match job_format(text) {
@@ -1274,65 +1249,6 @@ fn preview_ports(
     let note = |e: photonoxide::Error| with_workspace_note(e.to_string(), &workspace);
     let job = unsaved_job(&text, job_format(&text), &workspace).map_err(note)?;
     job::preview_ports(&job).map_err(note)
-}
-
-/// A table a run can export ([`photonoxide::export::tables`]), for the Export dialog.
-#[derive(Clone, Debug, Serialize)]
-pub struct ExportTable {
-    /// Its name, e.g. `"s_parameters"`.
-    pub name: String,
-    /// Its file, e.g. `"s_parameters.csv"`.
-    pub file: String,
-    /// Its rows.
-    pub rows: usize,
-    /// Its file's size, bytes.
-    pub bytes: usize,
-}
-
-/// A file of a run's results beside its record: a table (`.csv`) or fields (`.npz`).
-#[derive(Clone, Debug, Serialize)]
-pub struct ExportFile {
-    /// Its name in the run's folder.
-    pub name: String,
-    /// Its size, bytes.
-    pub bytes: u64,
-}
-
-/// What the run in a folder can export, and what it has written.
-#[derive(Clone, Debug, Serialize)]
-pub struct RunExports {
-    /// The tables its record holds.
-    pub tables: Vec<ExportTable>,
-    /// The `.csv` and `.npz` files in its folder, by name.
-    pub files: Vec<ExportFile>,
-}
-
-/// The tables the run in `dir` holds and the result files in its folder.
-pub fn run_exports(dir: &Path) -> Result<RunExports, String> {
-    let tables = photonoxide::export::tables::of_run(dir)
-        .map_err(|e| e.to_string())?
-        .iter()
-        .map(|t| ExportTable {
-            name: t.table.name().to_owned(),
-            file: t.table.file(),
-            rows: t.rows.len(),
-            bytes: t.text().len(),
-        })
-        .collect();
-    let mut files: Vec<ExportFile> = std::fs::read_dir(dir)
-        .map_err(|e| format!("{}: {e}", dir.display()))?
-        .filter_map(|e| e.ok())
-        .filter_map(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            let kept = name.ends_with(".csv") || name.ends_with(".npz");
-            kept.then(|| ExportFile {
-                name,
-                bytes: e.metadata().map(|m| m.len()).unwrap_or(0),
-            })
-        })
-        .collect();
-    files.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(RunExports { tables, files })
 }
 
 /// The Export dialog's list: [`run_exports`].
