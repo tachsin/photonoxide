@@ -23,9 +23,12 @@ port=${PHOTONOXIDE_FARM_PORT:-7878}
 read -ra program <<<"${PHOTONOXIDE:-photonoxide}"
 export PHOTONOXIDE_FARM_TOKEN=${PHOTONOXIDE_FARM_TOKEN:-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')}
 
-# a worker on each node, its first line ("listening on ...") in a file of its own
-logs=$(mktemp -d "${TMPDIR:-/tmp}/photonoxide-farm.XXXXXX")
-srun --ntasks-per-node=1 --kill-on-bad-exit=0 --no-kill --output="$logs/worker-%N.out" \
+# a worker on each node, its first line ("listening on ...") in a file of its own, in the folder
+# the job was submitted from: one every node sees (a node's own /tmp isn't)
+logs="${SLURM_SUBMIT_DIR:-$PWD}/.photonoxide-farm-${SLURM_JOB_ID:-$$}"
+mkdir -p "$logs"
+srun --job-name=photonoxide-workers --ntasks-per-node=1 --kill-on-bad-exit=0 --no-kill \
+  --output="$logs/worker-%N.out" \
   "${program[@]}" worker --listen "0.0.0.0:$port" &
 workers=$!
 
@@ -43,6 +46,7 @@ for _ in $(seq 1 120); do
 done
 if [ "$have" -lt "$want" ]; then
   echo "only $have of $want workers listen" >&2
+  rm -rf "$logs"
   kill "$workers" 2>/dev/null || true
   exit 1
 fi
@@ -50,8 +54,10 @@ fi
 status=0
 "${program[@]}" run "$job" --headless --out "$out" "${args[@]}" || status=$?
 echo "photonoxide run exited $status"
-# the workers stop (each exits 4 on the signal srun passes on)
-kill "$workers" 2>/dev/null || true
+# the workers stop: SIGTERM to their step, on which each drops what it has and exits 4 (srun
+# itself, sent SIGTERM, would kill them)
+step=$(squeue -h -s -j "$SLURM_JOB_ID" -o '%i %j' | awk '$2 == "photonoxide-workers" { print $1; exit }')
+if [ -n "$step" ]; then scancel --signal=TERM "$step" 2>/dev/null || true; else kill "$workers" 2>/dev/null || true; fi
 wait "$workers" 2>/dev/null || true
 rm -rf "$logs"
 exit "$status"

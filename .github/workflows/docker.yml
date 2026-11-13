@@ -66,6 +66,8 @@ jobs:
             exit 1
           fi
           echo "$(wc -l <<<"$crates") crates, none of the window's"
+      # CI's studio job lints the build with the window; this one, the build without it
+      - run: cargo clippy --locked -p photonoxide-studio --no-default-features --all-targets -- -D warnings
       - run: cargo build --locked --release -p photonoxide-studio --no-default-features
       - name: No window library linked
         run: |
@@ -92,6 +94,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+      # the checks' and the cluster's scripts, by the shellcheck GitHub's runners ship
+      - run: shellcheck -x --severity=warning docker/*.sh docker/slurm/*.sh docker/slurm/scripts/*.sh
       - id: rust
         name: The pinned Rust
         run: echo "version=$(sed -n 's/^channel *= *"\([^"]*\)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"

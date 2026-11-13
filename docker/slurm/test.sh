@@ -83,6 +83,8 @@ on env PHOTONOXIDE_FARM_TOKEN=a-token-for-the-cluster-test \
   sbatch --wait --nodes=3 -o farm.out "$scripts/farm.sh" sweep.toml runs/farm || fail "the farm failed: $(on cat farm.out)"
 on cat farm.out
 on grep -q 'farmed to 3 workers' farm.out || fail "the run wasn't farmed to 3 workers"
+# the workers, sent SIGTERM at the end, drop what they have and exit 4
+[ "$(on grep -c 'Exited with exit code 4' farm.out)" = 3 ] || fail "the workers didn't each exit 4 on SIGTERM"
 farm=$(folder farm)
 [ "$(record "$farm")" = "$(record "$alone")" ] || fail "the farmed record isn't the one-process run's"
 echo "the farmed run's events.jsonl is the one-process run's, to the bit"
