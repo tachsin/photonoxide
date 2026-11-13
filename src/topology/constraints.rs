@@ -38,6 +38,7 @@
 //! length and |Ω| the region's size: about 1e-8 for c̃ = 64 and R a hundredth of the region.
 
 use super::Density;
+use crate::portable;
 use crate::{Error, Result};
 
 /// The eroded threshold η_e that keeps the solid's features at least `linewidth` wide with a
@@ -132,7 +133,7 @@ impl LengthConstraints {
             density: density.clone(),
             eta_e: eroded_threshold(linewidth, radius)?,
             eta_d: dilated_threshold(spacing, radius)?,
-            decay: r.powi(4),
+            decay: portable::powi(r, 4),
         })
     }
 
@@ -294,7 +295,7 @@ pub fn geometric_threshold(c_tilde: f64, share: f64) -> Result<f64> {
         ));
     }
     let integral = 3.0 * std::f64::consts::PI.sqrt() * crate::portable::erf(c_tilde.sqrt())
-        / (128.0 * c_tilde.powf(2.5))
+        / (128.0 * portable::powf(c_tilde, 2.5))
         - crate::portable::exp(-c_tilde)
             * (3.0 / (64.0 * c_tilde * c_tilde) + 1.0 / (32.0 * c_tilde));
     Ok(share * integral)

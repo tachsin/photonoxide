@@ -1,5 +1,6 @@
 use super::checks::{self, PIXELS, chain};
 use super::*;
+use crate::portable;
 
 #[test]
 fn the_projection_is_a_step_at_large_beta_and_its_derivative_is_exact() {
@@ -150,8 +151,8 @@ fn the_edge_shifts_solve_their_closed_forms() {
     for t in [0.1, 0.3, 0.5, 0.7, 0.9] {
         let h = 1e-5;
         let fd = (super::across_edge_2d(t + h) - super::across_edge_2d(t - h)) / (2.0 * h);
-        let slope =
-            -3.0 / std::f64::consts::PI * ((1.0 - t * t).sqrt() - t * t * (1.0f64 / t).acosh());
+        let slope = -3.0 / std::f64::consts::PI
+            * ((1.0 - t * t).sqrt() - t * t * portable::acosh(1.0f64 / t));
         assert!((fd - slope).abs() < 1e-9, "{t}: {fd} {slope}");
     }
     assert!(super::edge_shift_2d(0.0).is_err() && super::edge_shift_1d(1.0).is_err());
@@ -374,7 +375,7 @@ fn the_helmholtz_study() {
         println!(
             "h {h} nm: η 0.3 shift {x3:.4} nm (closed {want3:.4}), error {:.2e} nm = {:.3} (h/r)² r",
             x3 - want3,
-            (x3 - want3).abs() / ((h / r).powi(2) * r)
+            (x3 - want3).abs() / (portable::powi(h / r, 2) * r)
         );
     }
     for delta in [1e-4, 1e-3, 1e-2] {
@@ -451,7 +452,7 @@ fn the_level_set_study() {
         let e = level_set_circle_error(h);
         println!(
             "circle at {h} nm: {e:.4e} ({:.3} (h/R)²)",
-            e / (h / 500.0).powi(2)
+            e / portable::powi(h / 500.0, 2)
         );
     }
     for delta in [1e-5, 1e-4, 1e-3] {
@@ -567,9 +568,13 @@ fn the_lithography_proxy() {
     // the print's gradient against differences, without a solver
     let l = Lithography::new([24, 18, 1], 0.01, 0.02, 0.45, Edge::Renormalized).unwrap();
     let mask: Vec<f64> = (0..24 * 18)
-        .map(|p| 0.5 + 0.4 * (0.4 * (p % 24) as f64).sin() * (0.3 * (p / 24) as f64).cos())
+        .map(|p| {
+            0.5 + 0.4 * portable::sin(0.4 * (p % 24) as f64) * portable::cos(0.3 * (p / 24) as f64)
+        })
         .collect();
-    let w: Vec<f64> = (0..24 * 18).map(|p| (0.37 * p as f64).cos()).collect();
+    let w: Vec<f64> = (0..24 * 18)
+        .map(|p| portable::cos(0.37 * p as f64))
+        .collect();
     let f = |m: &[f64]| -> f64 { l.print(m).unwrap().iter().zip(&w).map(|(a, b)| a * b).sum() };
     let g = l.pullback(&mask, &w).unwrap();
     let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
@@ -600,7 +605,9 @@ fn the_lithography_proxy_at_a_finite_beta() {
     assert_eq!(l.beta(), 32.0);
     assert_eq!(l.threshold(), 0.45);
     let mask: Vec<f64> = (0..24 * 18)
-        .map(|p| 0.5 + 0.4 * (0.4 * (p % 24) as f64).sin() * (0.3 * (p / 24) as f64).cos())
+        .map(|p| {
+            0.5 + 0.4 * portable::sin(0.4 * (p % 24) as f64) * portable::cos(0.3 * (p / 24) as f64)
+        })
         .collect();
     // the value: the blur, then the smoothed projection at that β
     let blurred = l.blur().apply(&mask).unwrap();
@@ -610,7 +617,9 @@ fn the_lithography_proxy_at_a_finite_beta() {
         .unwrap();
     assert_eq!(l.print(&mask).unwrap(), projected);
     // the gradient against fourth-order differences
-    let w: Vec<f64> = (0..24 * 18).map(|p| (0.37 * p as f64).cos()).collect();
+    let w: Vec<f64> = (0..24 * 18)
+        .map(|p| portable::cos(0.37 * p as f64))
+        .collect();
     let f = |m: &[f64]| -> f64 { l.print(m).unwrap().iter().zip(&w).map(|(a, b)| a * b).sum() };
     let g = l.pullback(&mask, &w).unwrap();
     let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
