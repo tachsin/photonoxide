@@ -7,6 +7,7 @@ use std::f64::consts::PI;
 use super::boolean_checks::{self as checks, circle, rect};
 use super::*;
 use crate::expr::{Expr, Parameters};
+use crate::portable;
 use crate::units::Length;
 
 fn um(v: f64) -> Length {
@@ -127,7 +128,10 @@ fn distances_and_normals_on_and_off_the_boundary() {
     // a signed distance's sign is the inside test's everywhere
     for k in 0..400 {
         let t = f64::from(k) * 0.123;
-        let p = Point::um(0.5 + 1.8 * t.cos() * (t * 0.37).sin(), 1.4 * t.sin());
+        let p = Point::um(
+            0.5 + 1.8 * portable::cos(t) * portable::sin(t * 0.37),
+            1.4 * portable::sin(t),
+        );
         for s in [&u, &diff, &i] {
             let (d, inside) = (s.distance(p).signed.to_um(), s.contains(p));
             assert!(d <= 0.0 && inside || d >= 0.0 && !inside, "{p:?} {d}");

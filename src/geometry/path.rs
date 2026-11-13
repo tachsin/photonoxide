@@ -27,6 +27,7 @@ use super::primitives::{RoundedRect, Sector, point, um};
 use super::transform::{Transform, sin_cos};
 use super::{Point, Shape};
 use crate::expr::{COORDINATES, Dim, Dual, Expr, Parameters};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -62,12 +63,12 @@ fn cross(a: P, b: P) -> f64 {
 }
 
 fn norm(a: P) -> f64 {
-    a[0].hypot(a[1])
+    portable::hypot(a[0], a[1])
 }
 
 /// The angle of a direction from x, in (−π, π].
 fn angle_of(v: P) -> f64 {
-    let a = v[1].atan2(v[0]);
+    let a = portable::atan2(v[1], v[0]);
     if a == -std::f64::consts::PI { -a } else { a }
 }
 
@@ -322,7 +323,7 @@ pub fn partial_euler(radius: Length, angle: f64, p: f64) -> Result<PartialEuler>
         });
     }
     let (x, y, rp, sp) = euler_half(a, p);
-    let (sin, cos) = (0.5 * a).sin_cos();
+    let (sin, cos) = portable::sin_cos(0.5 * a);
     let denominator = y + x * cos / sin;
     if !(denominator > 0.0 && denominator.is_finite()) {
         return Err(invalid(format!(
@@ -354,9 +355,9 @@ pub(crate) fn euler_half(alpha: f64, p: f64) -> (f64, f64, f64, f64) {
     let end = fresnel::clothoid(sp, 1.0);
     let theta = 0.5 * p * alpha;
     // the arc from the clothoid's end, about its centre, to α/2
-    let (st, ct) = theta.sin_cos();
+    let (st, ct) = portable::sin_cos(theta);
     let centre = [end[0] - rp * st, end[1] + rp * ct];
-    let (sh, ch) = (0.5 * alpha).sin_cos();
+    let (sh, ch) = portable::sin_cos(0.5 * alpha);
     (centre[0] + rp * sh, centre[1] - rp * ch, rp, sp)
 }
 
@@ -442,8 +443,8 @@ fn clothoid_quadrature(k0: f64, a: f64, u: f64) -> P {
             k as f64 * h,
             if k + 1 == n { u } else { (k + 1) as f64 * h },
         );
-        x += boundary::gauss(|v| theta(v).cos(), lo, hi);
-        y += boundary::gauss(|v| theta(v).sin(), lo, hi);
+        x += boundary::gauss(|v| portable::cos(theta(v)), lo, hi);
+        y += boundary::gauss(|v| portable::sin(theta(v)), lo, hi);
     }
     [x, y]
 }
@@ -483,7 +484,7 @@ impl Part {
                 let r = *radius;
                 let sign = angle.signum();
                 let a = if u >= self.umax { angle.abs() } else { u / r };
-                let (s, c) = a.sin_cos();
+                let (s, c) = portable::sin_cos(a);
                 (
                     [r * s, sign * (r - r * c)],
                     [c, sign * s],
@@ -502,12 +503,12 @@ impl Part {
                     let rate = -k0 / l;
                     let whole = fresnel::clothoid(l, rate);
                     let rest = fresnel::clothoid(l - u, rate);
-                    let (s, c) = (0.5 * k0 * l).sin_cos();
+                    let (s, c) = portable::sin_cos(0.5 * k0 * l);
                     rotate(c, s, sub(whole, rest))
                 } else {
                     clothoid_quadrature(*k0, a, u)
                 };
-                let (s, c) = theta.sin_cos();
+                let (s, c) = portable::sin_cos(theta);
                 (p, [c, s], [-kappa * s, kappa * c])
             }
             Kind::Bezier(q) => {
@@ -520,7 +521,7 @@ impl Part {
                 (casteljau(q, u), casteljau(&d1, u), casteljau(&d2, u))
             }
             Kind::Sine { length, offset } => {
-                let (s, c) = (TAU * u).sin_cos();
+                let (s, c) = portable::sin_cos(TAU * u);
                 (
                     [length * u, offset * (u - s / TAU)],
                     [*length, offset * (1.0 - c)],
@@ -627,7 +628,7 @@ impl Part {
             Kind::Clothoid { k0, k1 } => 0.5 * (k0 + k1) * self.len,
             _ => {
                 let (_, d, _) = self.local(self.umax);
-                d[1].atan2(d[0])
+                portable::atan2(d[1], d[0])
             }
         }
     }
@@ -1193,8 +1194,8 @@ fn expand(segment: &Segment) -> Result<Vec<(Kind, f64)>> {
                      curve's direction",
                 ));
             }
-            let beta = d[1].atan2(d[0]);
-            let (s, c) = beta.sin_cos();
+            let beta = portable::atan2(d[1], d[0]);
+            let (s, c) = portable::sin_cos(beta);
             vec![(
                 Kind::Bezier(q.iter().map(|v| rotate(c, -s, *v)).collect()),
                 0.0,
@@ -1225,8 +1226,8 @@ fn expand(segment: &Segment) -> Result<Vec<(Kind, f64)>> {
                     curve.y.text()
                 )));
             }
-            let beta = d0[1].atan2(d0[0]);
-            let (s, c) = beta.sin_cos();
+            let beta = portable::atan2(d0[1], d0[0]);
+            let (s, c) = portable::sin_cos(beta);
             vec![(
                 Kind::Parametric {
                     curve: curve.clone(),
@@ -1343,7 +1344,7 @@ impl Part {
                 .collect();
             while let Some((a, b, depth)) = stack.pop() {
                 let (ta, tm, tb) = (part.at(a), part.at(0.5 * (a + b)), part.at(b));
-                let angle = |x: P, y: P| cross(x, y).atan2(dot(x, y)).abs();
+                let angle = |x: P, y: P| portable::atan2(cross(x, y), dot(x, y)).abs();
                 let turn = angle(ta.t, tm.t) + angle(tm.t, tb.t);
                 let long = boundary::gauss(|v| part.at(v).speed, a, b);
                 if (turn > TURN || long > h) && depth < 30 {

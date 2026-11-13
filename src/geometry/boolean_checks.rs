@@ -7,6 +7,7 @@
 use std::f64::consts::{PI, TAU};
 
 use super::*;
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -23,8 +24,8 @@ pub(crate) fn lens(r1: f64, r2: f64, d: f64) -> f64 {
         let r = r1.min(r2);
         return PI * r * r;
     }
-    let a1 = ((d * d + r1 * r1 - r2 * r2) / (2.0 * d * r1)).acos();
-    let a2 = ((d * d + r2 * r2 - r1 * r1) / (2.0 * d * r2)).acos();
+    let a1 = portable::acos((d * d + r1 * r1 - r2 * r2) / (2.0 * d * r1));
+    let a2 = portable::acos((d * d + r2 * r2 - r1 * r1) / (2.0 * d * r2));
     let k = 0.5 * ((-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)).sqrt();
     r1 * r1 * a1 + r2 * r2 * a2 - k
 }
@@ -68,7 +69,7 @@ fn areas(a: f64, b: f64, i: f64) -> [f64; 4] {
 pub(crate) fn pairs() -> Vec<(&'static str, Shape, Shape, [f64; 4])> {
     let s2 = 2f64.sqrt();
     let (c1, r1, c2, r2): ([f64; 2], f64, [f64; 2], f64) = ([0.31, -0.17], 1.2, [1.5, 0.4], 0.7);
-    let d12 = (c2[0] - c1[0]).hypot(c2[1] - c1[1]);
+    let d12 = portable::hypot(c2[0] - c1[0], c2[1] - c1[1]);
     let octagon = 8.0 * s2 - 8.0;
     vec![
         (
@@ -187,7 +188,7 @@ pub(crate) fn degenerate() -> Vec<Degenerate> {
     let turned: Vec<[f64; 2]> = thin
         .iter()
         .map(|p| {
-            let (s, c) = 1e-9f64.sin_cos();
+            let (s, c) = portable::sin_cos(1e-9f64);
             let (dx, dy) = (p[0] - 5.0, p[1] - 0.25);
             [5.0 + c * dx - s * dy, 0.25 + s * dx + c * dy]
         })
@@ -352,12 +353,17 @@ pub(crate) fn degenerate_error() -> f64 {
 /// The distance from `p` to the arc of the circle (centre `c`, radius `r`) of the angles from
 /// `t0` through `sweep` (radians, counterclockwise).
 fn to_arc(p: [f64; 2], c: [f64; 2], r: f64, t0: f64, sweep: f64) -> f64 {
-    let t = (p[1] - c[1]).atan2(p[0] - c[0]);
+    let t = portable::atan2(p[1] - c[1], p[0] - c[0]);
     let along = (t - t0).rem_euclid(TAU);
     if along <= sweep {
-        return ((p[0] - c[0]).hypot(p[1] - c[1]) - r).abs();
+        return (portable::hypot(p[0] - c[0], p[1] - c[1]) - r).abs();
     }
-    let end = |a: f64| (p[0] - c[0] - r * a.cos()).hypot(p[1] - c[1] - r * a.sin());
+    let end = |a: f64| {
+        portable::hypot(
+            p[0] - c[0] - r * portable::cos(a),
+            p[1] - c[1] - r * portable::sin(a),
+        )
+    };
     end(t0).min(end(t0 + sweep))
 }
 
@@ -367,9 +373,9 @@ fn to_arc(p: [f64; 2], c: [f64; 2], r: f64, t0: f64, sweep: f64) -> f64 {
 fn disks_distance(p: [f64; 2], a: ([f64; 2], f64), b: ([f64; 2], f64), op: Operation) -> f64 {
     // the arc of circle `s` inside the disk `o`: the angles within ±α of the direction to o
     let inside = |s: ([f64; 2], f64), o: ([f64; 2], f64)| {
-        let d = (o.0[0] - s.0[0]).hypot(o.0[1] - s.0[1]);
-        let alpha = ((d * d + s.1 * s.1 - o.1 * o.1) / (2.0 * d * s.1)).acos();
-        let toward = (o.0[1] - s.0[1]).atan2(o.0[0] - s.0[0]);
+        let d = portable::hypot(o.0[0] - s.0[0], o.0[1] - s.0[1]);
+        let alpha = portable::acos((d * d + s.1 * s.1 - o.1 * o.1) / (2.0 * d * s.1));
+        let toward = portable::atan2(o.0[1] - s.0[1], o.0[0] - s.0[0]);
         (toward - alpha, 2.0 * alpha)
     };
     let (ia, ib) = (inside(a, b), inside(b, a));
@@ -416,8 +422,8 @@ pub(crate) fn distance_errors() -> (f64, f64) {
         };
         for p in points_about(s.bounds()) {
             let q = [p.x.to_um(), p.y.to_um()];
-            let ina = (q[0] - a.0[0]).hypot(q[1] - a.0[1]) < a.1;
-            let inb = (q[0] - b.0[0]).hypot(q[1] - b.0[1]) < b.1;
+            let ina = portable::hypot(q[0] - a.0[0], q[1] - a.0[1]) < a.1;
+            let inb = portable::hypot(q[0] - b.0[0], q[1] - b.0[1]) < b.1;
             let inside = match op {
                 Operation::Union => ina || inb,
                 Operation::Intersection => ina && inb,
@@ -432,7 +438,7 @@ pub(crate) fn distance_errors() -> (f64, f64) {
         for (c, r) in [a, b] {
             for k in 0..64 {
                 let t = TAU * (f64::from(k) + 0.5) / 64.0;
-                let q = [c[0] + r * t.cos(), c[1] + r * t.sin()];
+                let q = [c[0] + r * portable::cos(t), c[1] + r * portable::sin(t)];
                 if disks_distance(q, a, b, op) < 1e-12 {
                     on = on.max(s.distance(Point::um(q[0], q[1])).signed.to_um().abs() * 1e3);
                 }
@@ -449,7 +455,7 @@ pub(crate) fn turns(v: &[[f64; 2]]) -> Vec<f64> {
         .map(|i| {
             let (a, b, c) = (v[(i + n - 1) % n], v[i], v[(i + 1) % n]);
             let (e1, e2) = ([b[0] - a[0], b[1] - a[1]], [c[0] - b[0], c[1] - b[1]]);
-            (e1[0] * e2[1] - e1[1] * e2[0]).atan2(e1[0] * e2[0] + e1[1] * e2[1])
+            portable::atan2(e1[0] * e2[1] - e1[1] * e2[0], e1[0] * e2[0] + e1[1] * e2[1])
         })
         .collect()
 }
@@ -464,12 +470,12 @@ fn corner(phi: f64, join: Join) -> f64 {
         _ => 1.0,
     };
     let half = 0.5 * phi;
-    let reach = 1.0 / half.cos();
-    let kite = half.tan();
+    let reach = 1.0 / portable::cos(half);
+    let kite = portable::tan(half);
     if reach <= limit {
         kite
     } else {
-        kite - (reach - limit).powi(2) / half.tan()
+        kite - portable::powi(reach - limit, 2) / portable::tan(half)
     }
 }
 
@@ -478,7 +484,7 @@ pub(crate) fn convex() -> Vec<(&'static str, Vec<[f64; 2]>)> {
     let hexagon: Vec<[f64; 2]> = (0..6)
         .map(|k| {
             let t = TAU * f64::from(k) / 6.0 + 0.1;
-            [0.2 + 1.1 * t.cos(), -0.3 + 1.1 * t.sin()]
+            [0.2 + 1.1 * portable::cos(t), -0.3 + 1.1 * portable::sin(t)]
         })
         .collect();
     let a = 25f64.to_radians();
@@ -493,7 +499,7 @@ pub(crate) fn convex() -> Vec<(&'static str, Vec<[f64; 2]>)> {
             vec![
                 [0.0, 0.0],
                 [3.0, 0.0],
-                [3.0 * a.cos() * 0.8, 3.0 * a.sin() * 0.8],
+                [3.0 * portable::cos(a) * 0.8, 3.0 * portable::sin(a) * 0.8],
             ],
         ),
     ]
@@ -533,8 +539,14 @@ pub(crate) fn offset_errors() -> (f64, f64) {
         }
     }
     let disk = circle(0.3, -0.2, 0.9);
-    check(disk.offset(um(d), Join::Round), PI * (0.9 + d).powi(2));
-    check(disk.offset(um(-d), Join::Round), PI * (0.9 - d).powi(2));
+    check(
+        disk.offset(um(d), Join::Round),
+        PI * portable::powi(0.9 + d, 2),
+    );
+    check(
+        disk.offset(um(-d), Join::Round),
+        PI * portable::powi(0.9 - d, 2),
+    );
     let ellipse = Shape::ellipse(Point::um(0.1, 0.2), [um(1.3), um(0.6)], 0.4).expect("an ellipse");
     let (a, p) = (
         ellipse.area(),
@@ -551,7 +563,7 @@ pub(crate) fn offset_errors() -> (f64, f64) {
 /// The area a fillet of radius r cuts from a corner turning by φ, over r²: the corner's kite
 /// less its sector, tan(φ/2) − φ/2.
 pub(crate) fn fillet(phi: f64) -> f64 {
-    (0.5 * phi).tan() - 0.5 * phi
+    portable::tan(0.5 * phi) - 0.5 * phi
 }
 
 /// Fillets against the corner cuts: the convex polygons' convex corners rounded to r, A − r²
@@ -652,7 +664,7 @@ pub(crate) fn order() -> f64 {
         for nm in [1.0, 0.1, 0.01, 0.001] {
             let p = s.polygons(Tolerance::unsnapped(Length::nm(nm)).expect("a tolerance"));
             let (d, n) = deviation(reference.as_ref().unwrap_or(&s), &p);
-            points.push(((n as f64).ln(), d.ln()));
+            points.push((portable::ln(n as f64), portable::ln(d)));
         }
         let m = points.len() as f64;
         let (sx, sy) = points

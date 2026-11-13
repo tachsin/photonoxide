@@ -29,6 +29,7 @@ use std::path::Path;
 
 use super::clip::{self, Operation, Part};
 use super::{Array, Bounds, Contour, Element, Point, Polygon, Shape};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -82,7 +83,7 @@ pub(crate) fn real8(b: [u8; 8]) -> f64 {
     let exponent = i32::from(b[0] & 0x7f) - 64;
     let fraction = u64::from_be_bytes([0, b[1], b[2], b[3], b[4], b[5], b[6], b[7]]);
     // the fraction to the nearest double, then an exact power of two (2^-312 to 2^196)
-    sign * fraction as f64 * 2f64.powi(4 * exponent - 56)
+    sign * fraction as f64 * portable::powi(2f64, 4 * exponent - 56)
 }
 
 /// A cell's element that draws, or places another cell.
@@ -493,7 +494,7 @@ impl Affine {
             }
         } else {
             let r = angle_deg.to_radians();
-            (r.cos(), r.sin())
+            (portable::cos(r), portable::sin(r))
         };
         let f = if mirror { -1.0 } else { 1.0 };
         Affine {
@@ -545,7 +546,7 @@ fn outline(
     let dirs: Vec<[f64; 2]> = (0..n - 1)
         .map(|k| {
             let d = [p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]];
-            let l = d[0].hypot(d[1]);
+            let l = portable::hypot(d[0], d[1]);
             [d[0] / l, d[1] / l]
         })
         .collect();
@@ -586,10 +587,10 @@ fn outline(
     // a half circle about `c` from the side `from` (a unit normal) clockwise to its opposite
     let cap = |c: [f64; 2], from: [f64; 2], ring: &mut Vec<[f64; 2]>| {
         let segments = cap_segments(h);
-        let start = from[1].atan2(from[0]);
+        let start = portable::atan2(from[1], from[0]);
         for j in 1..segments {
             let t = start - std::f64::consts::PI * j as f64 / segments as f64;
-            ring.push([c[0] + h * t.cos(), c[1] + h * t.sin()]);
+            ring.push([c[0] + h * portable::cos(t), c[1] + h * portable::sin(t)]);
         }
     };
     if kind == 1 {
@@ -610,7 +611,7 @@ fn cap_segments(h: f64) -> usize {
         return 2;
     }
     // a chord over the angle φ strays by h (1 − cos(φ/2)); a half circle is π
-    let phi = 2.0 * (1.0 - sagitta).acos();
+    let phi = 2.0 * portable::acos(1.0 - sagitta);
     ((std::f64::consts::PI / phi).ceil() as usize).clamp(2, MAX_CAP)
 }
 

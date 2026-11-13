@@ -9,6 +9,7 @@
 //!
 //! M. Abramowitz, I. A. Stegun, Handbook of Mathematical Functions (1964), chapter 7.
 
+use crate::portable;
 use std::f64::consts::PI;
 
 /// Where the series hands over to the continued fraction.
@@ -122,7 +123,7 @@ fn continued(t: f64) -> (f64, f64) {
     }
     let k = Z(1.0, 0.0).div(f);
     let phase = PI / 2.0 * t * t;
-    let (sin, cos) = phase.sin_cos();
+    let (sin, cos) = portable::sin_cos(phase);
     let w = Z(cos, sin).mul(k).scale(1.0 / PI.sqrt());
     let one_minus = Z(1.0 - w.0, -w.1);
     let e = Z(0.5, 0.5).mul(one_minus);
@@ -182,8 +183,8 @@ mod tests {
         for k in 1..=120 {
             let t = 0.05 * f64::from(k);
             let (c, s) = fresnel(t);
-            let qc = quad(|u| (PI / 2.0 * u * u).cos(), t);
-            let qs = quad(|u| (PI / 2.0 * u * u).sin(), t);
+            let qc = quad(|u| portable::cos(PI / 2.0 * u * u), t);
+            let qs = quad(|u| portable::sin(PI / 2.0 * u * u), t);
             worst = worst.max((c - qc).abs()).max((s - qs).abs());
         }
         // (the quadrature's own round-off, summed over its panels, is about 10⁻¹⁵)
@@ -200,8 +201,8 @@ mod tests {
         for a in [0.3, -2.0, 1e-3] {
             let tau = 2.5;
             let z = clothoid(tau, a);
-            let qx = quad(|u| (a * u * u / 2.0).cos(), tau);
-            let qy = quad(|u| (a * u * u / 2.0).sin(), tau);
+            let qx = quad(|u| portable::cos(a * u * u / 2.0), tau);
+            let qy = quad(|u| portable::sin(a * u * u / 2.0), tau);
             assert!(
                 (z[0] - qx).abs() < 2e-15 && (z[1] - qy).abs() < 2e-15,
                 "{a}"

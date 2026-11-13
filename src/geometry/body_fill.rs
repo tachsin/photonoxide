@@ -33,6 +33,7 @@ use std::f64::consts::{PI, TAU};
 use super::body::{Body, Bounds3d, Frustum, Kind, cross, dot, norm, scale, sub};
 use super::boundary::{self, Conic, Piece};
 use super::{Operation, Region, Shape};
+use crate::portable;
 
 /// The levels a cell two surfaces cross is halved to.
 pub const DEPTH: u32 = 6;
@@ -410,13 +411,13 @@ impl Lateral {
             Some((ta, k)) => {
                 // the double cone ρ ≤ |k| |t − ta|: its two generators in this plane
                 let (k, tau) = (k.abs(), t - ta);
-                let l = k.hypot(1.0);
+                let l = portable::hypot(k, 1.0);
                 let inside = rho <= k * tau.abs();
                 let along = |sign: f64| {
                     // the distance to the ray from the apex
                     let e = [sign / l, k / l];
                     let s = (tau * e[0] + rho * e[1]).max(0.0);
-                    (tau - s * e[0]).hypot(rho - s * e[1])
+                    portable::hypot(tau - s * e[0], rho - s * e[1])
                 };
                 let near = along(1.0).min(along(-1.0));
                 if inside { -near } else { near }
@@ -589,12 +590,12 @@ impl Slices {
         }
         let (p, r, t) = (a[0][0], a[0][1], a[1][1]);
         let mean = 0.5 * (p + t);
-        let radius = (0.5 * (p - t)).hypot(r);
+        let radius = portable::hypot(0.5 * (p - t), r);
         let (l1, l2) = (mean + radius, mean - radius);
         if l2.is_nan() || l2 <= 0.0 {
             return None;
         }
-        let psi = 0.5 * (2.0 * r).atan2(p - t);
+        let psi = 0.5 * portable::atan2(2.0 * r, p - t);
         Some(Slices {
             s,
             plane,
@@ -607,8 +608,8 @@ impl Slices {
             reach: [t / det, p / det],
             det,
             semi: [1.0 / l1.sqrt(), 1.0 / l2.sqrt()],
-            cos: psi.cos(),
-            sin: psi.sin(),
+            cos: portable::cos(psi),
+            sin: portable::sin(psi),
         })
     }
 
@@ -674,7 +675,7 @@ impl Slices {
                 self.centre[1] + delta * self.drift[1],
             ],
             [self.semi[0] * k, self.semi[1] * k],
-            self.sin.atan2(self.cos),
+            portable::atan2(self.sin, self.cos),
         ))
     }
 
@@ -830,7 +831,7 @@ fn mapped(f: &dyn Fn(f64) -> f64, a: f64, b: f64) -> f64 {
     let h = b - a;
     boundary::gauss(
         |tau| {
-            let (s, c) = (PI * tau).sin_cos();
+            let (s, c) = portable::sin_cos(PI * tau);
             f(a + h * 0.5 * (1.0 - c)) * h * 0.5 * PI * s
         },
         0.0,
@@ -982,8 +983,8 @@ fn clip(faces: &[Face], n: [f64; 3], d: f64) -> Vec<Face> {
         let w = cross(n, u);
         cut.sort_by(|a, b| {
             let (pa, pb) = (sub(*a, m), sub(*b, m));
-            let ta = dot(pa, w).atan2(dot(pa, u));
-            let tb = dot(pb, w).atan2(dot(pb, u));
+            let ta = portable::atan2(dot(pa, w), dot(pa, u));
+            let tb = portable::atan2(dot(pb, w), dot(pb, u));
             ta.total_cmp(&tb)
         });
         out.push(cut);

@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use super::boundary::{self, Conic, P, Piece};
 use super::region::{Distance, Location, Polygons, Region, Tolerance, fill_of, polygons_of};
 use super::{Bounds, Point, Polygon};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -76,7 +77,7 @@ impl Frame {
 }
 
 fn normalize(v: P) -> P {
-    let l = v[0].hypot(v[1]);
+    let l = portable::hypot(v[0], v[1]);
     if l > 0.0 {
         [v[0] / l, v[1] / l]
     } else {
@@ -151,7 +152,7 @@ impl Ellipse {
 impl Region for Ellipse {
     fn locate(&self, p: Point) -> Location {
         let q = self.frame.local(um(p));
-        let f = (q[0] / self.a).powi(2) + (q[1] / self.b).powi(2);
+        let f = portable::powi(q[0] / self.a, 2) + portable::powi(q[1] / self.b, 2);
         Location::of(f.total_cmp(&1.0))
     }
 
@@ -161,13 +162,14 @@ impl Region for Ellipse {
         let near = boundary::ellipse_nearest(self.a, self.b, q);
         let n = normalize([near[0] / (self.a * self.a), near[1] / (self.b * self.b)]);
         let g = self.frame.global(near);
-        let d = (pp[0] - g[0]).hypot(pp[1] - g[1]);
+        let d = portable::hypot(pp[0] - g[0], pp[1] - g[1]);
         let inside = self.locate(p) != Location::Outside;
         Distance::from(boundary::signed((d, g, self.frame.turn(n)), pp, inside))
     }
 
     fn bounds(&self) -> Bounds {
-        self.frame.extents(|u| (self.a * u[0]).hypot(self.b * u[1]))
+        self.frame
+            .extents(|u| portable::hypot(self.a * u[0], self.b * u[1]))
     }
 
     fn polygons(&self, tolerance: Tolerance) -> Polygons {
@@ -281,7 +283,10 @@ impl Sector {
     }
 
     fn at(&self, r: f64, t: f64) -> P {
-        [self.c[0] + r * t.cos(), self.c[1] + r * t.sin()]
+        [
+            self.c[0] + r * portable::cos(t),
+            self.c[1] + r * portable::sin(t),
+        ]
     }
 
     pub(crate) fn loops(&self) -> Vec<Vec<Piece>> {
@@ -413,7 +418,7 @@ impl RegularPolygon {
         let vertices = (0..sides)
             .map(|k| {
                 let t = angle + TAU * k as f64 / sides as f64;
-                Point::um(c[0] + r * t.cos(), c[1] + r * t.sin())
+                Point::um(c[0] + r * portable::cos(t), c[1] + r * portable::sin(t))
             })
             .collect();
         Ok(RegularPolygon {
@@ -471,12 +476,12 @@ impl Region for RegularPolygon {
     /// Exact: n R² sin(2π/n) / 2.
     fn area(&self) -> f64 {
         let n = self.sides as f64;
-        0.5 * n * self.radius * self.radius * (TAU / n).sin()
+        0.5 * n * self.radius * self.radius * portable::sin(TAU / n)
     }
 
     fn perimeter(&self) -> Option<Length> {
         let n = self.sides as f64;
-        Some(Length::um(2.0 * n * self.radius * (PI / n).sin()))
+        Some(Length::um(2.0 * n * self.radius * portable::sin(PI / n)))
     }
 
     fn fill(&self, cell: Bounds) -> f64 {
@@ -734,22 +739,23 @@ impl Superellipse {
 
     /// The point at parameter θ, in the frame: (a sgn cos θ |cos θ|^(2/n), b sgn sin θ |sin θ|^(2/n)).
     fn local_at(&self, t: f64) -> P {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         let e = 2.0 / self.n;
         [
-            self.a * c.abs().powf(e).copysign(c),
-            self.b * s.abs().powf(e).copysign(s),
+            self.a * portable::powf(c.abs(), e).copysign(c),
+            self.b * portable::powf(s.abs(), e).copysign(s),
         ]
     }
 
     /// The outward normal at a point of the curve, in the frame.
     fn local_normal(&self, q: P) -> P {
-        let g = |v: f64, s: f64| (v / s).abs().powf(self.n - 1.0).copysign(v) / s;
+        let g = |v: f64, s: f64| portable::powf((v / s).abs(), self.n - 1.0).copysign(v) / s;
         normalize([g(q[0], self.a), g(q[1], self.b)])
     }
 
     fn level(&self, q: P) -> f64 {
-        (q[0] / self.a).abs().powf(self.n) + (q[1] / self.b).abs().powf(self.n)
+        portable::powf((q[0] / self.a).abs(), self.n)
+            + portable::powf((q[1] / self.b).abs(), self.n)
     }
 
     /// The vertices of a polygon within `budget` of the curve (µm), counterclockwise, with the
@@ -776,7 +782,7 @@ impl Superellipse {
         let chord_sag = |t0: f64, t1: f64| -> f64 {
             let (a, b) = (self.local_at(t0), self.local_at(t1));
             let e = [b[0] - a[0], b[1] - a[1]];
-            let l = e[0].hypot(e[1]);
+            let l = portable::hypot(e[0], e[1]);
             let mut worst = 0.0f64;
             for k in 1..8 {
                 let s = self.local_at(t0 + (t1 - t0) * f64::from(k) / 8.0);
@@ -883,7 +889,7 @@ pub(crate) fn gamma(x: f64) -> f64 {
         a += c / (x + i as f64);
     }
     let t = x + 7.5;
-    (TAU).sqrt() * t.powf(x + 0.5) * (-t).exp() * a
+    (TAU).sqrt() * portable::powf(t, x + 0.5) * portable::exp(-t) * a
 }
 
 impl Region for Superellipse {
@@ -898,7 +904,7 @@ impl Region for Superellipse {
         let q = self.frame.local(pp);
         let d2 = |t: f64| {
             let c = self.local_at(t);
-            (c[0] - q[0]).powi(2) + (c[1] - q[1]).powi(2)
+            portable::powi(c[0] - q[0], 2) + portable::powi(c[1] - q[1], 2)
         };
         let m = 512;
         let step = TAU / f64::from(m);
@@ -930,7 +936,7 @@ impl Region for Superellipse {
         let near = self.local_at(t);
         let n = self.frame.turn(self.local_normal(near));
         let g = self.frame.global(near);
-        let d = (pp[0] - g[0]).hypot(pp[1] - g[1]);
+        let d = portable::hypot(pp[0] - g[0], pp[1] - g[1]);
         let inside = self.locate(p) != Location::Outside;
         Distance::from(boundary::signed((d, g, n), pp, inside))
     }
@@ -948,7 +954,7 @@ impl Region for Superellipse {
                 if m == 0.0 {
                     0.0
                 } else {
-                    m * ((x / m).powf(q) + (y / m).powf(q)).powf(1.0 / q)
+                    m * portable::powf(portable::powf(x / m, q) + portable::powf(y / m, q), 1.0 / q)
                 }
             }
         })
@@ -971,13 +977,15 @@ impl Region for Superellipse {
         let n = self.n;
         let half = |a: f64, b: f64| {
             // y from 0 to b 2^(−1/n), x = a (1 − (y/b)ⁿ)^(1/n); y = y* u⁴
-            let top = b * 2f64.powf(-1.0 / n);
+            let top = b * portable::powf(2f64, -1.0 / n);
             boundary::integrate(
                 |u: f64| {
-                    let y = top * u.powi(4);
-                    let dy = 4.0 * top * u.powi(3);
+                    let y = top * portable::powi(u, 4);
+                    let dy = 4.0 * top * portable::powi(u, 3);
                     let s = y / b;
-                    let slope = (a / b) * s.powf(n - 1.0) * (1.0 - s.powf(n)).powf(1.0 / n - 1.0);
+                    let slope = (a / b)
+                        * portable::powf(s, n - 1.0)
+                        * portable::powf(1.0 - portable::powf(s, n), 1.0 / n - 1.0);
                     (1.0 + slope * slope).sqrt() * dy
                 },
                 0.0,

@@ -30,6 +30,7 @@ use super::{Bounds, Point, Region, bounds_um};
 use crate::units::Length;
 use crate::{Error, Result};
 
+use crate::portable;
 use std::f64::consts::{FRAC_PI_2, PI};
 
 /// A piece of the outline.
@@ -68,7 +69,7 @@ fn dot(a: P, b: P) -> f64 {
 }
 
 fn dist(a: P, b: P) -> f64 {
-    (a[0] - b[0]).hypot(a[1] - b[1])
+    portable::hypot(a[0] - b[0], a[1] - b[1])
 }
 
 /// A point of an edge and its derivative with respect to u.
@@ -151,7 +152,12 @@ fn widened(points: &[P], margin: f64) -> Bounds {
 
 /// An arc of a circle's points that bound it: its ends and its extremes along x and y.
 fn conic_points(c: &Conic) -> Vec<P> {
-    let at = |t: f64| [c.c[0] + c.rx * t.cos(), c.c[1] + c.ry * t.sin()];
+    let at = |t: f64| {
+        [
+            c.c[0] + c.rx * portable::cos(t),
+            c.c[1] + c.ry * portable::sin(t),
+        ]
+    };
     let (lo, hi) = (c.t0.min(c.t1), c.t0.max(c.t1));
     let mut points = vec![at(c.t0), at(c.t1)];
     for k in 0..4 {
@@ -385,7 +391,7 @@ impl Path {
                 let (a, b) = (part.knots[*k], part.knots[*k + 1]);
                 let side = *side;
                 let normal = |d: P| {
-                    let l = d[0].hypot(d[1]);
+                    let l = portable::hypot(d[0], d[1]);
                     [side * -d[1] / l, side * d[0] / l]
                 };
                 let h = |u: f64| {
@@ -435,7 +441,7 @@ impl Path {
                 let [lo, hi] = outline.edge_boxes[e].corners();
                 let dx = (lo[0] - p[0]).max(p[0] - hi[0]).max(0.0);
                 let dy = (lo[1] - p[1]).max(p[1] - hi[1]).max(0.0);
-                (dx.hypot(dy), e)
+                (portable::hypot(dx, dy), e)
             })
             .collect();
         candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
@@ -478,7 +484,7 @@ impl Path {
             let a = edge_at(part, profile, side, u0).0;
             let b = edge_at(part, profile, side, u1).0;
             let e = sub(b, a);
-            let l = e[0].hypot(e[1]);
+            let l = portable::hypot(e[0], e[1]);
             let mut worst = 0.0f64;
             for j in 1..8 {
                 let s = edge_at(part, profile, side, u0 + (u1 - u0) * f64::from(j) / 8.0).0;
@@ -546,7 +552,7 @@ impl Path {
             }
             let part = &parts[chord.part];
             let (_, d) = edge_at(part, profile, chord.side, chord.u0);
-            let l = d[0].hypot(d[1]);
+            let l = portable::hypot(d[0], d[1]);
             let walk = if chord.u1 > chord.u0 { 1.0 } else { -1.0 };
             // the outward normal: to the right of the direction walked
             let out = [walk * d[1] / l, -walk * d[0] / l];
@@ -805,7 +811,7 @@ impl Region for Path {
                     boundary::gauss(
                         |u| {
                             let d = edge_at(p, profile, *side, u).1;
-                            d[0].hypot(d[1])
+                            portable::hypot(d[0], d[1])
                         },
                         p.knots[*k],
                         p.knots[*k + 1],

@@ -29,6 +29,7 @@ use super::index::Index;
 use super::outline::{root, segments_meet};
 use super::region::{Location, Polygons, Tolerance, assemble, fill_of};
 use super::{Bounds, Point, bounds_um};
+use crate::portable;
 
 /// The largest turn of the boundary over one interval, radians.
 const TURN: f64 = 0.1;
@@ -84,12 +85,12 @@ fn dot(a: P, b: P) -> f64 {
 }
 
 fn dist(a: P, b: P) -> f64 {
-    (a[0] - b[0]).hypot(a[1] - b[1])
+    portable::hypot(a[0] - b[0], a[1] - b[1])
 }
 
 /// The unit normal to the right of a direction: outward, the region being on the left.
 fn right(d: P) -> P {
-    let l = d[0].hypot(d[1]);
+    let l = portable::hypot(d[0], d[1]);
     if l > 0.0 {
         [d[1] / l, -d[0] / l]
     } else {
@@ -100,7 +101,7 @@ fn right(d: P) -> P {
 /// The signed distance of `s` from the chord ab, positive to its right (outward).
 fn offset(a: P, b: P, s: P) -> f64 {
     let e = sub(b, a);
-    let l = e[0].hypot(e[1]);
+    let l = portable::hypot(e[0], e[1]);
     if l == 0.0 {
         return 0.0;
     }
@@ -293,7 +294,7 @@ impl Trace {
                 integrate(
                     &|t| {
                         let d = self.derivative(curves, l, k, t);
-                        d[0].hypot(d[1])
+                        portable::hypot(d[0], d[1])
                     },
                     1e-15 * self.size(),
                 )
@@ -413,7 +414,7 @@ impl Trace {
                 let [lo, hi] = self.boxes[e].corners();
                 let dx = (lo[0] - p[0]).max(p[0] - hi[0]).max(0.0);
                 let dy = (lo[1] - p[1]).max(p[1] - hi[1]).max(0.0);
-                (dx.hypot(dy), e)
+                (portable::hypot(dx, dy), e)
             })
             .collect();
         candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
@@ -646,7 +647,7 @@ fn split<C: Curves + ?Sized>(
     };
     let tangent = |t: f64| -> Result<P, String> {
         let (p, d) = curves.at(span.curve, u(t));
-        let l = d[0].hypot(d[1]);
+        let l = portable::hypot(d[0], d[1]);
         if !(p[0].is_finite() && p[1].is_finite() && l.is_finite() && l > 0.0) {
             return Err(format!(
                 "its boundary stops (its derivative is zero) or isn't finite at ({:.6}, {:.6}) um",
@@ -655,7 +656,7 @@ fn split<C: Curves + ?Sized>(
         }
         Ok([d[0] / l, d[1] / l])
     };
-    let angle = |a: P, b: P| (a[0] * b[1] - a[1] * b[0]).atan2(dot(a, b)).abs();
+    let angle = |a: P, b: P| portable::atan2(a[0] * b[1] - a[1] * b[0], dot(a, b)).abs();
     let mut taus = vec![0.0];
     let n = span.pieces.max(1);
     let mut stack: Vec<(f64, f64, u32)> = (0..n)

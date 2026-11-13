@@ -6,6 +6,7 @@ use super::checks::Numbers;
 use super::path::{Kind, Part};
 use super::*;
 use crate::expr::{Expr, Parameters};
+use crate::portable;
 
 fn um(v: f64) -> Length {
     Length::um(v)
@@ -62,7 +63,7 @@ fn an_arc_is_the_sector_of_the_bend() {
     let end = path.end();
     assert_eq!(
         end.position,
-        Point::um(r * sweep.sin(), r - r * sweep.cos())
+        Point::um(r * portable::sin(sweep), r - r * portable::cos(sweep))
     );
     assert_eq!(path.length(), um(r * sweep));
     assert!((path.curvature(um(3.0)) - 1.0 / r).abs() < 1e-15);
@@ -150,8 +151,8 @@ fn the_clothoid_by_fresnel_against_quadrature() {
                     u * f64::from(j) / f64::from(n),
                     u * f64::from(j + 1) / f64::from(n),
                 );
-                x += boundary::gauss(|v| theta(v).cos(), lo, hi);
-                y += boundary::gauss(|v| theta(v).sin(), lo, hi);
+                x += boundary::gauss(|v| portable::cos(theta(v)), lo, hi);
+                y += boundary::gauss(|v| portable::sin(theta(v)), lo, hi);
             }
             assert!(
                 (p[0] - x).abs() < 1e-14 && (p[1] - y).abs() < 1e-14,
@@ -170,7 +171,7 @@ fn the_euler_bend_ends_where_the_circular_bend_does() {
                 .build()
                 .unwrap();
             let e = path.end();
-            let (s, c) = angle.abs().sin_cos();
+            let (s, c) = portable::sin_cos(angle.abs());
             let want = [r * s, angle.signum() * r * (1.0 - c)];
             let got = [e.position.x.to_um(), e.position.y.to_um()];
             assert!(
@@ -210,7 +211,7 @@ fn the_euler_curvature_is_linear_in_arc_length_and_continuous() {
     }
     assert!(worst_linear < 1e-12, "{worst_linear}");
     // the parameter A: R L = A² along the clothoid
-    assert!((rmin * lc - bend.parameter.to_um().powi(2)).abs() < 1e-12);
+    assert!((rmin * lc - portable::powi(bend.parameter.to_um(), 2)).abs() < 1e-12);
 }
 
 #[test]
@@ -230,7 +231,7 @@ fn a_sine_bend_and_a_bezier_curve() {
     let mut len = 0.0;
     for k in 0..n {
         let x = l * (f64::from(k) + 0.5) / f64::from(n);
-        let yp = h / l * (1.0 - (TAU * x / l).cos());
+        let yp = h / l * (1.0 - portable::cos(TAU * x / l));
         len += (1.0 + yp * yp).sqrt() * l / f64::from(n);
     }
     assert!(
@@ -259,7 +260,7 @@ fn a_sine_bend_and_a_bezier_curve() {
     let speed = |t: f64| {
         let dx = 3.0 * (1.0 - t) * (1.0 - t) * 3.0 + 6.0 * (1.0 - t) * t * 0.0 + 3.0 * t * t * 3.0;
         let dy = 6.0 * (1.0 - t) * t * 2.0;
-        dx.hypot(dy)
+        portable::hypot(dx, dy)
     };
     let quad: f64 = (0..256)
         .map(|k| boundary::gauss(speed, f64::from(k) / 256.0, f64::from(k + 1) / 256.0))
