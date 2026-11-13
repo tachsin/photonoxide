@@ -15,12 +15,13 @@
 
 use faer::{Mat, c64};
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// The unitary rotation G = [[u₁, −ū₂], [u₂, ū₁]] whose first column is (f, g)/‖(f, g)‖, so
 /// Gᴴ (f, g)ᵀ = (‖(f, g)‖, 0)ᵀ; the identity for (0, 0).
 fn rotation(f: c64, g: c64) -> (c64, c64) {
-    let r = f.norm().hypot(g.norm());
+    let r = portable::hypot(portable::complex::abs(f), portable::complex::abs(g));
     if r == 0.0 {
         (c64::new(1.0, 0.0), c64::new(0.0, 0.0))
     } else {
@@ -59,10 +60,10 @@ fn hessenberg(a: &mut Mat<c64>, q: &mut Mat<c64>) {
         let x0 = a[(c + 1, c)];
         let norm = (below + x0.norm_sqr()).sqrt();
         // v = x − α e₁ with α = −e^{i arg x₀} ‖x‖: no cancellation in v's first entry
-        let phase = if x0.norm() == 0.0 {
+        let phase = if portable::complex::abs(x0) == 0.0 {
             c64::new(1.0, 0.0)
         } else {
-            x0 / x0.norm()
+            x0 / portable::complex::abs(x0)
         };
         let mut v: Vec<c64> = (c + 1..n).map(|i| a[(i, c)]).collect();
         v[0] += phase * norm;
@@ -102,9 +103,9 @@ fn hessenberg(a: &mut Mat<c64>, q: &mut Mat<c64>) {
 /// The eigenvalue of [[a, b], [c, d]] nearer d: Wilkinson's shift.
 fn wilkinson(a: c64, b: c64, c: c64, d: c64) -> c64 {
     let half = (a + d) * 0.5;
-    let s = ((a - d) * (a - d) * 0.25 + b * c).sqrt();
+    let s = portable::complex::sqrt((a - d) * (a - d) * 0.25 + b * c);
     let (l1, l2) = (half + s, half - s);
-    if (l1 - d).norm() <= (l2 - d).norm() {
+    if portable::complex::abs(l1 - d) <= portable::complex::abs(l2 - d) {
         l1
     } else {
         l2
@@ -131,7 +132,7 @@ pub(crate) fn schur(mut a: Mat<c64>) -> Result<(Mat<c64>, Mat<c64>)> {
     hessenberg(&mut a, &mut q);
     let largest = (0..n)
         .flat_map(|j| (0..n).map(move |i| (i, j)))
-        .map(|(i, j)| a[(i, j)].norm())
+        .map(|(i, j)| portable::complex::abs(a[(i, j)]))
         .fold(0.0, f64::max);
     let eps = f64::EPSILON;
     // the active block is lo..hi; below hi, T is done
@@ -142,11 +143,12 @@ pub(crate) fn schur(mut a: Mat<c64>) -> Result<(Mat<c64>, Mat<c64>)> {
         // the lowest negligible subdiagonal entry splits the active block
         let mut lo = hi - 1;
         while lo > 0 {
-            let mut scale = a[(lo - 1, lo - 1)].norm() + a[(lo, lo)].norm();
+            let mut scale =
+                portable::complex::abs(a[(lo - 1, lo - 1)]) + portable::complex::abs(a[(lo, lo)]);
             if scale == 0.0 {
                 scale = largest;
             }
-            if a[(lo, lo - 1)].norm() <= eps * scale {
+            if portable::complex::abs(a[(lo, lo - 1)]) <= eps * scale {
                 a[(lo, lo - 1)] = c64::new(0.0, 0.0);
                 break;
             }
@@ -168,7 +170,7 @@ pub(crate) fn schur(mut a: Mat<c64>) -> Result<(Mat<c64>, Mat<c64>)> {
         }
         let mu = if since.is_multiple_of(10) {
             // an exceptional shift, to break a cycle
-            a[(hi - 1, hi - 1)] + c64::new(0.75 * a[(hi - 1, hi - 2)].norm(), 0.0)
+            a[(hi - 1, hi - 1)] + c64::new(0.75 * portable::complex::abs(a[(hi - 1, hi - 2)]), 0.0)
         } else {
             wilkinson(
                 a[(hi - 2, hi - 2)],
@@ -253,7 +255,7 @@ pub(crate) fn eigenvector(t: &Mat<c64>, i: usize) -> Vec<c64> {
     let n = t.nrows();
     let size = (0..n)
         .flat_map(|j| (0..=j).map(move |r| (r, j)))
-        .map(|(r, j)| t[(r, j)].norm())
+        .map(|(r, j)| portable::complex::abs(t[(r, j)]))
         .fold(0.0, f64::max);
     let smallest = (f64::EPSILON * size).max(f64::MIN_POSITIVE);
     let lambda = t[(i, i)];
@@ -262,7 +264,7 @@ pub(crate) fn eigenvector(t: &Mat<c64>, i: usize) -> Vec<c64> {
     for l in (0..i).rev() {
         let s: c64 = (l + 1..=i).map(|p| t[(l, p)] * y[p]).sum();
         let mut d = t[(l, l)] - lambda;
-        if d.norm() < smallest {
+        if portable::complex::abs(d) < smallest {
             d = c64::new(smallest, 0.0);
         }
         y[l] = -s / d;
@@ -292,12 +294,12 @@ mod tests {
         let back = q * t * q.adjoint();
         let reconstruct = (0..n)
             .flat_map(|j| (0..n).map(move |i| (i, j)))
-            .map(|(i, j)| (back[(i, j)] - a[(i, j)]).norm())
+            .map(|(i, j)| portable::complex::abs(back[(i, j)] - a[(i, j)]))
             .fold(0.0, f64::max);
         let qq = q.adjoint() * q;
         let unitary = (0..n)
             .flat_map(|j| (0..n).map(move |i| (i, j)))
-            .map(|(i, j)| (qq[(i, j)] - if i == j { 1.0 } else { 0.0 }).norm())
+            .map(|(i, j)| portable::complex::abs(qq[(i, j)] - if i == j { 1.0 } else { 0.0 }))
             .fold(0.0, f64::max);
         (reconstruct, unitary)
     }
@@ -321,7 +323,7 @@ mod tests {
                 let (k, e) = want
                     .iter()
                     .enumerate()
-                    .map(|(k, w)| (k, (w - d).norm()))
+                    .map(|(k, w)| (k, portable::complex::abs(w - d)))
                     .min_by(|x, y| x.1.total_cmp(&y.1))
                     .unwrap();
                 assert!(e < 1e-10, "{n}: {d} {e}");
@@ -334,10 +336,10 @@ mod tests {
     fn reordering_keeps_the_form_and_puts_the_largest_first() {
         let a = matrix(30, 9);
         let (mut t, mut q) = schur(a.clone()).unwrap();
-        order(&mut t, &mut q, 0, 10, |z| z.norm());
+        order(&mut t, &mut q, 0, 10, portable::complex::abs);
         let (r, u) = worst(&a, &t, &q);
         assert!(r < 1e-12 && u < 1e-12, "{r} {u}");
-        let mut all: Vec<f64> = (0..30).map(|i| t[(i, i)].norm()).collect();
+        let mut all: Vec<f64> = (0..30).map(|i| portable::complex::abs(t[(i, i)])).collect();
         let first: Vec<f64> = all[..10].to_vec();
         all.sort_by(|x, y| y.total_cmp(x));
         assert_eq!(first, all[..10]);
@@ -352,7 +354,7 @@ mod tests {
             let worst = (0..=i)
                 .map(|r| {
                     let ty: c64 = (r..=i).map(|c| t[(r, c)] * y[c]).sum();
-                    (ty - t[(i, i)] * y[r]).norm()
+                    portable::complex::abs(ty - t[(i, i)] * y[r])
                 })
                 .fold(0.0, f64::max);
             assert!(worst < 1e-13, "{i}: {worst}");
@@ -373,7 +375,7 @@ mod tests {
         });
         let a = &u * &d * u.adjoint();
         let (mut t, mut q) = schur(a.clone()).unwrap();
-        order(&mut t, &mut q, 0, 4, |z| -z.norm());
+        order(&mut t, &mut q, 0, 4, |z| -portable::complex::abs(z));
         let diag: Vec<f64> = (0..n).map(|i| t[(i, i)].re).collect();
         for (x, y) in diag.iter().zip([1.0, 1.0, 2.0, 3.0]) {
             assert!((x - y).abs() < 1e-13, "{diag:?}");

@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 fn options(subspace: Option<usize>) -> Options {
     Options {
@@ -9,7 +10,7 @@ fn options(subspace: Option<usize>) -> Options {
 }
 
 fn in_disc(c: c64, r: f64) -> impl Fn(c64) -> bool + Sync {
-    move |z: c64| (z - c).norm() < r
+    move |z: c64| portable::complex::abs(z - c) < r
 }
 
 fn diagonal(n: usize) -> Vec<(usize, usize, c64)> {
@@ -50,14 +51,17 @@ fn non_hermitian(n: usize) -> (Vec<(usize, usize, c64)>, Vec<c64>) {
         a.push((
             i,
             i,
-            c64::new(2.0 + 2.0 * (0.37 * x).sin(), 0.3 * (1.3 * x).cos()),
+            c64::new(
+                2.0 + 2.0 * portable::sin(0.37 * x),
+                0.3 * portable::cos(1.3 * x),
+            ),
         ));
         if i + 1 < n {
             a.push((i, i + 1, c64::new(-0.6, 0.1)));
             a.push((i + 1, i, c64::new(-0.4, -0.2)));
         }
         if i + 7 < n {
-            a.push((i, i + 7, c64::new(0.05, 0.02 * x.cos())));
+            a.push((i, i + 7, c64::new(0.05, 0.02 * portable::cos(x))));
         }
     }
     let dense = Mat::<c64>::from_fn(n, n, |i, j| {
@@ -88,7 +92,7 @@ fn every_eigenvalue_in_a_disc_of_a_non_hermitian_matrix_against_a_dense_solve() 
     got.sort_by(key);
     want.sort_by(key);
     for (g, w) in got.iter().zip(&want) {
-        assert!((g - w).norm() < 1e-10, "{g} vs {w}");
+        assert!(portable::complex::abs(g - w) < 1e-10, "{g} vs {w}");
     }
 }
 
@@ -196,8 +200,8 @@ fn the_symmetric_rule_is_its_own_mirror_and_filters() {
     for j in 0..k / 2 {
         assert_eq!(q.nodes()[k - 1 - j], q.nodes()[j].conj());
     }
-    assert!((q.filter(c64::new(1.1, 0.05)) - 1.0).norm() < 1e-10);
+    assert!(portable::complex::abs(q.filter(c64::new(1.1, 0.05)) - 1.0) < 1e-10);
     // outside, damped by about (distance / r)^−N
-    assert!(q.filter(c64::new(2.5, 0.0)).norm() < 3f64.powi(-15));
+    assert!(portable::complex::abs(q.filter(c64::new(2.5, 0.0))) < portable::powi(3f64, -15));
     assert!(Quadrature::trapezoid(15, true, circle(c, r)).is_err());
 }
