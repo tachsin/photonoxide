@@ -36,13 +36,13 @@
 //!
 //! | Canary (in `src/`) | Kind | Reference | Tolerance and its basis |
 //! |---|---|---|---|
-//! | `canary_tests::canary_bessel_and_hankel` | own series (`fdtd::ring`) | exact (mpmath) | its doc: ε·e^|z|/(2π|z|) lost to cancellation |
-//! | `canary_tests::canary_exponential_integral` | own series and fraction (`material::catalogue::conductivity`) | exact (mpmath) | the terms' rounding |
+//! | `canary_tests::canary_bessel_and_hankel` | own series (`fdtd::ring`) | exact (mpmath) | the running error of its series as summed |
+//! | `canary_tests::canary_exponential_integral` | own series and fraction (`material::catalogue::conductivity`) | exact (mpmath) | the running error of its series or fraction |
 //! | `canary_tests::canary_sparse_lu_against_dense` | own multifrontal LU on faer | self-consistency | backward error ≤ 10·n·ε·‖A‖; forward ≤ κ·(both backward errors) |
 //! | `canary_tests::canary_qmr_and_gmres_iterations_are_the_closed_form` | QMR, GMRES | closed form | k iterations for k distinct eigenvalues, within 5 % |
 //! | `canary_tests::canary_least_squares_and_its_jacobi_fallback` | `lstsq` (faer QR, SVD; Jacobi) | self-consistency | forward error ≤ 10·n·ε·κ; Weyl between the two SVDs |
 //! | `expr::tests::canary_erf_to_round_off` | own erf | exact (mpmath) | the series' rounding |
-//! | `geometry::region_tests::canary_gamma_to_fifteen_digits` | own Γ (Lanczos) | exact (mpmath) | its doc: 15 digits |
+//! | `geometry::region_tests::canary_gamma_to_fifteen_digits` | own Γ (Lanczos) | exact (mpmath) | its doc's 15 digits for the approximation, plus its arithmetic's running error |
 //! | `nonlinear::fft::tests::canary_fft_against_the_exact_dft` | own FFT, libm twiddles | exact (mpmath) | Higham's bound for the FFT |
 //!
 //! The existing tests the canaries reuse, by name (`just canaries` runs them with `--exact`;

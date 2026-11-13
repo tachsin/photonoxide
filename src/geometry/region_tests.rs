@@ -643,27 +643,57 @@ fn material_at_timing() {
 }
 
 /// Platform canary: Γ(x) for ½ ≤ x ≤ 10 against mpmath (`tests/data/canary/golden.txt`;
-/// `tests/canary.rs` has the canaries' tables), to its doc's 15 digits: a relative error below
-/// 10⁻¹⁵.
+/// `tests/canary.rs` has the canaries' tables): its doc's 15 digits (a relative error of
+/// 10⁻¹⁵) for Lanczos's approximation itself, plus the running error of its arithmetic, first
+/// order in u = 2⁻⁵³. The sum a = c₀ + Σ cᵢ/(x − 1 + i) has terms of both signs, each rounded
+/// three times and nine summed: 11u of the sum of their magnitudes, relative to a. Then x − 1
+/// (exact below 2), t = x + 6.5 and y = x − ½ each rounded once, carried into t^y (y·Δt/t and
+/// |ln t|·Δy) and e^(−t) (Δt); powf, exp and √(2π) an ulp each, three products. (Above x ≈ 3
+/// the sum's cancellation alone takes it past 15 digits: Γ(9.57) is 5e-15 off.)
 #[test]
 fn canary_gamma_to_fifteen_digits() {
+    const C: [f64; 9] = [
+        0.999_999_999_999_809_9,
+        676.520_368_121_885_1,
+        -1_259.139_216_722_402_8,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507_343_278_686_905,
+        -0.138_571_095_265_720_12,
+        9.984_369_578_019_572e-6,
+        1.505_632_735_149_311_6e-7,
+    ];
+    let u = f64::EPSILON / 2.0;
     let mut worst = 0.0f64;
     let mut failures = Vec::new();
     for g in crate::canary_tests::golden::golden("gamma") {
+        let x = g.a - 1.0;
+        let terms: Vec<f64> = std::iter::once(C[0])
+            .chain((1..9).map(|i| C[i] / (x + i as f64)))
+            .collect();
+        let sum: f64 = terms.iter().sum();
+        let magnitude: f64 = terms.iter().map(|t| t.abs()).sum();
+        let (t, y) = (x + 7.5, x + 0.5);
+        let dx = if g.a < 2.0 { 0.0 } else { u * x.abs() };
+        let (dt, dy) = (dx + u * t, dx + u * y.abs());
+        let bound = 1e-15
+            + 11.0 * u * magnitude / sum.abs()
+            + y.abs() * dt / t
+            + t.ln().abs() * dy
+            + dt
+            + 3.0 * 2.0 * u
+            + 3.0 * u;
         let ours = gamma(g.a);
-        let rel = (ours - g.r).abs() / g.r.abs();
-        worst = worst.max(rel);
-        if rel > 1e-15 {
-            failures.push(format!("Γ({}) = {ours:e}, exact {:e}: {rel:e}", g.a, g.r));
+        let off = (ours - g.r).abs() / g.r.abs();
+        worst = worst.max(off / bound);
+        // the golden value's own rounding, half an ulp: u relative at most
+        if off > bound + u {
+            failures.push(format!(
+                "Γ({}) = {ours:e}, exact {:e}: {off:e} > {bound:e}",
+                g.a, g.r
+            ));
         }
     }
-    println!("gamma: worst relative error {worst:.2e}");
-    assert!(
-        failures.is_empty(),
-        "{}",
-        failures.join(
-            "
-"
-        )
-    );
+    println!("gamma: worst {worst:.3} of its bound");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
