@@ -24,6 +24,7 @@
 //! |---|---|---|---|
 //! | `canary_ieee_arithmetic_and_no_fused_multiply_add` | IEEE 754 | by construction | bit-exact |
 //! | `canary_system_libm_within_its_ulps` | system libm, num-complex | exact (mpmath) | ulps of the correctly rounded value, per function (below) |
+//! | `canary_portable_functions_bit_for_bit` | `photonoxide::portable` on the libm table's arguments | by construction and exact (mpmath) | bit-exact, per function; and the ulps each one's doc states |
 //! | `canary_dense_lu_and_qr_backward_errors` | faer | self-consistency | backward error ≤ 10·n·ε·‖A‖ |
 //! | `canary_dense_eigen_and_svd` | faer | exact (mpmath) and self-consistency | Weyl: ≤ 10·n·ε·‖A‖₂; residuals ≤ 10·n·ε·‖A‖ |
 //! | `canary_slab_modes_against_their_exact_roots` | mode::slab (libm's sqrt, atan2) | exact (mpmath) | the condition's rounding over its slope, plus the bisection's last step |
@@ -36,6 +37,8 @@
 //!
 //! | Canary (in `src/`) | Kind | Reference | Tolerance and its basis |
 //! |---|---|---|---|
+//! | `portable::tests::canary_portable_functions_within_their_stated_ulps` | `photonoxide::portable`, every function | exact (mpmath, `tests/data/canary/portable.py`) | the ulps each one's doc states |
+//! | `portable::tests::canary_portable_bits_over_a_grid` | `photonoxide::portable`, every function | by construction | bit-exact, per function |
 //! | `canary_tests::canary_bessel_and_hankel` | own series (`fdtd::ring`) | exact (mpmath) | the running error of its series as summed |
 //! | `canary_tests::canary_exponential_integral` | own series and fraction (`material::catalogue::conductivity`) | exact (mpmath) | the running error of its series or fraction |
 //! | `canary_tests::canary_sparse_lu_against_dense` | own multifrontal LU on faer | self-consistency | backward error ≤ 10·n·ε·‖A‖; forward ≤ κ·(both backward errors) |
@@ -50,8 +53,8 @@
 //!
 //! | Test | Where | What it guards |
 //! |---|---|---|
-//! | `portable::tests::they_are_within_an_ulp_or_two_of_the_systems` | src/portable.rs:65 | `libm` crate's exp, sin, cos within 4 ulps of the system's |
-//! | `portable::tests::they_give_the_same_bits_on_every_system` | src/portable.rs:91 | their bits, a golden hash |
+//! | `portable::tests::they_are_within_an_ulp_or_two_of_the_systems` | src/portable/tests.rs | the portable exp, sin, cos within 4 ulps of the system's |
+//! | `portable::tests::they_give_the_same_bits_on_every_system` | src/portable/tests.rs | their bits, a golden hash |
 //! | `fdtd::ring::tests::bessel_functions_match_tabulated_values` | src/fdtd/ring.rs:209 | Bessel J, Y against tables |
 //! | `mode::hadley::tests::bessel_matches_known_values` | src/mode/hadley.rs:1065 | Hadley's Bessel J against known values |
 //! | `material::catalogue::conductivity::tests::the_exponential_integral_takes_its_known_values_either_side_of_one` | src/material/catalogue/conductivity.rs:834 | E₁ on both branches |
@@ -103,6 +106,12 @@
 //! their bound is the formula's own first-order error with each call at its rule, computed for
 //! each argument (normwise, since a small component of a large result can't be held to its own
 //! ulps by these formulas).
+
+// the system's maths functions are what this file measures: an independent reference
+#![allow(
+    clippy::disallowed_methods,
+    reason = "the system's maths library is what the canaries measure"
+)]
 
 #[path = "../src/canary_tests/golden.rs"]
 mod golden;
@@ -399,6 +408,183 @@ fn canary_system_libm_within_its_ulps() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+// ---------------------------------------------------------------------------------------------
+// (b′) photonoxide::portable on the same arguments, bit for bit
+// ---------------------------------------------------------------------------------------------
+
+/// One portable function on its golden arguments: the hash of its results' bits, its worst
+/// distance in ulps from the correctly rounded value, and the arguments where it broke its rule.
+struct Portable {
+    name: &'static str,
+    inputs: usize,
+    hash: u64,
+    worst: u64,
+    failures: Vec<String>,
+}
+
+/// Runs `f` (a real function's result as the real part) over `name`'s golden rows, holding each
+/// result to `rule(row, result)`.
+fn portable(
+    name: &'static str,
+    f: impl Fn(&golden::Golden) -> c64,
+    rule: impl Fn(&golden::Golden, c64) -> bool,
+) -> Portable {
+    let rows = golden(name);
+    let mut m = Portable {
+        name,
+        inputs: rows.len(),
+        hash: 0,
+        worst: 0,
+        failures: Vec::new(),
+    };
+    for g in &rows {
+        let w = f(g);
+        fold(&mut m.hash, w.re);
+        fold(&mut m.hash, w.im);
+        let want_im = if g.i.is_nan() { 0.0 } else { g.i };
+        m.worst = m.worst.max(ulps(w.re, g.r).max(ulps(w.im, want_im)));
+        if !rule(g, w) {
+            m.failures.push(format!(
+                "portable {name}({:e}, {:e}) = {w}, correctly rounded {:e}{:+e}i",
+                g.a, g.b, g.r, want_im
+            ));
+        }
+    }
+    m
+}
+
+/// The bound in binary64 numbers from the correctly rounded value of a function within `e` ulps
+/// of the true value, as `photonoxide::portable`'s docs state them.
+fn within(e: f64) -> impl Fn(&golden::Golden, c64) -> bool {
+    move |g, w| ulps(w.re, g.r) <= (e + 0.5).floor() as u64
+}
+
+/// `photonoxide::portable` on the arguments of the libm table: per function, the hash of its
+/// results' bits (by construction: `+ − × ÷ √` only, the same on every system; taken on Windows
+/// x86-64) and its distance from the correctly rounded value, within the ulps its doc states
+/// (the module's own canaries hold every function over more arguments). The system's table above
+/// shows what the platform does; this one must not move.
+#[test]
+fn canary_portable_functions_bit_for_bit() {
+    use photonoxide::portable::{self as p, complex as pc};
+    let r = |f: fn(f64) -> f64| move |g: &golden::Golden| c64::new(f(g.a), 0.0);
+    let r2 = |f: fn(f64, f64) -> f64| move |g: &golden::Golden| c64::new(f(g.a, g.b), 0.0);
+    let z = |g: &golden::Golden| c64::new(g.a, g.b);
+    let u = EPS / 2.0;
+    let table = vec![
+        portable("exp", r(p::exp), within(0.949)),
+        portable("ln", r(p::ln), within(0.946)),
+        portable("sin", r(p::sin), within(0.831)),
+        portable("cos", r(p::cos), within(0.834)),
+        portable("atan2", r2(p::atan2), within(1.55)),
+        portable("hypot", r2(p::hypot), within(1.21)),
+        portable("exp_m1", r(p::exp_m1), within(0.909)),
+        portable("ln_1p", r(p::ln_1p), within(0.900)),
+        portable("log10", r(p::log10), within(0.814)),
+        portable("tan", r(p::tan), within(1.02)),
+        portable("asin", r(p::asin), within(0.981)),
+        portable("acos", r(p::acos), within(0.930)),
+        portable("atan", r(p::atan), within(0.861)),
+        portable("sinh", r(p::sinh), within(1.88)),
+        portable("cosh", r(p::cosh), within(1.47)),
+        portable("tanh", r(p::tanh), within(2.22)),
+        portable("erf", r(p::erf), within(1.02)),
+        portable("cbrt", r(p::cbrt), |g, w| ulps(w.re, g.r) == 0),
+        portable("powf", r2(p::powf), |g, w| {
+            // its doc: an ulp, but 636 within 2⁻¹⁰ of base 1 for exponents above 10⁶
+            let near_one = (g.a - 1.0).abs() < 1.0 / 1024.0 && g.b.abs() > 1e6;
+            ulps(w.re, g.r) <= if near_one { 636 } else { 1 }
+        }),
+        portable(
+            "powi",
+            |g| c64::new(p::powi(g.a, g.b as i32), 0.0),
+            |g, w| ulps(w.re, g.r) <= powi_rule(g.b),
+        ),
+        portable("c_norm", |g| c64::new(pc::abs(z(g)), 0.0), within(1.21)),
+        portable(
+            "c_exp",
+            |g| pc::exp(z(g)),
+            |g, w| ulps(w.re, g.r) <= 5 && ulps(w.im, g.i) <= 5,
+        ),
+        portable(
+            "c_sqrt",
+            |g| pc::sqrt(z(g)),
+            |g, w| {
+                let (re, im) = if g.a >= 0.0 { (3, 4) } else { (4, 3) };
+                ulps(w.re, g.r) <= re && ulps(w.im, g.i) <= im
+            },
+        ),
+        portable(
+            "c_ln",
+            |g| pc::ln(z(g)),
+            move |g, w| {
+                let want = c64::new(g.r, g.i);
+                (w - want).norm_sqr().sqrt()
+                    <= 15.0 * u * want.norm_sqr().sqrt() + 0.5 * (ulp(g.r) + ulp(g.i))
+            },
+        ),
+    ];
+    println!("{:<8} {:>6} {:>6}  bits", "portable", "inputs", "worst");
+    let mut failures = Vec::new();
+    for m in &table {
+        let want = PORTABLE_HASHES
+            .iter()
+            .find(|(name, _)| *name == m.name)
+            .map(|(_, h)| *h);
+        let same = want == Some(m.hash);
+        println!(
+            "{:<8} {:>6} {:>6}  (\"{}\", {:#018x}),{}",
+            m.name,
+            m.inputs,
+            m.worst,
+            m.name,
+            m.hash,
+            if same { "" } else { "  CHANGED" }
+        );
+        if !same {
+            failures.push(format!(
+                "portable {}: bits hash {:#018x}, was {want:#x?}",
+                m.name, m.hash
+            ));
+        }
+        failures.extend(m.failures.iter().cloned());
+    }
+    assert_eq!(
+        table.len(),
+        PORTABLE_HASHES.len(),
+        "PORTABLE_HASHES has another number of functions"
+    );
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The bit hashes of `canary_portable_functions_bit_for_bit`, taken on Windows x86-64.
+const PORTABLE_HASHES: &[(&str, u64)] = &[
+    ("exp", 0x2d3fe4ad2f39cabf),
+    ("ln", 0x68bf82645d0f3d57),
+    ("sin", 0xe885ceb0428d91b9),
+    ("cos", 0xb67c2d3b3a76636c),
+    ("atan2", 0x31dba04580e49bc6),
+    ("hypot", 0x063a3fab0338c18b),
+    ("exp_m1", 0x68c50c57998fff48),
+    ("ln_1p", 0xe12dd426d785c526),
+    ("log10", 0x1ab796338ab4f98c),
+    ("tan", 0x1b531e34e8bb4582),
+    ("asin", 0x1bbe6ac67407fecb),
+    ("acos", 0x272e985ff7de78fe),
+    ("atan", 0x06271a695d2d2944),
+    ("sinh", 0xd476008809ede342),
+    ("cosh", 0x003e2f3331beb377),
+    ("tanh", 0xb7f81a9ae3d77575),
+    ("erf", 0xaa402224c03c10a3),
+    ("cbrt", 0x5030daf1f5a30c93),
+    ("powf", 0x22d4e0ae36ec2109),
+    ("powi", 0xe68468ae531aef2b),
+    ("c_norm", 0xe1a43094c368fe85),
+    ("c_exp", 0xedaa90f466b26d2d),
+    ("c_sqrt", 0xa2b633f40e91fd2f),
+    ("c_ln", 0xdf010592f93a6d6b),
+];
 
 // ---------------------------------------------------------------------------------------------
 // (c) faer's dense kernels on ill-conditioned matrices
