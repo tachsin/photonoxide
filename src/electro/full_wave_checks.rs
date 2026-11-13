@@ -10,6 +10,7 @@ use super::line::{DB_PER_NEPER, Metal, QuasiTem};
 use super::line_checks::{COPPER, ZHANG_TANGENTS, gated, wave, zhang_2022};
 use super::{Axis, Conductor, Electrostatic, Grading, Grid, Section, Side, Tensor};
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::units::{Length, SPEED_OF_LIGHT};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -117,21 +118,22 @@ impl Plates {
         let ed = c64::new(self.eps, self.eps * self.tan);
         let em = c64::new(1.0, COPPER / (w * super::EPSILON_0));
         let f = |u: c64| {
-            let kd = (k * k * ed - u).sqrt();
-            let kappa = (u - k * k * em).sqrt();
-            kd / ed * (kd * self.d / 2.0).tan() - kappa / em / (kappa * self.t).tanh()
+            let kd = portable::complex::sqrt(k * k * ed - u);
+            let kappa = portable::complex::sqrt(u - k * k * em);
+            kd / ed * portable::complex::tan(kd * self.d / 2.0)
+                - kappa / em / portable::complex::tanh(kappa * self.t)
         };
         let mut u = k * k * ed;
         for _ in 0..100 {
-            let h = 1e-7 * u.norm();
+            let h = 1e-7 * portable::complex::abs(u);
             let slope = (f(u + h) - f(u - h)) / (2.0 * h);
             let step = f(u) / slope;
             u -= step;
-            if step.norm() < 1e-15 * u.norm() {
+            if portable::complex::abs(step) < 1e-15 * portable::complex::abs(u) {
                 break;
             }
         }
-        let beta = u.sqrt();
+        let beta = portable::complex::sqrt(u);
         if beta.re < 0.0 { -beta } else { beta }
     }
 }
@@ -144,7 +146,7 @@ fn beta_of(m: &RfMode) -> c64 {
 /// The lattice's β against the exact one (relative error) on a uniform grid of `h` up.
 pub(crate) fn plates_error(h: f64) -> f64 {
     let exact = PLATES.exact();
-    (beta_of(&PLATES.mode(h, 1.0)) - exact).norm() / exact.norm()
+    portable::complex::abs(beta_of(&PLATES.mode(h, 1.0)) - exact) / portable::complex::abs(exact)
 }
 
 /// The plates' loss that the power absorbed in the metal and the gap doesn't account for, over
@@ -264,7 +266,7 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"the Yee lattice's differences are centred and the interfaces on its lines (K. S. Yee, IEEE Trans. Antennas Propag. 14, 302 (1966), doi:10.1109/TAP.1966.1138693): second order",
             run: || {
                 let e = [0.01, 0.005].map(plates_error);
-                outcome((e[0] / e[1]).log2(), 2.0, 0.1)
+                outcome(portable::log2(e[0] / e[1]), 2.0, 0.1)
             },
         },
         Case {

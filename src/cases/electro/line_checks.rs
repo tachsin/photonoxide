@@ -12,6 +12,7 @@
 use super::line::{DB_PER_NEPER, Drive, Metal, Periodic, QuasiTem, Wave, falls_to, response};
 use super::{Boundary, Conductor, Electrostatic, Features, Grading, Grid, Section, Side, Tensor};
 use crate::geometry::{Point, Polygon, Shape};
+use crate::portable;
 use crate::statics::elliptic_k;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
@@ -85,8 +86,8 @@ pub(crate) fn coplanar(
 pub(crate) fn holloway_kuester_integral(a: f64, b: f64, delta: f64) -> f64 {
     let k = elliptic_k(a / b);
     b * b / (4.0 * k * k * (b * b - a * a))
-        * ((((2.0 * a / delta - 1.0) * (b - a + delta) / (b + a + delta)).ln()) / a
-            + (((2.0 * b / delta + 1.0) * (b - a + delta) / (b + a - delta)).ln()) / b)
+        * ((portable::ln((2.0 * a / delta - 1.0) * (b - a + delta) / (b + a + delta))) / a
+            + (portable::ln((2.0 * b / delta + 1.0) * (b - a + delta) / (b + a - delta))) / b)
 }
 
 /// The coplanar waveguide of Holloway and Kuester's Fig. 3 (a = 5, b = 25 µm) with Δ = 4 nm:
@@ -105,8 +106,8 @@ pub(crate) fn current_against_closed_form(smallest: f64) -> f64 {
 pub(crate) fn ghione_naldi_permittivity(a: f64, b: f64, eps: f64, h: f64) -> f64 {
     let k = a / b;
     let kp = (1.0 - k * k).sqrt();
-    let k1 = (std::f64::consts::PI * a / (2.0 * h)).sinh()
-        / (std::f64::consts::PI * b / (2.0 * h)).sinh();
+    let k1 = portable::sinh(std::f64::consts::PI * a / (2.0 * h))
+        / portable::sinh(std::f64::consts::PI * b / (2.0 * h));
     let k1p = (1.0 - k1 * k1).sqrt();
     1.0 + 0.5 * (eps - 1.0) * elliptic_k(kp) * elliptic_k(k1) / (elliptic_k(k) * elliptic_k(k1p))
 }
@@ -176,11 +177,17 @@ pub(crate) fn walk_off_point() -> f64 {
     let drive = Drive::new(50.0, no, l).expect(OK);
     let db = |f: f64| -> crate::Result<f64> {
         let beta = 2.0 * std::f64::consts::PI * f * nm / crate::units::SPEED_OF_LIGHT;
-        Ok(20.0 * response(c64::new(0.0, beta), c64::new(50.0, 0.0), f, &drive).log10())
+        Ok(20.0
+            * portable::log10(response(
+                c64::new(0.0, beta),
+                c64::new(50.0, 0.0),
+                f,
+                &drive,
+            )))
     };
     let f = falls_to(
         db,
-        20.0 * std::f64::consts::FRAC_1_SQRT_2.log10(),
+        20.0 * portable::log10(std::f64::consts::FRAC_1_SQRT_2),
         1e8,
         1e12,
     )
@@ -198,7 +205,13 @@ pub(crate) fn loss_point(level_db: f64) -> f64 {
     let alpha = |f: f64| (f / 1e9).sqrt() * 100.0 / DB_PER_NEPER;
     let db = |f: f64| -> crate::Result<f64> {
         let beta = 2.0 * std::f64::consts::PI * f * n / crate::units::SPEED_OF_LIGHT;
-        Ok(20.0 * response(c64::new(alpha(f), beta), c64::new(50.0, 0.0), f, &drive).log10())
+        Ok(20.0
+            * portable::log10(response(
+                c64::new(alpha(f), beta),
+                c64::new(50.0, 0.0),
+                f,
+                &drive,
+            )))
     };
     let f = falls_to(db, level_db, 1e7, 1e13)
         .expect(OK)
@@ -248,7 +261,7 @@ pub(crate) const SILICON_EPS: f64 = 11.7;
 
 impl Cpw {
     fn half_width(&self, y: f64) -> f64 {
-        0.5 * self.top + (self.film - y) / self.angle_deg.to_radians().tan()
+        0.5 * self.top + (self.film - y) / portable::tan(self.angle_deg.to_radians())
     }
 
     /// The electrostatic problem on a grid graded from `smallest` by 15% a cell to 20 µm.
@@ -576,7 +589,7 @@ pub(crate) fn zhang_bandwidth(mm: f64, smallest: f64) -> f64 {
         response(w.gamma, w.impedance, f, &d)
     };
     let r = m(1e9);
-    falls_to(|f| Ok(20.0 * (m(f) / r).log10()), -3.0, 1e9, 1e12)
+    falls_to(|f| Ok(20.0 * portable::log10(m(f) / r)), -3.0, 1e9, 1e12)
         .expect(OK)
         .map_or(f64::INFINITY, |f| f / 1e9)
 }
@@ -804,8 +817,9 @@ pub(crate) fn uniform_period() -> f64 {
     let p = Periodic::new(vec![(line.clone(), 20.0), (line.clone(), 30.0)]).expect(OK);
     let w = p.bloch(100e9, &metal, &[("substrate", 0.01)]).expect(OK);
     let u = line.wave(100e9, &metal, &[("substrate", 0.01)]).expect(OK);
-    ((w.gamma - u.gamma).norm() / u.gamma.norm())
-        .max((w.impedance - u.impedance).norm() / u.impedance.norm())
+    (portable::complex::abs(w.gamma - u.gamma) / portable::complex::abs(u.gamma)).max(
+        portable::complex::abs(w.impedance - u.impedance) / portable::complex::abs(u.impedance),
+    )
 }
 
 /// Shin et al.'s unloaded line, L_u = 5.987 nH/cm and C_u = 0.673 pF/cm (their Section V).
@@ -865,7 +879,7 @@ pub(crate) fn band_edge() -> f64 {
             hi = mid;
         }
     }
-    let exact = quarter * (1.0f64 / 3.0).acos() / std::f64::consts::FRAC_PI_2;
+    let exact = quarter * portable::acos(1.0f64 / 3.0) / std::f64::consts::FRAC_PI_2;
     (0.5 * (lo + hi) - exact) / exact
 }
 
@@ -879,8 +893,9 @@ pub(crate) fn two_section_dispersion() -> f64 {
     let theta = 1.0f64;
     let f = theta * c / (2.0 * std::f64::consts::PI * n * 25e-6);
     let w = p.bloch(f, &metal, &[]).expect(OK);
-    let exact = theta.cos().powi(2) - 0.5 * (0.5 + 2.0) * theta.sin().powi(2);
-    ((w.gamma.im * 50e-6).cos() - exact).abs()
+    let exact = portable::powi(portable::cos(theta), 2)
+        - 0.5 * (0.5 + 2.0) * portable::powi(portable::sin(theta), 2);
+    (portable::cos(w.gamma.im * 50e-6) - exact).abs()
 }
 
 /// Shin et al.'s two T-rail electrodes (Table I: w = 4 and 2 µm, ΔC 2.02 and 1.26 pF/cm by
@@ -927,7 +942,7 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"the strips' charge is singular as $r^{-1/2}$ at their edges, which the static solver meets at about first order in the edge's step (static/coplanar-edges-order)",
             run: || {
                 let e = [0.002, 0.001].map(current_against_closed_form);
-                outcome((e[0] / e[1]).abs().log2(), 1.0, 0.35)
+                outcome(portable::log2((e[0] / e[1]).abs()), 1.0, 0.35)
             },
         },
         Case {

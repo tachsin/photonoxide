@@ -7,6 +7,7 @@ use super::full_wave::{FullWave, Open, RfMode};
 use super::line::{QuasiTem, mu_0};
 use super::{Conductor, Electrostatic, Features, Grading, Grid, Section, Side, Tensor};
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::statics::elliptic_k;
 use crate::units::{Length, SPEED_OF_LIGHT};
 use crate::verdict::{Case, Outcome, Tier};
@@ -99,13 +100,13 @@ impl Heinrich {
         let pi = std::f64::consts::PI;
         let r = (b - a) / (b + a);
         let p0 = b / (2.0 * a) / (kp * kp);
-        let p1 = 1.0 + (8.0 * pi * a / (a + b)).ln() + a / (a + b) * (b / a).ln();
+        let p1 = 1.0 + portable::ln(8.0 * pi * a / (a + b)) + a / (a + b) * portable::ln(b / a);
         let p2 = p1 - 2.0 * a / b * kp * kp;
         let p3 = 2.0 * b * b / (a * (b + a)) * ep / kp;
-        let p4 = r * ((8.0 * pi * a / (a + b)).ln() + a / b);
-        let p5 = r * 3f64.ln();
-        let p6 =
-            r * (24.0 * pi * b * (a + b) / ((b - a) * (b - a))).ln() - b / (b + a) * (b / a).ln();
+        let p4 = r * (portable::ln(8.0 * pi * a / (a + b)) + a / b);
+        let p5 = r * portable::ln(3f64);
+        let p6 = r * portable::ln(24.0 * pi * b * (a + b) / ((b - a) * (b - a)))
+            - b / (b + a) * portable::ln(b / a);
         (a, b, [p0, p1, p2, p3, p4, p5, p6])
     }
 
@@ -117,7 +118,7 @@ impl Heinrich {
         let base = k_ratio(k1);
         if tp <= s / 2.0 {
             let u = tp / s;
-            let l = (2.0 * tp / s).ln();
+            let l = portable::ln(2.0 * tp / s);
             base + p[0] * (u * (p[1] - l) + u * u * (1.0 - 1.5 * p[2] + p[2] * l))
         } else {
             base + p[0] / 8.0 * (p[2] + 2.0) + tp / s
@@ -137,9 +138,11 @@ impl Heinrich {
         let r = (b - a) / (b + a);
         if th <= s / 2.0 {
             let u = th / s;
-            let l = (2.0 * th / s).ln();
+            let l = portable::ln(2.0 * th / s);
             let c = p[0] / s
-                * ((pi * b + b * (8.0 * pi * a / (a + b)).ln() - (b - a) * r.ln() - b * l)
+                * ((pi * b + b * portable::ln(8.0 * pi * a / (a + b))
+                    - (b - a) * portable::ln(r)
+                    - b * l)
                     / (a + b)
                     + u * (p[1] * p[3] - p[2] - b / a * p[4]
                         + p[5]
@@ -151,7 +154,9 @@ impl Heinrich {
                             - b / a * r
                             + (2.0 * p[2] + p[1] * (p[3] - 1.0) - b / a * p[4]) * l));
             let g = p[0] / s
-                * ((pi * a + a * (8.0 * pi * b / (b - a)).ln() + b * r.ln() - a * l) / (a + b)
+                * ((pi * a + a * portable::ln(8.0 * pi * b / (b - a)) + b * portable::ln(r)
+                    - a * l)
+                    / (a + b)
                     + u * (a / b * p[1] * p[3] + (1.0 - a / b) * p[1] - p[2] - p[4] - p[5]
                         + (-a / b * p[3] + p[2] + a / b - 1.0 + p[5]) * l)
                     + u * u
@@ -182,9 +187,12 @@ impl Heinrich {
     /// Eq. (20).
     fn g_l(&self, x: f64) -> f64 {
         let t = self.t;
-        (t * t / 12.0 - x * x / 2.0) * (1.0 + (x / t).powi(2)).ln()
-            + x.powi(4) / (12.0 * t * t) * (1.0 + (t / x).powi(2)).ln()
-            - 2.0 / 3.0 * x * t * ((x / t).atan() + (x / t).powi(2) * (t / x).atan())
+        (t * t / 12.0 - x * x / 2.0) * portable::ln(1.0 + portable::powi(x / t, 2))
+            + portable::powi(x, 4) / (12.0 * t * t) * portable::ln(1.0 + portable::powi(t / x, 2))
+            - 2.0 / 3.0
+                * x
+                * t
+                * (portable::atan(x / t) + portable::powi(x / t, 2) * portable::atan(t / x))
     }
 
     /// Eq. (19): the DC inductance of the line of centre strip `w1`, grounds `w2`, H/m.
@@ -206,9 +214,9 @@ impl Heinrich {
         (
             [
                 2f64.sqrt() * 4.0 / (mk * t * w),
-                8.0 / mk * ((w + t) / (w * t)).powi(2),
+                8.0 / mk * portable::powi((w + t) / (w * t), 2),
                 2.0 / (mk * t * wg),
-                2.0 / mk * ((2.0 * wg + t) / (wg * t)).powi(2),
+                2.0 / mk * portable::powi((2.0 * wg + t) / (wg * t), 2),
             ],
             [4.0 / (mk * t * wg), 4.0 / (mk * t * w), 18.0 / (mk * t * t)],
         )
@@ -222,21 +230,23 @@ impl Heinrich {
         let (fc, fg) = self.f_l(t / 2.0);
         let part = |r0: f64, o1: f64, o2: f64, fl: f64| -> f64 {
             let r1 = (o2 * mu / (2.0 * kappa)).sqrt() * fl / (4.0 * f0 * f0);
-            let nu = (r0 / r1).ln() / (o1 / o2).ln();
-            let gamma = (o1 / o2).powi(2);
+            let nu = portable::ln(r0 / r1) / portable::ln(o1 / o2);
+            let gamma = portable::powi(o1 / o2, 2);
             let q = 0.25 * (0.5 - nu) * (4.0 - nu * (1.0 - gamma * gamma));
             let a4 = (gamma * nu + q) / (4.0 - nu - q);
             let a3 = 0.25 * (0.5 - nu) * (1.0 + a4);
             let a2 = (a4 - a3) / gamma;
             let a1 = a2 + gamma * a3;
             if omega <= o1 {
-                r0 * (1.0 + a1 * (omega / o1).powi(2))
+                r0 * (1.0 + a1 * portable::powi(omega / o1, 2))
             } else if omega <= o2 {
-                r1 * (omega / o2).powf(nu)
-                    * (1.0 + a2 * (o1 / omega).powi(2) + a3 * (omega / o2).powi(2))
+                r1 * portable::powf(omega / o2, nu)
+                    * (1.0
+                        + a2 * portable::powi(o1 / omega, 2)
+                        + a3 * portable::powi(omega / o2, 2))
             } else {
                 (omega * mu / (2.0 * kappa)).sqrt() * fl / (4.0 * f0 * f0)
-                    * (1.0 + a4 * (o2 / omega).powi(2))
+                    * (1.0 + a4 * portable::powi(o2 / omega, 2))
             }
         };
         let ([oc1, oc2, og1, og2], _) = self.transitions();
@@ -257,12 +267,12 @@ impl Heinrich {
         let (_, [o0, o1, o2]) = self.transitions();
         let skin = |o: f64| (mu / (2.0 * o * kappa)).sqrt() * (fc + fg) / (4.0 * f0 * f0);
         let lz2 = skin(o2);
-        let nu1 = ((ldc0 - le) / lz1).ln() / (o0 / o1).ln();
-        let nu2 = (lz1 / lz2).ln() / (o1 / o2).ln();
+        let nu1 = portable::ln((ldc0 - le) / lz1) / portable::ln(o0 / o1);
+        let nu2 = portable::ln(lz1 / lz2) / portable::ln(o1 / o2);
         let (rg, rt) = (w / wg, 2.0 * t / (9.0 * w));
-        let e1 = rg.powi(4) * nu1 / (4.0 - nu1);
-        let e2 = rg.powi(2) * nu1 / (4.0 - nu1);
-        let e3 = rt.powi(3) * (nu2 - 0.5) / (nu2 + 2.5);
+        let e1 = portable::powi(rg, 4) * nu1 / (4.0 - nu1);
+        let e2 = portable::powi(rg, 2) * nu1 / (4.0 - nu1);
+        let e3 = portable::powi(rt, 3) * (nu2 - 0.5) / (nu2 + 2.5);
         let e4 = rt * (nu2 + 0.5) / (nu2 + 2.5);
         let a3 = ((nu2 - nu1) * (1.0 + e1) * (1.0 - e4) + 4.0 * e2 + e4 * (1.0 - 3.0 * e1))
             / ((nu1 - nu2) * (1.0 + e1) * (1.0 - e3) + 4.0 - e3 * (1.0 - 3.0 * e1));
@@ -272,17 +282,17 @@ impl Heinrich {
         let a1 = nu1 / (4.0 - nu1) + e2 * a2;
         let a0 = (1.0 - le / ldc0) * (a1 + rg * rg * a2);
         if omega <= o0 {
-            ldc0 * (1.0 + a0 * (omega / o0).powi(2))
+            ldc0 * (1.0 + a0 * portable::powi(omega / o0, 2))
         } else if omega <= o1 {
             le + lz1
-                * (omega / o1).powf(nu1)
-                * (1.0 + a1 * (o0 / omega).powi(2) + a2 * (omega / o1).powi(2))
+                * portable::powf(omega / o1, nu1)
+                * (1.0 + a1 * portable::powi(o0 / omega, 2) + a2 * portable::powi(omega / o1, 2))
         } else if omega <= o2 {
             // a4's term to the first power: what Eq. (22)'s a2 … a5 make continuous, with its
             // first derivative, at ω_L1 and ω_L2
             le + lz2
-                * (omega / o2).powf(nu2)
-                * (1.0 + a3 * (o1 / omega).powi(2) + a4 * (omega / o2))
+                * portable::powf(omega / o2, nu2)
+                * (1.0 + a3 * portable::powi(o1 / omega, 2) + a4 * (omega / o2))
         } else {
             le + skin(omega) * (1.0 + a5 * (o2 / omega))
         }
@@ -388,11 +398,12 @@ pub(crate) fn frankel_9a(s: f64, w: f64, eps_eff: f64, eps_r: f64, f: f64) -> f6
     let kk = elliptic_k(k) * elliptic_k((1.0 - k * k).sqrt());
     let c = SPEED_OF_LIGHT;
     let ratio = eps_eff / eps_r;
-    (std::f64::consts::PI / 2.0).powi(5) * 2.0 * (1.0 - ratio).powi(2) / ratio.sqrt()
-        * (s + 2.0 * w).powi(2)
-        * eps_r.powf(1.5)
+    portable::powi(std::f64::consts::PI / 2.0, 5) * 2.0 * portable::powi(1.0 - ratio, 2)
+        / ratio.sqrt()
+        * portable::powi(s + 2.0 * w, 2)
+        * portable::powf(eps_r, 1.5)
         / (c * c * c * kk)
-        * f.powi(3)
+        * portable::powi(f, 3)
 }
 
 /// The quasi-TEM index of `problem`'s mirrored line (a guess to look near).
@@ -490,7 +501,7 @@ pub(crate) fn frankel_numbers() -> &'static [[(f64, f64, bool); 2]; 3] {
             let near = quasi_tem_index(&problem);
             for (k, &ghz) in FRANKEL_GHZ.iter().enumerate() {
                 let m = fw.solve(&problem, ghz * 1e9, near).expect(OK);
-                v[k][0][g] = m.index().powi(2);
+                v[k][0][g] = portable::powi(m.index(), 2);
                 v[k][1][g] = m.radiation();
             }
         }
@@ -527,7 +538,7 @@ fn four(v: f64) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(3 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, 3 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 

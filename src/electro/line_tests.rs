@@ -1,6 +1,7 @@
 use super::line::{DB_PER_NEPER, Drive, Edge, Metal, Periodic, QuasiTem, response};
 use super::line_checks::{self as checks, COPPER, GOLD, ZHANG_TANGENTS};
 use super::{Boundary, Conductor, Electrostatic, Grading, Grid, Section, Side, Tensor};
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 #[test]
@@ -12,7 +13,8 @@ fn a_thick_strip_has_the_surface_resistance_of_its_skin_depth() {
     let rs = 1.0 / (GOLD * gold.skin_depth(f));
     assert!((z.re - rs).abs() < 1e-12 * rs && (z.im - rs).abs() < 1e-12 * rs);
     // just below the switch to the limit, the formula agrees with it
-    let f = 0.98 * 40.0f64.powi(2) / (std::f64::consts::PI * super::line::mu_0() * GOLD * 0.64e-12);
+    let f = 0.98 * portable::powi(40.0f64, 2)
+        / (std::f64::consts::PI * super::line::mu_0() * GOLD * 0.64e-12);
     let z = gold.surface_impedance(f);
     let rs = 1.0 / (GOLD * gold.skin_depth(f));
     assert!((z.re / rs - 1.0).abs() < 1e-9 && (z.im / rs - 1.0).abs() < 1e-9);
@@ -307,7 +309,10 @@ fn a_period_is_unimodular_and_refuses_a_stop_band() {
     assert_eq!(p.sections().len(), 2);
     let t = p.abcd(3e11, &gold, &[]).unwrap();
     let det = t[0][0] * t[1][1] - t[0][1] * t[1][0];
-    assert!((det - c64::new(1.0, 0.0)).norm() < 1e-12, "{det}");
+    assert!(
+        portable::complex::abs(det - c64::new(1.0, 0.0)) < 1e-12,
+        "{det}"
+    );
     // the quarter wave, θ = π/2, lies in the first stop band (from θ = arccos(1/3))
     let quarter = c / (4.0 * 2.2 * 25e-6);
     let e = p.bloch(quarter, &gold, &[]).unwrap_err().to_string();
@@ -339,7 +344,9 @@ fn a_lossy_period_splits_its_loss_as_its_sections_do() {
         u.conductor
     );
     assert!(close(b.dielectric, u.dielectric / ratio, 1e-9));
-    assert!((b.internal - u.internal).norm() < 1e-9 * u.internal.norm());
+    assert!(
+        portable::complex::abs(b.internal - u.internal) < 1e-9 * portable::complex::abs(u.internal)
+    );
 }
 
 #[test]
