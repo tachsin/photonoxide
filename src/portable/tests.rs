@@ -178,7 +178,7 @@ fn normwise(
         let allowed = bound(g, w) + 0.5 * (ulp(w.re) + ulp(w.im));
         m.worst = m.worst.max(off / allowed);
         m.not_rounded += usize::from(ulps(ours.re, w.re) + ulps(ours.im, w.im) != 0);
-        if !(off <= allowed) {
+        if off.is_nan() || off > allowed {
             m.failures.push(format!(
                 "{name}({}{:+}i; {:e}{:+e}i) = {ours}, correctly rounded {w}: off {off:e}, allowed {allowed:e}",
                 g.a, g.b, g.c, g.d
@@ -347,6 +347,11 @@ fn fold(h: &mut u64, v: f64) {
     *h = h.rotate_left(7) ^ v.to_bits();
 }
 
+/// Functions with their names.
+type Real = (&'static str, fn(f64) -> f64);
+type Two = (&'static str, fn(f64, f64) -> f64);
+type Complex = (&'static str, fn(c64) -> c64);
+
 /// The grid of arguments: special values, the subnormals' edge, and 600 from a fixed LCG over
 /// several scales.
 fn grid() -> Vec<f64> {
@@ -400,7 +405,7 @@ fn canary_portable_bits_over_a_grid() {
         .zip(xs.iter().rev())
         .map(|(&a, &b)| (a, b))
         .collect();
-    let reals: [(&str, fn(f64) -> f64); 25] = [
+    let reals: [Real; 25] = [
         ("exp", exp),
         ("exp2", exp2),
         ("exp_m1", exp_m1),
@@ -427,13 +432,13 @@ fn canary_portable_bits_over_a_grid() {
         ("sin_cos.0", |x| sin_cos(x).0),
         ("sin_cos.1", |x| sin_cos(x).1),
     ];
-    let twos: [(&str, fn(f64, f64) -> f64); 4] = [
+    let twos: [Two; 4] = [
         ("atan2", atan2),
         ("hypot", hypot),
         ("powf", powf),
         ("powi", |x, n| powi(x, (n * 7.0) as i32 % 64)),
     ];
-    let complexes: [(&str, fn(c64) -> c64); 14] = [
+    let complexes: [Complex; 14] = [
         ("c_exp", cx::exp),
         ("c_ln", cx::ln),
         ("c_sqrt", cx::sqrt),
