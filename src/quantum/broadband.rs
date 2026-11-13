@@ -42,6 +42,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Gaussian, Matrix};
 use crate::nonlinear::pairs::JointSpectrum;
+use crate::portable;
 use crate::{Error, Result};
 
 fn invalid(what: impl Into<String>) -> Error {
@@ -81,7 +82,7 @@ fn slice_map(g: &Mat<c64>) -> Result<Mat<c64>> {
         m[(i, i)] = c64::new(1.0, 0.0);
     }
     for q in 0..k {
-        let (ch, sh) = (s[q].cosh() - 1.0, s[q].sinh());
+        let (ch, sh) = (portable::cosh(s[q]) - 1.0, portable::sinh(s[q]));
         for i in 0..ns {
             for j in 0..ns {
                 m[(i, j)] += u[(i, q)] * u[(j, q)].conj() * ch;
@@ -210,7 +211,7 @@ impl Broadband {
             alpha
                 .iter()
                 .zip(&x)
-                .map(|(a, x)| a * c64::from_polar(1.0 / n, 2.0 * x * t))
+                .map(|(a, x)| a * portable::complex::from_polar(1.0 / n, 2.0 * x * t))
                 .collect()
         };
         let mids: Vec<f64> = (0..slices).map(|k| (k as f64 + 0.5) / n - 0.5).collect();
@@ -249,7 +250,7 @@ impl Broadband {
             signal,
             idler,
             map: (0..n * n).map(|k| map[(k / n, k % n)]).collect(),
-            squeezing: order.iter().map(|&k| s[k].asinh()).collect(),
+            squeezing: order.iter().map(|&k| portable::asinh(s[k])).collect(),
             modes: order
                 .iter()
                 .map(|&k| (0..signal).map(|i| u[(i, k)]).collect())
@@ -292,7 +293,11 @@ impl Broadband {
     pub fn symplectic_error(&self) -> f64 {
         let n = self.signal + self.idler;
         let sign = |k: usize| if k < self.signal { 1.0 } else { -1.0 };
-        let largest = self.map.iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let largest = self
+            .map
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         let mut worst: f64 = 0.0;
         for i in 0..n {
             for j in 0..n {
@@ -302,7 +307,7 @@ impl Broadband {
                 if i == j {
                     v -= sign(i);
                 }
-                worst = worst.max(v.norm());
+                worst = worst.max(portable::complex::abs(v));
             }
         }
         worst / (largest * largest)
@@ -311,7 +316,11 @@ impl Broadband {
     /// The effective number of squeezed modes, (Σ sinh² r_k)² / Σ sinh⁴ r_k: the Schmidt number
     /// 1/Σλ_k² at low gain.
     pub fn mode_number(&self) -> f64 {
-        let n: Vec<f64> = self.squeezing.iter().map(|r| r.sinh().powi(2)).collect();
+        let n: Vec<f64> = self
+            .squeezing
+            .iter()
+            .map(|r| portable::powi(portable::sinh(*r), 2))
+            .collect();
         let total: f64 = n.iter().sum();
         total * total / n.iter().map(|x| x * x).sum::<f64>()
     }

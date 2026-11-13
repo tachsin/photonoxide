@@ -25,6 +25,7 @@ use num_complex::Complex64 as c64;
 use super::Gaussian;
 use crate::circuit::{Component, transmission};
 use crate::nonlinear::pairs::{Heralding, JointSpectrum};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -68,7 +69,12 @@ impl Source {
             .collect();
         let total: f64 = kept.iter().sum();
         let weights: Vec<f64> = kept.iter().map(|w| w / total).collect();
-        let mean = |g: f64| -> f64 { weights.iter().map(|l| (g * l.sqrt()).sinh().powi(2)).sum() };
+        let mean = |g: f64| -> f64 {
+            weights
+                .iter()
+                .map(|l| portable::powi(portable::sinh(g * l.sqrt()), 2))
+                .sum()
+        };
         let (mut low, mut high) = (0.0, 1.0);
         while mean(high) < mean_pairs {
             high *= 2.0;
@@ -110,7 +116,10 @@ impl Source {
 
     /// The mean number of pairs, Σ sinh² r_k.
     pub fn mean_pairs(&self) -> f64 {
-        self.squeezing.iter().map(|r| r.sinh().powi(2)).sum()
+        self.squeezing
+            .iter()
+            .map(|r| portable::powi(portable::sinh(*r), 2))
+            .sum()
     }
 
     /// The probabilities of 0, 1, … `most` pairs in a pulse: the geometric numbers of the
@@ -119,8 +128,10 @@ impl Source {
         let mut p = vec![0.0; most + 1];
         p[0] = 1.0;
         for r in &self.squeezing {
-            let t = r.tanh().powi(2);
-            let mode: Vec<f64> = (0..=most).map(|n| (1.0 - t) * t.powi(n as i32)).collect();
+            let t = portable::powi(portable::tanh(*r), 2);
+            let mode: Vec<f64> = (0..=most)
+                .map(|n| (1.0 - t) * portable::powi(t, n as i32))
+                .collect();
             let mut next = vec![0.0; most + 1];
             for (i, a) in p.iter().enumerate() {
                 for (j, b) in mode.iter().enumerate().take(most + 1 - i) {
@@ -145,7 +156,11 @@ impl Source {
 
     /// Either arm's unheralded g⁽²⁾(0), 1 + Σ n̄_k² / (Σ n̄_k)².
     pub fn unheralded_g2(&self) -> f64 {
-        let n: Vec<f64> = self.squeezing.iter().map(|r| r.sinh().powi(2)).collect();
+        let n: Vec<f64> = self
+            .squeezing
+            .iter()
+            .map(|r| portable::powi(portable::sinh(*r), 2))
+            .collect();
         let total: f64 = n.iter().sum();
         1.0 + n.iter().map(|x| x * x).sum::<f64>() / (total * total)
     }

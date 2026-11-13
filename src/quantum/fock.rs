@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 
 use super::Matrix;
 use super::permanent::permanent;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A Fock state: how many photons are in each mode.
@@ -197,7 +198,7 @@ fn partly(m: &Matrix, g: &Matrix, input: &Fock, output: &Fock) -> Result<f64> {
     let mut norm = c64::new(0.0, 0.0);
     for sigma in permutations(n) {
         let weight: c64 = (0..n).map(|j| g[(sigma[j], j)]).product();
-        if weight.norm() == 0.0 {
+        if portable::complex::abs(weight) == 0.0 {
             continue;
         }
         let twisted = Matrix::from_fn(n, n, |k, j| m[(k, j)] * m[(k, sigma[j])].conj());

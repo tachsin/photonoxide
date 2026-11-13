@@ -7,6 +7,7 @@ use super::permanent::minors;
 use super::*;
 use crate::circuit::components::{Coupler, Dispersion, Waveguide};
 use crate::circuit::{Netlist, SMatrix};
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 
 fn um(x: f64) -> Wavelength {
@@ -71,7 +72,7 @@ fn the_formulas_agree_with_the_definition() {
         for f in [Formula::Ryser, Formula::Glynn] {
             let p = permanent_by(&a, f).unwrap();
             assert!(
-                (p - exact).norm() < 1e-14 * exact.norm().max(1.0),
+                portable::complex::abs(p - exact) < 1e-14 * portable::complex::abs(exact).max(1.0),
                 "{n} {f:?}"
             );
         }
@@ -117,7 +118,7 @@ fn a_permanent_is_the_same_on_any_number_of_threads() {
     let one = run(1);
     assert_eq!(one, run(3));
     assert_eq!(one, run(8));
-    assert!((one.0 - one.1).norm() < 1e-11 * one.0.norm());
+    assert!(portable::complex::abs(one.0 - one.1) < 1e-11 * portable::complex::abs(one.0));
 }
 
 #[test]
@@ -129,7 +130,10 @@ fn the_minors_come_from_one_pass() {
             let cols: Vec<usize> = (0..k).filter(|&j| j != l).collect();
             let rows: Vec<usize> = (0..k - 1).collect();
             let direct = permanent_by(&b.select(&rows, &cols), Formula::Definition).unwrap();
-            assert!((m - direct).norm() < 1e-14 * direct.norm().max(1.0));
+            assert!(
+                portable::complex::abs(m - direct)
+                    < 1e-14 * portable::complex::abs(direct).max(1.0)
+            );
         }
     }
 }
@@ -144,7 +148,7 @@ fn hong_ou_mandel_through_a_coupler() {
         let p = probability(s, &input, &out, &Photons::Indistinguishable).unwrap();
         let q = probability(s, &input, &out, &Photons::Distinguishable).unwrap();
         let (r, tr) = (1.0 - kappa2, kappa2);
-        assert!((p - (r - tr).powi(2)).abs() < 1e-15);
+        assert!((p - portable::powi(r - tr, 2)).abs() < 1e-15);
         assert!((q - (r * r + tr * tr)).abs() < 1e-15);
         assert!(((q - p) / q - 2.0 * r * tr / (r * r + tr * tr)).abs() < 1e-14);
     }
@@ -245,7 +249,7 @@ fn a_lossy_circuit_keeps_its_probabilities() {
     let d = t.distribution(&input, &Photons::Indistinguishable).unwrap();
     assert!((d.total() - 1.0).abs() < 1e-14);
     // both photons arrive with probability η²
-    let eta = 10f64.powf(-0.1);
+    let eta = portable::powf(10f64, -0.1);
     let both: f64 = d
         .patterns()
         .iter()
@@ -371,7 +375,7 @@ fn the_dip_of_two_gaussian_photons() {
     .unwrap();
     let (r, t) = (0.7, 0.3);
     for (tau, p) in dip.delays.iter().zip(&dip.coincidences) {
-        let closed = r * r + t * t - 2.0 * r * t * (-(width * tau).powi(2)).exp();
+        let closed = r * r + t * t - 2.0 * r * t * portable::exp(-portable::powi(width * tau, 2));
         assert!((p - closed).abs() < 1e-12, "{tau}: {p} {closed}");
     }
     assert!((dip.visibility() - 2.0 * r * t / (r * r + t * t)).abs() < 1e-12);
@@ -419,8 +423,8 @@ fn a_coupled_array_is_unitary_and_symmetric() {
     assert!(u.isometry_error() < 1e-13);
     for i in 0..21 {
         for j in 0..21 {
-            assert!((u[(i, j)] - u[(j, i)]).norm() < 1e-13);
-            assert!((u[(i, j)] - u[(20 - i, 20 - j)]).norm() < 1e-13);
+            assert!(portable::complex::abs(u[(i, j)] - u[(j, i)]) < 1e-13);
+            assert!(portable::complex::abs(u[(i, j)] - u[(20 - i, 20 - j)]) < 1e-13);
         }
     }
 }

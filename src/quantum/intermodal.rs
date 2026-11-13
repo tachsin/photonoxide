@@ -8,6 +8,7 @@ use std::f64::consts::TAU;
 use num_complex::Complex64 as c64;
 
 use crate::nonlinear::pairs::{JointSpectrum, Pump};
+use crate::portable;
 use crate::units::SPEED_OF_LIGHT;
 use crate::{Error, Result};
 
@@ -131,7 +132,7 @@ pub fn shaped_dual_pump_spectrum(
                 };
                 let weight = amplitude(v)
                     * amplitude(other)
-                    * c64::from_polar(w * p_step, TAU * c * v * guide.delay);
+                    * portable::complex::from_polar(w * p_step, TAU * c * v * guide.delay);
                 (weight, ba(v) + bb(other))
             })
             .collect()
@@ -148,9 +149,9 @@ pub fn shaped_dual_pump_spectrum(
                     let sinc = if x.abs() < 1e-4 {
                         1.0 - x * x / 6.0
                     } else {
-                        x.sin() / x
+                        portable::sin(x) / x
                     };
-                    acc += weight * c64::from_polar(guide.length * sinc, x);
+                    acc += weight * portable::complex::from_polar(guide.length * sinc, x);
                 }
                 acc
             })
@@ -194,12 +195,16 @@ mod tests {
             .amplitude;
         let pump = guide.pump;
         let same = run(&|nu| c64::new(pump.amplitude(nu), 0.0));
-        let turned = run(&|nu| c64::from_polar(pump.amplitude(nu), 0.3));
+        let turned = run(&|nu| portable::complex::from_polar(pump.amplitude(nu), 0.3));
         for ((a, b), c) in plain.iter().zip(&same).zip(&turned) {
-            assert!((a - b).norm() <= 1e-12 * a.norm().max(1e-300), "{a} {b}");
-            let expected = a * c64::from_polar(1.0, 0.6);
             assert!(
-                (c - expected).norm() <= 1e-12 * a.norm().max(1e-300),
+                portable::complex::abs(a - b) <= 1e-12 * portable::complex::abs(*a).max(1e-300),
+                "{a} {b}"
+            );
+            let expected = a * portable::complex::from_polar(1.0, 0.6);
+            assert!(
+                portable::complex::abs(c - expected)
+                    <= 1e-12 * portable::complex::abs(*a).max(1e-300),
                 "{c} {expected}"
             );
         }

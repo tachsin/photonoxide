@@ -20,6 +20,7 @@
 use num_complex::Complex64 as c64;
 
 use super::transfer::Transfer;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A source of photon pairs inside a circuit: the ports by which its signal and idler enter the
@@ -86,7 +87,7 @@ pub fn pair_amplitude(
 /// The visibility (N_max − N_min)/N_max of a fringe |x + y e^(iφ)|² over φ: 4|x||y|/(|x| + |y|)²,
 /// 1 when the two paths are equally likely, and 0 with no light.
 pub fn two_path_visibility(x: c64, y: c64) -> f64 {
-    let (a, b) = (x.norm(), y.norm());
+    let (a, b) = (portable::complex::abs(x), portable::complex::abs(y));
     if a + b == 0.0 {
         return 0.0;
     }

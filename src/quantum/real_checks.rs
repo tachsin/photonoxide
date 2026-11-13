@@ -16,6 +16,7 @@ use crate::circuit::components::{Coupler, Dispersion, Waveguide};
 use crate::circuit::{Circuit, Component, Fidelity, Netlist, SMatrix, Spectrum};
 use crate::device::{Device, FdfdGrid, Model2d, StripMmi, Values};
 use crate::parallel::map_in_order;
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -148,7 +149,7 @@ fn gram(photon: &Wavepacket, delays: &[f64], wavelengths: &[Wavelength]) -> Matr
         trap(&|w| {
             photon.amplitude(w).conj()
                 * photon.amplitude(w)
-                * c64::from_polar(1.0, w * (delays[b] - delays[a]))
+                * portable::complex::from_polar(1.0, w * (delays[b] - delays[a]))
         }) / norm
     })
 }
@@ -631,7 +632,7 @@ pub(crate) const MIRROR: [f64; 3] = [0.16, 0.3, 0.5];
 pub(crate) fn slab_coupling(n1: f64, n2: f64, a: f64, k: f64, y0: f64) -> (f64, f64) {
     let v = k * a * (n1 * n1 - n2 * n2).sqrt();
     // u tan u = √(V² − u²) for u = κa in (0, min(V, π/2))
-    let g = |u: f64| u * u.tan() - (v * v - u * u).sqrt();
+    let g = |u: f64| u * portable::tan(u) - (v * v - u * u).sqrt();
     let (mut lo, mut hi) = (1e-12, v.min(PI / 2.0) - 1e-12);
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
@@ -646,13 +647,15 @@ pub(crate) fn slab_coupling(n1: f64, n2: f64, a: f64, k: f64, y0: f64) -> (f64, 
     let beta = (k * k * n1 * n1 - kappa * kappa).sqrt();
     let phi = |y: f64| {
         if y.abs() <= a {
-            (kappa * y).cos()
+            portable::cos(kappa * y)
         } else {
-            (kappa * a).cos() * (-gamma * (y.abs() - a)).exp()
+            portable::cos(kappa * a) * portable::exp(-gamma * (y.abs() - a))
         }
     };
-    let norm = a + (2.0 * kappa * a).sin() / (2.0 * kappa) + (kappa * a).cos().powi(2) / gamma;
-    (beta, 2.0 * phi(y0).powi(2) / (beta * norm))
+    let norm = a
+        + portable::sin(2.0 * kappa * a) / (2.0 * kappa)
+        + portable::powi(portable::cos(kappa * a), 2) / gamma;
+    (beta, 2.0 * portable::powi(phi(y0), 2) / (beta * norm))
 }
 
 /// A line current along z at 1 c/µm in a slab of ε = 12, 120 nm thick, in vacuum, `y0` µm from
@@ -688,8 +691,8 @@ pub(crate) fn slab_emission(y0: f64, h: f64) -> (f64, f64) {
         let along_z = |m: &PortMode3d| {
             let mut w = [0.0f64; 2];
             for u in 0..ny {
-                w[0] = w[0].max(m.e(Axis::Z, (u, 0)).norm());
-                w[1] = w[1].max(m.e(Axis::Y, (u, 0)).norm());
+                w[0] = w[0].max(portable::complex::abs(m.e(Axis::Z, (u, 0))));
+                w[1] = w[1].max(portable::complex::abs(m.e(Axis::Y, (u, 0))));
             }
             w[0] > w[1]
         };
@@ -1047,8 +1050,8 @@ pub(crate) fn stack_joule() -> f64 {
         let fields = stack
             .interface_fields(Polarization::Te, wavelength, angle)
             .expect(OK);
-        let beta = c64::new(angle.sin(), 0.0);
-        let gc = angle.cos();
+        let beta = c64::new(portable::sin(angle), 0.0);
+        let gc = portable::cos(angle);
         for (j, &(n, d)) in stack.films().iter().enumerate() {
             // the field a depth s below the film's top: its matrix over −s
             let top = fields[j];
@@ -1254,7 +1257,7 @@ pub(crate) fn attenuation_db(n_eff: c64, length: f64) -> f64 {
         um(1.55),
         crate::units::Length::um(length),
     );
-    -10.0 * (1.0 - a).log10()
+    -10.0 * portable::log10(1.0 - a)
 }
 
 fn spectral_flat_case() -> Outcome {
@@ -1277,7 +1280,7 @@ fn touchstone_case() -> Outcome {
 /// the grid, from the ratio of the two changes.
 fn mmi_hom_order() -> Outcome {
     let v = mmi_hom();
-    let order = ((v[0] - v[1]) / (v[1] - v[2])).abs().log2();
+    let order = portable::log2(((v[0] - v[1]) / (v[1] - v[2])).abs());
     outcome((order * 100.0).round() / 100.0, 1.5, 0.5)
 }
 
@@ -1328,7 +1331,7 @@ fn emitter_homogeneous() -> Outcome {
 
 fn emitter_order() -> Outcome {
     let f = map_in_order(&[0.02, 0.01], |&h| mirror_purcell(None, h));
-    let order = ((f[0] - 1.0).abs() / (f[1] - 1.0).abs()).log2();
+    let order = portable::log2((f[0] - 1.0).abs() / (f[1] - 1.0).abs());
     outcome((order * 100.0).round() / 100.0, 2.0, 0.2)
 }
 
@@ -1381,7 +1384,7 @@ fn film_slab_case() -> Outcome {
 
 fn film_order() -> Outcome {
     let n = film_grids();
-    let order = ((n[2] - n[0]).abs() / (n[3] - n[0]).abs()).log2();
+    let order = portable::log2((n[2] - n[0]).abs() / (n[3] - n[0]).abs());
     outcome((order * 100.0).round() / 100.0, 2.0, 0.2)
 }
 
@@ -1563,7 +1566,7 @@ mod figures {
             ("parallel", parallel),
             ("across", 1.0 / (f / eps_m + (1.0 - f) / eps_a)),
         ] {
-            let a = reddy_stack(eps.sqrt())
+            let a = reddy_stack(portable::complex::sqrt(eps))
                 .absorption(Polarization::Te, um(1.55), 0.0)
                 .expect(OK);
             eprintln!(
@@ -1571,7 +1574,7 @@ mod figures {
                 a.reflectance, a.transmittance, a.films[4]
             );
         }
-        let stack = reddy_stack(parallel.sqrt());
+        let stack = reddy_stack(portable::complex::sqrt(parallel));
         let mut best = (0.0, f64::INFINITY, 0.0);
         for k in 0..=1600 {
             let nm = 1400.0 + 0.25 * f64::from(k);

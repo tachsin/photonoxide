@@ -16,6 +16,7 @@ use num_complex::Complex64 as c64;
 
 use crate::nonlinear::coupled::{SecondHarmonic, ThreeWave};
 use crate::nonlinear::fwm::{FourWave, Waves};
+use crate::portable;
 use crate::{Error, Result};
 
 /// A squeezer: its Bogoliubov coefficients and what they amount to.
@@ -30,13 +31,13 @@ pub struct Squeezer {
 impl Squeezer {
     /// The squeezing r = asinh|ν|.
     pub fn r(&self) -> f64 {
-        self.nu.norm().asinh()
+        portable::asinh(portable::complex::abs(self.nu))
     }
 
     /// The squeezing's phase φ, ξ = r e^{iφ} in [`super::Gaussian::squeezed`]'s convention:
     /// â′ = â cosh r − â† e^{iφ} sinh r up to the output's phase, so e^{iφ} = −ν μ*/|ν μ|.
     pub fn phase(&self) -> f64 {
-        (-self.nu * self.mu.conj()).arg()
+        portable::complex::arg(-self.nu * self.mu.conj())
     }
 
     /// How far it is from a Bogoliubov map, ||μ|² − |ν|² − 1| / |μ|²: the integration's error,
@@ -47,7 +48,7 @@ impl Squeezer {
 
     /// The phase-sensitive gain of the amplified quadrature, (|μ| + |ν|)² = e^{2r}, in dB.
     pub fn gain_db(&self) -> f64 {
-        20.0 * (self.mu.norm() + self.nu.norm()).log10()
+        20.0 * portable::log10(portable::complex::abs(self.mu) + portable::complex::abs(self.nu))
     }
 }
 
@@ -104,9 +105,12 @@ pub fn degenerate(
     let run = |eps: f64| -> Result<([c64; 2], f64)> {
         let a = amplifier.propagate([c64::new(eps, 0.0), pump], length, steps)?[0];
         let b = amplifier.propagate([c64::new(0.0, eps), pump], length, steps)?[0];
-        Ok(([a, b], a.norm().max(b.norm())))
+        Ok((
+            [a, b],
+            portable::complex::abs(a).max(portable::complex::abs(b)),
+        ))
     };
-    let ([a, b], eps) = seeded(pump.norm(), "degenerate amplifier", run)?;
+    let ([a, b], eps) = seeded(portable::complex::abs(pump), "degenerate amplifier", run)?;
     // a = (μ + ν) ε, b = i (μ − ν) ε
     let plus = a / eps;
     let minus = b / (c64::new(0.0, 1.0) * eps);
@@ -138,9 +142,12 @@ pub fn non_degenerate(
             length,
             steps,
         )?;
-        Ok((out, out[0].norm().max(out[1].norm())))
+        Ok((
+            out,
+            portable::complex::abs(out[0]).max(portable::complex::abs(out[1])),
+        ))
     };
-    let (out, eps) = seeded(pump.norm(), "parametric amplifier", run)?;
+    let (out, eps) = seeded(portable::complex::abs(pump), "parametric amplifier", run)?;
     // photon units: a_j = A_j / √ν_j; the seed's ε/√ν₁ in, a₂′ = ν a₁*
     let seed = eps / n1.sqrt();
     Ok(Squeezer {
@@ -167,9 +174,12 @@ pub fn four_wave(amplifier: &FourWave, pump: c64, length: f64, steps: usize) -> 
             length,
             steps,
         )?;
-        Ok((out, out.signal.norm().max(out.idler.norm())))
+        Ok((
+            out,
+            portable::complex::abs(out.signal).max(portable::complex::abs(out.idler)),
+        ))
     };
-    let (out, eps) = seeded(pump.norm(), "four-wave mixing", run)?;
+    let (out, eps) = seeded(portable::complex::abs(pump), "four-wave mixing", run)?;
     Ok(Squeezer {
         mu: out.signal / eps,
         nu: out.idler / eps,

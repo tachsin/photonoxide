@@ -15,6 +15,7 @@ use crate::circuit::{Circuit, Component, Netlist};
 use crate::device::{Mesh as Grid, Scheme, StripCoupler, Values};
 use crate::mode::vector;
 use crate::parallel::map_in_order;
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::validation::{Case, Outcome, Tier, note_numerical};
 
@@ -210,7 +211,7 @@ fn permanent_ones() -> Outcome {
         let f: f64 = (1..=n).map(|k| k as f64).product();
         for formula in [Formula::Ryser, Formula::Glynn] {
             let p = permanent_by(&ones, formula).expect(OK);
-            e = e.max((p - f).norm() / f);
+            e = e.max(portable::complex::abs(p - f) / f);
         }
     }
     worst(e, 1e-12)
@@ -226,12 +227,12 @@ fn permanent_derangements() -> Outcome {
         let a = Matrix::from_fn(n, n, |i, j| c64::new(if i == j { 0.0 } else { 1.0 }, 0.0));
         for formula in [Formula::Ryser, Formula::Glynn] {
             let p = permanent_by(&a, formula).expect(OK);
-            e = e.max((p - count).norm() / count);
+            e = e.max(portable::complex::abs(p - count) / count);
         }
     }
     // n = 1: no derangement, a permanent of exactly 0
     let one = Matrix::from_fn(1, 1, |_, _| c64::new(0.0, 0.0));
-    e = e.max(permanent(&one).expect(OK).norm());
+    e = e.max(portable::complex::abs(permanent(&one).expect(OK)));
     worst(e, 1e-12)
 }
 
@@ -242,7 +243,7 @@ fn permanent_formulas() -> Outcome {
         let exact = permanent_by(&a, Formula::Definition).expect(OK);
         for formula in [Formula::Ryser, Formula::Glynn] {
             let p = permanent_by(&a, formula).expect(OK);
-            e = e.max((p - exact).norm() / exact.norm());
+            e = e.max(portable::complex::abs(p - exact) / portable::complex::abs(exact));
         }
     }
     worst(e, 1e-12)
@@ -259,7 +260,7 @@ fn permanent_threads() -> Outcome {
     };
     let (one, seven) = (run(1), run(7));
     let e = (0..2)
-        .map(|k| (one[k] - seven[k]).norm())
+        .map(|k| portable::complex::abs(one[k] - seven[k]))
         .fold(0.0, f64::max);
     worst(e, 0.0)
 }
@@ -291,7 +292,7 @@ fn hom_visibility() -> Outcome {
         let same = coincidences(&t, &Photons::Indistinguishable);
         let apart = coincidences(&t, &Photons::Distinguishable);
         e = e
-            .max((same - (r - tr).powi(2)).abs())
+            .max((same - portable::powi(r - tr, 2)).abs())
             .max((apart - (r * r + tr * tr)).abs())
             .max(((apart - same) / apart - 2.0 * r * tr / (r * r + tr * tr)).abs());
     }
@@ -488,7 +489,10 @@ fn hom_dip_gaussian() -> Outcome {
         .delays
         .iter()
         .zip(&dip.coincidences)
-        .map(|(tau, p)| (p - (r * r + t * t - 2.0 * r * t * (-(width * tau).powi(2)).exp())).abs())
+        .map(|(tau, p)| {
+            (p - (r * r + t * t - 2.0 * r * t * portable::exp(-portable::powi(width * tau, 2))))
+                .abs()
+        })
         .fold(0.0, f64::max);
     worst(e, 1e-12)
 }
@@ -560,7 +564,7 @@ fn mean_fidelity(n: usize, db: f64, count: u64, arrangement: Arrangement) -> (f6
         fidelity(&u, &mesh.lossy(db))
     });
     let mean = f.iter().sum::<f64>() / f.len() as f64;
-    let var = f.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (f.len() - 1) as f64;
+    let var = f.iter().map(|x| portable::powi(x - mean, 2)).sum::<f64>() / (f.len() - 1) as f64;
     (mean, (var / f.len() as f64).sqrt())
 }
 
@@ -688,15 +692,15 @@ fn sampler_convergence() -> Outcome {
         })
         .collect();
     // the least-squares slope of log distance against log N
-    let x: Vec<f64> = counts.iter().map(|&n| (n as f64).ln()).collect();
-    let y: Vec<f64> = distance.iter().map(|d| d.ln()).collect();
+    let x: Vec<f64> = counts.iter().map(|&n| portable::ln(n as f64)).collect();
+    let y: Vec<f64> = distance.iter().map(|d| portable::ln(*d)).collect();
     let (mx, my) = (x.iter().sum::<f64>() / 5.0, y.iter().sum::<f64>() / 5.0);
     let slope = x
         .iter()
         .zip(&y)
         .map(|(a, b)| (a - mx) * (b - my))
         .sum::<f64>()
-        / x.iter().map(|a| (a - mx).powi(2)).sum::<f64>();
+        / x.iter().map(|a| portable::powi(a - mx, 2)).sum::<f64>();
     outcome((-slope * 100.0).round() / 100.0, 0.5, 0.1)
 }
 
@@ -723,16 +727,15 @@ fn coupler_hom_order() -> Outcome {
     let visibility: Vec<f64> = dn
         .iter()
         .map(|&d| {
-            let kappa2 = (PI * d / 1.55 * length).sin().powi(2);
+            let kappa2 = portable::powi(portable::sin(PI * d / 1.55 * length), 2);
             let t = coupler(kappa2);
             let same = coincidences(&t, &Photons::Indistinguishable);
             let apart = coincidences(&t, &Photons::Distinguishable);
             1.0 - same / apart
         })
         .collect();
-    let order = ((visibility[0] - visibility[1]) / (visibility[1] - visibility[2]))
-        .abs()
-        .log2();
+    let order =
+        portable::log2(((visibility[0] - visibility[1]) / (visibility[1] - visibility[2])).abs());
     outcome((order * 100.0).round() / 100.0, 1.0, 0.5)
 }
 

@@ -23,6 +23,7 @@ use num_complex::Complex64 as c64;
 use super::Matrix;
 use super::matrix::{det_one_minus, determinant};
 use super::permanent::parts;
+use crate::portable;
 use crate::{Error, Result};
 
 /// The largest matrix a hafnian or torontonian takes: 2^30 terms is hours on a workstation.
@@ -45,11 +46,11 @@ fn check(a: &Matrix, what: &'static str, symmetric: bool) -> Result<usize> {
     if symmetric {
         let scale = (0..n)
             .flat_map(|i| (0..n).map(move |j| (i, j)))
-            .map(|(i, j)| a[(i, j)].norm())
+            .map(|(i, j)| portable::complex::abs(a[(i, j)]))
             .fold(0.0, f64::max);
         for i in 0..n {
             for j in 0..i {
-                if (a[(i, j)] - a[(j, i)]).norm() > 1e-12 * scale {
+                if portable::complex::abs(a[(i, j)] - a[(j, i)]) > 1e-12 * scale {
                     return Err(Error::invalid(
                         what,
                         format!("needs a symmetric matrix: a[{i}, {j}] ≠ a[{j}, {i}]"),
@@ -140,7 +141,7 @@ pub fn torontonian(o: &Matrix) -> Result<c64> {
                 let one = if r == c { 1.0 } else { 0.0 };
                 c64::new(one, 0.0) - o[(index(r), index(c))]
             });
-            let term = determinant(&block).sqrt().inv();
+            let term = portable::complex::sqrt(determinant(&block)).inv();
             sum.add(if (m - k) % 2 == 1 { -term } else { term });
         }
         sum.sum
