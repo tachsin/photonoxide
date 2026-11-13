@@ -34,6 +34,7 @@
 //! The last frame is the last stage, the structure the round trip checks, but for a film lifted
 //! off onto an etched floor, which it draws there.
 
+use crate::portable;
 use serde::Serialize;
 
 use super::Event;
@@ -140,7 +141,7 @@ fn num(v: f64) -> String {
     if v == 0.0 || !v.is_finite() {
         return format!("{v}");
     }
-    let digits = usize::try_from((3 - v.abs().log10().floor() as i32).max(0)).unwrap_or(0);
+    let digits = usize::try_from((3 - portable::log10(v.abs()).floor() as i32).max(0)).unwrap_or(0);
     let s = format!("{v:.digits$}");
     if s.contains('.') {
         s.trim_end_matches('0').trim_end_matches('.').to_owned()

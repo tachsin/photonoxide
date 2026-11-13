@@ -13,10 +13,9 @@
 //! cargo run --release --example circuit_ring_critical
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::TAU;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -127,7 +126,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     // the closed forms, for the resonance nearest the start
     let m = (INDEX * TAU * radius / LAMBDA).round();
     let radius_exact = m * LAMBDA / (TAU * INDEX);
-    let a = 10f64.powf(-LOSS * 1e-4 * TAU * radius_exact / 20.0);
+    let a = portable::powf(10f64, -LOSS * 1e-4 * TAU * radius_exact / 20.0);
     let kappa2_exact = 1.0 - a * a;
 
     println!(
@@ -153,8 +152,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         round(kappa2_exact * 1e3, 9),
         tolerances.1,
     );
-    let r_over_a =
-        (1.0 - kappa2_found).sqrt() / 10f64.powf(-LOSS * 1e-4 * TAU * radius_found / 20.0);
+    let r_over_a = (1.0 - kappa2_found).sqrt()
+        / portable::powf(10f64, -LOSS * 1e-4 * TAU * radius_found / 20.0);
     checks.compare("r / a (Eq. 2: 1)", r_over_a, 1.0, tolerances.2);
     checks.compare("through power (Eq. 12: 0)", through, 0.0, tolerances.3);
     Ok(checks.finish())
@@ -162,6 +161,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
 
 /// `x` to `decimals` decimals, as printed.
 fn round(x: f64, decimals: i32) -> f64 {
-    let scale = 10f64.powi(decimals);
+    let scale = portable::powi(10f64, decimals);
     (x * scale).round() / scale
 }

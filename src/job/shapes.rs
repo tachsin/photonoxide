@@ -872,6 +872,7 @@ pub(super) fn draw(mut s: Structure, shapes: &[ShapeSpec]) -> Result<Structure> 
 mod tests {
     use crate::geometry::{Point, Shape};
     use crate::job::{Event, StructureTask, check, params, preview};
+    use crate::portable;
     use crate::run::Job;
     use crate::units::Length;
 
@@ -1332,7 +1333,9 @@ place = [
         let Shape::Circle { center, radius } = &e.shape else {
             panic!("a circle")
         };
-        let rho = ((center.x.to_um() - 10.0).powi(2) + center.y.to_um().powi(2)).sqrt();
+        let rho = (portable::powi(center.x.to_um() - 10.0, 2)
+            + portable::powi(center.y.to_um(), 2))
+        .sqrt();
         assert!((rho - 1.0).abs() < 1e-12);
         assert!((radius.to_um() - (0.06 + 0.02 + 0.01 * rho)).abs() < 1e-12);
         // the grating: tooth i, 0.2 + 0.01 i µm wide, at 8 + 0.5 i + 0.002 i² µm

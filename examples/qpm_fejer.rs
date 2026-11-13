@@ -19,10 +19,9 @@
 //! cargo run --release --example qpm_fejer
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use common::{Checks, Setup};
@@ -311,7 +310,7 @@ fn shown(x: f64) -> f64 {
     if !x.is_finite() || x == 0.0 {
         return x;
     }
-    let s = 10f64.powi(5 - x.abs().log10().floor() as i32);
+    let s = portable::powi(10f64, 5 - portable::log10(x.abs()).floor() as i32);
     (x * s).round() / s
 }
 

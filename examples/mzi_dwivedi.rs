@@ -46,10 +46,9 @@
 //! cargo run --release --example mzi_dwivedi
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -156,7 +155,10 @@ fn extract(high: &Circuit, big: f64, low: &Circuit, small: f64) -> photonoxide::
         pairs.iter().map(|q| q.1).sum::<f64>() / k,
     );
     let slope = pairs.iter().map(|q| (q.0 - mx) * (q.1 - my)).sum::<f64>()
-        / pairs.iter().map(|q| (q.0 - mx).powi(2)).sum::<f64>();
+        / pairs
+            .iter()
+            .map(|q| portable::powi(q.0 - mx, 2))
+            .sum::<f64>();
     let ng = |l: f64| my + slope * (l - mx);
     // the low-order interferometer's peak, order 15: n(λ_r)/λ_r = 15/ΔL, and
     // n(λ₀)/λ₀ = n(λ_r)/λ_r + ∫ n_g/λ² dλ from λ₀ to λ_r
@@ -166,7 +168,7 @@ fn extract(high: &Circuit, big: f64, low: &Circuit, small: f64) -> photonoxide::
         .min_by(|a, b| (*a - CENTRE).abs().total_cmp(&(*b - CENTRE).abs()))
         .expect("a peak in the band");
     let (intercept, s) = (my - slope * mx, slope);
-    let integral = intercept * (1.0 / CENTRE - 1.0 / lr) + s * (lr / CENTRE).ln();
+    let integral = intercept * (1.0 / CENTRE - 1.0 / lr) + s * portable::ln(lr / CENTRE);
     Ok((CENTRE * (15.0 / small + integral), ng(CENTRE)))
 }
 

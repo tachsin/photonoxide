@@ -66,10 +66,12 @@ What can differ between systems, and what photonoxide does about each:
   sweeps, and the Krylov solvers with their Givens rotations), and so do the physics areas:
   geometry and the cells' averaging, FDTD (its PML, media, sources and monitors), the materials,
   the stacks, the static solvers (heat and electrostatics), the circuits, the devices and their
-  compact models, topology, fabrication, nonlinear and quantum optics. The rest (the validation
-  cases, jobs, expressions, units, the examples, the studio, native) follow in #822's phases, and
-  until then the last bits of a number computed there may differ between systems with nothing
-  printed to show it.
+  compact models, topology, fabrication, nonlinear and quantum optics, and the rest of the
+  library: the jobs and their runs, the validation cases, expressions, units, the exports and the
+  benchmarks; the examples and the tests too, but for the two tests that take the system's
+  functions as an independent reference. The studio, native and crosscode follow in #822's
+  phases, and until then the last bits of a number computed there may differ between systems with
+  nothing printed to show it.
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; `mul_add` (fused in hardware or in software,
   whichever the build has) is forbidden. faer's dense kernels pick their SIMD instructions at run

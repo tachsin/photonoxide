@@ -6,6 +6,7 @@ use super::{Event, check, execute};
 use crate::material::catalogue::Axis;
 use crate::nonlinear::coupled::coupling_from_efficiency;
 use crate::nonlinear::phase::{Device, Expansion, Index, Process, State, Variable};
+use crate::portable;
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
 
@@ -156,7 +157,7 @@ fn the_map_is_the_devices_phase_over_wavelength_and_temperature() {
     // Δk and the response agree: sinc²(ΔkL/2) with L = 1 mm (no strain at 25 °C)
     let dk = m.mismatch_per_um[row + 3].unwrap();
     let x: f64 = 0.5 * dk * 1000.0;
-    let sinc2 = (x.sin() / x).powi(2);
+    let sinc2 = portable::powi(portable::sin(x) / x, 2);
     assert!((m.response[row + 3].unwrap() - sinc2).abs() < 1e-12);
 }
 
@@ -266,7 +267,7 @@ fn pairs_by_spdc_and_fwm_have_a_joint_spectrum() {
     let c = efficiency_of(&e);
     let dk = s.mismatch_per_um * 1e6;
     let g = crate::nonlinear::fwm::signal_gain(100.0, 0.5, dk, 0.01);
-    assert!((series(c, "signal gain")[100].unwrap() - 10.0 * g.log10()).abs() < 1e-12);
+    assert!((series(c, "signal gain")[100].unwrap() - 10.0 * portable::log10(g)).abs() < 1e-12);
     assert!(e.iter().any(|e| matches!(e, Event::PairSpectrum { .. })));
 }
 

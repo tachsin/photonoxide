@@ -3,6 +3,7 @@
 //! its insensitivity to the PML, and Bienstman et al.'s leaky wire, `jobs/leaky-wire.yaml`,
 //! against their published index and loss.
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 use super::{Event, execute};
@@ -157,9 +158,13 @@ pub(super) fn film_index(step_nm: f64, pml_um: f64, strength: f64) -> Option<c64
     })?;
     #[allow(clippy::cast_precision_loss)]
     let (cells, h) = (cells as f64, 2.0 * HALF / cells as f64);
-    let lx = 4.0 / (h * h) * (std::f64::consts::PI / (2.0 * (cells + 2.0))).sin().powi(2);
+    let lx = 4.0 / (h * h)
+        * portable::powi(
+            portable::sin(std::f64::consts::PI / (2.0 * (cells + 2.0))),
+            2,
+        );
     let k0 = Wavelength::um(1.55).ok()?.wavenumber();
-    Some((n * n + lx / (k0 * k0)).sqrt())
+    Some(portable::complex::sqrt(n * n + lx / (k0 * k0)))
 }
 
 /// A 500 × 220 nm strip of the film's silicon in oxide in a closed window 2 × 1.82 µm (no PML),
@@ -314,7 +319,7 @@ fn film_loss() -> Outcome {
 
 fn film_order() -> Outcome {
     // two decimals, its error too: the report reads the same on every platform
-    let order = ((film_error(10.0) / film_error(5.0)).log2() * 100.0).round() / 100.0;
+    let order = (portable::log2(film_error(10.0) / film_error(5.0)) * 100.0).round() / 100.0;
     Outcome {
         measured: order,
         expected: 2.0,

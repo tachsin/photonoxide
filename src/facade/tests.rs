@@ -1,6 +1,7 @@
 //! The façade against the library's own calls, bit for bit: each of its functions gives what a
 //! Rust program calling the library directly gets.
 
+use crate::portable;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -366,7 +367,7 @@ fn s_parameters_are_the_jobs_flattened() {
         }
     }
     // a straight guide passes its mode
-    assert!(s.s[2].norm() > 0.99, "{}", s.s[2]);
+    assert!(portable::complex::abs(s.s[2]) > 0.99, "{}", s.s[2]);
 }
 
 #[test]
@@ -1347,7 +1348,7 @@ fn a_compact_model_is_the_designs_compact_fidelity() {
     let worst =
         s.s.iter()
             .zip(&exact.s)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max);
     assert!(worst < 1e-3, "{worst}");
     // a compact fidelity without its file says how to get one

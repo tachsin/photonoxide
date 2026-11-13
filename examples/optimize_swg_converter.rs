@@ -58,10 +58,9 @@
 //! cargo run --release --example optimize_swg_converter
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::LN_10;
 use std::process::ExitCode;
 
@@ -471,7 +470,7 @@ fn residual(model: &Model, x: &[f64]) -> photonoxide::Result<f64> {
 fn check_derivatives(model: &Model, label: &str) -> photonoxide::Result<usize> {
     let x = plain();
     let (t, exact) = model.power(&x, true)?;
-    let u = 10f64.powf((2.0 * residual(model, &x)?).log10().ceil());
+    let u = portable::powf(10f64, portable::log10(2.0 * residual(model, &x)?).ceil());
     let delta = 1e-5;
     let drawn = mask(&model.grid, &x);
     let mut within = 0;

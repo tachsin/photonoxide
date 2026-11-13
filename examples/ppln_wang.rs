@@ -21,10 +21,9 @@
 //! cargo run --release --example ppln_wang
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use common::{Checks, Setup};
@@ -43,7 +42,7 @@ const GVM_TOLERANCE: f64 = 50.0;
 /// `x` to `decimals` decimals: what the output prints the same on every system (a value's last
 /// bits differ between their maths libraries).
 fn shown(x: f64, decimals: i32) -> f64 {
-    let s = 10f64.powi(decimals);
+    let s = portable::powi(10f64, decimals);
     (x * s).round() / s
 }
 

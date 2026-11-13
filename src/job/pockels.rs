@@ -27,6 +27,7 @@
 //! quasi-static limit: a 2D number, not a device's performance; lithium niobate's response below
 //! about 1 MHz isn't modelled.
 
+use crate::portable;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -195,7 +196,7 @@ impl ElectroOpticSpec {
             c(perpendicular),
             c(along_c),
         ]));
-        if t[0][1].norm() > 1e-12 * t[0][0].norm() {
+        if portable::complex::abs(t[0][1]) > 1e-12 * portable::complex::abs(t[0][0]) {
             return Err(err(
                 "the crystal's static permittivity isn't diagonal across and up the section, \
                  which the static solver needs: orient it so its axes lie along them",
@@ -298,7 +299,7 @@ fn strength(
         for i in 0..nx {
             let yv = y[0] + (i as f64 + 0.5) * (y[1] - y[0]) / nx as f64;
             let e = field.at(yv, zv);
-            values.push(e[0].hypot(e[1]) as f32);
+            values.push(portable::hypot(e[0], e[1]) as f32);
         }
     }
     crate::raster::Raster {

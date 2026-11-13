@@ -73,16 +73,12 @@
 
 pub mod averaging;
 pub mod backend;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod bench;
 #[cfg(test)]
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod canary_tests;
 pub mod circuit;
 pub mod compact;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod convergence;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod dense;
 pub mod device;
 mod eigen;
@@ -90,20 +86,15 @@ pub mod electro;
 pub mod eme;
 pub mod error;
 mod etch;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod export;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod expr;
 pub mod fabrication;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod facade;
 pub mod farm;
 pub mod fdfd;
 pub mod fdtd;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod generator;
 pub mod geometry;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod job;
 #[cfg(test)]
 mod layering;
@@ -115,7 +106,6 @@ pub mod parallel;
 pub mod portable;
 pub mod quantum;
 pub mod raster;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod run;
 mod shifter;
 mod sparse;
@@ -126,9 +116,7 @@ pub mod sweep;
 pub mod thermal;
 pub mod topology;
 mod traffic;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod units;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod validation;
 mod verdict;
 

@@ -13,10 +13,9 @@
 //! cargo run --release --example circuit_splitter
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -86,7 +85,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .or(Stop::time(Duration::from_secs(60)))
     };
     // the closed form, to the 9 decimals printed
-    let exact = (2.0 * TARGET.sqrt().asin() * 1e9).round() / 1e9;
+    let exact = (2.0 * portable::asin(TARGET.sqrt()) * 1e9).round() / 1e9;
     let (theta_tolerance, power_tolerance, rate) = (1e-6, 1e-9, 0.02);
     let mut setup = common::Setup::new();
     setup.circuit(&circuit, circuit.values());

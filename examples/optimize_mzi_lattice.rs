@@ -30,10 +30,9 @@
 //! cargo run --release --example optimize_mzi_lattice
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{PI, TAU};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -93,7 +92,7 @@ fn target(w: f64) -> f64 {
     // genoxide's portable sine and cosine: the same bits, and the same optimizer paths, on every
     // system
     let (s, c) = math::sin_cos(w / 2.0);
-    c.powi(4) * (1.0 + 2.0 * s * s)
+    portable::powi(c, 4) * (1.0 + 2.0 * s * s)
 }
 
 /// The phases across ΔL.
@@ -184,8 +183,8 @@ impl Lattice {
             };
             overlap += factor(w).conj() * s[(3, 0)];
         }
-        let phase = if overlap.norm() > 0.0 {
-            overlap / overlap.norm()
+        let phase = if portable::complex::abs(overlap) > 0.0 {
+            overlap / portable::complex::abs(overlap)
         } else {
             c64::new(1.0, 0.0)
         };
@@ -226,9 +225,9 @@ fn factor(w: f64) -> c64 {
 /// Table I's design in x: power couplings sin²θ and the phases.
 fn table() -> [f64; 5] {
     [
-        (PI / 12.0).sin().powi(2),
-        (PI / 3.0).sin().powi(2),
-        (PI / 4.0).sin().powi(2),
+        portable::powi(portable::sin(PI / 12.0), 2),
+        portable::powi(portable::sin(PI / 3.0), 2),
+        portable::powi(portable::sin(PI / 4.0), 2),
         PI,
         0.0,
     ]
@@ -236,7 +235,7 @@ fn table() -> [f64; 5] {
 
 /// θ/π of a power coupling.
 fn theta(kappa2: f64) -> f64 {
-    kappa2.clamp(0.0, 1.0).sqrt().asin() / PI
+    portable::asin(kappa2.clamp(0.0, 1.0).sqrt()) / PI
 }
 
 /// A phase wrapped into (−π, π].
@@ -472,7 +471,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         for (k, kappa) in [0.067, 0.75, 0.5].iter().enumerate() {
             checks.compare(
                 &format!("power coupling {}", k + 1),
-                (d[k] * PI).sin().powi(2),
+                portable::powi(portable::sin(d[k] * PI), 2),
                 *kappa,
                 KAPPA_TOLERANCE,
             );

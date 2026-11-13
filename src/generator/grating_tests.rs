@@ -1,5 +1,6 @@
 //! Gratings, photonic crystals and the edge coupler.
 
+use crate::portable;
 use std::f64::consts::PI;
 
 use super::checks::{self, drawn};
@@ -31,7 +32,7 @@ fn an_apodized_grating_follows_its_expression_and_a_sampled_one_its_bursts() {
     for t in teeth.elements() {
         let b = t.shape.bounds();
         let x = 0.5 * (b.min.x + b.max.x).to_um();
-        let want = 0.02 * (-((x - 3.1) / 1.0).powi(2)).exp();
+        let want = 0.02 * portable::exp(-portable::powi((x - 3.1) / 1.0, 2));
         assert!(((b.max.y - b.min.y).to_um() - want).abs() < 1e-15);
         // on the core: its inner edge at the core's
         let inner = b.min.y.to_um().abs().min(b.max.y.to_um().abs());

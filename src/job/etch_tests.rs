@@ -1,6 +1,7 @@
 //! Custom stacks, partial etches and sidewalls in jobs: checked, drawn and solved.
 
 use super::*;
+use crate::portable;
 use crate::run::replay;
 
 /// A rib on SOI along x: a custom stack of the catalogue's materials, the rib etched `etch`.
@@ -102,7 +103,7 @@ fn a_rib_on_a_custom_stack_is_checked_drawn_and_solved() {
         ys.iter().copied().fold(f64::NEG_INFINITY, f64::max)
             - ys.iter().copied().fold(f64::INFINITY, f64::min)
     };
-    let run = 1.0 / 80f64.to_radians().tan();
+    let run = 1.0 / portable::tan(80f64.to_radians());
     assert!((width("Si") - (0.5 + 2.0 * 0.01875 * run)).abs() < 1e-9);
     assert!((width("Si 4") - (0.5 + 2.0 * 0.13125 * run)).abs() < 1e-9);
     assert!(!shapes.iter().any(|s| s.layer == "Si 5"));
@@ -263,7 +264,7 @@ side = "left""#,
         eps(0.0, 1.0),
         slab * slab
     );
-    let foot = 0.25 + 0.15 / 80f64.to_radians().tan();
+    let foot = 0.25 + 0.15 / portable::tan(80f64.to_radians());
     let mid = eps(0.0, 0.5 * (0.25 + foot));
     assert!(mid < film * film && mid > slab * slab);
 }

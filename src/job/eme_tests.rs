@@ -1,6 +1,7 @@
 //! The `"eme"` job ([`super::eme`]): what [`super::check`] refuses, and that a run's
 //! S-parameters are the library's on the same sections, to the bit.
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 use super::{Event, check, execute};
@@ -155,7 +156,7 @@ fn the_built_in_job_gives_the_numbers_its_comment_quotes() {
     let got = s_parameters(&events);
     let (ports, s) = &got[0];
     assert_eq!(ports, &["1 TE0", "2 TE0", "2 TE2"]);
-    let t = s[1][0][0].powi(2) + s[1][0][1].powi(2);
+    let t = portable::powi(s[1][0][0], 2) + portable::powi(s[1][0][1], 2);
     assert!((t - 0.99808).abs() < 5e-6, "{t}");
     let steps = events.iter().find_map(|e| match e {
         Event::SolveError { measure, .. } => Some(measure.clone()),
@@ -430,7 +431,7 @@ fn an_interpolated_sweep_is_within_its_estimate_of_the_solves() {
         assert_eq!(ports, theirs);
         for (row, other) in s.iter().zip(t) {
             for (a, b) in row.iter().zip(other) {
-                let d = (c64::new(a[0], a[1]) - c64::new(b[0], b[1])).norm();
+                let d = portable::complex::abs(c64::new(a[0], a[1]) - c64::new(b[0], b[1]));
                 assert!(d <= estimate, "{d:e} against {estimate:e}");
             }
         }
@@ -566,8 +567,8 @@ fn the_built_in_grating_gives_the_numbers_its_comment_quotes() {
                 wavelength_um, s, ..
             } => rows.push((
                 *wavelength_um,
-                s[1][0][0].powi(2) + s[1][0][1].powi(2),
-                s[0][0][0].powi(2) + s[0][0][1].powi(2),
+                portable::powi(s[1][0][0], 2) + portable::powi(s[1][0][1], 2),
+                portable::powi(s[0][0][0], 2) + portable::powi(s[0][0][1], 2),
             )),
             Event::SweepPoint {
                 effective_indices, ..
@@ -839,7 +840,9 @@ fn the_bend_job_follows_its_modes_at_every_pml_strength() {
                 .lines()
                 .iter()
                 .filter_map(|l| match serde_json::from_str(l).unwrap() {
-                    Event::SParameters { s, .. } => Some(s[1][0][0].powi(2) + s[1][0][1].powi(2)),
+                    Event::SParameters { s, .. } => {
+                        Some(portable::powi(s[1][0][0], 2) + portable::powi(s[1][0][1], 2))
+                    }
                     _ => None,
                 })
                 .collect();
@@ -867,7 +870,10 @@ fn the_built_in_bend_gives_the_numbers_its_comment_quotes() {
         .filter_map(|e| match e {
             Event::SParameters {
                 wavelength_um, s, ..
-            } => Some((*wavelength_um, s[1][0][0].powi(2) + s[1][0][1].powi(2))),
+            } => Some((
+                *wavelength_um,
+                portable::powi(s[1][0][0], 2) + portable::powi(s[1][0][1], 2),
+            )),
             _ => None,
         })
         .collect();

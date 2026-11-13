@@ -329,6 +329,7 @@ pub(crate) fn assert_estimates(path: &Path) -> Vec<(Precision, u8, Estimate, u64
 mod tests {
     use super::*;
     use crate::export::{Described, Meta, Npz};
+    use crate::portable;
 
     fn scratch(tag: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -352,10 +353,12 @@ mod tests {
         let field: Vec<num_complex::Complex64> = (0..nx * ny)
             .map(|k| {
                 let (i, j) = ((k % nx) as f64, (k / nx) as f64);
-                let envelope = (-((i - nx as f64 / 2.0).powi(2) + (j - ny as f64 / 3.0).powi(2))
-                    / (nx as f64 * 4.0))
-                    .exp();
-                num_complex::Complex64::from_polar(envelope, 0.31 * i + 0.17 * j)
+                let envelope = portable::exp(
+                    -(portable::powi(i - nx as f64 / 2.0, 2)
+                        + portable::powi(j - ny as f64 / 3.0, 2))
+                        / (nx as f64 * 4.0),
+                );
+                portable::complex::from_polar(envelope, 0.31 * i + 0.17 * j)
             })
             .collect();
         npz.complex_field("Ez", &[ny, nx], &field);

@@ -25,10 +25,9 @@
 //! cargo run --release --example bend_loss
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::Complex64 as c64;
@@ -174,7 +173,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         };
         for r in strip_radii {
             // x from the strip's centre, outward positive; a PML from 2.5 to 6 um
-            let pml = r * (OUTER / r).ln_1p() - r * (PML_FROM / r).ln_1p();
+            let pml = r * portable::ln_1p(OUTER / r) - r * portable::ln_1p(PML_FROM / r);
             let bent = CrossSection::bent(
                 r,
                 (

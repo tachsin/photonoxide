@@ -12,6 +12,7 @@
 //! committed report is out of date. The report shows values to six significant digits and the
 //! tolerance, not the raw error, so it reads the same on every platform.
 
+use crate::portable;
 use std::f64::consts::TAU;
 
 use num_complex::Complex64;
@@ -2405,7 +2406,7 @@ fn circuit_mzi() -> Outcome {
             let t = |l| guide.transmission(w.to_um(), l);
             for (q, p) in [(2, 0), (3, 0), (2, 1), (3, 1)] {
                 let exact = ideal::mzi_closed_form(t(100.0), t(120.0), kappa2, q - 2, p);
-                worst = worst.max((s[(q, p)] - exact).norm());
+                worst = worst.max(portable::complex::abs(s[(q, p)] - exact));
             }
         }
     }
@@ -2429,10 +2430,12 @@ fn circuit_ring_all_pass() -> Outcome {
         let r = (1.0 - kappa2).sqrt();
         for w in ideal::sweep() {
             let t = guide.transmission(w.to_um(), RING_LENGTH);
-            let (a, phi) = (t.norm(), t.arg());
+            let (a, phi) = (portable::complex::abs(t), portable::complex::arg(t));
             let s = circuit.s_matrix(w).expect("a solvable netlist");
             worst = worst
-                .max((s[(1, 0)] - ideal::bogaerts_eq1(r, a, phi)).norm())
+                .max(portable::complex::abs(
+                    s[(1, 0)] - ideal::bogaerts_eq1(r, a, phi),
+                ))
                 .max((s.power(1, 0) - ideal::bogaerts_eq2(r, a, phi)).abs());
         }
     }
@@ -2453,7 +2456,7 @@ fn circuit_ring_add_drop() -> Outcome {
     let mut worst: f64 = 0.0;
     for w in ideal::sweep() {
         let t = guide.transmission(w.to_um(), RING_LENGTH);
-        let (a, phi) = (t.norm(), t.arg());
+        let (a, phi) = (portable::complex::abs(t), portable::complex::arg(t));
         let s = circuit.s_matrix(w).expect("a solvable netlist");
         worst = worst
             .max((s.power(1, 0) - ideal::bogaerts_eq5(r1, r2, a, phi)).abs())
@@ -2633,7 +2636,7 @@ fn fdfd3d_straight_strip() -> Outcome {
 
 fn fdfd3d_reciprocity() -> Outcome {
     let s = crate::fdfd::port_checks3d::width_step();
-    let asymmetry = (s[1][0] - s[0][1]).norm() / s[1][0].norm();
+    let asymmetry = portable::complex::abs(s[1][0] - s[0][1]) / portable::complex::abs(s[1][0]);
     Outcome {
         measured: asymmetry,
         expected: 0.0,
@@ -3150,7 +3153,7 @@ fn fdtd_monitor_guides() -> Outcome {
             s.fdtd
                 .iter()
                 .zip(&s.fdfd)
-                .map(|(a, b)| (a - b).norm())
+                .map(|(a, b)| portable::complex::abs(a - b))
                 .fold(0.0f64, f64::max)
         })
         .fold(0.0f64, f64::max);
@@ -3225,7 +3228,7 @@ fn fdtd_ring_order() -> Outcome {
     let measured = coarse
         .iter()
         .zip(&fine)
-        .flat_map(|(c, f)| [(c.0 / f.0).log2(), (c.1 / f.1).log2()])
+        .flat_map(|(c, f)| [portable::log2(c.0 / f.0), portable::log2(c.1 / f.1)])
         .fold(f64::INFINITY, f64::min);
     let measured = if measured.is_finite() { measured } else { 0.0 };
     Outcome {
@@ -3282,7 +3285,7 @@ fn fdtd_fdfd_band_3d_bend() -> Outcome {
 
 fn fdtd_fdfd_smoothed() -> Outcome {
     use crate::fdtd::agreement_checks::smoothed_bend_2d;
-    let measured = (smoothed_bend_2d(0.05) / smoothed_bend_2d(0.025)).log2();
+    let measured = portable::log2(smoothed_bend_2d(0.05) / smoothed_bend_2d(0.025));
     Outcome {
         measured,
         expected: 1.0,
@@ -3321,7 +3324,7 @@ fn fdtd_slab_resonance() -> Outcome {
         .par_iter()
         .map(|&h| slab_resonance(h))
         .collect();
-    let order = |a: f64, b: f64| (a / b).log2();
+    let order = |a: f64, b: f64| portable::log2(a / b);
     let measured = order(errors[1].0, errors[2].0).min(order(errors[1].1, errors[2].1));
     Outcome {
         measured,
@@ -3414,7 +3417,7 @@ fn oblique_order(scheme: crate::fdtd::smoothing::checks::Scheme) -> f64 {
         || crate::fdtd::smoothing::checks::oblique(scheme, 64),
         || crate::fdtd::smoothing::checks::oblique(scheme, 128),
     );
-    (coarse / fine).abs().log2()
+    portable::log2((coarse / fine).abs())
 }
 
 fn fdtd_smoothing_triplets_order() -> Outcome {
@@ -3567,12 +3570,12 @@ fn fdtd_smoothing_crystal_order() -> Outcome {
         let sum: f64 = bands
             .iter()
             .zip(ELLIPSOID_BANDS)
-            .map(|(f, r)| ((f - r) / r).powi(2))
+            .map(|(f, r)| portable::powi((f - r) / r, 2))
             .sum();
         (sum / ELLIPSOID_BANDS.len() as f64).sqrt()
     };
     let (coarse, fine) = rayon::join(|| rms(32), || rms(48));
-    let measured = (coarse / fine).ln() / 1.5f64.ln();
+    let measured = portable::ln(coarse / fine) / portable::ln(1.5f64);
     Outcome {
         measured,
         expected: 2.0,
@@ -3747,7 +3750,7 @@ fn fdfd3d_block_qmr_convergence() -> Outcome {
     // 1e-10 on the three systems (#641): the slope is 1 within log10(5)/6 = 0.12 on any of
     // them, 1.00 on Linux, 0.98 on Windows and 0.93 on macOS, which one decimal rounded to the
     // nearest would show as two departures
-    let slope = (errors[0] / errors[1]).log10() / 6.0;
+    let slope = portable::log10(errors[0] / errors[1]) / 6.0;
     let departure = ((slope - 1.0).abs() * 10.0).ceil() / 10.0;
     Outcome {
         measured: departure,
@@ -4000,7 +4003,10 @@ fn fdfd3d_recycle_parks_table() -> Outcome {
     let (lo, hi) = shown
         .iter()
         .fold((f64::INFINITY, 0.0f64), |(l, u), &d| (l.min(d), u.max(d)));
-    note_numerical(10f64.powf((hi - lo).max(f64::MIN_POSITIVE).log10().ceil()));
+    note_numerical(portable::powf(
+        10f64,
+        portable::log10((hi - lo).max(f64::MIN_POSITIVE)).ceil(),
+    ));
     Outcome {
         measured: departure,
         expected: 0.0,
@@ -4251,7 +4257,7 @@ fn fdfd_reciprocity() -> Outcome {
         .into_iter()
         .map(|p| {
             let (s, _, _) = step(p);
-            (s[1][0] - s[0][1]).norm() / s[1][0].norm()
+            portable::complex::abs(s[1][0] - s[0][1]) / portable::complex::abs(s[1][0])
         })
         .fold(0.0, f64::max);
     Outcome {
@@ -4272,18 +4278,18 @@ fn fdfd_reciprocity() -> Outcome {
 fn fdfd_step_reflection_te() -> Outcome {
     let runs = [0.01, 0.005, 0.0025].map(|h| {
         let (s, n1, n2) = crate::fdfd::checks::step_on(crate::fdfd::Polarization::Ez, h);
-        (s[0][0].norm_sqr(), ((n1 - n2) / (n1 + n2)).powi(2))
+        (s[0][0].norm_sqr(), portable::powi((n1 - n2) / (n1 + n2), 2))
     });
     let d = runs.map(|(r, fresnel)| r - fresnel);
     let (d1, d2) = ((d[1] - d[0]).abs(), (d[2] - d[1]).abs());
     // the observed order, or second, the scheme's, where the changes don't say
-    let order = (d1 / d2).log2();
+    let order = portable::log2(d1 / d2);
     let order = if order.is_finite() && order > 0.5 {
         order
     } else {
         2.0
     };
-    note_numerical(d2 / (2f64.powf(order) - 1.0));
+    note_numerical(d2 / (portable::powf(2f64, order) - 1.0));
     let (measured, expected) = runs[2];
     Outcome {
         measured,
@@ -4376,15 +4382,15 @@ fn amplitude_convention() -> Outcome {
     let mut sum = Complex64::new(0.0, 0.0);
     for i in 0..n {
         let t = (i as f64 + 0.5) * dt;
-        let s = (a * Complex64::new(0.0, -w * t).exp()).re;
-        sum += s * Complex64::new(0.0, w * t).exp() * dt;
+        let s = (a * portable::complex::exp(Complex64::new(0.0, -w * t))).re;
+        sum += s * portable::complex::exp(Complex64::new(0.0, w * t)) * dt;
     }
     let got = sum * (2.0 / t_end);
     Outcome {
-        measured: got.norm(),
-        expected: a.norm(),
+        measured: portable::complex::abs(got),
+        expected: portable::complex::abs(a),
         tolerance: 1e-9,
-        error: (got - a).norm(),
+        error: portable::complex::abs(got - a),
     }
 }
 
@@ -4392,9 +4398,10 @@ fn lossy_attenuation() -> Outcome {
     let n = refractive_index(Complex64::new(12.0, 0.5));
     let lam = Wavelength::um(1.0).map_or(1.0, |l| l.to_um());
     let k0 = TAU / lam;
-    let field = |x: f64| (Complex64::i() * n * k0 * x).exp().norm();
+    let field =
+        |x: f64| portable::complex::abs(portable::complex::exp(Complex64::i() * n * k0 * x));
     let measured = field(lam) / field(0.0);
-    let expected = (-TAU * n.im).exp();
+    let expected = portable::exp(-TAU * n.im);
     Outcome {
         measured,
         expected,
@@ -4743,13 +4750,13 @@ fn strip_group_index_book() -> Outcome {
     let n = [(84, 75), (168, 150), (336, 300)].map(|(nx, ny)| strip_group_index(nx, ny));
     let (d1, d2) = ((n[1] - n[0]).abs(), (n[2] - n[1]).abs());
     // the observed order, or first where the changes don't say
-    let order = (d1 / d2).log2();
+    let order = portable::log2(d1 / d2);
     let order = if order.is_finite() && order > 0.5 {
         order
     } else {
         1.0
     };
-    note_numerical(d2 / (2f64.powf(order) - 1.0));
+    note_numerical(d2 / (portable::powf(2f64, order) - 1.0));
     Outcome {
         measured: n[2],
         expected: 4.18,
@@ -4866,13 +4873,15 @@ fn multilayer_fresnel() -> Outcome {
             let mut worst: f64 = 0.0;
             for deg in [0.0, 20.0, 45.0, 70.0_f64] {
                 let t1 = deg.to_radians();
-                let t2 = (n1 * t1.sin() / n2).asin();
-                let (c1, c2) = (t1.cos(), t2.cos());
+                let t2 = portable::asin(n1 * portable::sin(t1) / n2);
+                let (c1, c2) = (portable::cos(t1), portable::cos(t2));
                 let rs = (n1 * c1 - n2 * c2) / (n1 * c1 + n2 * c2);
                 let rp = (n2 * c1 - n1 * c2) / (n2 * c1 + n1 * c2);
                 let te = stack.reflection(Polarization::Te, lam, t1)?;
                 let tm = stack.reflection(Polarization::Tm, lam, t1)?;
-                worst = worst.max((te.r - rs).norm()).max((tm.r - rp).norm());
+                worst = worst
+                    .max(portable::complex::abs(te.r - rs))
+                    .max(portable::complex::abs(tm.r - rp));
             }
             Ok(worst)
         })
@@ -4894,8 +4903,8 @@ fn multilayer_bragg() -> Outcome {
         films.push((one(nh), Length::um(0.55 / (4.0 * nh))));
         films.push((one(nl), Length::um(0.55 / (4.0 * nl))));
     }
-    let q = ns / n0 * (nh / nl).powi(2 * pairs);
-    let expected = ((1.0 - q) / (1.0 + q)).powi(2);
+    let q = ns / n0 * portable::powi(nh / nl, 2 * pairs);
+    let expected = portable::powi((1.0 - q) / (1.0 + q), 2);
     let measured = Multilayer::new(one(n0), &films, one(ns))
         .and_then(|stack| stack.reflection(Polarization::Te, Wavelength::um(0.55)?, 0.0))
         .map_or(f64::NAN, |r| r.reflectance);
@@ -4967,8 +4976,8 @@ fn multilayer_quarter_wave_stationary() -> Outcome {
             (Complex64::new(n, 0.0), Length::um(0.6 / (4.0 * n)))
         })
         .collect();
-    let q = 1.8 * (1.8f64 / 1.4).powi(20);
-    let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+    let q = 1.8 * portable::powi(1.8f64 / 1.4, 20);
+    let closed = portable::powi((1.0 - q) / (1.0 + q), 2);
     let (largest, r) = Multilayer::new(Complex64::new(1.0, 0.0), &films, Complex64::new(1.8, 0.0))
         .and_then(|s| s.reflection_derivatives(Polarization::Te, Wavelength::um(0.6)?, 0.0))
         .map_or((f64::NAN, f64::NAN), |d| {
@@ -5223,13 +5232,13 @@ fn marcatili_vector() -> Outcome {
     let [(v1, _), (v2, _), (v, m)] =
         [40.0, 80.0, 160.0].map(|d| against_vector_on(3.0, Family::Ex, d));
     let (d1, d2) = ((v2 - v1).abs(), (v - v2).abs());
-    let order = (d1 / d2).log2();
+    let order = portable::log2(d1 / d2);
     let order = if order.is_finite() && order > 0.5 {
         order
     } else {
         1.0
     };
-    note_numerical(d2 / (2f64.powf(order) - 1.0));
+    note_numerical(d2 / (portable::powf(2f64, order) - 1.0));
     Outcome {
         measured: (v - m).abs(),
         expected: 0.0,
@@ -5297,7 +5306,7 @@ fn hadley_uniform_order() -> Outcome {
         let (found, exact) = hadley_box(n);
         (found - exact).abs()
     });
-    let order = (errors[0] / errors[1]).log2();
+    let order = portable::log2(errors[0] / errors[1]);
     Outcome {
         // two decimals: the report reads the same on every platform
         measured: (order * 100.0).round() / 100.0,
@@ -5329,7 +5338,7 @@ fn hadley_interface_order() -> Outcome {
         let (found, exact) = hadley_slab(n, false);
         (found - exact).abs()
     });
-    let order = (errors[0] / errors[1]).log2();
+    let order = portable::log2(errors[0] / errors[1]);
     Outcome {
         // two decimals: the report reads the same on every platform
         measured: (order * 100.0).round() / 100.0,
@@ -5390,7 +5399,7 @@ fn hadley_corners_order() -> Outcome {
         (found - exact).abs()
     });
     // two halvings of the spacing
-    let order = (errors[0] / errors[1]).log2() / 2.0;
+    let order = portable::log2(errors[0] / errors[1]) / 2.0;
     Outcome {
         // two decimals: the report reads the same on every platform
         measured: (order * 100.0).round() / 100.0,
@@ -5446,7 +5455,7 @@ fn sig(v: f64) -> String {
     if v.abs() < 1e-300 {
         return "0".into();
     }
-    let digits = 6 - 1 - v.abs().log10().floor() as i32;
+    let digits = 6 - 1 - portable::log10(v.abs()).floor() as i32;
     if (-4..6).contains(&(5 - digits)) {
         format!("{:.*}", digits.max(0) as usize, v)
     } else {
@@ -5525,7 +5534,7 @@ fn sig2(v: f64) -> String {
     if v == 0.0 || !v.is_finite() {
         return v.to_string();
     }
-    let digits = 1 - v.abs().log10().floor() as i32;
+    let digits = 1 - portable::log10(v.abs()).floor() as i32;
     if (-3..6).contains(&-digits) {
         format!("{:.*}", digits.max(0) as usize, v)
     } else {
@@ -5670,7 +5679,7 @@ fn fdtd_mie_terms() -> Outcome {
         (50.0, c64::new(1.33, 0.0)),
         (200.0, c64::new(1.5, 0.05)),
     ] {
-        let terms = (size + 4.0 * f64::cbrt(size) + 10.0) as usize;
+        let terms = (size + 4.0 * portable::cbrt(size) + 10.0) as usize;
         measured = measured.max(truncation_error(size, index, terms));
         short = short.min(truncation_error(size, index, (size / 2.0) as usize));
     }
@@ -5693,7 +5702,7 @@ fn fdtd_mie_sphere() -> Outcome {
     let material = Material::Dielectric(4.0, Average::Subpixel);
     let coarse = sphere_run(8, &material, SPHERE_TIME);
     let fine = sphere_run(16, &material, SPHERE_TIME);
-    let measured = (coarse.mean_error(false) / fine.mean_error(false)).log2();
+    let measured = portable::log2(coarse.mean_error(false) / fine.mean_error(false));
     Outcome {
         measured,
         expected: 2.0,
@@ -5820,7 +5829,7 @@ fn fdtd_adjoint_slab_order() -> Outcome {
         .par_iter()
         .map(|&n| ((slab(1.0 / n).1 - exact) / exact).abs())
         .collect();
-    let measured = (errors[0] / errors[1]).log2();
+    let measured = portable::log2(errors[0] / errors[1]);
     Outcome {
         measured,
         expected: 2.0,

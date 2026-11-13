@@ -16,6 +16,7 @@
 //! The pieces over sloped walls overlap the ridges they cover, as a film around the shapes does in
 //! the 3D view; every other piece is exact.
 
+use crate::portable;
 use serde::Serialize;
 
 use crate::fabrication::Made;
@@ -258,7 +259,7 @@ pub(super) fn mitre(ring: &[[f64; 2]], d: f64) -> Ring {
     let n = ring.len();
     let normal = |p: [f64; 2], q: [f64; 2]| {
         let (ex, ey) = (q[0] - p[0], q[1] - p[1]);
-        let l = ex.hypot(ey).max(f64::MIN_POSITIVE);
+        let l = portable::hypot(ex, ey).max(f64::MIN_POSITIVE);
         [ey / l, -ex / l]
     };
     (0..n)
@@ -408,7 +409,7 @@ pub(super) fn fill(p: &Paint, open: &[Open], area: &Area) -> Vec<FrameFilm> {
 pub(super) fn reach(o: &Open, t: f64, n: f64) -> f64 {
     match o.sidewall {
         Some(s) if o.ridge && s < std::f64::consts::FRAC_PI_2 - 1e-12 => {
-            let a = |z: f64| (o.z[1] - z) / s.tan() + n / s.sin();
+            let a = |z: f64| (o.z[1] - z) / portable::tan(s) + n / portable::sin(s);
             a(o.floor + t).max(0.0)
         }
         _ if o.ridge => n,
@@ -465,10 +466,10 @@ pub(super) fn conformal(
     // outline mitred out by a(z) = (z_t − z) / tan θ + n / sin θ (the wall's own run, and the
     // film's normal thickness n across it), and by no less than nothing over the top
     out.extend(prism(p, &w, zf, zf + t));
-    let a = |z: f64| (zt - z) / sidewall.tan() + n / sidewall.sin();
+    let a = |z: f64| (zt - z) / portable::tan(sidewall) + n / portable::sin(sidewall);
     let (z0, z1) = (zf + t, zt + t);
     // where a reaches 0: above it the film over the top is the ridge's own outline
-    let zk = zt + n / sidewall.cos();
+    let zk = zt + n / portable::cos(sidewall);
     let mut segments: Vec<(f64, f64, f64, f64)> = Vec::new();
     if zk <= z0 {
         segments.push((z0, z1, 0.0, 0.0));

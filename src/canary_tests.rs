@@ -7,6 +7,7 @@
 
 pub(crate) mod golden;
 
+use crate::portable;
 use std::sync::Arc;
 
 use faer::Mat;
@@ -29,7 +30,7 @@ const EPS: f64 = f64::EPSILON;
 /// Returns the bounds on J and on Y.
 fn bessel_bound(m: u32, z: c64, j: c64) -> (f64, f64) {
     let u = EPS / 2.0;
-    let h = z.norm() / 2.0;
+    let h = portable::complex::abs(z) / 2.0;
     let (m_f, euler) = (f64::from(m), std::f64::consts::EULER_GAMMA);
     let mut t = (1..=m).fold(1.0, |p, i| p * h / f64::from(i));
     let mut psi_k = euler;
@@ -58,7 +59,7 @@ fn bessel_bound(m: u32, z: c64, j: c64) -> (f64, f64) {
     // the finite sum: (m − i − 1)!/i! (z/2)^(2i − m), each built from the first by 4u steps
     let (mut finite, mut err_f) = (0.0, 0.0);
     if m > 0 {
-        let mut f = (1..m).map(f64::from).product::<f64>() / h.powi(m as i32);
+        let mut f = (1..m).map(f64::from).product::<f64>() / portable::powi(h, m as i32);
         for i in 0..m {
             finite += f;
             err_f += u * f * (5.0 * m_f + 4.0 + 4.0 * f64::from(i));
@@ -67,11 +68,12 @@ fn bessel_bound(m: u32, z: c64, j: c64) -> (f64, f64) {
             }
         }
     }
-    let log = (z / 2.0).ln().norm();
+    let log = portable::complex::abs(portable::complex::ln(z / 2.0));
     let d_log = 2.0 * u * (1.0 + log);
-    let parts = finite + 2.0 * log * j.norm() + mag_w;
-    let err_y = (err_f + 2.0 * (log * err_j + j.norm() * d_log) + err_w + 8.0 * u * parts)
-        / std::f64::consts::PI;
+    let parts = finite + 2.0 * log * portable::complex::abs(j) + mag_w;
+    let err_y =
+        (err_f + 2.0 * (log * err_j + portable::complex::abs(j) * d_log) + err_w + 8.0 * u * parts)
+            / std::f64::consts::PI;
     (err_j, err_y)
 }
 
@@ -101,14 +103,17 @@ fn canary_bessel_and_hankel() {
                 let (err_j, err_y) = bessel_bound(m, z, j);
                 let (ours, bound) = if name.starts_with("hankel") {
                     let hankel = j + c64::new(0.0, 1.0) * y;
-                    (hankel, err_j + err_y + u * (j.norm() + y.norm()))
+                    (
+                        hankel,
+                        err_j + err_y + u * (portable::complex::abs(j) + portable::complex::abs(y)),
+                    )
                 } else if name.starts_with("bessel_y") {
                     (y, err_y)
                 } else {
                     (j, err_j)
                 };
                 let allowed = bound + 0.5 * (ulp(want.re) + ulp(want.im));
-                let off = (ours - want).norm();
+                let off = portable::complex::abs(ours - want);
                 worst = worst.max(off / allowed);
                 if off > allowed {
                     failures.push(format!(
@@ -150,7 +155,9 @@ fn canary_exponential_integral() {
                     break;
                 }
             }
-            u * (weighted + n * sum) + ulp(x.ln()) + 2.0 * u * (euler + x.ln().abs() + sum)
+            u * (weighted + n * sum)
+                + ulp(portable::ln(x))
+                + 2.0 * u * (euler + portable::ln(x).abs() + sum)
         } else {
             u * (7.0 * 200.0 + 2.0) * g.r.abs()
         };
@@ -194,7 +201,9 @@ fn stencil() -> (usize, Vec<(usize, usize, c64)>) {
 
 /// ‖·‖∞ of a complex vector or a matrix's rows.
 fn inf_norm(v: &[c64]) -> f64 {
-    v.iter().map(|z| z.norm()).fold(0.0, f64::max)
+    v.iter()
+        .map(|z| portable::complex::abs(*z))
+        .fold(0.0, f64::max)
 }
 
 /// The library's sparse LU (multifrontal, its fronts on faer's kernels) against faer's dense LU
@@ -227,7 +236,11 @@ fn canary_sparse_lu_against_dense() {
     let xd: Vec<c64> = (0..n).map(|i| xd_m[(i, 0)]).collect();
 
     let a_inf = (0..n)
-        .map(|r| (0..n).map(|c| dense[(r, c)].norm()).sum::<f64>())
+        .map(|r| {
+            (0..n)
+                .map(|c| portable::complex::abs(dense[(r, c)]))
+                .sum::<f64>()
+        })
         .fold(0.0, f64::max);
     let eta = |x: &[c64]| {
         let mut ax = vec![c64::new(0.0, 0.0); n];
@@ -250,7 +263,11 @@ fn canary_sparse_lu_against_dense() {
 
     let inv = dlu.inverse();
     let inv_inf = (0..n)
-        .map(|r| (0..n).map(|c| inv[(r, c)].norm()).sum::<f64>())
+        .map(|r| {
+            (0..n)
+                .map(|c| portable::complex::abs(inv[(r, c)]))
+                .sum::<f64>()
+        })
         .fold(0.0, f64::max);
     let kappa = a_inf * inv_inf;
     let diff: Vec<c64> = xs.iter().zip(&xd).map(|(s, d)| s - d).collect();
@@ -286,8 +303,9 @@ impl crate::backend::krylov::Preconditioner for Identity {
 /// round the circle |λ − 2| = 1 (`portable`'s sin and cos), where its residual halves at each
 /// step; QMR isn't, as its non-Hermitian Lanczos process meets near-breakdowns there (wᵀv
 /// small against ‖w‖‖v‖) that cost it two steps in finite precision (22 here on Windows).
-/// Both solvers' rotations take `Complex64::norm`, the system's hypot: their iterates aren't
-/// the same bits on every system, which is why a count is checked and not a hash.
+/// Both solvers' rotations took `Complex64::norm`, the system's hypot, until #822 (they take
+/// `portable`'s now): their iterates weren't the same bits on every system, which is why a count
+/// is checked and not a hash.
 #[test]
 fn canary_qmr_and_gmres_iterations_are_the_closed_form() {
     use crate::backend::krylov::{Sparse, Stopping, gmres_preconditioned, qmr};
@@ -366,7 +384,9 @@ fn canary_qmr_and_gmres_iterations_are_the_closed_form() {
 #[test]
 fn canary_least_squares_and_its_jacobi_fallback() {
     let (m, n) = (30usize, 8usize);
-    let a = Mat::from_fn(m, n, |i, j| (i as f64 / (m - 1) as f64).powi(j as i32));
+    let a = Mat::from_fn(m, n, |i, j| {
+        portable::powi(i as f64 / (m - 1) as f64, j as i32)
+    });
     let x_exact: Vec<f64> = (0..n).map(|j| (j as f64) - 3.5).collect();
     let b = Mat::from_fn(m, 1, |i, _| {
         (0..n).map(|j| a[(i, j)] * x_exact[j]).sum::<f64>()

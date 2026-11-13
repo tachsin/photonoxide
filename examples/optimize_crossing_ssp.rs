@@ -43,10 +43,9 @@
 //! cargo run --release --example optimize_crossing_ssp -- --full --write  # and record the design
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 use std::sync::Mutex;
 
@@ -269,7 +268,7 @@ fn round12(x: f64) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
-    let scale = 10f64.powi(11 - x.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, 11 - portable::log10(x.abs()).floor() as i32);
     if !scale.is_finite() {
         // below about 1e-297 the scale overflows: such a value is kept as it is
         return x;

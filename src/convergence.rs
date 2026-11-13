@@ -39,6 +39,7 @@
 //! extrapolation); P. J. Roache, Annu. Rev. Fluid Mech. 29, 123 (1997),
 //! doi:10.1146/annurev.fluid.29.1.123 (grid convergence studies and their estimates).
 
+use crate::portable;
 use num_complex::Complex64;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -53,7 +54,7 @@ pub(crate) mod checks;
 /// Meaningful once the three are in the asymptotic range (the ratio steady).
 pub fn richardson(values: [Complex64; 3]) -> (Complex64, f64) {
     let ratio = (values[0].re - values[1].re) / (values[1].re - values[2].re);
-    let order = ratio.log2();
+    let order = portable::log2(ratio);
     (values[2] - (values[1] - values[2]) / (ratio - 1.0), order)
 }
 
@@ -209,11 +210,11 @@ impl Study {
                 let three = [v[n - 3], v[n - 2], v[n - 1]].map(|x| Complex64::new(x, 0.0));
                 let (limit, _) = richardson(three);
                 c.limit = Some(limit.re);
-                c.order = Some(q.ln() / r.ln());
+                c.order = Some(portable::ln(q) / portable::ln(r));
                 error = (value - limit.re).abs();
                 c.reason = format!(
                     "three grids converging at order {:.2}: Richardson's estimate {error:.3e}",
-                    q.ln() / r.ln()
+                    portable::ln(q) / portable::ln(r)
                 );
             } else if q < 0.0 {
                 error = d1.abs().max(d2.abs());
@@ -417,10 +418,10 @@ impl Refined {
         self.observed_order = (n >= 3)
             .then(|| (v[n - 2] - v[n - 3]) / d2)
             .filter(|q| q.is_finite() && *q > 1.0)
-            .map(|q| q.ln() / (h[n - 2] / h[n - 1]).ln());
+            .map(|q| portable::ln(q) / portable::ln(h[n - 2] / h[n - 1]));
         match self.order {
             Some(p) => {
-                let f = (h[n - 2] / h[n - 1]).powf(p) - 1.0;
+                let f = portable::powf(h[n - 2] / h[n - 1], p) - 1.0;
                 let limit = |k: usize| v[k] + (v[k] - v[k - 1]) / f;
                 self.value = limit(n - 1);
                 self.error = Some(if n >= 3 {
@@ -757,6 +758,7 @@ impl ToTolerance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable;
 
     fn study(steps: &[f64], values: &[f64]) -> Study {
         steps
@@ -821,7 +823,7 @@ mod tests {
     /// grid recorded.
     #[test]
     fn a_second_order_quantity_is_driven_to_its_tolerance() {
-        let f = |h: f64| 1.5 + 3.0 * h * h + 40.0 * h.powi(4);
+        let f = |h: f64| 1.5 + 3.0 * h * h + 40.0 * portable::powi(h, 4);
         let d = ToTolerance::new("n", Tolerance::Absolute(1e-4))
             .unwrap()
             .with_order(2.0)
@@ -887,7 +889,7 @@ mod tests {
             .unwrap()
             .with_budget(3)
             .unwrap()
-            .grids(0.04, |h| Ok(1e-3 * (0.04 / h).powi(2)))
+            .grids(0.04, |h| Ok(1e-3 * portable::powi(0.04 / h, 2)))
             .unwrap_err()
             .to_string();
         assert!(message.contains("don't shrink"), "{message}");
@@ -906,7 +908,9 @@ mod tests {
     #[test]
     fn an_expansion_is_driven_in_modes_and_steps() {
         let exact = 0.9;
-        let f = |m: usize, s: usize| exact + 2.0 / (m as f64).powi(3) - 0.5 / (s as f64).powi(2);
+        let f = |m: usize, s: usize| {
+            exact + 2.0 / portable::powi(m as f64, 3) - 0.5 / portable::powi(s as f64, 2)
+        };
         let mut solved = Vec::new();
         let r = ToTolerance::new("|S21|^2", Tolerance::Absolute(1e-5))
             .unwrap()

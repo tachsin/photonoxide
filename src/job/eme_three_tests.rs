@@ -6,6 +6,7 @@ use super::{Event, check, execute};
 use crate::device::Cut;
 use crate::eme::three_checks::{centred, strip};
 use crate::eme::{Eme3d, PlaneGrid, Section3d, Wall, Walls};
+use crate::portable;
 use crate::run::{Job, Run, Stop};
 use crate::units::{Length, Wavelength};
 
@@ -223,11 +224,14 @@ fn the_built_in_3d_job_is_the_validation_cases_taper_to_the_bit() {
     let got = s_parameters(&events(&job));
     let (ports, s) = &got[0];
     let n1 = first_end(ports);
-    let t = s[n1][0][0].powi(2) + s[n1][0][1].powi(2);
+    let t = portable::powi(s[n1][0][0], 2) + portable::powi(s[n1][0][1], 2);
     // eme/3d-taper-fdfd's |S21|^2, with every mode, as the job's comment quotes it
     let (r, case) = crate::eme::three_checks::taper_eme(728);
     assert_eq!(t, case);
-    assert_eq!(s[0][0][0].powi(2) + s[0][0][1].powi(2), r);
+    assert_eq!(
+        portable::powi(s[0][0][0], 2) + portable::powi(s[0][0][1], 2),
+        r
+    );
     assert!((t - 0.996238).abs() < 5e-7, "{t}");
 }
 
@@ -244,7 +248,7 @@ fn the_built_in_mmi_job_gives_the_number_its_comment_quotes() {
     let got = s_parameters(&events(&job));
     let (ports, s) = &got[0];
     let n1 = first_end(ports);
-    let t = s[n1][0][0].powi(2) + s[n1][0][1].powi(2);
+    let t = portable::powi(s[n1][0][0], 2) + portable::powi(s[n1][0][1], 2);
     assert!((t - TRANSMISSION).abs() < 5e-7, "{t} {ports:?}");
 }
 

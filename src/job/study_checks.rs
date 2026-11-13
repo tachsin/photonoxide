@@ -6,6 +6,7 @@
 use super::{Compute, Corner, Event, Study, SweepAxis, execute, study_from_device};
 use crate::circuit::Fidelity;
 use crate::device::{Spec, Values};
+use crate::portable;
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
@@ -189,10 +190,10 @@ fn corners_closed_form() -> Outcome {
             values[k]
         };
         let (length, loss) = (at("length"), at("loss"));
-        let want = 10f64.powf(-loss * length * 1e-4 / 10.0);
+        let want = portable::powf(10f64, -loss * length * 1e-4 / 10.0);
         let mut sum = 0.0;
         for m in s {
-            let t = m[1][0][0].powi(2) + m[1][0][1].powi(2);
+            let t = portable::powi(m[1][0][0], 2) + portable::powi(m[1][0][1], 2);
             worst = worst.max((t - want).abs() / want);
             sum += t;
         }
@@ -218,10 +219,10 @@ fn corners_closed_form() -> Outcome {
 /// The slope of a least-squares line through (`x`, log₁₀ `y`).
 fn log_slope(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len() as f64;
-    let ly: Vec<f64> = y.iter().map(|v| v.log10()).collect();
+    let ly: Vec<f64> = y.iter().map(|v| portable::log10(*v)).collect();
     let (mx, my) = (x.iter().sum::<f64>() / n, ly.iter().sum::<f64>() / n);
     let sxy: f64 = x.iter().zip(&ly).map(|(a, b)| (a - mx) * (b - my)).sum();
-    let sxx: f64 = x.iter().map(|a| (a - mx).powi(2)).sum();
+    let sxx: f64 = x.iter().map(|a| portable::powi(a - mx, 2)).sum();
     sxy / sxx
 }
 
@@ -290,7 +291,7 @@ fn coupler_grid() -> Outcome {
 
 /// `x` to `places` decimals: shown without the last bits of a platform's arithmetic.
 fn round(x: f64, places: i32) -> f64 {
-    let s = 10f64.powi(places);
+    let s = portable::powi(10f64, places);
     (x * s).round() / s
 }
 

@@ -31,10 +31,9 @@
 //! cargo run --release --example optimize_ring_pareto
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -155,13 +154,13 @@ impl Problem {
 /// Eq. 8's width, nm, for self-couplings with product p.
 fn fwhm(p: f64) -> f64 {
     let pa = p * amplitude();
-    (1.0 - pa) * resonance().powi(2) / (PI * GROUP_INDEX * length() * pa.sqrt()) * 1e3
+    (1.0 - pa) * portable::powi(resonance(), 2) / (PI * GROUP_INDEX * length() * pa.sqrt()) * 1e3
 }
 
 /// The front's drop at the product p: the symmetric ring's.
 fn front_drop(p: f64) -> f64 {
     let a = amplitude();
-    (1.0 - p).powi(2) * a / (1.0 - p * a).powi(2)
+    portable::powi(1.0 - p, 2) * a / portable::powi(1.0 - p * a, 2)
 }
 
 /// The product p whose width is `w` nm: FWHM falls with p, found by bisection.
@@ -281,7 +280,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     // the circuit's drop against Eq. 6 at a design
     let k: [f64; 2] = [0.05, 0.12];
     let (r1, r2) = ((1.0 - k[0]).sqrt(), (1.0 - k[1]).sqrt());
-    let eq6 = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / (1.0 - r1 * r2 * a).powi(2);
+    let eq6 = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / portable::powi(1.0 - r1 * r2 * a, 2);
     checks.against(
         "drop at resonance, κ² = 0.05, 0.12",
         problem.drop(k),
@@ -390,7 +389,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
 /// adjoint's gradient of the drop and Eq. 8's of the width.
 fn polish(problem: &Problem, k: [f64; 2], width: f64) -> [f64; 2] {
     let a = amplitude();
-    let scale = resonance().powi(2) / (PI * GROUP_INDEX * length()) * 1e3;
+    let scale = portable::powi(resonance(), 2) / (PI * GROUP_INDEX * length()) * 1e3;
     let lambda = [problem.resonance];
     let fitness = Constrained::differentiable(
         1,

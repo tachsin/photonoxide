@@ -24,6 +24,7 @@
 //! the S-parameters between the guided modes at the two ends (at each wavelength), and each
 //! convergence study.
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
@@ -332,7 +333,7 @@ impl Profile {
         match self {
             Profile::Linear => a + (b - a) * u,
             Profile::Parabolic => (a * a + (b * b - a * a) * u).sqrt(),
-            Profile::Exponential => a * (b / a).powf(u),
+            Profile::Exponential => a * portable::powf(b / a, u),
         }
     }
 }
@@ -1654,7 +1655,7 @@ struct Pen {
 impl Pen {
     /// The point `along` ahead and `y` across (to the left).
     fn place(&self, along: f64, y: f64) -> [f64; 2] {
-        let (s, c) = self.heading.sin_cos();
+        let (s, c) = portable::sin_cos(self.heading);
         [
             self.at[0] + along * c - y * s,
             self.at[1] + along * s + y * c,
@@ -1666,8 +1667,8 @@ impl Pen {
     fn arc(&self, radius: f64, angle: f64, y: f64) -> [f64; 2] {
         let centre = self.place(0.0, -radius);
         let turn = radius.signum() * angle;
-        let (s, c) = turn.sin_cos();
-        let (hs, hc) = self.heading.sin_cos();
+        let (s, c) = portable::sin_cos(turn);
+        let (hs, hc) = portable::sin_cos(self.heading);
         // n cos + t sin, with t the heading and n to its left
         let out = [-hs * c + hc * s, hc * c + hs * s];
         [

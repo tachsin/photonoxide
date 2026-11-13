@@ -23,6 +23,7 @@
 //! - the amplitude of a real signal s(t) at angular frequency ω is recovered with the kernel
 //!   e^(+iωt): `A = (2/T) ∫ s(t) e^(iωt) dt` over whole periods T.
 
+use crate::portable;
 use std::f64::consts::TAU;
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
@@ -276,7 +277,7 @@ impl fmt::Display for Frequency {
 ///
 /// For a real, negative ε (an ideal metal) n is purely imaginary, n = i√|ε|.
 pub fn refractive_index(permittivity: Complex64) -> Complex64 {
-    let n = permittivity.sqrt();
+    let n = portable::complex::sqrt(permittivity);
     if n.im < 0.0 { -n } else { n }
 }
 
@@ -288,6 +289,7 @@ pub fn permittivity(refractive_index: Complex64) -> Complex64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable;
 
     fn close(a: f64, b: f64, tol: f64) -> bool {
         (a - b).abs() <= tol * b.abs().max(1.0)
@@ -359,7 +361,8 @@ mod tests {
         assert!(close(permittivity(n).re, 12.0, 1e-14) && close(permittivity(n).im, 0.5, 1e-14));
         // a wave e^(i(n k0 x - w t)) decays towards +x
         let k0 = Wavelength::um(1.55).unwrap().wavenumber();
-        let at = |x: f64| (Complex64::i() * n * k0 * x).exp().norm();
+        let at =
+            |x: f64| portable::complex::abs(portable::complex::exp(Complex64::i() * n * k0 * x));
         assert!(at(1.0) < at(0.0));
     }
 
@@ -378,7 +381,9 @@ mod tests {
     fn a_forward_wave_has_a_phase_that_grows_with_x_and_falls_with_t() {
         // e^(i(kx - wt)): the convention every solver and monitor follows
         let (k, w) = (2.0, 3.0);
-        let phase = |x: f64, t: f64| Complex64::new(0.0, k * x - w * t).exp().arg();
+        let phase = |x: f64, t: f64| {
+            portable::complex::arg(portable::complex::exp(Complex64::new(0.0, k * x - w * t)))
+        };
         assert!(phase(0.1, 0.0) > phase(0.0, 0.0));
         assert!(phase(0.0, 0.1) < phase(0.0, 0.0));
     }

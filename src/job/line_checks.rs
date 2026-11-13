@@ -7,6 +7,7 @@
 
 use super::{Event, execute};
 use crate::electro::line::DB_PER_NEPER;
+use crate::portable;
 use crate::run::{Format, Job, Run, Stop};
 use crate::units::SPEED_OF_LIGHT;
 use crate::validation::{Case, Outcome, Tier};
@@ -109,7 +110,7 @@ fn law_loss() -> f64 {
         let v = values_of(&text);
         for f in frequencies {
             let job = named(&v, &format!("line at {f} GHz: dielectric loss"));
-            let law = |(t, f0, p): (f64, f64, f64)| t * (f / f0).powf(p);
+            let law = |(t, f0, p): (f64, f64, f64)| t * portable::powf(f / f0, p);
             let tan = (silicon * law(si) + oxide * law(ox)) / (oxide + silicon);
             let closed =
                 std::f64::consts::PI * f * 1e9 * n * tan / SPEED_OF_LIGHT * DB_PER_NEPER / 100.0;

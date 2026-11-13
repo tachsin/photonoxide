@@ -2,6 +2,7 @@
 //! calls them and the backends that choose them. Public at [`crate::backend::dense`], where
 //! the choice of kernels and the solver made from them are.
 
+use crate::portable;
 use faer::dyn_stack::{MemBuffer, MemStack};
 use faer::linalg::matmul::matmul;
 use faer::linalg::matmul::triangular::{BlockStructure, matmul as triangular};
@@ -403,7 +404,7 @@ impl Scalar for c64 {
     }
 
     fn modulus(self) -> f64 {
-        self.norm()
+        portable::complex::abs(self)
     }
 
     fn times(self, x: f64) -> c64 {
@@ -503,7 +504,7 @@ impl Scalar for c32 {
     }
 
     fn modulus(self) -> f64 {
-        f64::from(self.norm())
+        portable::complex::abs(c64::new(f64::from(self.re), f64::from(self.im)))
     }
 
     fn times(self, x: f64) -> c32 {

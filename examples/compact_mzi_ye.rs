@@ -23,10 +23,9 @@
 //! cargo run --release --example compact_mzi_ye
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -91,11 +90,11 @@ fn held_out(fit: &Spectrum, check: &Spectrum, poles: usize) -> photonoxide::Resu
         let m = model.s_matrix(*w, &[])?;
         for q in 0..4 {
             for p in 0..4 {
-                worst = worst.max((m[(q, p)] - s[(q, p)]).norm());
+                worst = worst.max(portable::complex::abs(m[(q, p)] - s[(q, p)]));
             }
         }
     }
-    Ok(20.0 * worst.log10())
+    Ok(20.0 * portable::log10(worst))
 }
 
 /// The fewest poles (pairs) whose model is below the target at the frequencies left out, and the

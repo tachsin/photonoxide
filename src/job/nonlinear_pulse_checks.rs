@@ -3,6 +3,7 @@
 //! its `nonlinear_pulse` events (self-phase modulation's broadening, the fundamental soliton,
 //! cross-phase modulation between two pulses that walk off, two-photon absorption).
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 use super::{Event, PulsePropagation, execute};
@@ -57,7 +58,7 @@ pub(super) fn pulses_of(text: &str) -> Vec<PulsePropagation> {
 /// A recorded pulse's field at the end over its field at the start, at sample j: the start's
 /// field is real and positive, so it is √(P_out/P_in) e^{iφ}.
 fn ratio(p: &PulsePropagation, j: usize) -> c64 {
-    c64::from_polar((p.power_out_w[j] / p.power_in_w[j]).sqrt(), p.phase_rad[j])
+    portable::complex::from_polar((p.power_out_w[j] / p.power_in_w[j]).sqrt(), p.phase_rad[j])
 }
 
 /// SPM alone of a Gaussian to φ_max = 4.5π (γ = 1 /(W·m), P₀ = 4.5π W, 1 m, one step, 1024
@@ -99,12 +100,12 @@ pub(super) fn soliton(steps: usize) -> f64 {
             50.0 * t0
         ),
     ))[0];
-    let phase = c64::new(0.0, 0.5 * z / dispersion_length(t0, beta2)).exp();
+    let phase = portable::complex::exp(c64::new(0.0, 0.5 * z / dispersion_length(t0, beta2)));
     let mut worst: f64 = 0.0;
     for (j, &t) in p.times_ps.iter().enumerate() {
-        let ours = c64::from_polar(p.power_out_w[j].sqrt(), p.phase_rad[j]);
-        let exact = phase * (p0.sqrt() / (t / t0).cosh());
-        worst = worst.max((ours - exact).norm());
+        let ours = portable::complex::from_polar(p.power_out_w[j].sqrt(), p.phase_rad[j]);
+        let exact = phase * (p0.sqrt() / portable::cosh(t / t0));
+        worst = worst.max(portable::complex::abs(ours - exact));
     }
     worst / p0.sqrt()
 }
@@ -132,7 +133,9 @@ pub(super) fn xpm() -> f64 {
             continue;
         }
         let phi = gaussian_phase(40.0, [1.0, 0.5], 1.0, 0.0, 5.0, 2.0, 1.0, t);
-        worst = worst.max((ratio(p, j) - c64::from_polar(1.0, phi)).norm());
+        worst = worst.max(portable::complex::abs(
+            ratio(p, j) - portable::complex::from_polar(1.0, phi),
+        ));
     }
     worst
 }

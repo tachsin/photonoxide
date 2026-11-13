@@ -64,10 +64,9 @@
 //! cargo run --release --example optimize_mode_converter -- --full --write  # and record the design
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use num_complex::Complex64 as c64;
@@ -274,8 +273,8 @@ fn spectrum(design: &[bool], scale: usize) -> photonoxide::Result<(f64, f64)> {
                 side: Side::Right,
             },
         ])?;
-        r = r.max(20.0 * m[0][0].norm().log10());
-        t = t.min(20.0 * m[1][0].norm().log10());
+        r = r.max(20.0 * portable::log10(portable::complex::abs(m[0][0])));
+        t = t.min(20.0 * portable::log10(portable::complex::abs(m[1][0])));
     }
     Ok((r, t))
 }
@@ -297,7 +296,7 @@ fn round12(x: f64) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
-    let scale = 10f64.powi(11 - x.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, 11 - portable::log10(x.abs()).floor() as i32);
     if !scale.is_finite() {
         // below about 1e-297 the scale overflows: such a value is kept as it is
         return x;
@@ -384,7 +383,9 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
                 (p % SIDE) as f64 / SIDE as f64,
                 (p / SIDE) as f64 / SIDE as f64,
             );
-            0.5 + 0.25 * (std::f64::consts::PI * (j - 0.5)).sin() * (std::f64::consts::PI * i).sin()
+            0.5 + 0.25
+                * portable::sin(std::f64::consts::PI * (j - 0.5))
+                * portable::sin(std::f64::consts::PI * i)
         })
         .collect();
     let form = Epigraph::new(n, 12)?;
@@ -398,7 +399,7 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
             .step_by(2)
             .map(|x| 1.0 - x)
             .fold(1.0, f64::min);
-        Ok((10.0 * r.log10(), 10.0 * t.log10()))
+        Ok((10.0 * portable::log10(r), 10.0 * portable::log10(t)))
     };
     let run = |c: &Converter,
                rho: &[f64],

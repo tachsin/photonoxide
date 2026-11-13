@@ -39,10 +39,9 @@
 //! cargo run --release --example optimize_mesh
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -583,7 +582,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .unitary(&x)
             .iter()
             .zip(&u)
-            .filter(|(a, b)| (*a - *b).norm() <= 1e-12)
+            .filter(|(a, b)| portable::complex::abs(*a - *b) <= 1e-12)
             .count();
         let largest = by_circuit.iter().fold(0.0, |m: f64, g| m.max(g.abs()));
         let agreeing = gradient

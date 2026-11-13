@@ -1,6 +1,7 @@
 //! Splitters and couplers: directional couplers (straight and bent), MMIs, Y-branches and
 //! crossings.
 
+use crate::portable;
 use std::f64::consts::FRAC_PI_2;
 
 use super::waveguides::{SBend, SBendKind, reason, strip};
@@ -189,7 +190,7 @@ impl Generator for BentCoupler {
                 )?,
             );
         }
-        let (s, c) = half.sin_cos();
+        let (s, c) = portable::sin_cos(half);
         let at = |rc: f64, side: f64| Point::um(side * rc * s, -r + rc * c);
         let (left, right) = (degrees(180.0 + theta / 2.0), degrees(-theta / 2.0));
         let port =
@@ -308,8 +309,8 @@ impl Mmi {
         let sigma = if tm { 2 } else { 0 };
         let we = wm
             + (l0 / std::f64::consts::PI)
-                * (cladding / ridge).powi(sigma)
-                * (ridge * ridge - cladding * cladding).powf(-0.5);
+                * portable::powi(cladding / ridge, sigma)
+                * portable::powf(ridge * ridge - cladding * cladding, -0.5);
         Length::um(4.0 * ridge * we * we / (3.0 * l0))
     }
 

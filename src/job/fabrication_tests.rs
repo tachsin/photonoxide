@@ -1,6 +1,7 @@
 //! A `"fabrication"` job: checked, run, its record replayed to the bit on any threads.
 
 use super::*;
+use crate::portable;
 use crate::run::{replay, replay_lines};
 
 const TFLN: &str = "name = \"tfln-flow\"\n\n[device]\nkind = \"TFLN Mach-Zehnder modulator\"\n\n[task]\nkind = \"fabrication\"\n";
@@ -711,7 +712,7 @@ fn walk_perimeter(outline: &[[f64; 2]]) -> f64 {
             (0..r.len())
                 .map(|i| {
                     let (a, b) = (r[i], r[(i + 1) % r.len()]);
-                    (b[0] - a[0]).hypot(b[1] - a[1])
+                    portable::hypot(b[0] - a[0], b[1] - a[1])
                 })
                 .sum::<f64>()
         })
@@ -966,9 +967,9 @@ fn a_conformal_film_over_a_sloped_rib_has_its_analytic_volume_and_its_normal_thi
         // from first principles: t over the floor, the window; above it the wall's plane n
         // (normal) out from the rib's, a(z) = (z_t − z)/tan θ + n/sin θ out from the top's edge,
         // and no less than the rib's top
-        let a = |z: f64| (zt - z) / theta.tan() + n / theta.sin();
+        let a = |z: f64| (zt - z) / portable::tan(theta) + n / portable::sin(theta);
         let (z0, z1) = (zf + t, zt + t);
-        let zk = zt + n / theta.cos();
+        let zk = zt + n / portable::cos(theta);
         let envelope = a_w * t
             + if zk <= z0 {
                 swept(w, l, z1 - z0, 0.0, 0.0)
@@ -978,7 +979,7 @@ fn a_conformal_film_over_a_sloped_rib_has_its_analytic_volume_and_its_normal_thi
                 swept(w, l, z1 - z0, a(z0), a(z1))
             };
         // the rib, which the pieces over sloped walls are drawn over
-        let rib_volume = swept(w, l, h, h / theta.tan(), 0.0);
+        let rib_volume = swept(w, l, h, h / portable::tan(theta), 0.0);
         let film = envelope - rib_volume;
         let got: f64 = pieces.iter().map(piece_volume).sum::<f64>() - rib_volume;
         assert!(
@@ -1002,8 +1003,8 @@ fn a_conformal_film_over_a_sloped_rib_has_its_analytic_volume_and_its_normal_thi
                 .iter()
                 .map(|p| p[0])
                 .fold(f64::NEG_INFINITY, f64::max);
-            let rib_out = w / 2.0 + (zt - z0) / theta.tan();
-            let normal = (out - rib_out) * theta.sin();
+            let rib_out = w / 2.0 + (zt - z0) / portable::tan(theta);
+            let normal = (out - rib_out) * portable::sin(theta);
             assert!((normal - n).abs() < 1e-12, "t {t}, n {n}: {normal}");
         }
     }

@@ -42,10 +42,9 @@
 //! cargo run --release --example cpml_roden_gedney
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::fdfd::{Axis, Edges, Grid3d};
@@ -135,7 +134,7 @@ fn error_db(field: &[f64], reference: &[f64]) -> f64 {
         .iter()
         .zip(reference)
         .fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
-    20.0 * (worst / largest).log10()
+    20.0 * portable::log10(worst / largest)
 }
 
 pub fn main() -> ExitCode {

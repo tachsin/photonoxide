@@ -3,6 +3,7 @@
 //! signal's wavelength beside it, the two coupled by cross-phase modulation
 //! ([`crate::nonlinear::xpm`]).
 
+use crate::portable;
 use std::f64::consts::TAU;
 
 use num_complex::Complex64 as c64;
@@ -148,10 +149,13 @@ fn launched(
     let a = peak.sqrt();
     match shape.unwrap_or("sech") {
         "sech" => Pulse::sampled(points, window, |t| {
-            c64::new(a / ((t - delay) / t0).cosh(), 0.0)
+            c64::new(a / portable::cosh((t - delay) / t0), 0.0)
         }),
         "gaussian" => Pulse::sampled(points, window, |t| {
-            c64::new(a * (-0.5 * ((t - delay) / t0).powi(2)).exp(), 0.0)
+            c64::new(
+                a * portable::exp(-0.5 * portable::powi((t - delay) / t0, 2)),
+                0.0,
+            )
         }),
         other => Err(task_error(format!(
             "[task.pulse] unknown shape \"{other}\": sech or gaussian"
@@ -186,7 +190,7 @@ fn record(
         .zip(&end.field)
         .map(|(a, b)| {
             if a.norm_sqr() > 1e-12 * peak {
-                (b * a.conj()).arg()
+                portable::complex::arg(b * a.conj())
             } else {
                 0.0
             }

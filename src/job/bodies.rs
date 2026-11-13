@@ -32,6 +32,7 @@
 //! before it. [`super::check`] refuses a body that isn't one, naming the table and field; a run
 //! refuses a graded medium where it isn't positive and finite at the grid's points.
 
+use crate::portable;
 use toml::{Table, Value};
 
 use super::params::{self, Want};
@@ -228,7 +229,7 @@ fn body_of(table: &Table, p: &Parameters, what: &str) -> Result<Body> {
         "ellipsoid" => {
             let c = f.point("center")?;
             let s = f.need("semi_axes", 3)?;
-            let (sin, cos) = f.angle("angle")?.unwrap_or(0.0).sin_cos();
+            let (sin, cos) = portable::sin_cos(f.angle("angle")?.unwrap_or(0.0));
             Body::ellipsoid(
                 c,
                 [s[0], s[1], s[2]],

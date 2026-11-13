@@ -18,10 +18,9 @@
 //! cargo run --release --example leaky_waves
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use num_complex::Complex64 as c64;
@@ -125,7 +124,9 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let found = vector::modes(&guide, wavelength, 3, Some(re))?
             .iter()
             .map(|m| m.effective_index())
-            .min_by(|a, b| (a - printed).norm().total_cmp(&(b - printed).norm()))
+            .min_by(|a, b| {
+                portable::complex::abs(a - printed).total_cmp(&portable::complex::abs(b - printed))
+            })
             .unwrap_or(c64::new(f64::NAN, f64::NAN));
         checks.compare(&format!("TE{order} Re n_eff"), found.re, re, tolerance);
         checks.compare(&format!("TE{order} Im n_eff"), found.im, im, tolerance);

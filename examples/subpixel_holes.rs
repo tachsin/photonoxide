@@ -62,10 +62,9 @@
 //! cargo run --release --example subpixel_holes
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use faer::Mat;
@@ -128,7 +127,7 @@ fn frequencies(signals: &[Vec<f64>], dt: f64) -> Vec<f64> {
     poles
         .iter()
         .filter(|z| z.im < 0.0)
-        .map(|z| -z.arg() / (std::f64::consts::TAU * dt))
+        .map(|z| -portable::complex::arg(*z) / (std::f64::consts::TAU * dt))
         .collect()
 }
 
@@ -221,7 +220,7 @@ fn slope(errors: &[f64], from: usize) -> f64 {
         .iter()
         .zip(errors)
         .filter(|(n, _)| **n >= from)
-        .map(|(&n, &e)| ((n as f64).ln(), e.ln()))
+        .map(|(&n, &e)| (portable::ln(n as f64), portable::ln(e)))
         .collect();
     let m = points.len() as f64;
     let (sx, sy) = points

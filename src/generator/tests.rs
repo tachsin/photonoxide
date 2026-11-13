@@ -1,3 +1,4 @@
+use crate::portable;
 use std::f64::consts::PI;
 
 use super::checks::{self, drawn};
@@ -260,7 +261,7 @@ fn self_imaging_lengths_are_soldano_and_pennings() {
     // L_π = 4 n_r W_e²/3λ₀ with W_e = W_M + (λ₀/π)(n_c/n_r)^2σ (n_r² − n_c²)^−½
     let (wm, nr, nc, l0): (f64, f64, f64, f64) = (6.0, 2.85, 1.44, 1.55);
     let we_te = wm + (l0 / PI) / (nr * nr - nc * nc).sqrt();
-    let we_tm = wm + (l0 / PI) * (nc / nr).powi(2) / (nr * nr - nc * nc).sqrt();
+    let we_tm = wm + (l0 / PI) * portable::powi(nc / nr, 2) / (nr * nr - nc * nc).sqrt();
     let te = Mmi::beat_length(um(wm), nr, nc, um(l0), false).to_um();
     let tm = Mmi::beat_length(um(wm), nr, nc, um(l0), true).to_um();
     assert!((te - 4.0 * nr * we_te * we_te / (3.0 * l0)).abs() < 1e-12);

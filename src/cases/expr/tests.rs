@@ -1,3 +1,4 @@
+use crate::portable;
 use std::f64::consts::{FRAC_PI_2, PI};
 
 use super::special::erf;
@@ -65,16 +66,16 @@ fn numbers_units_and_operators() {
 #[test]
 fn every_function_is_its_value() {
     let cases: [(&str, f64); 22] = [
-        ("sin(0.3)", 0.3f64.sin()),
-        ("cos(30 deg)", 30f64.to_radians().cos()),
-        ("tan(0.4)", 0.4f64.tan()),
-        ("asin(0.3)", 0.3f64.asin()),
-        ("acos(0.3)", 0.3f64.acos()),
-        ("atan(2)", 2f64.atan()),
-        ("atan2(1 um, -2 um)", 1f64.atan2(-2.0)),
-        ("exp(1.5)", 1.5f64.exp()),
-        ("ln(1.5)", 1.5f64.ln()),
-        ("log10(1500)", 1500f64.log10()),
+        ("sin(0.3)", portable::sin(0.3f64)),
+        ("cos(30 deg)", portable::cos(30f64.to_radians())),
+        ("tan(0.4)", portable::tan(0.4f64)),
+        ("asin(0.3)", portable::asin(0.3f64)),
+        ("acos(0.3)", portable::acos(0.3f64)),
+        ("atan(2)", portable::atan(2f64)),
+        ("atan2(1 um, -2 um)", portable::atan2(1f64, -2.0)),
+        ("exp(1.5)", portable::exp(1.5f64)),
+        ("ln(1.5)", portable::ln(1.5f64)),
+        ("log10(1500)", portable::log10(1500f64)),
         ("sqrt(2)", 2f64.sqrt()),
         ("abs(-3 nm)", 0.003),
         ("min(1 um, 3 nm)", 0.003),
@@ -84,8 +85,8 @@ fn every_function_is_its_value() {
         ("ceil(-1.5)", -1.0),
         ("round(2.5)", 3.0),
         ("erf(0.5)", 0.520_499_877_813_046_5),
-        ("tanh(0.7)", 0.7f64.tanh()),
-        ("sinc(0.5)", 0.5f64.sin() / 0.5),
+        ("tanh(0.7)", portable::tanh(0.7f64)),
+        ("sinc(0.5)", portable::sin(0.5f64) / 0.5),
         ("smoothstep(0, 2, 0.5)", 0.156_25),
     ];
     for (text, expected) in cases {
@@ -207,7 +208,7 @@ fn coordinates_and_parameters() {
     let mut v = p.values().to_vec();
     v[0] = 2.0;
     v[5] = 3.0;
-    let expected = 5.7 + 2.0 * 8f64.to_radians().sin() + 1.5;
+    let expected = 5.7 + 2.0 * portable::sin(8f64.to_radians()) + 1.5;
     assert!((e.eval(&v) - expected).abs() < 1e-15);
     assert_eq!(e.dim(), Some(Dim::LENGTH));
     // a sweep's point: w set, gap and y0 follow it
@@ -328,7 +329,7 @@ fn many_points_at_once_are_the_points_one_by_one() {
     .unwrap();
     let n = 1000;
     let xs: Vec<f64> = (0..n).map(|k| -1.0 + 2.0 * f64::from(k) / 999.0).collect();
-    let ys: Vec<f64> = (0..n).map(|k| (f64::from(k) * 0.37).sin()).collect();
+    let ys: Vec<f64> = (0..n).map(|k| portable::sin(f64::from(k) * 0.37)).collect();
     let mut values = vec![0.0; scope.len()];
     values[r] = 0.8;
     let mut out = vec![0.0; n as usize];
@@ -566,7 +567,7 @@ fn canary_erf_to_round_off() {
             }
             (4.0 * n + x2 + 6.0) * u * want.abs()
         } else {
-            let erfc = (-a * a).exp() / (a * PI.sqrt());
+            let erfc = portable::exp(-a * a) / (a * PI.sqrt());
             0.5 * crate::canary_tests::golden::ulp(want) + (200.0 * 2.0 + a * a + 2.0) * u * erfc
         };
         let d = crate::canary_tests::golden::ulps(ours, want);

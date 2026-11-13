@@ -98,10 +98,9 @@
 //! cargo run --release --example optimize_ybranch -- --full   # and its 3D check
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::LN_10;
 use std::io::Write;
 use std::process::ExitCode;
@@ -544,7 +543,7 @@ fn mask(g: &Grid, arms: &[f64], w: &[f64]) -> Vec<f64> {
 /// row of cells; along the shares the power is smooth.
 fn check_derivatives(model: &Model) -> photonoxide::Result<usize> {
     let (p, exact) = model.power_gradient(&TABLE)?;
-    let u = 10f64.powf((2.0 * model.residual(&TABLE)?).log10().ceil());
+    let u = portable::powf(10f64, portable::log10(2.0 * model.residual(&TABLE)?).ceil());
     let delta = 1e-5;
     let drawn = mask(&model.grid, &model.arms, &TABLE);
     let mut within = 0;

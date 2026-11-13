@@ -40,6 +40,7 @@
 //! as they are. No number here is a device's performance: the 2D problems are 2D, and the
 //! grids are chosen for their size, not for convergence.
 
+use crate::portable;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -294,9 +295,9 @@ fn pml3(cells: [usize; 3]) -> usize {
 fn factor_entries(unknowns: usize, three: bool, symmetric: bool) -> f64 {
     let n = unknowns as f64;
     let (half, lu) = if three {
-        (7.5 * n.powf(4.0 / 3.0), 2.5)
+        (7.5 * portable::powf(n, 4.0 / 3.0), 2.5)
     } else {
-        (3.1 * n * n.log2(), 2.15)
+        (3.1 * n * portable::log2(n), 2.15)
     };
     if symmetric { half } else { lu * half }
 }
@@ -1127,7 +1128,7 @@ fn in_flat(shape: Flat, (x, y): (f64, f64), (lx, ly): (f64, f64)) -> bool {
         Flat::Slab => y.abs() < 0.11,
         Flat::Bend => {
             // a quarter turn about the window's lower left corner
-            let r = (x + lx / 2.0).hypot(y + ly / 2.0);
+            let r = portable::hypot(x + lx / 2.0, y + ly / 2.0);
             (r - ly / 2.0).abs() < 0.25
         }
         Flat::Mmi => {
@@ -1138,7 +1139,7 @@ fn in_flat(shape: Flat, (x, y): (f64, f64), (lx, ly): (f64, f64)) -> bool {
         }
         Flat::Ring => {
             let radius = ly / 4.0;
-            let ring = (x.hypot(y) - radius).abs() < 0.2;
+            let ring = (portable::hypot(x, y) - radius).abs() < 0.2;
             let bus = (y + radius + 0.45).abs() < 0.2;
             ring || bus
         }
@@ -1213,7 +1214,7 @@ fn in_solid(shape: Solid, (x, y, z): (f64, f64, f64), (lx, ly): (f64, f64)) -> b
     match shape {
         Solid::Strip => core && y.abs() < 0.25,
         Solid::Bend => {
-            let r = (x + lx / 2.0).hypot(y + ly / 2.0);
+            let r = portable::hypot(x + lx / 2.0, y + ly / 2.0);
             core && (r - ly / 2.0).abs() < 0.25
         }
         Solid::Mmi => core && ((x.abs() < lx / 4.0 && y.abs() < ly / 5.0) || y.abs() < 0.25),
@@ -1448,7 +1449,7 @@ fn solve_circuit(entry: &Entry, points: usize) -> Result<Measurement> {
         let exact = mzi_closed_form(split(0.5), split(0.3), through(150.0)?, through(50.0)?);
         for (q, out) in [(0, 3), (1, 2)] {
             for p in 0..2 {
-                worst = worst.max((s[(out, p)] - exact[q][p]).norm());
+                worst = worst.max(portable::complex::abs(s[(out, p)] - exact[q][p]));
             }
         }
     }

@@ -15,8 +15,7 @@
 //! on rayon's threads, each on its own: the table is the same on any thread count, as the quick
 //! test below checks on a small study.
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::sync::Mutex;
 
 use genoxide::prelude::*;
@@ -65,8 +64,8 @@ fn cost(d: &[f64], gradient: &mut [f64]) -> f64 {
 
 /// The quarter-wave stack's 1 − R in closed form, R = ((1 − Y)/(1 + Y))², Y = (1.8/1.4)^n 1.8.
 fn optimum(n: usize) -> f64 {
-    let y = (HIGH / LOW).powi(n as i32) * SUBSTRATE;
-    1.0 - ((1.0 - y) / (1.0 + y)).powi(2)
+    let y = portable::powi(HIGH / LOW, n as i32) * SUBSTRATE;
+    1.0 - portable::powi((1.0 - y) / (1.0 + y), 2)
 }
 
 /// A run's record: its evaluations so far, the first at which it reached the target, its best.

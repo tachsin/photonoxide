@@ -30,10 +30,9 @@
 //! cargo run --release --example pairs_zhao
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use common::{Checks, Setup, number};
@@ -115,7 +114,7 @@ fn on_cells(h: f64) -> photonoxide::Result<Found> {
         Ok(if x.abs() < 1e-8 {
             1.0
         } else {
-            (x.sin() / x).powi(2)
+            portable::powi(portable::sin(x) / x, 2)
         })
     };
     let half = |inside: f64, outside: f64| -> photonoxide::Result<f64> {
@@ -142,7 +141,7 @@ fn on_cells(h: f64) -> photonoxide::Result<Found> {
 /// `x` to `decimals` decimals: what the output prints the same on every system (a value's last
 /// bits differ between their maths libraries).
 fn shown(x: f64, decimals: i32) -> f64 {
-    let s = 10f64.powi(decimals);
+    let s = portable::powi(10f64, decimals);
     (x * s).round() / s
 }
 

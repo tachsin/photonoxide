@@ -2,6 +2,7 @@
 //! its replay and the same bits on any number of threads.
 
 use super::*;
+use crate::portable;
 use crate::run::replay;
 
 /// A run directory under the system's temporary one, removed when dropped.
@@ -321,7 +322,7 @@ fn a_transient_records_its_steps_and_times() {
     assert!(tau > 1e-6 && tau < 20e-6, "{tau}");
     // a single pole's 10-90 % time is ln 9 τ, and its -3 dB frequency 1/2πτ: near those
     assert!(
-        (rise / tau - 9f64.ln()).abs() < 0.5 * 9f64.ln(),
+        (rise / tau - portable::ln(9f64)).abs() < 0.5 * portable::ln(9f64),
         "{rise} {tau}"
     );
     let pole = 2.0 * std::f64::consts::PI * f * tau;

@@ -3,6 +3,7 @@
 //! the true error, the order the recorded grids show, a stepped taper's reflection driven in
 //! modes and steps against FDFD driven the same way, and the refusal when the budget runs out.
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 use super::{EmeRefined, Refined, ToTolerance, Tolerance};
@@ -212,7 +213,7 @@ fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 
