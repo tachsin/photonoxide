@@ -10,6 +10,7 @@ use super::bend::Map;
 use super::modes::Mode;
 use super::{Eme, Scattering, Section};
 use crate::mode::Polarization;
+use crate::portable;
 use crate::{Error, Result};
 
 /// The 20-point Gauss–Legendre rule's positive nodes and their weights.
@@ -88,7 +89,8 @@ pub(crate) fn points(a: &[&Mode], b: &[&Mode]) -> Vec<Point> {
         let stretch = la[ja].stretch;
         // the oscillation along x: along s over dx/ds, at its smallest on the piece
         let slow = |m: Option<Map>| to_s(m, lo).1.min(to_s(m, hi).1);
-        let omega = (fastest(a, ja) / slow(ma) + fastest(b, jb) / slow(mb)) * stretch.norm();
+        let omega = (fastest(a, ja) / slow(ma) + fastest(b, jb) / slow(mb))
+            * portable::complex::abs(stretch);
         let panels = ((omega * (hi - lo) / PANEL_PHASE).ceil() as usize).max(1);
         let h = (hi - lo) / panels as f64;
         for p in 0..panels {
@@ -156,7 +158,9 @@ fn solve(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
     let mut x = b.clone();
     for c in 0..n {
         let pivot = (c..n)
-            .max_by(|&i, &j| m[(i, c)].norm().total_cmp(&m[(j, c)].norm()))
+            .max_by(|&i, &j| {
+                portable::complex::abs(m[(i, c)]).total_cmp(&portable::complex::abs(m[(j, c)]))
+            })
             .unwrap_or(c);
         if pivot != c {
             for j in 0..n {
@@ -315,7 +319,7 @@ pub(super) fn structure(eme: &Eme, sections: &[Section]) -> Result<Scattering> {
     let k = eme.wavelength.wavenumber();
     let advance = |m: &[Mode], l: f64| -> Vec<c64> {
         m.iter()
-            .map(|m| (c64::new(0.0, k * l) * m.effective_index()).exp())
+            .map(|m| portable::complex::exp(c64::new(0.0, k * l) * m.effective_index()))
             .collect()
     };
     let interfaces: Vec<Blocks> = modes

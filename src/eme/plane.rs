@@ -32,6 +32,7 @@ use faer::{Mat, Par};
 use num_complex::Complex64 as c64;
 
 use super::Wall;
+use crate::portable;
 use crate::{Error, Result};
 
 /// The walls on a plane's four edges: perfect electric conductors (the tangential E zero on
@@ -327,7 +328,8 @@ impl Plane {
         {
             return Err(Error::invalid("eme plane", "a permittivity per value of E"));
         }
-        let finite = |v: &c64| v.re.is_finite() && v.im.is_finite() && v.norm() > 0.0;
+        let finite =
+            |v: &c64| v.re.is_finite() && v.im.is_finite() && portable::complex::abs(*v) > 0.0;
         if !ex.iter().chain(&ey).chain(&ez).all(finite) {
             return Err(Error::invalid(
                 "eme plane",
@@ -441,7 +443,7 @@ impl Pml3d {
         let profile = |depth: f64, d: f64| {
             c64::new(
                 1.0,
-                self.strength * (depth / d).clamp(0.0, 1.0).powf(self.order),
+                self.strength * portable::powf((depth / d).clamp(0.0, 1.0), self.order),
             )
         };
         if low > 0.0 && pos < span.0 + low {
@@ -764,7 +766,7 @@ fn propagates(beta: c64) -> bool {
 /// β from β²: a mode that propagates more than it decays goes forward (Re β > 0), the others
 /// decay forward (Im β > 0).
 fn forward(beta2: c64) -> c64 {
-    let b = beta2.sqrt();
+    let b = portable::complex::sqrt(beta2);
     if propagates(b) && b.re < 0.0 || !propagates(b) && b.im < 0.0 {
         -b
     } else {
@@ -847,12 +849,12 @@ pub(crate) fn solve(plane: &Plane, stretch: &Stretch, k: f64, count: usize) -> R
     };
     pairs.sort_by(|a, b| b.0.re.total_cmp(&a.0.re).then(b.0.im.total_cmp(&a.0.im)));
     // groups of the same β², each given the basis orthogonal in both forms
-    let scale = |v: c64| v.norm().max(k * k);
+    let scale = |v: c64| portable::complex::abs(v).max(k * k);
     let mut start = 0;
     while start < pairs.len() {
         let mut end = start + 1;
         while end < pairs.len()
-            && (pairs[end].0 - pairs[start].0).norm() <= 1e-8 * scale(pairs[start].0)
+            && portable::complex::abs(pairs[end].0 - pairs[start].0) <= 1e-8 * scale(pairs[start].0)
         {
             end += 1;
         }
@@ -895,13 +897,15 @@ fn canonical(group: &mut [(c64, Vec<c64>)], c: &Rows, w: &[c64]) -> Result<()> {
     // where the pencil's eigenvalues meet as well, Gram–Schmidt in B
     for j in 0..m {
         for i in 0..j {
-            if (found[i].0 - found[j].0).norm() > 1e-8 * found[j].0.norm().max(1e-300) {
+            if portable::complex::abs(found[i].0 - found[j].0)
+                > 1e-8 * portable::complex::abs(found[j].0).max(1e-300)
+            {
                 continue;
             }
             let ci = apply(c, &vectors[i]);
             let bii = form(w, &vectors[i], &ci);
             let bij = form(w, &vectors[j], &ci);
-            if bii.norm() == 0.0 {
+            if portable::complex::abs(bii) == 0.0 {
                 return Err(Error::invalid("eme modes", "a mode of zero product"));
             }
             let f = bij / bii;
@@ -924,7 +928,7 @@ fn canonical(group: &mut [(c64, Vec<c64>)], c: &Rows, w: &[c64]) -> Result<()> {
 /// window (another `ny` for a field uniform in y) the same sign.
 fn sign_weight(grid: &PlaneGrid, e: &[c64]) -> c64 {
     let (lx, ly) = (grid.nx as f64 * grid.dx, grid.ny as f64 * grid.dy);
-    let w = |u: f64, v: f64| (0.3 * u / lx + 0.7 * v / ly).exp();
+    let w = |u: f64, v: f64| portable::exp(0.3 * u / lx + 0.7 * v / ly);
     let mut sum = c64::new(0.0, 0.0);
     for j in 0..=grid.ny {
         for i in 0..grid.nx {
@@ -956,13 +960,13 @@ fn normalized(
     let beta = forward(beta2);
     let ce = apply(c, &e);
     let norm = form(weights, &e, &ce) / (k * beta);
-    if norm.norm() == 0.0 || !norm.is_finite() {
+    if portable::complex::abs(norm) == 0.0 || !norm.is_finite() {
         return Err(Error::invalid(
             "eme modes",
             format!("a mode (n_eff = {}) of zero product with itself", beta / k),
         ));
     }
-    let mut scale = 1.0 / norm.sqrt();
+    let mut scale = 1.0 / portable::complex::sqrt(norm);
     if (sign_weight(&grid, &e) * scale).re < 0.0 {
         scale = -scale;
     }

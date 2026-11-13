@@ -10,6 +10,7 @@ use rayon::prelude::*;
 use super::Scattering;
 use super::plane::{self, Mode3d, Plane, Pml3d, Stretch};
 use super::scattering::{Blocks, interface, product, rows, star, then_propagate};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -176,7 +177,7 @@ impl Eme3d {
         let k = self.wavelength.wavenumber();
         let advance = |m: &[Mode3d], l: f64| -> Vec<c64> {
             m.iter()
-                .map(|m| (c64::new(0.0, k * l) * m.effective_index()).exp())
+                .map(|m| portable::complex::exp(c64::new(0.0, k * l) * m.effective_index()))
                 .collect()
         };
         let batch = rayon::current_num_threads().max(1);

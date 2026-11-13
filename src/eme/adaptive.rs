@@ -21,6 +21,7 @@ use rayon::prelude::*;
 use super::modes::Mode;
 use super::scattering::{Blocks, interface, overlaps, rows, star, then_propagate};
 use super::{Eme, Scattering, Section, Slice};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -259,7 +260,7 @@ impl Eme {
             };
             let advance = |m: &[Mode], l: f64| -> Vec<c64> {
                 m.iter()
-                    .map(|m| (c64::new(0.0, k * l) * m.effective_index()).exp())
+                    .map(|m| portable::complex::exp(c64::new(0.0, k * l) * m.effective_index()))
                     .collect()
             };
             let unit = |from: &[Mode], to: &[Mode], l: f64| -> Blocks {
@@ -326,7 +327,9 @@ impl Eme {
                 .collect();
             // the steps' local errors add to first order: (4/3)|ΣΔᵢ|, entry by entry
             let error = (0..3)
-                .map(|e| 4.0 / 3.0 * tried.iter().map(|(_, d)| d[e]).sum::<c64>().norm())
+                .map(|e| {
+                    4.0 / 3.0 * portable::complex::abs(tried.iter().map(|(_, d)| d[e]).sum::<c64>())
+                })
                 .fold(0.0, f64::max);
             let steps = tried.len();
             rounds.push(Round { steps, error });
@@ -359,7 +362,11 @@ impl Eme {
                 });
             }
             // the bulk rule: the steps of largest |Δᵢ| that together hold half of Σ|Δᵢ|
-            let size = |d: &[c64; 3]| d.iter().map(|x| x.norm()).fold(0.0, f64::max);
+            let size = |d: &[c64; 3]| {
+                d.iter()
+                    .map(|x| portable::complex::abs(*x))
+                    .fold(0.0, f64::max)
+            };
             let mut order: Vec<(usize, f64)> = tried.iter().map(|(j, d)| (*j, size(d))).collect();
             order.sort_by(|x, y| y.1.total_cmp(&x.1).then(x.0.cmp(&y.0)));
             let total: f64 = order.iter().map(|&(_, d)| d).sum();

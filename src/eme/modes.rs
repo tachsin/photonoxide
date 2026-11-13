@@ -8,6 +8,7 @@ use rayon::prelude::*;
 use super::bend::Map;
 use super::{Eme, Slice, Wall};
 use crate::mode::Polarization;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A layer as the solver sees it: its permittivity n² (in a bent section the map's, n²e^(2u/R)),
@@ -59,11 +60,11 @@ pub struct Mode {
 
 /// sin z / z, its series near 0.
 fn sinc(z: c64) -> c64 {
-    if z.norm() < 1e-3 {
+    if portable::complex::abs(z) < 1e-3 {
         let z2 = z * z;
         1.0 - z2 / 6.0 * (1.0 - z2 / 20.0)
     } else {
-        z.sin() / z
+        portable::complex::sin(z) / z
     }
 }
 
@@ -72,9 +73,9 @@ fn sinc(z: c64) -> c64 {
 fn transfer(polarization: Polarization, k: f64, layer: &Layer, nu: c64) -> [[c64; 2]; 2] {
     let a2 = layer.eps - nu;
     let d = layer.d();
-    let phi = (k * k * a2 * d * d).sqrt();
+    let phi = portable::complex::sqrt(k * k * a2 * d * d);
     let w = layer.weight(polarization);
-    let (c, s) = (phi.cos(), sinc(phi));
+    let (c, s) = (portable::complex::cos(phi), sinc(phi));
     [[c, k * d / w * s], [-w * a2 * k * d * s, c]]
 }
 
@@ -155,20 +156,20 @@ fn prufer(polarization: Polarization, k: f64, layers: &[Layer], lower: Wall, nu:
         if a2 > 0.0 {
             let alpha = a2.sqrt();
             let g = w * alpha;
-            let psi = u.atan2(p / g);
+            let psi = portable::atan2(u, p / g);
             let phi = k * alpha * d;
             zeros += ((psi + phi) / PI).floor() - (psi / PI).floor();
-            let (c, s) = (phi.cos(), phi.sin());
+            let (c, s) = (portable::cos(phi), portable::sin(phi));
             (u, p) = (u * c + p / g * s, -g * u * s + p * c);
         } else if a2 < 0.0 {
             let kappa = (-a2).sqrt();
             let g = w * kappa;
             let phi = k * kappa * d;
             // U = u cosh + (p/g) sinh vanishes once at most, where tanh = −u g/p
-            if u * p < 0.0 && -u * g / p <= phi.tanh() {
+            if u * p < 0.0 && -u * g / p <= portable::tanh(phi) {
                 zeros += 1.0;
             }
-            let (c, s) = (phi.cosh(), phi.sinh());
+            let (c, s) = (portable::cosh(phi), portable::sinh(phi));
             (u, p) = (u * c + p / g * s, g * u * s + p * c);
         } else {
             if u * p < 0.0 && -u * w / (p * k) <= d {
@@ -176,10 +177,10 @@ fn prufer(polarization: Polarization, k: f64, layers: &[Layer], lower: Wall, nu:
             }
             u += p * k * d / w;
         }
-        let r = u.hypot(p);
+        let r = portable::hypot(u, p);
         (u, p) = (u / r, p / r);
     }
-    let mut end = u.atan2(p);
+    let mut end = portable::atan2(u, p);
     if end < 0.0 {
         end += PI;
     }
@@ -207,7 +208,7 @@ fn real_eigenvalues(eme: &Eme, k: f64, layers: &[Layer], m: usize) -> Vec<f64> {
     let top = layers.iter().map(|l| l.eps.re).fold(f64::MIN, f64::max);
     let bottom = layers.iter().map(|l| l.eps.re).fold(f64::MAX, f64::min);
     let width: f64 = layers.iter().map(|l| l.width).sum();
-    let mut low = bottom - ((m as f64 + 2.0) * PI / (k * width)).powi(2);
+    let mut low = bottom - portable::powi((m as f64 + 2.0) * PI / (k * width), 2);
     while count(eme, k, layers, low) < m {
         low = bottom - 2.0 * (bottom - low);
     }
@@ -240,8 +241,8 @@ fn sweeps(eme: &Eme, k: f64, layers: &[Layer], nu: c64) -> [Vec<(c64, c64, f64)>
     let pol = eme.polarization;
     let n = layers.len();
     let unit = |u: c64, p: c64, s: f64| {
-        let r = u.norm().max(p.norm());
-        (u / r, p / r, s + r.ln())
+        let r = portable::complex::abs(u).max(portable::complex::abs(p));
+        (u / r, p / r, s + portable::ln(r))
     };
     let (u, p) = start(pol, eme.walls[0]);
     let mut lower = vec![(u, p, 0.0)];
@@ -289,8 +290,8 @@ fn meeting(eme: &Eme, k: f64, layers: &[Layer], nu: c64) -> usize {
 fn residual(eme: &Eme, k: f64, layers: &[Layer], nu: c64, at: usize) -> (c64, f64) {
     let pol = eme.polarization;
     let unit = |u: c64, p: c64, s: f64| {
-        let r = u.norm().max(p.norm());
-        (u / r, p / r, s + r.ln())
+        let r = portable::complex::abs(u).max(portable::complex::abs(p));
+        (u / r, p / r, s + portable::ln(r))
     };
     let (u, p) = start(pol, eme.walls[0]);
     let mut l = (u, p, 0.0);
@@ -346,20 +347,20 @@ fn newton_at(
     let mut nu = guess;
     let mut last = f64::INFINITY;
     for _ in 0..60 {
-        let h = 1e-6 * (1.0 + nu.norm());
+        let h = 1e-6 * (1.0 + portable::complex::abs(nu));
         let (f, s) = residual(eme, k, layers, nu, at);
         let (fp, sp) = residual(eme, k, layers, nu + h, at);
         let (fm, sm) = residual(eme, k, layers, nu - h, at);
         // f(ν ± h) on f(ν)'s scale
-        let up = fp * (sp - s).exp();
-        let down = fm * (sm - s).exp();
+        let up = fp * portable::exp(sp - s);
+        let down = fm * portable::exp(sm - s);
         let step = f * 2.0 * h / (up - down);
         if !step.re.is_finite() || !step.im.is_finite() {
             return None;
         }
         nu -= step;
-        let size = step.norm();
-        let floor = 1.0 + nu.norm();
+        let size = portable::complex::abs(step);
+        let floor = 1.0 + portable::complex::abs(nu);
         if size <= 1e-14 * floor || (size <= noise * floor && size >= 0.5 * last) {
             return Some(nu);
         }
@@ -372,8 +373,8 @@ fn newton_at(
 /// f(ν, t) = 0: −(∂f/∂t)/(∂f/∂ν), each by central differences.
 fn slope(eme: &Eme, k: f64, path: &dyn Fn(f64) -> Vec<Layer>, t: f64, nu: c64) -> c64 {
     // each value on f(ν)'s scale (f itself is near 0)
-    let ratio = |a: (c64, f64), b: (c64, f64)| a.0 * (a.1 - b.1).exp();
-    let h = 1e-6 * (1.0 + nu.norm());
+    let ratio = |a: (c64, f64), b: (c64, f64)| a.0 * portable::exp(a.1 - b.1);
+    let h = 1e-6 * (1.0 + portable::complex::abs(nu));
     let here = path(t);
     let at = meeting(eme, k, &here, nu);
     let f = residual(eme, k, &here, nu, at);
@@ -397,15 +398,16 @@ fn follow_one(eme: &Eme, k: f64, path: &dyn Fn(f64) -> Vec<Layer>, start: c64) -
         let next = (t + dt).min(1.0);
         let step = next - t;
         let predicted = nu + slope(eme, k, path, t, nu) * step;
-        let moved = (predicted - nu).norm();
+        let moved = portable::complex::abs(predicted - nu);
         // what Newton's method resolves near two modes' meeting, or for a PML's modes, whose
         // eigenvalues are ill-conditioned (the operator is far from normal)
-        let floor = 2e-6 * (1.0 + nu.norm());
+        let floor = 2e-6 * (1.0 + portable::complex::abs(nu));
         let raw = newton(eme, k, &path(next), predicted, 1e-6);
-        let corrected = raw.filter(|c| (c - predicted).norm() <= 0.2 * moved + floor);
+        let corrected =
+            raw.filter(|c| portable::complex::abs(c - predicted) <= 0.2 * moved + floor);
         match corrected {
             Some(c) => {
-                if (c - predicted).norm() <= 0.02 * moved + floor {
+                if portable::complex::abs(c - predicted) <= 0.02 * moved + floor {
                     dt = (2.0 * dt).min(0.25);
                 }
                 nu = c;
@@ -491,7 +493,7 @@ fn paths(eme: &Eme, k: f64, slice: &Slice) -> Result<Vec<c64>> {
     let path = |t: f64| -> Vec<Layer> {
         end.iter()
             .map(|l| Layer {
-                eps: l.phys * (t * l.bend).exp(),
+                eps: l.phys * portable::complex::exp(t * l.bend),
                 ..*l
             })
             .collect()
@@ -553,7 +555,7 @@ fn track(
     let nus: Vec<c64> = followed.into_iter().flatten().collect();
     for (i, a) in nus.iter().enumerate() {
         for (j, b) in nus[..i].iter().enumerate() {
-            if (a - b).norm() <= 1e-8 * (1.0 + a.norm()) {
+            if portable::complex::abs(a - b) <= 1e-8 * (1.0 + portable::complex::abs(*a)) {
                 return Err(Error::invalid(
                     "eme modes",
                     format!(
@@ -620,7 +622,7 @@ impl Mode {
             // the inverse of a matrix of determinant 1
             from_upper[j] = (m[1][1] * u - m[0][1] * p, -m[1][0] * u + m[0][0] * p);
         }
-        let size = |s: &(c64, c64)| s.0.norm().max(s.1.norm());
+        let size = |s: &(c64, c64)| portable::complex::abs(s.0).max(portable::complex::abs(s.1));
         let top_lower = from_lower.iter().map(size).fold(0.0, f64::max);
         let top_upper = from_upper.iter().map(size).fold(0.0, f64::max);
         // how far the two sweeps are from one field at each boundary: at round-off where both
@@ -628,7 +630,7 @@ impl Mode {
         // one that grows (a mode living in a PML, seen from the far wall)
         let mismatch = |j: usize| {
             let (l, r) = (from_lower[j], from_upper[j]);
-            (l.0 * r.1 - l.1 * r.0).norm() / (size(&l) * size(&r))
+            portable::complex::abs(l.0 * r.1 - l.1 * r.0) / (size(&l) * size(&r))
         };
         let best = (0..=n).map(mismatch).fold(f64::INFINITY, f64::min);
         let meet = (0..=n)
@@ -651,9 +653,9 @@ impl Mode {
                 }
             })
             .collect();
-        let mut effective_index = nu.sqrt();
+        let mut effective_index = portable::complex::sqrt(nu);
         // the principal root, Re ≥ 0, unless that grows along z: an evanescent mode's +i√|ν|
-        if effective_index.im < -1e-9 * effective_index.norm() {
+        if effective_index.im < -1e-9 * portable::complex::abs(effective_index) {
             effective_index = -effective_index;
         }
         let mut mode = Mode {
@@ -675,7 +677,7 @@ impl Mode {
                 q.weight * u * u * mode.layers[q.layer_a].weight(pol)
             })
             .sum();
-        mode.scale = 1.0 / (effective_index * integral).sqrt();
+        mode.scale = 1.0 / portable::complex::sqrt(effective_index * integral);
         mode
     }
 
@@ -725,7 +727,7 @@ impl Mode {
 
     /// The largest |kα| of the mode in layer j, which sets how finely it is integrated.
     pub(crate) fn wavenumber(&self, j: usize) -> f64 {
-        self.k * (self.layers[j].eps - self.nu).norm().sqrt()
+        self.k * portable::complex::abs(self.layers[j].eps - self.nu).sqrt()
     }
 
     /// U, unnormalized, at x in layer j: from the layer's lower state where it can't grow much
@@ -735,7 +737,7 @@ impl Mode {
         let layer = &self.layers[j];
         let t = layer.stretch * (x - layer.x0).clamp(0.0, layer.width);
         let d = layer.d();
-        let mut alpha = (layer.eps - self.nu).sqrt();
+        let mut alpha = portable::complex::sqrt(layer.eps - self.nu);
         if (alpha * d).im < 0.0 {
             alpha = -alpha;
         }
@@ -744,14 +746,15 @@ impl Mode {
         let (u0, p0) = self.states[j];
         if (k * alpha * d).im <= 2.0 {
             let phi = k * alpha * t;
-            u0 * phi.cos() + p0 * k * t / w * sinc(phi)
+            u0 * portable::complex::cos(phi) + p0 * k * t / w * sinc(phi)
         } else {
             let i = c64::new(0.0, 1.0);
             let (u1, p1) = self.states[j + 1];
             let g = i * w * alpha;
             let a = 0.5 * (u0 + p0 / g);
             let b = 0.5 * (u1 - p1 / g);
-            a * (i * k * alpha * t).exp() + b * (i * k * alpha * (d - t)).exp()
+            a * portable::complex::exp(i * k * alpha * t)
+                + b * portable::complex::exp(i * k * alpha * (d - t))
         }
     }
 }

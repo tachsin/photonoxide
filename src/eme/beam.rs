@@ -19,6 +19,7 @@ use num_complex::Complex64 as c64;
 use super::scattering::GL20;
 use super::{Eme, Mode, Scattering, Slice};
 use crate::mode::Polarization;
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -120,8 +121,8 @@ impl Beam {
     /// E_y for TE, H_y for TM, 1 at its centre.
     pub fn field(&self, x: f64, k: f64) -> c64 {
         let t = (x - self.centre) / self.waist;
-        let phase = k * self.index * self.angle.sin() * (x - self.centre);
-        c64::from_polar((-t * t).exp(), phase)
+        let phase = k * self.index * portable::sin(self.angle) * (x - self.centre);
+        portable::complex::from_polar(portable::exp(-t * t), phase)
     }
 
     /// ∫ |f|² dx across an unbounded plane, µm: w √(π/2).
@@ -270,7 +271,7 @@ impl Eme {
             middle + beam.centre - REACH * beam.waist,
             middle + beam.centre + REACH * beam.waist,
         );
-        let tilt = (k * beam.index * beam.angle.sin()).abs();
+        let tilt = (k * beam.index * portable::sin(beam.angle)).abs();
         let mut amplitudes = vec![c64::new(0.0, 0.0); modes.len()];
         let mut norm = 0.0;
         for (j, layer) in layers.iter().enumerate() {
@@ -279,7 +280,7 @@ impl Eme {
                 continue;
             }
             let fastest = modes.iter().map(|m| m.wavenumber(j)).fold(0.0, f64::max);
-            let omega = (fastest + tilt) * layer.stretch.norm();
+            let omega = (fastest + tilt) * portable::complex::abs(layer.stretch);
             // panels no wider than the phase allows, nor than half a waist
             let panels = ((omega * (b - a) / PANEL_PHASE)
                 .max(2.0 * (b - a) / beam.waist)

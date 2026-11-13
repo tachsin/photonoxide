@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 use super::{Eme, Piece, Section, Slice, Taper, Wall};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -65,13 +66,13 @@ pub(crate) fn one_mode_step(polarization: Polarization) -> ((f64, f64), (f64, f6
             if w.abs() < 1e-12 {
                 a
             } else {
-                (w * a).sin() / w
+                portable::sin(w * a) / w
             }
         };
         0.5 * (s(h - g) + s(h + g))
     };
     // the even field on x > 0, x = 0 at the centre
-    let (c1, c2) = ((h1 * a1).cos(), (h2 * a2).cos());
+    let (c1, c2) = (portable::cos(h1 * a1), portable::cos(h2 * a2));
     // ∫ over x > 0 of U₁² w and U₂² w, each with its own slab's indices
     let self1 = cc(a1, h1, h1) * w_core + c1 * c1 / (2.0 * q1) * w_clad;
     let self2 = cc(a2, h2, h2) * w_core + c2 * c2 / (2.0 * q2) * w_clad;
@@ -80,12 +81,12 @@ pub(crate) fn one_mode_step(polarization: Polarization) -> ((f64, f64), (f64, f6
     let middle = {
         // ∫_a1^a2 e^(−q₁(x − a₁)) cos(h₂x) dx, the real part of a complex exponential's integral
         let z = c64::new(-q1, h2);
-        let f = |x: f64| (z * x).exp() * (q1 * a1).exp() / z;
+        let f = |x: f64| portable::complex::exp(z * x) * portable::exp(q1 * a1) / z;
         (f(a2) - f(a1)).re
     };
     let cross = cc(a1, h1, h2) * w_core
         + c1 * middle * w_clad
-        + c1 * c2 * (-q1 * (a2 - a1)).exp() / (q1 + q2) * w_clad;
+        + c1 * c2 * portable::exp(-q1 * (a2 - a1)) / (q1 + q2) * w_clad;
     let c = cross / (self1 * self2).sqrt();
     let (p, s) = match polarization {
         Polarization::Te => (n1, n2),
@@ -99,7 +100,10 @@ pub(crate) fn one_mode_step(polarization: Polarization) -> ((f64, f64), (f64, f6
         Section::new(slab(2.0 * a2, 6.0), Length::ZERO),
     ];
     let got = eme.s_matrix(&sections).expect("the step's S-matrix");
-    ((r, t.abs()), (got.s11[0][0].re, got.s21[0][0].norm()))
+    (
+        (r, t.abs()),
+        (got.s11[0][0].re, portable::complex::abs(got.s21[0][0])),
+    )
 }
 
 /// The largest relative difference of [`one_mode_step`]'s R and |T| from the closed form, TE
@@ -141,7 +145,7 @@ pub(crate) fn fresnel(polarization: Polarization) -> f64 {
     for (i, row) in s.s11.iter().enumerate().take(m) {
         let kx = (i + 1) as f64 * std::f64::consts::PI / w;
         let beta = |n: f64| {
-            let b = re(n * n * k * k - kx * kx).sqrt();
+            let b = portable::complex::sqrt(re(n * n * k * k - kx * kx));
             if b.im < 0.0 { -b } else { b }
         };
         let (b1, b2) = (beta(n1), beta(n2));
@@ -151,7 +155,7 @@ pub(crate) fn fresnel(polarization: Polarization) -> f64 {
         };
         for (j, &entry) in row.iter().enumerate().take(m) {
             let expected = if i == j { r } else { c64::new(0.0, 0.0) };
-            worst = worst.max((entry - expected).norm());
+            worst = worst.max(portable::complex::abs(entry - expected));
         }
     }
     worst
@@ -182,7 +186,7 @@ pub(crate) fn lossless(polarization: Polarization) -> (f64, f64) {
     let mut symmetry: f64 = 0.0;
     for i in 0..2 * m {
         for j in 0..2 * m {
-            symmetry = symmetry.max((at(i, j) - at(j, i)).norm());
+            symmetry = symmetry.max(portable::complex::abs(at(i, j) - at(j, i)));
         }
     }
     // the propagating modes of each port, n_eff real
@@ -200,7 +204,7 @@ pub(crate) fn lossless(polarization: Polarization) -> (f64, f64) {
         for &b in &open {
             let sum: c64 = open.iter().map(|&q| at(q, a).conj() * at(q, b)).sum();
             let expected = if a == b { 1.0 } else { 0.0 };
-            unitarity = unitarity.max((sum - expected).norm());
+            unitarity = unitarity.max(portable::complex::abs(sum - expected));
         }
     }
     (symmetry, unitarity)
@@ -257,7 +261,10 @@ pub(crate) fn step_against_fresnel(modes: usize) -> (f64, f64) {
             .effective_index()
     };
     let (n1, n2) = (n(0.22), n(0.30));
-    (s.s11[0][0].norm_sqr(), ((n1 - n2) / (n1 + n2)).powi(2))
+    (
+        s.s11[0][0].norm_sqr(),
+        portable::powi((n1 - n2) / (n1 + n2), 2),
+    )
 }
 
 /// The stepped taper's |S₁₁|² by 2D FDFD (E along z, the guides' fundamental port modes at 0.3
@@ -314,7 +321,7 @@ pub(crate) fn linear_taper(steps: usize, modes: usize) -> c64 {
 /// changes, |S(80) − S(40)| / |S(160) − S(80)| in log₂.
 pub(crate) fn steps_order() -> f64 {
     let s = [40, 80, 160].map(|n| linear_taper(n, 60));
-    ((s[1] - s[0]).norm() / (s[2] - s[1]).norm()).log2()
+    portable::log2(portable::complex::abs(s[1] - s[0]) / portable::complex::abs(s[2] - s[1]))
 }
 
 /// The smooth taper's |S₂₁|² on 40 steps with 40, 80 and 160 modes, a grid study in 1/N
@@ -341,9 +348,13 @@ pub(crate) const SHARP_TOLERANCE: f64 = 1e-4;
 /// change from 2560 steps, the true error of as many equal steps).
 pub(crate) fn sharp_taper() -> (f64, f64, usize, f64, f64) {
     let eme = half_te(40);
-    let profile = |z: Length| Ok(half(0.22 + 0.38 * z.to_um().powi(8), 1.5));
+    let profile = |z: Length| Ok(half(0.22 + 0.38 * portable::powi(z.to_um(), 8), 1.5));
     let entries = |s: &super::Scattering| [s.s11[0][0], s.s21[0][0], s.s22[0][0]];
-    let far = |a: [c64; 3], b: [c64; 3]| (0..3).map(|i| (a[i] - b[i]).norm()).fold(0.0, f64::max);
+    let far = |a: [c64; 3], b: [c64; 3]| {
+        (0..3)
+            .map(|i| portable::complex::abs(a[i] - b[i]))
+            .fold(0.0, f64::max)
+    };
     let ends = |sections: Vec<Section>| {
         let mut all = vec![Section::new(half(0.22, 1.5), Length::ZERO)];
         all.extend(sections);
@@ -379,7 +390,7 @@ pub(crate) fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 

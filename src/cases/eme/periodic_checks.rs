@@ -8,6 +8,7 @@ use num_complex::Complex64 as c64;
 use super::checks::half;
 use super::{Eme, Section, Slice, Wall};
 use crate::mode::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -28,7 +29,8 @@ fn quarter(n: f64) -> f64 {
 /// βᵢ = k₀ nᵢ (and kᵢdᵢ = βᵢdᵢ): TE's admittances are the propagation constants.
 pub(crate) fn closed_form(b1: c64, d1: f64, b2: c64, d2: f64) -> c64 {
     let (p1, p2) = (b1 * d1, b2 * d2);
-    p1.cos() * p2.cos() - 0.5 * (b1 / b2 + b2 / b1) * p1.sin() * p2.sin()
+    portable::complex::cos(p1) * portable::complex::cos(p2)
+        - 0.5 * (b1 / b2 + b2 / b1) * portable::complex::sin(p1) * portable::complex::sin(p2)
 }
 
 /// The quarter-wave stack's period as sections across a window `width` µm wide: each layer
@@ -65,13 +67,13 @@ pub(crate) fn stack_departure(wavelengths: &[f64], width: f64, modes: usize) -> 
         for m in 0..modes {
             let beta = |n: f64| {
                 let q = m as f64 * l / (2.0 * width);
-                c64::new(n * n - q * q, 0.0).sqrt() * k0
+                portable::complex::sqrt(c64::new(n * n - q * q, 0.0)) * k0
             };
             let c = closed_form(beta(N1), quarter(N1), beta(N2), quarter(N2));
             let d = bloch
                 .cos
                 .iter()
-                .map(|b| (b - c).norm() / c.norm().max(1.0))
+                .map(|b| portable::complex::abs(b - c) / portable::complex::abs(c).max(1.0))
                 .fold(f64::INFINITY, f64::min);
             worst = worst.max(d);
         }
@@ -117,7 +119,7 @@ pub(crate) fn band_edges() -> (f64, f64) {
 
 /// The quarter-wave stop band's width, Δω/ω₀ = (4/π) arcsin((n₂ − n₁)/(n₂ + n₁)).
 pub(crate) fn band_width() -> f64 {
-    4.0 / std::f64::consts::PI * ((N2 - N1) / (N2 + N1)).asin()
+    4.0 / std::f64::consts::PI * portable::asin((N2 - N1) / (N2 + N1))
 }
 
 /// The slab grating's settings at `wavelength` µm: half of it (TE's even modes, a magnetic
@@ -193,7 +195,7 @@ pub(crate) const PML_STRENGTHS: [f64; 2] = [0.0125, 0.00625];
 /// [`PML_STRENGTHS`], with `modes` modes.
 pub(crate) fn pml_loss_order(modes: usize) -> f64 {
     let [strong, weak] = PML_STRENGTHS.map(|s| grating_fundamental(modes, Some((4.0, s))).im);
-    (strong / weak).log2()
+    portable::log2(strong / weak)
 }
 
 /// The largest |a_qp − b_qp| over the four blocks.
@@ -206,7 +208,11 @@ pub(crate) fn departure(a: &super::Scattering, b: &super::Scattering) -> f64 {
     ]
     .iter()
     .flat_map(|(x, y)| x.iter().zip(y.iter()))
-    .flat_map(|(r, q)| r.iter().zip(q.iter()).map(|(u, v)| (u - v).norm()))
+    .flat_map(|(r, q)| {
+        r.iter()
+            .zip(q.iter())
+            .map(|(u, v)| portable::complex::abs(u - v))
+    })
     .fold(0.0, f64::max)
 }
 
@@ -313,11 +319,11 @@ mod tests {
             .expect("bloch");
         let k0 = std::f64::consts::TAU / 1.55;
         for m in &modes {
-            let c = (m.effective_index() * k0 * 0.4).cos();
+            let c = portable::complex::cos(m.effective_index() * k0 * 0.4);
             let near = bloch
                 .cos
                 .iter()
-                .map(|b| (b - c).norm() / c.norm().max(1.0))
+                .map(|b| portable::complex::abs(b - c) / portable::complex::abs(c).max(1.0))
                 .fold(f64::INFINITY, f64::min);
             assert!(near < 1e-12, "{c} not among {:?}", bloch.cos);
         }

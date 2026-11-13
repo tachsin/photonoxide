@@ -33,6 +33,7 @@ use num_complex::Complex64 as c64;
 
 use super::modes::Layer;
 use super::{Eme, Slice};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The map between a bent section's mapped coordinate s (along the real axis, from its lower
@@ -58,7 +59,7 @@ impl Map {
     /// thick.
     pub(crate) fn new(radius: f64, lower: f64, width: f64) -> Map {
         let half = 0.5 * width;
-        let u = |xi: f64| radius * (xi / radius).ln_1p();
+        let u = |xi: f64| radius * portable::ln_1p(xi / radius);
         Map {
             radius,
             lower,
@@ -81,7 +82,7 @@ impl Map {
             x / self.jacobian[0]
         } else if x <= hi {
             let xi = x - lo - 0.5 * self.width;
-            self.lower_s() + self.radius * (xi / self.radius).ln_1p() - self.u[0]
+            self.lower_s() + self.radius * portable::ln_1p(xi / self.radius) - self.u[0]
         } else {
             self.lower_s() + window + (x - hi) / self.jacobian[1]
         }
@@ -94,7 +95,7 @@ impl Map {
             s * self.jacobian[0]
         } else if s <= hi {
             let u = s - lo + self.u[0];
-            self.lower + 0.5 * self.width + self.radius * (u / self.radius).exp_m1()
+            self.lower + 0.5 * self.width + self.radius * portable::exp_m1(u / self.radius)
         } else {
             self.lower + self.width + (s - hi) * self.jacobian[1]
         }
@@ -160,7 +161,7 @@ pub(crate) fn layers(eme: &Eme, slice: &Slice, radius: f64, t: f64) -> Vec<Layer
             let mid = s + (j as f64 + 0.5) * h;
             let bend = 2.0 * u_at(mid) / radius;
             out.push(Layer {
-                eps: n * n * bend.exp(),
+                eps: n * n * portable::complex::exp(bend),
                 phys: n * n,
                 bend,
                 x0: s + j as f64 * h,
@@ -183,7 +184,7 @@ pub(crate) fn layers(eme: &Eme, slice: &Slice, radius: f64, t: f64) -> Vec<Layer
     }
     let mut xi = -0.5 * map.width;
     for &(n, d) in &slice.layers {
-        let u = |xi: f64| radius * (xi / radius).ln_1p();
+        let u = |xi: f64| radius * portable::ln_1p(xi / radius);
         let (a, b) = (u(xi), u(xi + d));
         let base = s_lo - u_lo;
         push(n, b - a, c64::new(1.0, 0.0), &move |s: f64| {

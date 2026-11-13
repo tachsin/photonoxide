@@ -8,6 +8,7 @@ use super::scattering::{Blocks, interface, overlaps, star, then_propagate};
 use super::{Eme, Mode, Slice};
 use crate::mode::Polarization;
 use crate::mode::bend::SlabBend;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -99,7 +100,7 @@ pub(crate) fn exact_error(polarization: Polarization, r: f64) -> (f64, f64) {
     let steps = (exact_with(polarization, r, 2.0 * REFERENCE, 12.0) - n) / 15.0;
     let deeper = exact_with(polarization, r, REFERENCE, 24.0) - n;
     (
-        steps.norm().max(deeper.norm()),
+        portable::complex::abs(steps).max(portable::complex::abs(deeper)),
         steps.im.abs().max(deeper.im.abs()),
     )
 }
@@ -116,9 +117,8 @@ pub(crate) fn settings(polarization: Polarization, modes: usize, step: f64, scal
 pub(crate) fn nearest(modes: &[Mode], n: c64) -> usize {
     (0..modes.len())
         .min_by(|&a, &b| {
-            (modes[a].effective_index() - n)
-                .norm()
-                .total_cmp(&(modes[b].effective_index() - n).norm())
+            portable::complex::abs(modes[a].effective_index() - n)
+                .total_cmp(&portable::complex::abs(modes[b].effective_index() - n))
         })
         .unwrap_or(0)
 }
@@ -149,7 +149,9 @@ pub(crate) fn index_limit(polarization: Polarization, r: f64) -> (c64, c64, (f64
     let pml = limit(n(STEP, 0.5), n(0.5 * STEP, 0.5)) - got;
     let exact = exact_error(polarization, r);
     let own = (
-        finer.norm().max(pml.norm()).max(exact.0),
+        portable::complex::abs(finer)
+            .max(portable::complex::abs(pml))
+            .max(exact.0),
         finer.im.abs().max(pml.im.abs()).max(exact.1),
     );
     (want, got, own)
@@ -167,9 +169,9 @@ pub(crate) fn orders(polarization: Polarization, r: f64) -> [f64; 3] {
     let want = exact_index(polarization, r);
     let e: Vec<f64> = [1.0, 0.5, 0.25, 0.125]
         .iter()
-        .map(|&f| (index(polarization, r, f * STEP, 1.0, want) - want).norm())
+        .map(|&f| portable::complex::abs(index(polarization, r, f * STEP, 1.0, want) - want))
         .collect();
-    [0, 1, 2].map(|j| (e[j] / e[j + 1]).log2())
+    [0, 1, 2].map(|j| portable::log2(e[j] / e[j + 1]))
 }
 
 /// The S-matrix as blocks, of the straight slab, a bend of `angles` (rad) in turn at `r` µm
@@ -182,7 +184,9 @@ pub(crate) fn turn(polarization: Polarization, r: f64, angles: &[f64], modes: us
     let k = std::f64::consts::TAU / LAMBDA;
     let advance = |angle: f64| -> Vec<c64> {
         b.iter()
-            .map(|m| (c64::new(0.0, k * middle(r) * angle) * m.effective_index()).exp())
+            .map(|m| {
+                portable::complex::exp(c64::new(0.0, k * middle(r) * angle) * m.effective_index())
+            })
             .collect()
     };
     let mut total = interface(&overlaps(&s, &b));
@@ -205,8 +209,9 @@ pub(crate) fn blocks_departure(a: &Blocks, b: &Blocks) -> f64 {
     ]
     .iter()
     .flat_map(|(x, y)| {
-        (0..x.nrows())
-            .flat_map(move |i| (0..x.ncols()).map(move |j| (x[(i, j)] - y[(i, j)]).norm()))
+        (0..x.nrows()).flat_map(move |i| {
+            (0..x.ncols()).map(move |j| portable::complex::abs(x[(i, j)] - y[(i, j)]))
+        })
     })
     .fold(0.0, f64::max)
 }
@@ -303,7 +308,7 @@ pub(crate) fn exact_coupling(polarization: Polarization, r: f64, steps: f64, sca
         } else {
             (rm / (rm + 0.5 * w), stretch * wt)
         };
-        let n2 = index_at(x).powi(2);
+        let n2 = portable::powi(index_at(x), 2);
         let (eb, hb) = match polarization {
             Polarization::Te => (psi[j], want * shrink * psi[j]),
             Polarization::Tm => (want * shrink * psi[j] / n2, psi[j]),
@@ -358,7 +363,7 @@ pub(crate) fn index_case() -> (f64, f64) {
     for pol in BOTH {
         for r in RADII {
             let (want, got, own) = index_limit(pol, r);
-            worst.0 = worst.0.max((got - want).norm());
+            worst.0 = worst.0.max(portable::complex::abs(got - want));
             worst.1 = worst.1.max(own.0);
         }
     }
@@ -403,7 +408,7 @@ pub(crate) fn halves_case() -> f64 {
 /// from the straight's (the identity), max(|S21 − 1|, |S11|) between the fundamental modes.
 pub(crate) fn no_angle(polarization: Polarization, r: f64, modes: usize) -> f64 {
     let s = turn(polarization, r, &[0.0], modes);
-    (s.s21[(0, 0)] - 1.0).norm().max(s.s11[(0, 0)].norm())
+    portable::complex::abs(s.s21[(0, 0)] - 1.0).max(portable::complex::abs(s.s11[(0, 0)]))
 }
 
 /// The no-angle case: TE and TM at 2 and 3 µm with 24 modes, the largest departure.
@@ -434,7 +439,7 @@ fn joint(pol: Polarization, r: f64, scale: f64) -> (c64, f64) {
         exact_coupling(pol, r, 2.0 * REFERENCE, scale),
         exact_coupling(pol, r, REFERENCE, scale),
     );
-    let own = (got - finer).norm().max((rough - want).norm() / 15.0);
+    let own = portable::complex::abs(got - finer).max(portable::complex::abs(rough - want) / 15.0);
     (got - want, own)
 }
 
@@ -445,8 +450,8 @@ fn joints(bends: &[(Polarization, f64)]) -> (f64, f64) {
     for &(pol, r) in bends {
         let (off, own) = joint(pol, r, 1.0);
         let (stronger, _) = joint(pol, r, 0.5);
-        worst.0 = worst.0.max(off.norm());
-        worst.1 = worst.1.max(own).max((stronger - off).norm());
+        worst.0 = worst.0.max(portable::complex::abs(off));
+        worst.1 = worst.1.max(own).max(portable::complex::abs(stronger - off));
     }
     worst
 }
@@ -570,7 +575,11 @@ mod tests {
         for i in 0..b.len() {
             for j in 0..b.len() {
                 let want = if i == j { 1.0 } else { 0.0 };
-                assert!((o[(i, j)] - want).norm() < 1e-12, "{i} {j}: {}", o[(i, j)]);
+                assert!(
+                    portable::complex::abs(o[(i, j)] - want) < 1e-12,
+                    "{i} {j}: {}",
+                    o[(i, j)]
+                );
             }
         }
     }
@@ -606,7 +615,7 @@ mod tests {
         for pol in BOTH {
             eprintln!("orders {pol:?} {:?}", orders(pol, 2.0));
             let want = exact_index(pol, 2.0);
-            let off = (index(pol, 2.0, STEP, 1.0, want) - want).norm();
+            let off = portable::complex::abs(index(pol, 2.0, STEP, 1.0, want) - want);
             eprintln!("{pol:?} at 2 um with the default step: {off:.2e} off");
         }
         eprintln!("order {} {:.1} s", order_case(), t.elapsed().as_secs_f64());
@@ -644,7 +653,10 @@ mod tests {
         }
         for (pol, r) in JOINTS.iter().chain(&LEAKY_JOINTS) {
             let eta = exact_coupling(*pol, *r, REFERENCE, 1.0);
-            eprintln!("{pol:?} {r}: 1 - eta {:.4e}", 1.0 - eta.norm());
+            eprintln!(
+                "{pol:?} {r}: 1 - eta {:.4e}",
+                1.0 - portable::complex::abs(eta)
+            );
         }
     }
 
@@ -657,11 +669,11 @@ mod tests {
             let (stronger, own2) = joint(*pol, *r, 0.5);
             eprintln!(
                 "{pol:?} {r}: off {:.3e} own {:.3e}; PML x2: off {:.3e} own {:.3e}; change {:.3e}; Im n {:.3e}; {:.1} s",
-                off.norm(),
+                portable::complex::abs(off),
                 own,
-                stronger.norm(),
+                portable::complex::abs(stronger),
                 own2,
-                (stronger - off).norm(),
+                portable::complex::abs(stronger - off),
                 exact_index(*pol, *r).im,
                 t.elapsed().as_secs_f64()
             );
