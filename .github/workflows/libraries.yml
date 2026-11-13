@@ -225,14 +225,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install
         run: |
-          # an Ubuntu mirror can stall apt-get update for over an hour: each try stops after 3
-          # minutes, and the third failure fails the step
-          for try in 1 2 3; do
-            sudo timeout 180 apt-get update && break
-            [ "$try" -lt 3 ] || exit 1
-            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
-            sleep 15
-          done
+          # an Ubuntu mirror can stall apt-get update for over an hour: retried, each try bounded
+          bash .github/apt-get-update.sh
           time sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${{ matrix.package }}
           dpkg -l | grep -i -E "mkl|mumps|superlu|openblas" || true
       - name: Where it landed
@@ -288,13 +282,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install the compilers and the BLAS
         run: |
-          # bounded as in the apt rows: three tries of at most 3 minutes
-          for try in 1 2 3; do
-            sudo timeout 180 apt-get update && break
-            [ "$try" -lt 3 ] || exit 1
-            echo "apt-get update: try $try of 3 failed or ran past 3 minutes; again in 15 s"
-            sleep 15
-          done
+          # bounded and retried as in the apt rows
+          bash .github/apt-get-update.sh
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gfortran libblas-dev liblapack-dev
       - uses: actions/cache@v6
         id: built
