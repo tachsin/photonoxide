@@ -44,6 +44,7 @@
 //! e^(st) for s = −iω, so a stable pole has a negative real part in either convention;
 //! [`super::model`] maps wavelengths to s.
 
+use crate::portable;
 use faer::Mat;
 use num_complex::Complex64 as c64;
 
@@ -165,7 +166,8 @@ impl Rational {
             .zip(&self.residues[e])
             .map(|(&a, &r)| r / (s - a))
             .sum();
-        (sum + self.constant[e] + s * self.proportional[e]) * (-s * self.delays[e]).exp()
+        (sum + self.constant[e] + s * self.proportional[e])
+            * portable::complex::exp(-s * self.delays[e])
     }
 
     /// The number of responses.
@@ -377,7 +379,7 @@ pub fn estimate_delay(s: &[c64], values: &[c64]) -> f64 {
     let mut phase = Vec::with_capacity(s.len());
     let mut last: Option<f64> = None;
     for &k in &order {
-        let mut p = values[k].arg();
+        let mut p = portable::complex::arg(values[k]);
         if let Some(prev) = last {
             p += std::f64::consts::TAU * ((prev - p) / std::f64::consts::TAU).round();
         }
@@ -490,7 +492,12 @@ fn fit_responses(s: &[c64], responses: &[Vec<c64>], options: &Options) -> Result
     let data: Vec<Vec<c64>> = responses
         .iter()
         .zip(&delays)
-        .map(|(r, &t)| r.iter().zip(s).map(|(&v, &z)| v * (z * t).exp()).collect())
+        .map(|(r, &t)| {
+            r.iter()
+                .zip(s)
+                .map(|(&v, &z)| v * portable::complex::exp(z * t))
+                .collect()
+        })
         .collect();
 
     let mut best: Option<Rational> = None;
@@ -518,9 +525,9 @@ fn max_move(old: &[c64], new: &[c64]) -> f64 {
     old.iter()
         .map(|a| {
             new.iter()
-                .map(|b| (a - b).norm())
+                .map(|b| portable::complex::abs(a - b))
                 .fold(f64::INFINITY, f64::min)
-                / a.norm().max(f64::MIN_POSITIVE)
+                / portable::complex::abs(*a).max(f64::MIN_POSITIVE)
         })
         .fold(0.0, f64::max)
 }
@@ -830,11 +837,11 @@ pub(crate) fn error_of(model: &Rational, s: &[c64], responses: &[Vec<c64>]) -> F
         (0.0, 0.0, 0.0f64, 0.0f64, 0usize);
     for (e, f) in responses.iter().enumerate() {
         for (&z, &v) in s.iter().zip(f) {
-            let d = (model.evaluate(e, z) - v).norm();
+            let d = portable::complex::abs(model.evaluate(e, z) - v);
             sum_e += d * d;
             sum_f += v.norm_sqr();
             max_e = max_e.max(d);
-            max_f = max_f.max(v.norm());
+            max_f = max_f.max(portable::complex::abs(v));
             count += 1;
         }
     }

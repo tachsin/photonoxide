@@ -1,5 +1,6 @@
 use super::*;
 use crate::compact::checks::{Ring, ring_parametric, ring_spectrum};
+use crate::portable;
 
 // Bogaerts et al. 2011, Eq. 1 is (r − a z)/(1 − r a z): a ratio of functions linear in r, so
 // numerator and denominator of degree 1 in r are exact
@@ -73,9 +74,9 @@ fn two_parameters() {
         .s_matrix(Wavelength::um(1.55).unwrap(), &[0.94, 0.965])
         .unwrap();
     assert!(
-        (s[(0, 0)] - ring.through(1.55)).norm() < 1e-6,
+        portable::complex::abs(s[(0, 0)] - ring.through(1.55)) < 1e-6,
         "{}",
-        (s[(0, 0)] - ring.through(1.55)).norm()
+        portable::complex::abs(s[(0, 0)] - ring.through(1.55))
     );
     // a component with those parameters, inside their sampled range only
     assert_eq!(m.parameters().len(), 2);
@@ -99,7 +100,7 @@ fn two_parameters() {
     let r = m.rational(&[0.94, 0.965]).unwrap();
     let z = laplace(Wavelength::um(1.55).unwrap());
     // (the residues N(z)/D′(z) carry the round-off of the poles: 1e-9 here)
-    assert!((r.evaluate(0, z) - s[(0, 0)]).norm() < 1e-8);
+    assert!(portable::complex::abs(r.evaluate(0, z) - s[(0, 0)]) < 1e-8);
 }
 
 #[test]
@@ -236,7 +237,7 @@ fn piecewise_linear_needs_a_grid_and_decides_one_parameter() {
     let s = m
         .s_matrix(Wavelength::um(1.55).unwrap(), &[0.95, 0.96])
         .unwrap();
-    assert!((s[(0, 0)] - ring.through(1.55)).norm() < 1e-9);
+    assert!(portable::complex::abs(s[(0, 0)] - ring.through(1.55)) < 1e-9);
     assert!(m.provenance().source.contains("piecewise linear"));
     // the exact test is for one parameter
     assert!(
@@ -341,8 +342,8 @@ fn derivative_error(m: &ParametricModel, values: &[f64], h: f64) -> f64 {
             };
             let (up, down) = (at(1.0), at(-1.0));
             let fd = (up[(0, 0)] - down[(0, 0)]) / (2.0 * h);
-            worst = worst.max((fd - d[(0, 0)]).norm());
-            scale = scale.max(d[(0, 0)].norm());
+            worst = worst.max(portable::complex::abs(fd - d[(0, 0)]));
+            scale = scale.max(portable::complex::abs(d[(0, 0)]));
         }
     }
     worst / scale
