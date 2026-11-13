@@ -13,9 +13,11 @@ set -uo pipefail
 
 job=${1:?usage: sbatch run.sh <job file> [<runs folder>]}
 out=${2:-runs}
+# the program: photonoxide, or a command that runs it ("apptainer exec photonoxide.sif photonoxide")
+read -ra program <<<"${PHOTONOXIDE:-photonoxide}"
 # the signal is the program's to act on; this script only says that it came, and the run's exit
 trap 'echo "batch script: SIGTERM"' TERM
-"${PHOTONOXIDE:-photonoxide}" run "$job" --headless --out "$out" &
+"${program[@]}" run "$job" --headless --out "$out" &
 wait $!
 status=$?
 # a trapped signal interrupts the wait: wait again for the run's own exit

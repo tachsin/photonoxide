@@ -969,10 +969,12 @@ platforms research groups use:
 |---|---|---|
 | Linux x86_64 and ARM64, a workstation | `.deb` (Debian, Ubuntu), `.rpm` (Fedora, RHEL, openSUSE) | Start here: about 14 MB. The package manager installs it system-wide with WebKitGTK, the browser engine the window uses, from the distribution (`sudo apt install ./photonoxide-….deb`, or `sudo dnf install ./photonoxide-….rpm`). Built on Ubuntu 22.04: glibc 2.35 or newer. |
 | Linux, anywhere else (clusters, other distributions, no root) | `.AppImage` | Runs anywhere: it carries WebKitGTK and its libraries, which is why it is about 88 MB. `chmod +x` it and run it, with `--appimage-extract-and-run` where FUSE is missing (most clusters). |
+| Linux x86_64 and ARM64, a container or a cluster (runs, workers and checks; no window) | The Docker image: `tachsin/photonoxide` on Docker Hub, `ghcr.io/tachsin/photonoxide` on GitHub's registry; Apptainer runs it | The program without its window: every command but the studio's, linked against glibc alone, about 47 MB to download. `docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsin/photonoxide run job.yaml --headless`; on a cluster, `apptainer pull photonoxide.sif docker://tachsin/photonoxide:<version>`. See [docs/docker.md](../docs/docker.md). |
 | Windows x86_64 | `-setup.exe` | A per-user installer: it needs no administrator rights. photonoxide's own (`studio/setup`), about 11 MB: it carries the program compressed by 7-Zip's BCJ2 and xz, and its window is the studio's (`photonoxide setup`). Apps & Features removes it with `photonoxide uninstall`. |
 | macOS, Apple Silicon and Intel | `.dmg`, `.app.tar.gz` | One universal app. Until it is signed (see below), right-click it and choose Open the first time, or run `xattr -dr com.apple.quarantine photonoxide.app`. From a terminal, the program is `photonoxide.app/Contents/MacOS/photonoxide`. |
 
-The release workflow, `.github/workflows/binaries.yml`, builds them from the release's tag.
+The release workflow, `.github/workflows/binaries.yml`, builds them from the release's tag, and
+`.github/workflows/docker-publish.yml` the image.
 
 ## Code signing
 
@@ -1035,6 +1037,18 @@ PHOTONOXIDE_SETUP_PAYLOAD=target/release/photonoxide.exe cargo test -p photonoxi
 Build with the Tauri CLI, never with plain `cargo build`. Plain cargo leaves out the bundled
 window, so the window points at a dev server that isn't running. `pnpm tauri dev` serves the
 window from Vite and reloads it as you edit.
+
+The program without its window is the one exception: the `window` feature (on by default) holds
+Tauri and every part of the program that uses it, and without it the same `photonoxide` has every
+headless command and links no GTK or WebKit library. Plain cargo builds it, with nothing but Rust:
+
+```sh
+cargo build --release -p photonoxide-studio --no-default-features    # target/release/photonoxide
+```
+
+`photonoxide` alone and `view` then say that the build has no window (exit 2), and `run` runs
+headless. The Docker image (`docker/Dockerfile`, [docs/docker.md](../docs/docker.md)) is this
+build.
 
 ## The README's GIFs
 

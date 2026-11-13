@@ -47,6 +47,22 @@ jobs:
     # the update key and, once set, the Windows and macOS signing secrets
     secrets: inherit
 
+  # the image of the program without its window, on GitHub's registry and (once its secrets are
+  # set) Docker Hub: docker-publish.yml, docs/docker.md
+  docker:
+    name: Docker image
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      tag: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
+    secrets: inherit
+
   # the Python package to PyPI, once PyPI trusts this repository (the PYPI_PUBLISH variable;
   # docs/python.md, "Publishing"): python-wheels.yml at the new tag, started as a run of its own,
   # since PyPI trusts that workflow file and not a workflow that calls it. (workflow_dispatch is

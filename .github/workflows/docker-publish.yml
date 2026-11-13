@@ -1,0 +1,239 @@
+name: Docker publish
+
+# The image of the program without its window (docker/Dockerfile, docs/docker.md) for a release,
+# on Docker Hub and on GitHub's registry with the same tags: <version> (0.7.0), <minor> (0.7) and
+# latest. No image is made of main. (#805, D4)
+#
+# Each architecture is built on a runner of its own (linux/amd64 on ubuntu-24.04, linux/arm64 on
+# ubuntu-24.04-arm, no emulation), and checked before anything is pushed: docker/check.sh's
+# checks of the image, and the same built-in jobs run natively on that runner giving the same
+# bits. Then each is pushed by its digest, with an SBOM and a provenance attestation, and the
+# tags name the two together.
+#
+# GitHub's registry needs nothing but this workflow's token: ghcr.io/tachsin/photonoxide. Docker
+# Hub needs the secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a personal access token of that
+# account with Read & Write access); the repository is the variable DOCKERHUB_REPOSITORY, by
+# default tachsin/photonoxide. Without the secrets, the Docker Hub push is skipped with a notice
+# and GitHub's still happens. docker/README.md says how to set them up.
+#
+# The release workflow calls this with the new release's tag (a tag GITHUB_TOKEN pushes starts no
+# workflow); a tag pushed by hand starts it too, and it can be run by hand with a release's tag.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "the release's tag, e.g. v0.7.0"
+        required: true
+        type: string
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "the release's tag, e.g. v0.7.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GHCR: ghcr.io/tachsin/photonoxide
+  DOCKERHUB: docker.io/${{ vars.DOCKERHUB_REPOSITORY || 'tachsin/photonoxide' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    if: ${{ github.repository_owner == 'tachsin' }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-24.04
+          - platform: linux/arm64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - id: arch
+        name: The architecture, the version and the commit
+        run: |
+          platform='${{ matrix.platform }}'
+          echo "name=${platform#linux/}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "created=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+      - id: rust
+        uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: headless
+      # the native build, for the bits the image must give
+      - run: cargo build --locked --release -p photonoxide-studio --no-default-features
+      - run: bash docker/check.sh native target/release/photonoxide native-runs
+      - id: hub
+        name: Docker Hub's secrets
+        env:
+          USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$USERNAME" ] && [ -n "$TOKEN" ]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::DOCKERHUB_USERNAME and DOCKERHUB_TOKEN aren't set: the image goes to ghcr.io only (docker/README.md, \"Publishing\")"
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-buildx-action@v4
+      - name: Build, to check
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: photonoxide:check
+          # the push below's arguments and labels: the image checked is the one pushed
+          build-args: |
+            RUST_VERSION=${{ steps.rust.outputs.version }}
+            PHOTONOXIDE_COMMIT=${{ steps.arch.outputs.commit }}
+            VERSION=${{ steps.arch.outputs.version }}
+            CREATED=${{ steps.arch.outputs.created }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.arch.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.arch.outputs.commit }}
+          cache-from: type=gha,scope=publish-${{ steps.arch.outputs.name }}
+          cache-to: type=gha,scope=publish-${{ steps.arch.outputs.name }},mode=max
+      - run: bash docker/check.sh image photonoxide:check image-runs
+      - run: bash docker/check.sh compare native-runs image-runs
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.hub.outputs.push == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: names
+        run: |
+          names="$GHCR"
+          if [ '${{ steps.hub.outputs.push }}' = true ]; then names="$names,$DOCKERHUB"; fi
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+      # the same build (every layer from the cache above), pushed by its digest
+      - id: push
+        name: Push by digest
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            RUST_VERSION=${{ steps.rust.outputs.version }}
+            PHOTONOXIDE_COMMIT=${{ steps.arch.outputs.commit }}
+            VERSION=${{ steps.arch.outputs.version }}
+            CREATED=${{ steps.arch.outputs.created }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.arch.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.arch.outputs.commit }}
+          outputs: type=image,"name=${{ steps.names.outputs.names }}",push-by-digest=true,name-canonical=true,push=true
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=publish-${{ steps.arch.outputs.name }}
+      - name: The digest, for the tags
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest='${{ steps.push.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ steps.arch.outputs.name }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+    outputs:
+      hub: ${{ steps.hub.outputs.push }}
+
+  tags:
+    name: Tags
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.build.outputs.hub == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # <version>, <minor> and latest (not for a pre-release)
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ${{ env.GHCR }}
+            name=${{ env.DOCKERHUB }},enable=${{ needs.build.outputs.hub == 'true' }}
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
+      - name: The tags, on both architectures
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          HUB: ${{ needs.build.outputs.hub }}
+        run: |
+          set -euo pipefail
+          for image in "$GHCR" $([ "$HUB" = true ] && echo "$DOCKERHUB"); do
+            args=()
+            while read -r tag; do
+              case "$tag" in "$image":*) args+=(-t "$tag") ;; esac
+            done <<<"$TAGS"
+            docker buildx imagetools create "${args[@]}" $(printf "$image@sha256:%s " *)
+            docker buildx imagetools inspect "${args[1]}"
+          done
+      - if: needs.build.outputs.hub == 'true'
+        name: The Docker Hub page's text, docker/README.md
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - if: needs.build.outputs.hub == 'true'
+        # it needs a token with Read, Write & Delete access; with less the page stays as it is
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_REPOSITORY || 'tachsin/photonoxide' }}
+          readme-filepath: docker/README.md
+          short-description: "photonoxide: photonics design and simulation, the program without its window"

@@ -30,6 +30,9 @@ photonoxide new modes job.yaml       # a short job that runs as it is, a comment
 photonoxide run job.yaml --headless  # no window; prints the run's folder, with results.json and CSV tables
 ```
 
+In a container or on a cluster, the same commands run from the Docker image of the program
+without its window, `tachsin/photonoxide`, or through Apptainer: [docker.md](docker.md).
+
 The rest of this page is for the Rust library, and then the studio and jobs in more detail.
 
 ## Add the library
@@ -198,8 +201,9 @@ when the run is done. Every run is recorded (`runs/<run>/events.jsonl`) and repl
 
 Each release has the `photonoxide` program for Linux (x86_64 and ARM64), Windows and macOS
 ([downloads](https://github.com/tachsin/photonoxide/releases); on Linux, the `.deb` or `.rpm`
-first, and the larger AppImage where neither fits, as on a cluster:
-[which file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads)), and an
+first, and the larger AppImage where neither fits:
+[which file](https://github.com/tachsin/photonoxide/blob/main/studio/README.md#downloads); for
+runs alone, in a container or on a cluster, the [Docker image](docker.md)), and an
 installed copy updates itself; it can also be built from the repository
 ([how](https://github.com/tachsin/photonoxide/blob/main/studio/README.md)). Started with no
 arguments, it opens the studio on a workspace: the examples and jobs built in, the components

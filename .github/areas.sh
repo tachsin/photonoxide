@@ -306,6 +306,8 @@ ignored() {
     # this workflow, the map and the shards run everything; the others run as themselves
     .github/workflows/ci.yml | .github/areas.sh | .github/shards.sh) return 1 ;;
     .github/workflows/*) return 0 ;;
+    # the image and the Slurm cluster in Docker, which the Docker workflow builds and checks
+    docker/* | .dockerignore) return 0 ;;
     assets/* | studio/scripts/* | LICENSE* | .gitignore | .gitattributes) return 0 ;;
   esac
   return 1

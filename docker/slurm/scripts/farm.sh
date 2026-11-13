@@ -11,19 +11,22 @@
 # cluster's own network.
 #SBATCH --job-name=photonoxide-farm
 #SBATCH --ntasks-per-node=1
+# a node that fails loses its worker, not the job: the run finishes on the others
+#SBATCH --no-kill
 #SBATCH --output=farm-%j.out
 set -euo pipefail
 
 job=${1:?usage: sbatch farm.sh <job file> [<runs folder>]}
 out=${2:-runs}
 port=${PHOTONOXIDE_FARM_PORT:-7878}
-program=${PHOTONOXIDE:-photonoxide}
+# the program: photonoxide, or a command that runs it ("apptainer exec photonoxide.sif photonoxide")
+read -ra program <<<"${PHOTONOXIDE:-photonoxide}"
 export PHOTONOXIDE_FARM_TOKEN=${PHOTONOXIDE_FARM_TOKEN:-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')}
 
 # a worker on each node, its first line ("listening on ...") in a file of its own
 logs=$(mktemp -d "${TMPDIR:-/tmp}/photonoxide-farm.XXXXXX")
-srun --ntasks-per-node=1 --kill-on-bad-exit=0 --output="$logs/worker-%N.out" \
-  "$program" worker --listen "0.0.0.0:$port" &
+srun --ntasks-per-node=1 --kill-on-bad-exit=0 --no-kill --output="$logs/worker-%N.out" \
+  "${program[@]}" worker --listen "0.0.0.0:$port" &
 workers=$!
 
 # the run's --worker list: every node of the allocation
@@ -45,7 +48,7 @@ if [ "$have" -lt "$want" ]; then
 fi
 
 status=0
-"$program" run "$job" --headless --out "$out" "${args[@]}" || status=$?
+"${program[@]}" run "$job" --headless --out "$out" "${args[@]}" || status=$?
 echo "photonoxide run exited $status"
 # the workers stop (each exits 4 on the signal srun passes on)
 kill "$workers" 2>/dev/null || true

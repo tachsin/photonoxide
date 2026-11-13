@@ -157,6 +157,10 @@ uv pip install photonoxide  # or into the active environment
 each [release](https://github.com/tachsin/photonoxide/releases), and updates itself
 ([downloads](studio/README.md#downloads), [channels](studio/README.md#channels)).
 
+**Containers and clusters:** the same program without its window is an image on Docker Hub
+(`tachsin/photonoxide`) and GitHub's registry, for runs, farm workers and checks wherever Docker
+runs, and through Apptainer on a cluster: [docs/docker.md](docs/docker.md).
+
 ## A first example
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the

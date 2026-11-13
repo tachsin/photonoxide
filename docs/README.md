@@ -247,6 +247,8 @@ the studio and read on GitHub as ordinary Markdown.
 - [A run's folder](runs.md): what `photonoxide run` leaves behind, for a script in any language
   to read.
 - [Farming](farming.md): a sweep's points and whole jobs sent to other processes.
+- [Docker and Apptainer](docker.md): the program without its window as a container image, for
+  runs, farm workers and checks on any machine and on a cluster.
 - [Installing the external libraries](libraries.md): the optional libraries that the solvers can
   use in place of their own.
 - [job.schema.json](job.schema.json) and [results.schema.json](results.schema.json): the schemas

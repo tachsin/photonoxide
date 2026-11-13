@@ -15,6 +15,8 @@ set -euo pipefail
 
 job=${1:?usage: sbatch --array=0-<n-1> array.sh <job.toml> [<runs folder>]}
 out=${2:-runs}
+# the program: photonoxide, or a command that runs it ("apptainer exec photonoxide.sif photonoxide")
+read -ra program <<<"${PHOTONOXIDE:-photonoxide}"
 k=${SLURM_ARRAY_TASK_ID:?not an array task}
 n=${SLURM_ARRAY_TASK_COUNT:?not an array task}
 
@@ -47,7 +49,7 @@ awk -v f="$part_from" -v t="$part_to" -v c="$count" -v k="$k" '
 # a part of a single point is a sweep of one: from and to the same
 echo "array task $k of $n: points $first to $((first + count - 1)) of $points, $part_from to $part_to"
 status=0
-"${PHOTONOXIDE:-photonoxide}" run "$part" --headless --out "$out" || status=$?
+"${program[@]}" run "$part" --headless --out "$out" || status=$?
 rm -f "$part"
 echo "photonoxide run exited $status"
 exit "$status"
