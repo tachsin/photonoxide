@@ -223,7 +223,8 @@ code on every system; a canary that fails points at a primitive, not at a method
 
 - **What they check.** IEEE 754 arithmetic with no fused multiply-add; the system's maths library
   (exp, ln, sin, cos, tan, atan2, hypot, the hyperbolic functions, powf, cbrt, complex sqrt, exp
-  and ln, and more) at about 50 arguments each; photonoxide's own erf, Bessel, Hankel, E₁ and Γ;
+  and ln, and more) at about 50 arguments each, and `photonoxide::portable`'s functions, bit for
+  bit, against what they give on every system and within their stated ulps; photonoxide's own erf, Bessel, Hankel, E₁ and Γ;
   faer's dense LU, QR, SVD and eigensolvers on ill-conditioned matrices; the sparse LU; QMR and
   GMRES; the FFT; a slab's modes; a small FDFD solve; threads; the bits of a 2D FDTD run; a job
   file with CRLF line endings in a folder with spaces and non-ASCII letters. `tests/canary.rs`
@@ -254,6 +255,19 @@ code on every system; a canary that fails points at a primitive, not at a method
   the `canaries` recipe and to that table: `canary_reused_tests_exist` fails when a name the
   recipe runs no longer exists, since `cargo test --exact` with a name that matches nothing
   passes.
+
+## The same numbers on every system
+
+*The same numbers on every system: compute with + − × ÷ and sqrt, and take every other function from `photonoxide::portable` (exp, ln, powf, powi, sin, cos, tan, atan2, hypot, the hyperbolic functions, cbrt, erf, and the complex functions). clippy.toml forbids the system's versions (`f64::sin`, `powi`, `Complex::norm`, `exp`, `sqrt`, … and `mul_add`). Sum in a fixed order, never across rayon's splits. A test may call the system's functions only as an independent reference.*
+
+Why (#822): `f64::sin`, `exp`, `powf` and the rest, and num-complex's `norm`, `exp` and `sqrt`, call the system's maths library, which rounds differently on Linux, Windows and macOS, and `f64::powi` is square and multiply on Linux but the C runtime's `pow` on Windows. `photonoxide::portable` (`src/portable/`) has the same functions built from IEEE 754's exact operations only, so they give the same bits everywhere; each one's doc states its accuracy in ulps and where that number comes from, and its tests hold it to that against mpmath and hash its bits (the platform canaries). docs/methods/conventions.md, "The same numbers on every system", says what is the same everywhere today and what isn't yet.
+
+How the tools hold it:
+
+- **clippy.toml** lists the forbidden methods (`disallowed-methods`), each with the portable function to take instead. `f64::sqrt`, `Complex::powi`, `powu`, `norm_sqr`, `inv` and complex division stay allowed: they are exact roundings or products.
+- **Areas not converted yet** carry `#[allow(clippy::disallowed_methods)]` on their `mod` line in `src/lib.rs` (the studio, native and crosscode at their crate roots, the tests and examples in each file), so that clippy passes while #822's phases convert them. A test that takes the system's functions as a reference has its own allow, with a `reason`.
+- **The ratchet.** `.github/scripts/check-portable.sh`, in CI's Lint job and the pre-push hook, counts the lines that mention `clippy::disallowed_methods` and fails unless the count is exactly the number in `.github/portable-allows`: more means a new allow (convert the code instead), fewer means lower the stored number in the same PR. It also fails on `libm::` outside `src/portable/` and on `mul_add` in `src/`.
+- **A function the module lacks** goes into `src/portable/` with its accuracy and origin in its doc, its reference values in `tests/data/canary/portable.py` (appended, so the other lines stay the same), its bound in `canary_portable_functions_within_their_stated_ulps` and its hash in `canary_portable_bits_over_a_grid`. The module uses std, `libm` and num-complex only, never `crate::`, so that it can become a crate of its own.
 
 ## A new kind of job
 

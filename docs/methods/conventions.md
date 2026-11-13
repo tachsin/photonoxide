@@ -53,18 +53,29 @@ What can differ between systems, and what photonoxide does about each:
 
 - **The maths library.** `f64::exp`, `sin`, `cos`, `powf`, `atan2` and `hypot` call the
   system's: glibc on Linux, the Microsoft C runtime on Windows, Apple's libm on macOS. Each is
-  within an ulp or so, but they round differently. Where a printed result hangs on the last bit,
-  photonoxide takes these from the pure-Rust [`libm`](https://docs.rs/libm) crate instead, the
-  same bits everywhere: the circuit's closed-form S-matrices, which optimizations run on, and
-  FDTD's source waveforms. Elsewhere the system's functions stay, and the last bits of a mode's
-  index or a field may differ between systems with nothing printed to show it.
+  within an ulp or so, but they round differently. num-complex's `Complex::norm` is the system's
+  `hypot`, and its `exp`, `sqrt`, `ln` and the rest are built on the system's functions too: the
+  Givens rotations of QMR and GMRES take `norm`, so their iterates differ in the last bits between
+  systems (block QMR took 2412, 2222 and 2467 iterations on Linux, Windows and macOS). The fix,
+  #822, is `photonoxide::portable`: the same functions, real and complex, built from IEEE 754's
+  exact operations only (fdlibm's exp and ln, the pure-Rust [`libm`](https://docs.rs/libm) crate,
+  square and multiply, Kahan's complex square root), the same bits everywhere, each within the
+  ulps its doc states. The rule (CONTRIBUTING.md, "The same numbers on every system") is to take
+  every function but `+ − × ÷` and `sqrt` from there, and clippy forbids the system's. Today the
+  circuit's closed-form S-matrices (which optimizations run on), FDTD's source waveforms, the
+  devices' closed forms and fits and the topology projections take it; the other areas follow in
+  #822's phases, and until then the last bits of a mode's index or a field may differ between
+  systems with nothing printed to show it.
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
-  builds with no `target-cpu` or feature flags; faer's dense kernels pick their SIMD
-  instructions at run time.
+  builds with no `target-cpu` or feature flags; `mul_add` (fused in hardware or in software,
+  whichever the build has) is forbidden. faer's dense kernels pick their SIMD instructions at run
+  time, so results through its products, factorizations and eigensolvers can differ between CPUs;
+  #822 leaves those for a later decision.
 - **powi.** `f64::powi` is square and multiply (compiler-builtins' `__powidf2`) on Linux, but
   the C runtime's `pow` on Windows, where LLVM lowers it so: both within a few ulps, but a third
   of the powers differ in their last bit between the two (measured by the platform canaries,
-  November 2026).
+  November 2026). `portable::powi` is the first, written out: the same products in the same order
+  everywhere, exact for n in −1..=2, and 0⁰ = 1.
 - **Randomness.** The contour solver's probe vectors come from splitmix64 on fixed seeds, and
   genoxide's generators and its random choices use its portable maths.
 
