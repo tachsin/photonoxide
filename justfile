@@ -35,6 +35,56 @@ test:
 test-one-thread:
     cargo test -- --test-threads=1
 
+# the platform canaries, on 4 threads: the building blocks (the system's libm, faer's kernels, the
+# sparse LU, QMR and GMRES, the FFT, a mode and an FDFD solve, threads, FDTD's bits, a job file
+# with CRLF) against exact values or themselves, then the existing tests they reuse, by name
+# (tests/canary.rs lists them all; CONTRIBUTING.md, "Platform canaries")
+canaries $RAYON_NUM_THREADS="4":
+    cargo test --release --test canary -- --test-threads=4 --nocapture
+    cargo test --release --lib -- --test-threads=4 --nocapture canary_
+    cargo test --release --lib -- --test-threads=4 --exact \
+        portable::tests::they_are_within_an_ulp_or_two_of_the_systems \
+        portable::tests::they_give_the_same_bits_on_every_system \
+        fdtd::ring::tests::bessel_functions_match_tabulated_values \
+        mode::hadley::tests::bessel_matches_known_values \
+        material::catalogue::conductivity::tests::the_exponential_integral_takes_its_known_values_either_side_of_one \
+        sparse::multifrontal::tests::the_threaded_product_of_a_fronts_update_is_the_plain_one \
+        backend::dense::tests::faers_kernels_behind_the_trait_give_the_solvers_own_bits \
+        eigen::schur::tests::the_schur_form_reconstructs_the_matrix_and_has_its_eigenvalues \
+        eigen::contour::tests::a_diagonal_pencil_gives_its_eigenvalues_to_rounding \
+        eigen::contour::tests::every_eigenvalue_in_a_disc_of_a_non_hermitian_matrix_against_a_dense_solve \
+        sparse::multifrontal::tests::it_solves_and_transposes_by_nested_dissection_or_amd \
+        sparse::multifrontal::tests::rows_permuted_away_from_the_diagonal_are_matched_back \
+        sparse::multifrontal::tests::a_zero_pivot_is_perturbed_and_counted \
+        sparse::multifrontal::tests::the_factors_are_the_same_bits_on_any_number_of_threads \
+        backend::krylov::tests::krylov_solvers_are_the_same_bit_for_bit_on_any_number_of_threads \
+        backend::krylov::tests::the_threaded_product_is_the_sequential_one_bit_for_bit \
+        backend::krylov::block::tests::block_qmr_is_the_same_bit_for_bit_on_any_number_of_threads \
+        fdfd::three::tests::qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_it \
+        nonlinear::fft::tests::matches_the_direct_sum_and_inverts \
+        mode::slab::tests::the_books_slab_gives_its_effective_indices \
+        mode::slab::tests::the_roots_satisfy_the_books_tangent_form \
+        mode::vector::tests::a_uniform_box_has_its_exact_discrete_modes \
+        mode::vector::tests::a_strip_has_a_te_like_fundamental_mode \
+        eigen::contour::tests::the_same_bits_on_one_and_many_threads \
+        fdfd::tests::a_slab_reflects_and_transmits_as_the_transfer_matrices_say_at_second_order \
+        fdfd::tests::a_step_is_reciprocal_and_a_te_mode_reflects_as_fresnel_says \
+        fdfd::fill::tests::the_fills_values_are_the_same_on_any_number_of_threads \
+        fdtd::kernel_tests::the_kernel_is_the_plain_loops_bits_on_every_boundary_and_medium \
+        fdtd::tests::the_fields_are_the_same_bits_on_any_number_of_threads \
+        parallel::tests::the_results_come_in_the_items_order_on_any_number_of_threads \
+        circuit::components::tests::spectra_are_the_same_bit_for_bit_on_any_number_of_threads \
+        geometry::array_tests::the_same_bits_on_any_number_of_threads \
+        device::tests::a_solve_gives_the_same_bits_on_one_thread_and_many \
+        compact::touchstone::tests::lines_end_in_lf_crlf_or_cr \
+        export::tables::tests::tables_read_back_to_the_events_bits \
+        job::results::tests::a_large_array_goes_to_a_file_with_the_same_bits \
+        job::short_tests::the_api_docs_job_files_are_yaml_that_reads \
+        farm::tests::a_worker_refuses_a_wrong_token \
+        farm::tests::a_worker_refuses_what_isnt_a_hello_and_an_overlong_one \
+        farm::tests::a_worker_refuses_a_connection_that_says_nothing_within_the_handshake \
+        farm::tests::whole_jobs_come_back_in_their_order_whichever_finishes_first
+
 # CI's lints: rustfmt, clippy (the library, the native crates, the Python crate) and the docs
 lint: fmt-check clippy docs
 

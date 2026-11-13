@@ -61,6 +61,10 @@ What can differ between systems, and what photonoxide does about each:
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; faer's dense kernels pick their SIMD
   instructions at run time.
+- **powi.** `f64::powi` is square and multiply (compiler-builtins' `__powidf2`) on Linux, but
+  the C runtime's `pow` on Windows, where LLVM lowers it so: both within a few ulps, but a third
+  of the powers differ in their last bit between the two (measured by the platform canaries,
+  November 2026).
 - **Randomness.** The contour solver's probe vectors come from splitmix64 on fixed seeds, and
   genoxide's generators and its random choices use its portable maths.
 
@@ -77,6 +81,13 @@ systems before the change: the report and 29 of the 31 examples printed the same
   $e^{-u^2}$, sin and cos and the source's cos(πx) differed in the last bit, and the matrix pencil
   that reads the modes' frequencies off the probes, keeping singular values down to 1e-10 of the
   largest, turned that into 1e-11 of a frequency. Unchanged on Linux.
+
+Since November 2026 the whole suite runs on Linux per pull request, and Windows and macOS run the
+platform canaries weekly (`just canaries`, [CONTRIBUTING.md](../../CONTRIBUTING.md#platform-canaries)):
+the system's maths library against correctly rounded values, faer's dense kernels, the sparse LU,
+QMR and GMRES, the FFT, a slab's modes, a small FDFD solve, threads, the bits of a 2D FDTD run and
+a job file read with CRLF line endings, each against an exact value or against itself computed
+another way.
 
 ## Validation
 

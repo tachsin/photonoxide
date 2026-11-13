@@ -538,3 +538,50 @@ fn a_bad_spline_is_refused_where_it_is_wrong() {
             .contains("as many values as knots")
     );
 }
+
+/// Platform canary: erf against mpmath (`tests/data/canary/golden.txt`; `tests/canary.rs` has
+/// the canaries' tables). The rule is the error of its own arithmetic, u = 2⁻⁵³: below 3, a
+/// series of N positive terms, the n-th carrying 3n roundings (x², the division, the product)
+/// and the sum N more, so at most 4N·u of the sum, then e^(−x²) (an ulp, and x² times x²'s
+/// rounding) and the constant and products (4 roundings): (4N + x² + 6)·u relative. From 3 on,
+/// 1 − erfc with erfc < e^(−x²)/(x√π) < 2.2e-5: half an ulp of the result, plus erfc's own
+/// error, below 200 roundings of the continued fraction and x² + 2 of e^(−x²), relative to it.
+#[test]
+fn canary_erf_to_round_off() {
+    let u = f64::EPSILON / 2.0;
+    let mut worst = 0u64;
+    let mut failures = Vec::new();
+    for g in crate::canary_tests::golden::golden("erf") {
+        let (x, want) = (g.a, g.r);
+        let ours = erf(x);
+        let a = x.abs();
+        let allowed = if a < 3.0 {
+            // the series' length, as erf sums it
+            let x2 = a * a;
+            let (mut term, mut sum, mut n) = (a, a, 0.0);
+            while term > 1e-17 * sum {
+                n += 1.0;
+                term *= 2.0 * x2 / (2.0 * n + 1.0);
+                sum += term;
+            }
+            (4.0 * n + x2 + 6.0) * u * want.abs()
+        } else {
+            let erfc = (-a * a).exp() / (a * PI.sqrt());
+            0.5 * crate::canary_tests::golden::ulp(want) + (200.0 * 2.0 + a * a + 2.0) * u * erfc
+        };
+        let d = crate::canary_tests::golden::ulps(ours, want);
+        worst = worst.max(d);
+        if (ours - want).abs() > allowed + 0.5 * crate::canary_tests::golden::ulp(want) {
+            failures.push(format!("erf({x:e}) = {ours:e}, exact {want:e}: {d} ulps"));
+        }
+    }
+    println!("erf: worst {worst} ulps");
+    assert!(
+        failures.is_empty(),
+        "{}",
+        failures.join(
+            "
+"
+        )
+    );
+}
