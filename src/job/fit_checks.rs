@@ -230,12 +230,27 @@ pub(crate) const DEVICE_FITS: [DeviceFit; 10] = [
         band: (1.545, 1.555, 11),
         step_nm: None,
     },
+    // 15 wavelengths, not 11 (#822): on 11 the fit's 8 poles were ill-posed. Its 2D samples
+    // moved by 1.2e-13 at most when the solvers took photonoxide::portable's maths, and its
+    // held-out error went from 1.52e-3 to 1.13e-2, a magnification of about 1e11. Setups
+    // measured (fixed before their errors were seen): each sample's S perturbed by 1e-13
+    // relative, 5 draws of a fixed seed; stable when the held-out error moves by less than 1 % of
+    // the case's tolerance (5e-5), the resolution its row reads below. Held-out error, portable
+    // maths (the system's before, Windows), and its largest change under the draws:
+    //   8 poles, 11 wavelengths: 1.13e-2 (1.52e-3), 1.0e-2: unstable (the old setup)
+    //   7 poles, 11:             7.9e-4 (7.9e-4),   1.4e-4: unstable
+    //   8 poles, 15:             1.88e-3 (1.88e-3), 1.4e-6: stable (taken: the first stable one
+    //                            in the order fixed beforehand, one knob, the 2 × 2's poles)
+    //   6 poles, 11:             1.06e-3 (1.06e-3), 2.0e-8: stable
+    //   8 poles, 21:             2.26e-3 (2.26e-3), 2.1e-6: stable
+    //   7 poles, 15 / 6, 15 / 7, 21 / 6, 21: 1.04e-3 / 9.9e-4 / 1.04e-3 / 9.3e-4, each under
+    //                            5e-8: stable
     DeviceFit {
         kind: "MMI 1x2",
         fidelity: Fidelity::TwoD,
         parameter: "width",
         range: (5.88, 6.12),
-        band: (1.545, 1.555, 11),
+        band: (1.545, 1.555, 15),
         step_nm: None,
     },
     DeviceFit {
@@ -551,9 +566,9 @@ fn device_cases() -> Vec<Case> {
         },
         Case {
             id: "device/compact-mmi-1x2-2d",
-            title: r"The 1 × 2 MMI's 2D model (guided modes by the effective index method, exact slab modes, no grid) fitted over its width, 5.88 to 6.12 µm, as the strip's: largest $\lvert\Delta S\rvert$ at 2 held-out widths (shown)",
+            title: r"The 1 × 2 MMI's 2D model (guided modes by the effective index method, exact slab modes, no grid) fitted over its width, 5.88 to 6.12 µm, as the strip's but at 15 wavelengths (on 11 its 8 poles magnified the solvers' round-off about 1e11 times): largest $\lvert\Delta S\rvert$ at 2 held-out widths (shown)",
             tier: Tier::Analytic,
-            source: device_source!("1.5e-3"),
+            source: device_source!("1.9e-3"),
             run: held_out_mmi_1x2,
         },
         Case {
