@@ -96,9 +96,9 @@
 //! rounded value: 1 for exp, ln, sin, cos, atan2 and hypot, the functions glibc, the Microsoft
 //! C runtime and Apple's libm all aim to round within an ulp; 2 for the others (exp_m1, ln_1p,
 //! log10, tan, asin, acos, atan, sinh, cosh, tanh, powf, cbrt), the largest error glibc's manual
-//! lists for them on x86-64 and AArch64. powi is Rust's own (compiler-builtins' square and
-//! multiply, the same code on every system): |n| − 1 products and a division for n < 0, each
-//! within half an ulp, ≤ |n| − 1 + [n < 0] ulps. Complex norm is hypot (1 ulp); complex sqrt,
+//! lists for them on x86-64 and AArch64. powi is compiler-builtins' square and multiply on
+//! Linux (|n| − 1 products and a division for n < 0, each within half an ulp, ≤ |n| − 1 +
+//! [n < 0] ulps) but the C runtime's pow on Windows, which is within the same. Complex norm is hypot (1 ulp); complex sqrt,
 //! exp and ln are num-complex's formulas over hypot, atan2, sqrt, exp, ln, cos and sin, and
 //! their bound is the formula's own first-order error with each call at its rule, computed for
 //! each argument (normwise, since a small component of a large result can't be held to its own
@@ -132,14 +132,22 @@ fn on_threads<R: Send>(threads: usize, f: impl FnOnce() -> R + Send) -> R {
 // (a) IEEE 754 arithmetic and no fused multiply-add
 // ---------------------------------------------------------------------------------------------
 
-/// `+ − × ÷ √` and powi are exact roundings everywhere (powi is compiler-builtins' code, the
-/// same on every system), so their bits are; the hash below was taken on Windows x86-64 and
-/// holds wherever no FMA, no x87 precision and no flush-to-zero has leaked in. a·b + c with
-/// a·b = 1 − 2⁻⁶⁰ is 0 when the product is rounded first and −2⁻⁶⁰ when fused, so a
-/// `-C target-cpu=native` or `fp-contract` build fails here, not deep inside a solver.
+/// `+ − × ÷ √` are exact roundings everywhere, so their bits are the same on every system: the
+/// hash below holds wherever no FMA, no x87 precision and no flush-to-zero has leaked in (the
+/// same on Windows x86-64 and Linux x86-64). a·b + c with a·b = 1 − 2⁻⁶⁰ is 0 when the product
+/// is rounded first and −2⁻⁶⁰ when fused, so a `-C target-cpu=native` or `fp-contract` build
+/// fails here, not deep inside a solver.
+///
+/// powi is not among them. On Linux, LLVM lowers `f64::powi` to compiler-builtins'
+/// `__powidf2`, square and multiply; on Windows (the MSVC target) to the C runtime's `pow`,
+/// which rounds better and differently: a third of the powers below differ in their last bit
+/// between the two. The libm table holds powi to its rule; here, how many of them aren't square
+/// and multiply's bits is printed, information that says which one this system has.
 #[test]
 fn canary_ieee_arithmetic_and_no_fused_multiply_add() {
-    let (a, b, c) = black_box((1.0 + 2f64.powi(-30), 1.0 - 2f64.powi(-30), -1.0));
+    // 2^e, exactly, by its bits (powi is not exact everywhere)
+    let two_to = |e: i32| f64::from_bits(((1023 + e) as u64) << 52);
+    let (a, b, c) = black_box((1.0 + two_to(-30), 1.0 - two_to(-30), -1.0));
     assert_eq!(
         (a * b + c).to_bits(),
         0.0f64.to_bits(),
@@ -162,22 +170,46 @@ fn canary_ieee_arithmetic_and_no_fused_multiply_add() {
         (s >> 11) as f64 / 9_007_199_254_740_992.0
     };
     let mut h = 0u64;
+    let mut not_square_and_multiply = 0;
     for k in 0..20_000 {
-        let u = black_box((next() - 0.5) * 2f64.powi((k % 41) - 20));
-        let v = black_box((next() + 0.25) * 2f64.powi((k % 17) - 8));
+        let u = black_box((next() - 0.5) * two_to((k % 41) - 20));
+        let v = black_box((next() + 0.25) * two_to((k % 17) - 8));
         for w in [
             u + v,
             u - v,
             u * v,
             u / v,
             v.sqrt(),
-            u.powi((k % 13) - 6),
             (u * v + u) / (v - u * 0.5),
         ] {
             fold(&mut h, w);
         }
+        let n = black_box((k % 13) - 6);
+        if u.powi(n).to_bits() != square_and_multiply(u, n).to_bits() {
+            not_square_and_multiply += 1;
+        }
     }
-    assert_eq!(h, 0x190f_2ae8_8a2d_2e7d, "{h:#018x}");
+    println!(
+        "powi: {not_square_and_multiply} of 20000 powers aren't square and multiply's bits \
+         (0: compiler-builtins' __powidf2; more: the system's pow)"
+    );
+    assert_eq!(h, 0xab74_13d0_f5aa_4b5e, "{h:#018x}");
+}
+
+/// compiler-builtins' `__powidf2`: x^n by square and multiply, then 1/x^|n| for n < 0.
+fn square_and_multiply(x: f64, n: i32) -> f64 {
+    let (mut x, mut p, mut acc) = (x, n.unsigned_abs(), 1.0);
+    loop {
+        if p & 1 == 1 {
+            acc *= x;
+        }
+        p >>= 1;
+        if p == 0 {
+            break;
+        }
+        x *= x;
+    }
+    if n < 0 { 1.0 / acc } else { acc }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -295,7 +327,8 @@ fn sqrt_budget(z: c64) -> f64 {
 
 /// The rule for powi: |n| − 1 products and, for n < 0, a division, each within half an ulp
 /// relative: within |n| − 1 + [n < 0] ulps of the exact power, and so as many of the correctly
-/// rounded one.
+/// rounded one. That is square and multiply's bound (Linux); the system's pow that Windows
+/// lowers powi to is within it too.
 fn powi_rule(n: f64) -> u64 {
     let n = n as i64;
     n.unsigned_abs().saturating_sub(1) + u64::from(n < 0)

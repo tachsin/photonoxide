@@ -61,6 +61,10 @@ What can differ between systems, and what photonoxide does about each:
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; faer's dense kernels pick their SIMD
   instructions at run time.
+- **powi.** `f64::powi` is square and multiply (compiler-builtins' `__powidf2`) on Linux, but
+  the C runtime's `pow` on Windows, where LLVM lowers it so: both within a few ulps, but a third
+  of the powers differ in their last bit between the two (measured by the platform canaries,
+  November 2026).
 - **Randomness.** The contour solver's probe vectors come from splitmix64 on fixed seeds, and
   genoxide's generators and its random choices use its portable maths.
 
