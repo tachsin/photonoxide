@@ -2,9 +2,9 @@ name: Weekly
 
 # Tier 3 (issue #315), Mondays: when code changed in the past seven days, everything the CI
 # workflow runs on the release pull request (Tier 2), every Python wheel, and the Systems
-# comparison (the 3D devices and the validation report on Windows and macOS); and every week, the
-# Libraries workflow's installs on clean machines, since a package index can move when nothing
-# here does. A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
+# comparison (the 3D devices and the validation report on Windows and macOS). The Libraries
+# workflow's installs (photonoxide-native against real libraries) run by hand only
+# (`gh workflow run Libraries`; CONTRIBUTING.md). A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
 # the next run that passes closes it. Run it by hand (Run workflow) to run it all at once.
 #
 # The Rust toolchain is pinned (rust-toolchain.toml; CONTRIBUTING.md, "How to bump Rust"), so a new
@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.week.outputs.code }}
+      canary: ${{ steps.week.outputs.canary }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,6 +48,9 @@ jobs:
             code=$(sed -n 's/^code=//p' "$RUNNER_TEMP/areas.txt")
           fi
           echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+          # the canaries' test files (tests/canary*.rs): their job is skipped while there are none
+          if compgen -G 'tests/canary*.rs' > /dev/null; then canary=true; else canary=false; fi
+          echo "canary=$canary" | tee -a "$GITHUB_OUTPUT"
 
   ci:
     name: CI
@@ -80,9 +84,37 @@ jobs:
     if: needs.changed.outputs.code == 'true'
     uses: ./.github/workflows/systems.yml
 
-  libraries:
-    name: Libraries
-    uses: ./.github/workflows/libraries.yml
+  # The canaries on Windows and macOS: fast tests of what can differ by system (the system's maths
+  # library against correctly rounded values, the dense kernels, the sparse LU, the Krylov
+  # solvers, threads, files and sockets; docs: CONTRIBUTING.md), every week whatever changed. On
+  # Linux they run with the unit tests on every pull request that reaches them. Each file
+  # tests/canary*.rs is a test target of its own, run in release mode; the job is skipped while
+  # there is none.
+  canaries:
+    name: Canaries (${{ matrix.os }})
+    needs: changed
+    if: needs.changed.outputs.canary == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@v2
+      - name: The canaries
+        run: |
+          set -euo pipefail
+          args=()
+          for f in tests/canary*.rs; do args+=(--test "$(basename "$f" .rs)"); done
+          cargo test --release --all-features "${args[@]}"
 
   # the floating stable, against the pin: rust-toolchain.toml would make every cargo in the
   # checkout use its version, so RUSTUP_TOOLCHAIN overrides it for the whole job
@@ -107,7 +139,7 @@ jobs:
 
   issue:
     name: Report
-    needs: [changed, ci, python, systems, libraries, rust-ahead]
+    needs: [changed, ci, python, systems, canaries, rust-ahead]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
