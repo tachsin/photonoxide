@@ -9,6 +9,7 @@ use crate::circuit::components::{
 use crate::device::checks::DerivativeCase;
 use crate::material::{self, LorentzPole, Material, Model, Provenance};
 use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use crate::portable;
 use crate::stack::Layer;
 use crate::units::Frequency;
 
@@ -77,7 +78,7 @@ fn a_devices_s_matrix_is_its_components_at_its_values() {
     let values = Values::new(&ring, &[("radius", 7.0), ("coupling_length", 2.0)]).unwrap();
     let built = ring.component(&values, A).unwrap();
     let (c, gamma) = fit::coupling(0.2, 0.5, 0.22).unwrap();
-    let kappa2 = (c * (2.0 + (TAU * 7.0 / gamma).sqrt())).sin().powi(2);
+    let kappa2 = portable::powi(portable::sin(c * (2.0 + (TAU * 7.0 / gamma).sqrt())), 2);
     assert_eq!(built.values[0], TAU * 7.0 + 4.0);
     assert!((built.values[1] - kappa2).abs() < 1e-15);
     assert_eq!(built.figure("L").unwrap().value, TAU * 7.0 + 4.0);
@@ -94,7 +95,7 @@ fn the_rings_figures_are_bogaertss_closed_forms() {
     // Eq. 9: FSR = λ²/(n_g L)
     assert!((f("FSR") / (l0 * l0 / (n_g * l) * 1e3) - 1.0).abs() < 1e-14);
     // Eq. 20: Q = π n_g L √(ra)/(λ(1 − ra)), a the single pass with 2.7 dB/cm and 0.1 dB
-    let a = 10f64.powf(-(2.7 * l * 1e-4 + 0.1) / 20.0);
+    let a = portable::powf(10f64, -(2.7 * l * 1e-4 + 0.1) / 20.0);
     let ra = (1.0 - kappa2).sqrt() * a;
     let q = PI * n_g * l * ra.sqrt() / (l0 * (1.0 - ra));
     assert!((f("Q") / q - 1.0).abs() < 1e-12, "{} {q}", f("Q"));
@@ -113,7 +114,7 @@ fn the_couplers_figures_are_coupled_mode_theorys() {
     let (c, _) = fit::coupling(0.25, 0.5, 0.22).unwrap();
     // L_x = π/2C, and sin²(CL) of the power crosses
     assert!((f("L_x") / (PI / (2.0 * c)) - 1.0).abs() < 1e-12);
-    assert!((f("cross") - (c * 9.0).sin().powi(2)).abs() < 1e-12);
+    assert!((f("cross") - portable::powi(portable::sin(c * 9.0), 2)).abs() < 1e-12);
     assert!((f("cross") + f("through") - 1.0).abs() < 1e-12);
 }
 
@@ -126,7 +127,7 @@ fn a_bend_loses_its_loss_over_a_quarter_of_its_circumference() {
     assert!((loss - 3.0 * 1e-4 * PI * 20.0 / 2.0).abs() < 1e-15);
     // and the component's power at 90° is that loss
     let s = built.s_matrix(um(1.55)).unwrap();
-    assert!((-10.0 * s.power(1, 0).log10() - loss).abs() < 1e-12);
+    assert!((-10.0 * portable::log10(s.power(1, 0)) - loss).abs() < 1e-12);
 }
 
 #[test]
@@ -215,7 +216,7 @@ fn fourth(f: impl Fn(f64) -> SMatrix, x: f64, h: f64) -> SMatrix {
 fn mismatch(exact: &SMatrix, numeric: &SMatrix) -> f64 {
     let scale = (0..exact.size())
         .flat_map(|q| (0..exact.size()).map(move |p| (q, p)))
-        .map(|(q, p)| exact[(q, p)].norm())
+        .map(|(q, p)| portable::complex::abs(exact[(q, p)]))
         .fold(0.0, f64::max);
     exact.max_difference(numeric).unwrap() / scale
 }
@@ -319,8 +320,8 @@ fn the_ports_are_the_components_and_sit_on_the_shapes() {
             let step = |d: f64| {
                 let a = p.direction.to_radians();
                 Point {
-                    x: p.position.x - Length::um(d * a.cos()),
-                    y: p.position.y - Length::um(d * a.sin()),
+                    x: p.position.x - Length::um(d * portable::cos(a)),
+                    y: p.position.y - Length::um(d * portable::sin(a)),
                 }
             };
             let inside = geometry.structure.material_at(step(0.01), mid);

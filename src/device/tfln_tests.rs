@@ -8,6 +8,7 @@ use crate::units::Wavelength;
 
 use super::tfln::{ClosedLine, confinement, elliptic_ratio};
 use super::{Device, TflnModulator, Values};
+use crate::portable;
 
 fn w(um: f64) -> Wavelength {
     Wavelength::um(um).unwrap()
@@ -33,7 +34,7 @@ fn the_elliptic_ratio_is_the_complete_integrals() {
     assert!((elliptic_ratio(k) * elliptic_ratio(kp) - 1.0).abs() < 1e-8);
     // and its small-k limit, π / ln(4/k)... K(k') → ln(4/k)
     let f = elliptic_ratio(1e-20);
-    assert!((f / (std::f64::consts::FRAC_PI_2 / (4e20f64).ln()) - 1.0).abs() < 1e-12);
+    assert!((f / (std::f64::consts::FRAC_PI_2 / portable::ln(4e20f64)) - 1.0).abs() < 1e-12);
 }
 
 #[test]
@@ -85,7 +86,7 @@ fn the_balanced_modulator_is_cos_of_half_the_phase() {
     let v = Values::new(&d, &[("bias", std::f64::consts::FRAC_PI_2)]).unwrap();
     let built = d.component(&v, Fidelity::Measured).unwrap();
     let s = built.s_matrix(w(1.55)).unwrap();
-    assert!((s[(1, 0)].re - (std::f64::consts::FRAC_PI_4).cos()).abs() < 1e-15);
+    assert!((s[(1, 0)].re - portable::cos(std::f64::consts::FRAC_PI_4)).abs() < 1e-15);
     assert_eq!(s[(1, 0)], s[(0, 1)]);
     // the derivatives against central differences
     let c = &built.component;
@@ -100,7 +101,7 @@ fn the_balanced_modulator_is_cos_of_half_the_phase() {
         let fd = (c.s_matrix(w(1.56), &up).unwrap()[(1, 0)]
             - c.s_matrix(w(1.56), &down).unwrap()[(1, 0)])
             / (2.0 * step);
-        assert!((ds[k][(1, 0)] - fd).norm() < 1e-8, "{k}");
+        assert!(portable::complex::abs(ds[k][(1, 0)] - fd) < 1e-8, "{k}");
     }
 }
 
@@ -188,7 +189,7 @@ fn the_pockels_index_change_over_the_mode_gives_the_2d_vpi_l() {
         let i = ((x - r.x0) / (r.x1 - r.x0) * r.nx as f64) as usize;
         let j = ((y - r.y0) / (r.y1 - r.y0) * r.ny as f64) as usize;
         let shown = f64::from(r.values[j * r.nx + i]);
-        let want = -0.5 * n_e.powi(3) * r33 * ex;
+        let want = -0.5 * portable::powi(n_e, 3) * r33 * ex;
         assert!(
             (shown / want - 1.0).abs() < 0.02,
             "({x}, {y}): {shown} against {want}"

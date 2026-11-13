@@ -12,6 +12,7 @@ use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
 use super::{Built, Device, Spec, TflnModulator, Values};
+use crate::portable;
 
 const OK: &str = "a valid design";
 
@@ -154,7 +155,7 @@ fn numbers(made: Made) -> &'static [[f64; 7]; 2] {
                 figure(b, "Z0"),
                 figure(b, "alpha_c"),
                 figure(b, "f_3dB"),
-                10f64.powf((figure(c, "m_dB") - figure(b, "m_dB")) / 20.0),
+                portable::powf(10f64, (figure(c, "m_dB") - figure(b, "m_dB")) / 20.0),
             ]
         })
     })

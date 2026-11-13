@@ -16,6 +16,7 @@ use crate::material::{self, Material, Model, Provenance};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
 use crate::parallel::map_in_order;
+use crate::portable;
 use crate::stack::Layer;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -299,7 +300,7 @@ pub(crate) fn mzi_mismatch() -> f64 {
         // M[q][p]: p 0 = o1, 1 = o2; q 0 = o4, 1 = o3
         for (q, row) in [3, 2].iter().zip(&m) {
             for (p, &e) in row.iter().enumerate() {
-                worst = worst.max((s[(*q, p)] - e).norm());
+                worst = worst.max(portable::complex::abs(s[(*q, p)] - e));
             }
         }
     }
@@ -307,15 +308,15 @@ pub(crate) fn mzi_mismatch() -> f64 {
     let mzi = StripMzi::y_branches();
     let v = Values::new(&mzi, &[("phase", 40.0), ("excess_loss", 0.3)]).expect(OK);
     let built = mzi.component(&v, Fidelity::Analytic).expect(OK);
-    let split = 10f64.powf(-0.3 / 20.0) / 2f64.sqrt();
+    let split = portable::powf(10f64, -0.3 / 20.0) / 2f64.sqrt();
     for w in band() {
         let s = built.s_matrix(w).expect(OK);
         let tu = upper.s_matrix(w).expect(OK)[(1, 0)] * shift;
         let tl = lower.s_matrix(w).expect(OK)[(1, 0)];
         let e = split * split * (tu + tl);
         worst = worst
-            .max((s[(1, 0)] - e).norm())
-            .max((s[(0, 1)] - e).norm());
+            .max(portable::complex::abs(s[(1, 0)] - e))
+            .max(portable::complex::abs(s[(0, 1)] - e));
     }
     worst
 }
@@ -362,7 +363,7 @@ pub(crate) fn mzi_derivatives_mismatch() -> f64 {
         );
         let scale = (0..exact.size())
             .flat_map(|q| (0..exact.size()).map(move |p| (q, p)))
-            .map(|(q, p)| exact[(q, p)].norm())
+            .map(|(q, p)| portable::complex::abs(exact[(q, p)]))
             .fold(0.0, f64::max);
         worst = worst.max(exact.max_difference(&numeric).expect(OK) / scale);
     }
@@ -447,7 +448,7 @@ pub(crate) fn wide_slab() -> (f64, f64) {
         .effective_index();
     let widths = [8.0, 16.0];
     let n = map_in_order(&widths, |&w| hadley_rib(w, 0.5, w / 2.0 + 3.0));
-    let r = (widths[1] / widths[0]).powi(2);
+    let r = portable::powi(widths[1] / widths[0], 2);
     ((r * n[1] - n[0]) / (r - 1.0), exact)
 }
 
@@ -629,8 +630,8 @@ pub(crate) fn straight(averaging: Averaging) -> [f64; 3] {
             .effective_index;
         let ahead = crate::portable::complex::exp(c64::new(0.0, lam.wavenumber() * n * 2.0));
         worst[0] = worst[0].max(s[(0, 0)].norm_sqr()).max(s[(1, 1)].norm_sqr());
-        worst[1] = worst[1].max((s[(1, 0)] - s[(0, 1)]).norm());
-        worst[2] = worst[2].max((s[(1, 0)] - ahead).norm());
+        worst[1] = worst[1].max(portable::complex::abs(s[(1, 0)] - s[(0, 1)]));
+        worst[2] = worst[2].max(portable::complex::abs(s[(1, 0)] - ahead));
     }
     worst
 }
@@ -707,7 +708,7 @@ pub(crate) fn iterative_against_direct(which: &str, grid: &FdfdGrid) -> (f64, Ve
     let n = direct.size();
     let largest = (0..n)
         .flat_map(|q| (0..n).map(move |p| (q, p)))
-        .map(|(q, p)| direct[(q, p)].norm())
+        .map(|(q, p)| portable::complex::abs(direct[(q, p)]))
         .fold(0.0, f64::max);
     (
         direct.max_difference(&iterative).unwrap_or(f64::INFINITY) / largest,

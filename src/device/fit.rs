@@ -22,6 +22,7 @@
 //! in C; the validation report measures what they and the interpolation leave against the
 //! solver.
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// The wavelength the fits are at, µm.
@@ -287,7 +288,7 @@ fn coupling_table(gap: f64, width: f64, thickness: f64) -> (f64, f64) {
     for (i, plane) in COUPLING.iter().enumerate() {
         for (j, row) in plane.iter().enumerate() {
             for (k, &v) in row.iter().enumerate() {
-                let ln = crate::portable::ln(v);
+                let ln = portable::ln(v);
                 value += a[i] * b[j] * c[k] * ln;
                 slope += a[i] * b[j] * dc[k] * ln;
             }
@@ -309,7 +310,7 @@ pub(super) fn coupling(gap: f64, width: f64, thickness: f64) -> Result<(f64, f64
     within("thicknesses", thickness, &PAIR_THICKNESSES)?;
     let (ln, slope) = coupling_table(gap, width, thickness);
     let (ln0, _) = coupling_table(AT.2, AT.0, AT.1);
-    Ok((COUPLING_ANCHOR * crate::portable::exp(ln - ln0), -slope))
+    Ok((COUPLING_ANCHOR * portable::exp(ln - ln0), -slope))
 }
 
 #[cfg(test)]
@@ -349,7 +350,7 @@ mod tests {
     fn the_decay_is_the_slope_of_ln_c() {
         let (g, w, t) = (0.23, 0.47, 0.215);
         let h = 1e-4;
-        let ln = |g: f64| coupling(g, w, t).unwrap().0.ln();
+        let ln = |g: f64| portable::ln(coupling(g, w, t).unwrap().0);
         let numeric = -(ln(g + h) - ln(g - h)) / (2.0 * h);
         let (_, gamma) = coupling(g, w, t).unwrap();
         assert!((gamma - numeric).abs() < 1e-6 * gamma, "{gamma} {numeric}");

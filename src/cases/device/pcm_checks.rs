@@ -13,6 +13,7 @@ use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
 use super::{Device, PcmShifter, Spec, Values};
+use crate::portable;
 
 const OK: &str = "a valid design";
 
@@ -180,7 +181,7 @@ fn film_mix() -> f64 {
             let (film, _, _) = stack.layer("PCM").expect(OK);
             let got = film.material.permittivity(wl).expect(OK);
             let want = (1.0 - f) * a + f * c;
-            worst = worst.max((got - want).norm() / want.norm());
+            worst = worst.max(portable::complex::abs(got - want) / portable::complex::abs(want));
         }
     }
     worst

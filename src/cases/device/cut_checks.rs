@@ -15,6 +15,7 @@ use crate::eme::{Eme3d, PlaneGrid, Scattering};
 use crate::fdfd::{Axis, Boundaries3d, Edges, Grid3d, Port3d, Side, Solver3d};
 use crate::generator::{self, Generator};
 use crate::material::{Material, Model, Provenance};
+use crate::portable;
 use crate::stack::{Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
@@ -219,7 +220,9 @@ pub(crate) fn drawing_gds() -> (f64, usize) {
     let mut worst: f64 = 0.0;
     let mut count = 0;
     for (a, b) in shapes.1.iter().flatten().zip(gds.1.iter().flatten()) {
-        worst = worst.max((c64::new(a[0], a[1]) - c64::new(b[0], b[1])).norm());
+        worst = worst.max(portable::complex::abs(
+            c64::new(a[0], a[1]) - c64::new(b[0], b[1]),
+        ));
         count += 1;
     }
     (worst, count)
@@ -251,7 +254,7 @@ fn job_against(job: &crate::run::Job, s: &Scattering) -> (f64, usize) {
     let mut count = 0;
     for (q, row) in recorded.iter().enumerate() {
         for (p, v) in row.iter().enumerate() {
-            worst = worst.max((c64::new(v[0], v[1]) - at(q, p)).norm());
+            worst = worst.max(portable::complex::abs(c64::new(v[0], v[1]) - at(q, p)));
             count += 1;
         }
     }
@@ -280,7 +283,7 @@ fn largest_difference(a: &Scattering, b: &Scattering) -> f64 {
     for (x, y) in blocks(a).iter().zip(blocks(b).iter()) {
         for (rx, ry) in x.iter().zip(y) {
             for (u, v) in rx.iter().zip(ry) {
-                worst = worst.max((u - v).norm());
+                worst = worst.max(portable::complex::abs(u - v));
             }
         }
     }
@@ -454,7 +457,7 @@ fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 
@@ -524,7 +527,7 @@ pub(crate) fn invariants(s: &Scattering) -> (f64, f64) {
     let mut symmetry: f64 = 0.0;
     for i in 0..2 * m {
         for j in 0..2 * m {
-            symmetry = symmetry.max((at(i, j) - at(j, i)).norm());
+            symmetry = symmetry.max(portable::complex::abs(at(i, j) - at(j, i)));
         }
     }
     let real = |v: &[c64]| -> Vec<usize> {
@@ -541,7 +544,7 @@ pub(crate) fn invariants(s: &Scattering) -> (f64, f64) {
         for &b in &open {
             let sum: c64 = open.iter().map(|&q| at(q, a).conj() * at(q, b)).sum();
             let expected = if a == b { 1.0 } else { 0.0 };
-            unitarity = unitarity.max((sum - expected).norm());
+            unitarity = unitarity.max(portable::complex::abs(sum - expected));
         }
     }
     (symmetry, unitarity)

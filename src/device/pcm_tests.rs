@@ -10,6 +10,7 @@ use crate::material::catalogue::State;
 use crate::units::{Length, Wavelength};
 
 use super::{Device, Goal, PcmShifter, Spec, Values};
+use crate::portable;
 
 fn devices() -> [PcmShifter; 3] {
     [PcmShifter::sb2se3(), PcmShifter::sb2s3(), PcmShifter::gst()]
@@ -77,7 +78,9 @@ fn the_films_states_are_the_catalogues_and_between_them_the_linear_mix() {
         assert_eq!(layer(0.0), a);
         assert_eq!(layer(1.0), c);
         let half = layer(0.5);
-        assert!((half - 0.5 * (a + c)).norm() < 1e-13 * half.norm());
+        assert!(
+            portable::complex::abs(half - 0.5 * (a + c)) < 1e-13 * portable::complex::abs(half)
+        );
     }
 }
 
@@ -143,8 +146,8 @@ fn the_component_is_the_phase_and_loss_and_its_derivatives_are_exact() {
     let (phi, il) = (b.values[0], b.values[1]);
     assert_eq!(phi, b.figure("phi").unwrap().value);
     assert_eq!(il, b.figure("IL").unwrap().value);
-    let want = c64::from_polar(10f64.powf(-il / 20.0), phi);
-    assert!((s[(1, 0)] - want).norm() < 1e-14);
+    let want = portable::complex::from_polar(portable::powf(10f64, -il / 20.0), phi);
+    assert!(portable::complex::abs(s[(1, 0)] - want) < 1e-14);
     // reciprocal
     assert_eq!(s[(0, 1)], s[(1, 0)]);
     // dS/dL and dS/dloss through the component's derivatives and the device's against differences
@@ -167,7 +170,7 @@ fn the_component_is_the_phase_and_loss_and_its_derivatives_are_exact() {
         let x0 = v.get(name).unwrap();
         let numeric = (at(x0 + h) - at(x0 - h)) / (2.0 * h);
         assert!(
-            (exact - numeric).norm() < 1e-7 * exact.norm(),
+            portable::complex::abs(exact - numeric) < 1e-7 * portable::complex::abs(exact),
             "{name}: {exact} {numeric}"
         );
     }
@@ -203,10 +206,10 @@ fn the_2d_cross_section_is_the_geometrys() {
     };
     // 0.11 µm is the core's top, the film 25 nm over it; x = 0.125 is the film's edge
     let in_film = 0.11 + 0.0125;
-    assert!((cell(0.05, in_film) - film).norm() < 1e-12);
-    assert!((cell(0.2, in_film) - oxide).norm() < 1e-12);
-    assert!((cell(0.2, 0.0) - silicon).norm() < 1e-12);
-    assert!((cell(0.05, 0.0) - silicon).norm() < 1e-12);
+    assert!(portable::complex::abs(cell(0.05, in_film) - film) < 1e-12);
+    assert!(portable::complex::abs(cell(0.2, in_film) - oxide) < 1e-12);
+    assert!(portable::complex::abs(cell(0.2, 0.0) - silicon) < 1e-12);
+    assert!(portable::complex::abs(cell(0.05, 0.0) - silicon) < 1e-12);
     // the structure the device draws has the same materials at the same points (x along the
     // guide, y across)
     let g = d.geometry(&v).unwrap();
@@ -219,9 +222,9 @@ fn the_2d_cross_section_is_the_geometrys() {
         };
         eps(g.structure.material_at(p, mid + Length::um(dz)))
     };
-    assert!((at(0.05, in_film) - film).norm() < 1e-12);
-    assert!((at(0.2, in_film) - oxide).norm() < 1e-12);
-    assert!((at(-0.05, in_film) - film).norm() < 1e-12);
+    assert!(portable::complex::abs(at(0.05, in_film) - film) < 1e-12);
+    assert!(portable::complex::abs(at(0.2, in_film) - oxide) < 1e-12);
+    assert!(portable::complex::abs(at(-0.05, in_film) - film) < 1e-12);
 }
 
 #[test]
@@ -303,7 +306,7 @@ fn a_film_that_follows_the_guide_is_drawn_on_its_walls_and_over_its_slab() {
         cs.cells()[i * (cs.y().len() - 1) + j].xx
     };
     // y from the core's mid-plane: the core from −0.11 to 0.11, the slab's top at −0.01
-    let close = |a: c64, b: c64| (a - b).norm() < 1e-12;
+    let close = |a: c64, b: c64| portable::complex::abs(a - b) < 1e-12;
     // the top, and its corner over the wall
     assert!(close(cell(0.1, 0.12), film));
     assert!(close(cell(0.26, 0.12), film));

@@ -8,6 +8,7 @@ use faer::c64;
 use crate::geometry::{Point, Shape};
 use crate::material::Material;
 use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity, Pml};
+use crate::portable;
 use crate::stack::{Fill, Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
@@ -637,7 +638,7 @@ impl<'a> Cut<'a> {
         // `margin` µm
         let u = |x: f64| {
             if mapped {
-                radius * (x / radius).ln_1p()
+                radius * portable::ln_1p(x / radius)
             } else {
                 x
             }

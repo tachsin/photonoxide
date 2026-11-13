@@ -16,6 +16,7 @@ use super::waveguide::{band_parameters, etch_parameters, profile};
 use super::{
     Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
+use crate::portable;
 
 /// Which model a device's 2D fidelity is, where it has two.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -414,7 +415,7 @@ pub(super) fn split_figures(
         figure(
             "excess loss",
             "excess_loss",
-            -10.0 * (a + b).log10(),
+            -10.0 * portable::log10(a + b),
             "dB",
             f,
             grid,
@@ -422,7 +423,7 @@ pub(super) fn split_figures(
         figure(
             "imbalance between the outputs",
             "imbalance",
-            10.0 * (a / b).log10(),
+            10.0 * portable::log10(a / b),
             "dB",
             f,
             grid,

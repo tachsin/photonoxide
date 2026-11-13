@@ -18,6 +18,7 @@ use super::waveguide::{analytic_papers, band_parameters, solver_papers, strip_pa
 use super::{
     Built, Device, Figure, Geometry, Method, Range, Stated, Values, figure, method, parameter,
 };
+use crate::portable;
 
 /// The gap's step for the 3D coupling's decay, µm: γ = ln(C(g − δ)/C(g + δ))/2δ, δ at most
 /// half the gap.
@@ -248,7 +249,7 @@ impl StripRing {
             let curved = (TAU * r / gamma).sqrt();
             let phi = c * (lc + curved);
             // libm's sine, the same bits on every system (crate::portable)
-            settings.push(crate::portable::sin(phi).powi(2));
+            settings.push(portable::powi(crate::portable::sin(phi), 2));
             let dk = crate::portable::sin(2.0 * phi);
             by_radius.push(dk * c * PI / (gamma * curved));
             by_length.push(dk * c);
@@ -424,7 +425,7 @@ impl Device for StripRing {
                     figures.push(figure(
                         "extinction",
                         "extinction",
-                        10.0 * (top / bottom).log10(),
+                        10.0 * portable::log10(top / bottom),
                         "dB",
                         f,
                         gg,
