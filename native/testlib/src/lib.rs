@@ -7,6 +7,8 @@
 //! It is also a small BLAS and LAPACK (`blas`), for the tests of how a library's interface is
 //! found: Fortran's names with 64-bit integers, and the C interfaces with 32-bit ones.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::os::raw::c_int;
 
 mod blas;

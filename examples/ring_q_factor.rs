@@ -26,6 +26,8 @@
 //! cargo run --release --example ring_q_factor
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::process::ExitCode;

@@ -37,6 +37,7 @@
 //! the repository's root, where the programs are installed). A crate of its own, outside photonoxide's workspace: CI never builds or runs it.
 
 #![forbid(unsafe_code)]
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
 
 pub mod cpw;
 pub mod elmer;

@@ -13,6 +13,8 @@
 //! cargo run --release --example circuit_splitter
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::process::ExitCode;

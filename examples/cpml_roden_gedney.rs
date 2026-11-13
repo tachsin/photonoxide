@@ -42,6 +42,8 @@
 //! cargo run --release --example cpml_roden_gedney
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::process::ExitCode;

@@ -64,6 +64,8 @@
 //! cargo run --release --example optimize_mode_converter -- --full --write  # and record the design
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::process::ExitCode;

@@ -15,6 +15,8 @@
 //! on rayon's threads, each on its own: the table is the same on any thread count, as the quick
 //! test below checks on a small study.
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 use std::sync::Mutex;
 
 use genoxide::prelude::*;

@@ -11,6 +11,8 @@
 //! `transient`, `joule`, `tfln`, comma-separated), only those run, and the report is printed,
 //! not written.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;

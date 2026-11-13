@@ -1,6 +1,8 @@
 //! cuDSS against photonoxide's own solver, on this machine's GPU. Skipped, and saying so, where
 //! cuDSS or a GPU isn't found (CI has neither).
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::sync::{Arc, Mutex};
 
 use num_complex::Complex64 as c64;

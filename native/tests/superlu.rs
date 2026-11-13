@@ -2,6 +2,8 @@
 //! SuperLU isn't found; with `PHOTONOXIDE_REQUIRE_SUPERLU` set (the Libraries workflow, after it
 //! installs SuperLU) not finding it is a failure.
 
+#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
+
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
