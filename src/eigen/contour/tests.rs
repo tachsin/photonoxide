@@ -119,22 +119,54 @@ fn a_singular_b_leaves_only_the_finite_eigenvalues() {
 
 #[test]
 fn sakurai_and_sugiura_example_5_converges_as_they_print() {
-    // their errors: 2.1e-6 at N = 64 and 1.3e-12 at 128; the bound δ^(2m − N), δ = 1.25
-    let mut e64: Vec<f64> = (0..33).map(|d| sakurai_sugiura_error(64, d)).collect();
-    let mut ratios: Vec<f64> = (0..33)
-        .map(|d| e64[d as usize] / sakurai_sugiura_error(128, d))
+    // their errors: 2.1e-6 at N = 64 and 1.3e-12 at 128; the bound δ^(2m − N), δ = 1.25, so the
+    // error falls by δ^64 = 1.6e6 from 64 to 128 points, held to 1.4e6..1.8e6 on each draw of u and
+    // v. That fall is the filter's only while the 128-point error stands above the round-off
+    // floor, which the same solve at 256 points measures (its filter part is 1.6e6 times smaller
+    // again): a draw is checked when the floor can move its ratio by less than the band's half
+    // width, 0.2e6 of 1.6e6, i.e. floor / e128 < 1/8. Draw 20 isn't: its 64-point error is 4.4e-9,
+    // 30 times below the others, and its 128-point error, 3.5e-15, is 2.5 times the floor
+    // (1.4e-15), so its ratio is the last bits': 1.26e6 with photonoxide::portable's maths (#822),
+    // 1.41e6 with Windows's own before, inside the band by 0.4 % by luck. Every other draw's
+    // floor is under a hundredth of its 128-point error.
+    let draws: Vec<(f64, f64, f64)> = (0..33)
+        .map(|d| {
+            (
+                sakurai_sugiura_error(64, d),
+                sakurai_sugiura_error(128, d),
+                sakurai_sugiura_error(256, d),
+            )
+        })
+        .collect();
+    let (low, high) = (1.4e6, 1.8e6);
+    let half_width = (high - low) / (high + low);
+    let mut e64: Vec<f64> = draws.iter().map(|d| d.0).collect();
+    let mut ratios: Vec<f64> = draws
+        .iter()
+        .filter(|(_, e128, floor)| floor / e128 < half_width)
+        .map(|(e64, e128, _)| e64 / e128)
         .collect();
     e64.sort_by(f64::total_cmp);
     ratios.sort_by(f64::total_cmp);
-    println!("{e64:?}\n{ratios:?}");
+    println!(
+        "{e64:?}
+{} of 33 draws above the floor: {ratios:?}",
+        ratios.len()
+    );
     // the error's size depends on u and v, its fall from 64 to 128 points doesn't
     let median = e64[16];
     assert!(median > 2.1e-7 && median < 2.1e-5, "{median}");
+    // most draws stand above the floor (32 of 33 today), so the band checks the many
     assert!(
-        ratios[0] > 1.4e6 && ratios[32] < 1.8e6,
+        ratios.len() > 33 / 2,
+        "{} of 33 draws above the floor",
+        ratios.len()
+    );
+    assert!(
+        ratios[0] > low && ratios[ratios.len() - 1] < high,
         "{} {}",
         ratios[0],
-        ratios[32]
+        ratios[ratios.len() - 1]
     );
 }
 
