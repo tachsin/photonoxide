@@ -29,7 +29,7 @@ The image's working folder is `/work`. Mount yours there, and run as your own us
 files a run writes are yours:
 
 ```sh
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsin/photonoxide run job.yaml --headless
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsinachmet/photonoxide run job.yaml --headless
 ```
 
 The run's folder is `runs/<job>-<time>/` in your folder: its `events.jsonl`, `results.json` and
@@ -39,10 +39,10 @@ describes. Without `--user` the run writes as the image's own user (uid 1000).
 Nothing needs mounting to look around:
 
 ```sh
-docker run --rm tachsin/photonoxide --version
-docker run --rm tachsin/photonoxide example --list      # the built-in examples
-docker run --rm tachsin/photonoxide new --list          # the job templates
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsin/photonoxide new fdfd job.yaml
+docker run --rm tachsinachmet/photonoxide --version
+docker run --rm tachsinachmet/photonoxide example --list      # the built-in examples
+docker run --rm tachsinachmet/photonoxide new --list          # the job templates
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsinachmet/photonoxide new fdfd job.yaml
 ```
 
 The image runs with a read-only root (`--read-only --tmpfs /tmp`): only the mounted folder is
@@ -70,7 +70,7 @@ A run can send a sweep's points to workers on other machines
 in a container:
 
 ```sh
-docker run --rm -p 7878:7878 -e PHOTONOXIDE_FARM_TOKEN=<token> tachsin/photonoxide worker --listen 0.0.0.0:7878
+docker run --rm -p 7878:7878 -e PHOTONOXIDE_FARM_TOKEN=<token> tachsinachmet/photonoxide worker --listen 0.0.0.0:7878
 ```
 
 All workers must be the same photonoxide version as the run, so use the same tag everywhere. The
@@ -79,7 +79,7 @@ farm's traffic isn't encrypted: farm machines on a network you trust.
 ## On a cluster, with Apptainer
 
 ```sh
-apptainer pull photonoxide.sif docker://tachsin/photonoxide:0.7.0
+apptainer pull photonoxide.sif docker://tachsinachmet/photonoxide:0.7.0
 apptainer exec photonoxide.sif photonoxide run job.yaml --headless
 ```
 
@@ -116,7 +116,7 @@ SBOM and provenance. GitHub's registry needs no setup. Docker Hub needs, once:
    and the page's text is pasted by hand.
 3. In the GitHub repository's Settings, Secrets and variables, Actions: the secrets
    `DOCKERHUB_USERNAME` (the account's name) and `DOCKERHUB_TOKEN` (the token); and, when the
-   repository isn't `tachsin/photonoxide`, the variable `DOCKERHUB_REPOSITORY` naming it
+   repository isn't `tachsinachmet/photonoxide`, the variable `DOCKERHUB_REPOSITORY` naming it
    (`<namespace>/photonoxide`).
 
 Without the secrets, a release's workflow skips Docker Hub with a notice and pushes to GitHub's

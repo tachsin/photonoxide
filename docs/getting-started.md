@@ -31,7 +31,7 @@ photonoxide run job.yaml --headless  # no window; prints the run's folder, with 
 ```
 
 In a container or on a cluster, the same commands run from the Docker image of the program
-without its window, `tachsin/photonoxide`, or through Apptainer: [docker.md](docker.md).
+without its window, `tachsinachmet/photonoxide`, or through Apptainer: [docker.md](docker.md).
 
 The rest of this page is for the Rust library, and then the studio and jobs in more detail.
 

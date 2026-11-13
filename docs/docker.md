@@ -8,7 +8,7 @@ Apptainer. Its page on Docker Hub is [docker/README.md](../docker/README.md).
 
 | | |
 |---|---|
-| Docker Hub | `tachsin/photonoxide` |
+| Docker Hub | `tachsinachmet/photonoxide` |
 | GitHub's registry | `ghcr.io/tachsin/photonoxide`, the same tags |
 | Tags | `<version>` (`0.7.0`), `<minor>` (`0.7`) and `latest`, made for each release; no image of unreleased code |
 | Architectures | `linux/amd64` and `linux/arm64` |
@@ -27,7 +27,7 @@ Mount the folder that holds the job at `/work`, and run as your own user, so the
 writes are yours:
 
 ```sh
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsin/photonoxide run job.yaml --headless
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" tachsinachmet/photonoxide run job.yaml --headless
 ```
 
 The run's folder is `runs/<time>-<job>/` in that folder, as [runs.md](runs.md) describes:
@@ -37,8 +37,8 @@ the run writes as the image's own user, uid 1000, which on Linux owns the files 
 your side of the mount. On Docker Desktop (Windows, macOS) the mounted folder's files are yours
 either way.
 
-Nothing needs mounting to look around: `docker run --rm tachsin/photonoxide example --list`,
-`new --list`, `--version`. Every command's usage: `docker run --rm tachsin/photonoxide --help`.
+Nothing needs mounting to look around: `docker run --rm tachsinachmet/photonoxide example --list`,
+`new --list`, `--version`. Every command's usage: `docker run --rm tachsinachmet/photonoxide --help`.
 
 The image needs nothing written outside the mounted folder, so it runs with a read-only root:
 `--read-only --tmpfs /tmp`.
@@ -69,7 +69,7 @@ A worker in a container listens on the container's port, published on the machin
 ([farming.md](farming.md)):
 
 ```sh
-docker run -d --rm -p 7878:7878 -e PHOTONOXIDE_FARM_TOKEN=<token> tachsin/photonoxide worker --listen 0.0.0.0:7878
+docker run -d --rm -p 7878:7878 -e PHOTONOXIDE_FARM_TOKEN=<token> tachsinachmet/photonoxide worker --listen 0.0.0.0:7878
 photonoxide run job.yaml --headless --worker host1:7878 --worker host2:7878 --token <token>
 ```
 
@@ -82,7 +82,7 @@ Clusters run containers with Apptainer (formerly Singularity), as your own user,
 and current folders mounted:
 
 ```sh
-apptainer pull photonoxide.sif docker://tachsin/photonoxide:0.7.0
+apptainer pull photonoxide.sif docker://tachsinachmet/photonoxide:0.7.0
 apptainer exec photonoxide.sif photonoxide run job.yaml --headless
 ```
 

@@ -13,7 +13,7 @@ name: Docker publish
 # GitHub's registry needs nothing but this workflow's token: ghcr.io/tachsin/photonoxide. Docker
 # Hub needs the secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a personal access token of that
 # account with Read & Write access); the repository is the variable DOCKERHUB_REPOSITORY, by
-# default tachsin/photonoxide. Without the secrets, the Docker Hub push is skipped with a notice
+# default tachsinachmet/photonoxide. Without the secrets, the Docker Hub push is skipped with a notice
 # and GitHub's still happens. docker/README.md says how to set them up.
 #
 # The release workflow calls this with the new release's tag (a tag GITHUB_TOKEN pushes starts no
@@ -46,7 +46,7 @@ permissions:
 env:
   TAG: ${{ inputs.tag || github.ref_name }}
   GHCR: ghcr.io/tachsin/photonoxide
-  DOCKERHUB: docker.io/${{ vars.DOCKERHUB_REPOSITORY || 'tachsin/photonoxide' }}
+  DOCKERHUB: docker.io/${{ vars.DOCKERHUB_REPOSITORY || 'tachsinachmet/photonoxide' }}
 
 jobs:
   build:
@@ -240,6 +240,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ vars.DOCKERHUB_REPOSITORY || 'tachsin/photonoxide' }}
+          repository: ${{ vars.DOCKERHUB_REPOSITORY || 'tachsinachmet/photonoxide' }}
           readme-filepath: docker/README.md
           short-description: "photonoxide: photonics design and simulation, the program without its window"

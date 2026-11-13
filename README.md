@@ -158,7 +158,7 @@ each [release](https://github.com/tachsin/photonoxide/releases), and updates its
 ([downloads](studio/README.md#downloads), [channels](studio/README.md#channels)).
 
 **Containers and clusters:** the same program without its window is an image on Docker Hub
-(`tachsin/photonoxide`) and GitHub's registry, for runs, farm workers and checks wherever Docker
+(`tachsinachmet/photonoxide`) and GitHub's registry, for runs, farm workers and checks wherever Docker
 runs, and through Apptainer on a cluster: [docs/docker.md](docs/docker.md).
 
 ## A first example
