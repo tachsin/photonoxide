@@ -547,7 +547,9 @@ fn the_lithography_proxy() {
     assert!(Lithography::edge_shift(0.05, 0.5).abs() < 1e-15);
     let s = Lithography::edge_shift(0.05, 0.3);
     assert!(s > 0.0);
-    assert!((0.5 * libm::erfc(s / (std::f64::consts::SQRT_2 * 0.05)) - 0.3).abs() < 1e-14);
+    assert!(
+        (0.5 * crate::portable::erfc(s / (std::f64::consts::SQRT_2 * 0.05)) - 0.3).abs() < 1e-14
+    );
     assert!((Lithography::edge_shift(0.05, 0.7) + s).abs() < 1e-14);
     assert!((Lithography::line_width(10.0, 0.05, 0.5) - 10.0).abs() < 1e-12);
     assert_eq!(Lithography::line_width(0.05, 0.05, 0.5), 0.0);

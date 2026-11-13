@@ -98,6 +98,8 @@
 //! cargo run --release --example optimize_ybranch -- --full   # and its 3D check
 //! ```
 
+#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
+
 mod common;
 
 use std::f64::consts::LN_10;

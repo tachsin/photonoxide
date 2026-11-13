@@ -1642,7 +1642,7 @@ fn penalty_gradient_case() -> Outcome {
 
 /// ½ erfc(x/√2σ): a solid half-plane x < 0 blurred by a Gaussian of σ, at x.
 fn half_plane_blur(x: f64, sigma: f64) -> f64 {
-    0.5 * libm::erfc(x / (std::f64::consts::SQRT_2 * sigma))
+    0.5 * crate::portable::erfc(x / (std::f64::consts::SQRT_2 * sigma))
 }
 
 /// A shape on pixels, whether pixel (i, j) is inside, and its exact blur at (x, y), in pixels from
