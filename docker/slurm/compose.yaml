@@ -3,10 +3,10 @@
 # docker/slurm/README.md says how to start it and what it is for: correctness, signals and the
 # scheduler, never speed (the containers share the machine's cores, memory and network).
 #
-#   docker compose -f docker/slurm/compose.yaml build --build-arg IMAGE=<the photonoxide image>
+#   PHOTONOXIDE_IMAGE=<the photonoxide image> docker compose -f docker/slurm/compose.yaml build
 #   docker compose -f docker/slurm/compose.yaml up -d
 x-node: &node
-  image: photonoxide-slurm:local
+  image: ${PHOTONOXIDE_SLURM_IMAGE:-photonoxide-slurm:local}
   build:
     context: ../..
     dockerfile: docker/slurm/Dockerfile

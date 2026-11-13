@@ -5,7 +5,7 @@
 # entrypoint starts the daemon its first argument names. Built from the repository's root, with
 # the photonoxide image to take the program from:
 #
-#   docker compose -f docker/slurm/compose.yaml build --build-arg IMAGE=photonoxide:dev
+#   PHOTONOXIDE_IMAGE=photonoxide:dev docker compose -f docker/slurm/compose.yaml build
 #
 # For tests of correctness, signals and the scheduler on one machine (docker/slurm/README.md):
 # never for speed.
@@ -28,7 +28,7 @@ RUN mkdir -p /etc/munge /run/munge /var/log/munge /var/lib/munge \
     && chmod 0400 /etc/munge/munge.key
 RUN mkdir -p /var/spool/slurmctld /var/spool/slurmd /var/log/slurm /run/slurm \
     && chown -R slurm:slurm /var/spool/slurmctld /var/spool/slurmd /var/log/slurm /run/slurm
-COPY docker/slurm/slurm.conf /etc/slurm/slurm.conf
+COPY docker/slurm/slurm.conf docker/slurm/cgroup.conf /etc/slurm/
 COPY docker/slurm/entrypoint.sh /usr/local/sbin/entrypoint.sh
 # the batch scripts and the job they run, beside the shared folder
 COPY docker/slurm/scripts/ /opt/photonoxide/slurm/

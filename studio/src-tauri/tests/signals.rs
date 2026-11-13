@@ -87,10 +87,11 @@ impl Drop for Killed {
     }
 }
 
-/// Sends SIGTERM to `child`, as `docker stop` and Slurm do.
+/// Sends SIGTERM to `child`, as `docker stop` and Slurm do (the shell's own `kill`: a slim
+/// system may have no kill program).
 fn terminate(child: &Child) {
-    let status = Command::new("kill")
-        .args(["-TERM", &child.id().to_string()])
+    let status = Command::new("sh")
+        .args(["-c", &format!("kill -TERM {}", child.id())])
         .status()
         .unwrap();
     assert!(status.success());

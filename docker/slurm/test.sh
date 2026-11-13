@@ -17,10 +17,10 @@
 set -euo pipefail
 
 image=${1:?usage: test.sh <photonoxide image>}
-here=$(cd "$(dirname "$0")" && pwd)
+cd "$(dirname "$0")"
 project=${PHOTONOXIDE_SLURM_PROJECT:-photonoxide-slurm}
 export PHOTONOXIDE_IMAGE=$image
-compose() { docker compose -f "$here/compose.yaml" -p "$project" "$@"; }
+compose() { docker compose -f compose.yaml -p "$project" "$@"; }
 # a command on the controller, as the submitting user, in the shared folder
 on() { compose exec -T -u phx -w /work slurmctld "$@"; }
 say() { echo "== $*"; }
