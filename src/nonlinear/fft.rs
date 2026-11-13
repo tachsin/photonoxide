@@ -118,4 +118,42 @@ mod tests {
         }
         assert!(Fft::new(48).is_err());
     }
+
+    /// Platform canary: the transform of a fixed signal of 64 exact values against its exact
+    /// DFT (mpmath, `tests/data/canary/golden.txt`; `tests/canary.rs` has the canaries'
+    /// tables). The rule is the radix-2 FFT's error bound, N. J. Higham, *Accuracy and
+    /// Stability of Numerical Algorithms*, 2nd ed., SIAM (2002), doi:10.1137/1.9780898718027,
+    /// Theorem 24.2: ‖ŷ − y‖₂/‖y‖₂ ≤ log₂n·η/(1 − log₂n·η), η = μ + γ₄(√2 + μ), with μ the
+    /// twiddles' error: each is cos and sin (an ulp each) of an angle −τk/n rounded once (n is
+    /// a power of two), so μ ≤ √2(π + 2)u; plus the golden values' own rounding, u‖y‖₂.
+    #[test]
+    fn canary_fft_against_the_exact_dft() {
+        let n = 64;
+        let u = f64::EPSILON / 2.0;
+        let x: Vec<c64> = (0..n)
+            .map(|j| {
+                c64::new(
+                    ((j * j) % 13) as f64 / 8.0 - 0.75,
+                    (j % 9) as f64 / 4.0 - 1.0,
+                )
+            })
+            .collect();
+        let want: Vec<c64> = crate::canary_tests::golden::golden("fft64")
+            .iter()
+            .map(|g| c64::new(g.r, g.i))
+            .collect();
+        assert_eq!(want.len(), n);
+        let mut y = x;
+        Fft::new(n).unwrap().forward(&mut y);
+        let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+        let diff: Vec<c64> = y.iter().zip(&want).map(|(a, b)| a - b).collect();
+        let off = norm(&diff) / norm(&want);
+        let mu = 2f64.sqrt() * (std::f64::consts::PI + 2.0) * u;
+        let gamma4 = 4.0 * u / (1.0 - 4.0 * u);
+        let eta = mu + gamma4 * (2f64.sqrt() + mu);
+        let l = (n as f64).log2();
+        let allowed = l * eta / (1.0 - l * eta) + u;
+        println!("fft: relative error {off:.2e}, allowed {allowed:.2e}");
+        assert!(off <= allowed, "{off:e} > {allowed:e}");
+    }
 }

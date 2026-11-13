@@ -40,7 +40,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
 
 - **[Methods](docs/README.md#methods):** 56 write-ups in 10 topics, from waveguide modes to
   fabrication, each setting out its method, its limits and the papers it implements; their
-  front matter cites 313 distinct sources by DOI.
+  front matter cites 314 distinct sources by DOI.
 - **[Academy](academy/README.md):** lessons on devices and numerical methods at three depths,
   each opening on a drawing of its device, with charts the library computes live; 24 written,
   and 10 more laid out section by section, read on GitHub or in the studio. New to rings?
@@ -50,7 +50,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 59 examples that each compute a published result and print it beside the paper's, 45 job files ready to run, and 978 validation
+  with 60 examples that each compute a published result and print it beside the paper's, 45 job files ready to run, and 982 validation
   cases that check it.
 
 ## What it computes
@@ -157,6 +157,10 @@ uv pip install photonoxide  # or into the active environment
 each [release](https://github.com/tachsin/photonoxide/releases), and updates itself
 ([downloads](studio/README.md#downloads), [channels](studio/README.md#channels)).
 
+**Containers and clusters:** the same program without its window is an image on Docker Hub
+(`tachsinachmet/photonoxide`) and GitHub's registry, for runs, farm workers and checks wherever Docker
+runs, and through Apptainer on a cluster: [docs/docker.md](docs/docker.md).
+
 ## A first example
 
 220 nm of silicon in oxide at 1550 nm, each material with its published dispersion, and the
@@ -246,7 +250,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 978 cases: 672 against closed forms, 293 against published
+[report](docs/validation.md) has 982 cases: 676 against closed forms, 293 against published
 results and 13 against a second method of photonoxide's own on a shared problem. Each states its source,
 tolerance and grid; a published case is a number a paper prints or a formula re-implemented from its
 equations, and a few are bounds, not equalities. The comparisons with other codes (Elmer for the static

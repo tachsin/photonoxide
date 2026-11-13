@@ -70,6 +70,7 @@ examples!(
     optimize_demux_robust: "../../../examples/optimize_demux_robust.rs",
     optimize_foundry_bend: "../../../examples/optimize_foundry_bend.rs",
     optimize_crossing_ssp: "../../../examples/optimize_crossing_ssp.rs",
+    optimize_swg_converter: "../../../examples/optimize_swg_converter.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -221,6 +222,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A waveguide crossing optimized to a level set",
             "Hammond et al. 2025",
         ),
+        "optimize_swg_converter" => (
+            "An SWG-to-strip converter designed to print right",
+            "Khan et al. 2024",
+        ),
         "optimize_demux_robust" => (
             "A demultiplexer robust to a ±8 nm etch",
             "Christiansen & Sigmund 2021",
@@ -310,12 +315,13 @@ fn seconds(name: &str) -> f64 {
         "optimize_chip_rings" => 2.0,
         "optimize_mesh" => 5.0,
         "optimize_mesh_selfconfig" => 50.0,
-        "optimize_ybranch" => 150.0,
+        "optimize_ybranch" => 180.0,
         "optimize_grating_pareto" => 120.0,
         "optimize_mode_converter" => 20.0,
         "optimize_demux_robust" => 10.0,
         "optimize_foundry_bend" => 10.0,
         "optimize_crossing_ssp" => 5.0,
+        "optimize_swg_converter" => 60.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
@@ -441,6 +447,7 @@ fn links(md: &str) -> Vec<String> {
 }
 
 /// A job file shipped with the program, from jobs/.
+#[cfg(any(test, feature = "window"))]
 #[derive(Serialize, Clone)]
 pub struct JobExample {
     /// Its file name, e.g. `"strip-modes.yaml"`.
@@ -449,6 +456,7 @@ pub struct JobExample {
 }
 
 /// The repository's jobs/, built in.
+#[cfg(any(test, feature = "window"))]
 pub fn jobs() -> Vec<JobExample> {
     [
         (
@@ -616,6 +624,7 @@ pub fn jobs() -> Vec<JobExample> {
 /// The built-in components' job files, jobs/components/: each device of the library as its page
 /// builds it at its defaults (#668), in the library's order. They aren't templates: the Design
 /// page lists them, and each opens on its device's page.
+#[cfg(any(test, feature = "window"))]
 pub fn components() -> Vec<JobExample> {
     macro_rules! components {
         ($($id:literal),* $(,)?) => {
@@ -735,7 +744,7 @@ mod tests {
             "jobs/components/ holds the YAML files only"
         );
         for j in jobs().into_iter().chain(components()) {
-            let job = crate::studio::parse_job(&j.text).unwrap();
+            let job = crate::job_text::parse_job(&j.text).unwrap();
             photonoxide::job::check(&job).unwrap_or_else(|e| panic!("{}: {e}", j.file));
         }
     }
@@ -764,7 +773,7 @@ mod tests {
     /// The events of the built-in job `file`'s run.
     fn run_of(file: &str) -> Vec<Event> {
         let text = jobs().into_iter().find(|j| j.file == file).unwrap().text;
-        let job = crate::studio::parse_job(&text).unwrap();
+        let job = crate::job_text::parse_job(&text).unwrap();
         let mut run = Run::in_memory();
         photonoxide::job::execute(&job, &mut run, &Stop::new(None)).unwrap();
         run.lines()

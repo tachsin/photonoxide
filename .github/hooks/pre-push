@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # Before a push: the lints CI's Lint job runs (.github/lints.sh: fmt, clippy, docs), on the commit
-# being pushed, so a red Lint is caught here and not minutes later on CI. A lint that already
-# passed on this commit (here or in .github/full-suite.sh) isn't run again. Only when the push
-# changes Rust code or the manifests; `git push --no-verify` skips it (agents don't).
+# being pushed, so a red Lint is caught here and not minutes later on CI, when the push changes
+# Rust code or the manifests; and the studio's fast tests (.github/studio-tests.sh fast, `just
+# studio-check`), which CI doesn't run, when the push changes what the studio reads (the README,
+# the roadmap, the changelog, the Academy, the methods pages, the validation report, the site, the
+# studio, the jobs, the circuits, the examples). A check that already passed on this commit (here
+# or in .github/full-suite.sh) isn't run again. `git push --no-verify` skips it (agents don't).
 # Enabled by `git config core.hooksPath .github/hooks`.
 set -uo pipefail
 HOOKS_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$(git rev-parse --show-toplevel)" || exit 1
 zero=0000000000000000000000000000000000000000
 
-# which pushed commits change what the lints read
-rust=false
+# which pushed commits change what the lints read, and what the studio reads
+rust=false studio=false
+studio_files=""
+studio_reads='^(README\.md|ROADMAP\.md|CHANGELOG\.md|academy/|docs/methods/|docs/validation\.md|docs/README\.md|docs/libraries\.md|site/|studio/|jobs/|circuits/|examples/)'
 while read -r _local_ref local_sha _remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # a deleted branch
   if [ "$remote_sha" = "$zero" ]; then
@@ -19,19 +24,25 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
   else
     range=$remote_sha..$local_sha
   fi
-  if git diff --name-only "$range" 2> /dev/null | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|^rust-toolchain|^\.cargo/'; then
+  files=$(git diff --name-only "$range" 2> /dev/null)
+  if grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|^rust-toolchain|^\.cargo/' <<< "$files"; then
     rust=true
     pushed=$local_sha
   fi
+  if grep -qE "$studio_reads" <<< "$files"; then
+    studio=true
+    pushed=$local_sha
+    studio_files+="$files"$'\n'
+  fi
 done
-[ "$rust" = true ] || exit 0
+[ "$rust" = true ] || [ "$studio" = true ] || exit 0
 
 if [ "$pushed" != "$(git rev-parse HEAD)" ]; then
-  echo "pre-push: the commit pushed (${pushed:0:7}) isn't the one checked out; its lints run on CI"
+  echo "pre-push: the commit pushed (${pushed:0:7}) isn't the one checked out; its lints run on CI (the studio's tests don't: just studio-check)"
   exit 0
 fi
 if ! git diff --quiet HEAD --; then
-  echo "pre-push: tracked files differ from the commit being pushed, so the lints wouldn't check it."
+  echo "pre-push: tracked files differ from the commit being pushed, so the checks wouldn't check it."
   echo "Commit or stash them first (or push with --no-verify)."
   exit 1
 fi
@@ -60,6 +71,7 @@ fi
 source .github/lints.sh
 key=$(lint_key)
 failed=()
+[ "$rust" = true ] || LINTS=()
 for lint in "${LINTS[@]}"; do
   name=${lint%%|*}
   if lint_passed "$key" "$name"; then
@@ -73,8 +85,32 @@ for lint in "${LINTS[@]}"; do
     failed+=("$name")
   fi
 done
+
+# the studio's fast tests, which no CI job runs
+if [ "$studio" = true ]; then
+  name="studio fast tests"
+  if ! command -v pnpm > /dev/null; then
+    echo "pre-push: pnpm not found, so the studio's fast tests didn't run, and CI doesn't run them: run just studio-check where pnpm is"
+  elif lint_passed "$key" "$name"; then
+    echo "pre-push: $name passed on this commit already"
+  else
+    echo "pre-push: $name (CI doesn't run them; .github/studio-tests.sh fast)"
+    if bash .github/studio-tests.sh fast; then
+      lint_stamp "$key" "$name"
+    else
+      failed+=("$name")
+    fi
+  fi
+  # the slow tests solve with the studio's code, the jobs and the library; the lessons' check
+  # evaluates the lessons' charts
+  if grep -qE '^(studio/src-tauri/|jobs/|circuits/|academy/|docs/methods/)' <<< "$studio_files" ||
+    [ "$rust" = true ]; then
+    echo "pre-push: the studio's slow tests (physics solves, a minute or more each) aren't run here or on CI: run just studio-slow when this push changes what they solve with"
+  fi
+fi
+
 if [ ${#failed[@]} -gt 0 ]; then
   echo
-  echo "pre-push: not pushed, these failed: ${failed[*]} (CI's Lint would fail the same way)"
+  echo "pre-push: not pushed, these failed: ${failed[*]} (CI's Lint would fail the same way for a lint; CI doesn't run the studio's tests)"
   exit 1
 fi

@@ -48,6 +48,40 @@ default) lets each worker choose from its own machine's benchmark records, which
 the run's choice: such a worker is dropped at the sweep with that reason (below), so name the
 solver in the job (`[solver] direct = "photonoxide"`) when the workers' machines differ.
 
+## On a Slurm cluster
+
+A Slurm allocation runs a farm as it runs any job of several nodes: a worker on each node,
+started by `srun`, and the run on the first, sending its points to all of them.
+[docker/slurm/scripts/farm.sh](../docker/slurm/scripts/farm.sh) is that batch script:
+
+```sh
+sbatch --nodes=4 docker/slurm/scripts/farm.sh job.yaml runs
+```
+
+It starts `photonoxide worker --listen 0.0.0.0:7878` on every node of the job (`srun
+--ntasks-per-node=1`), takes the run's `--worker` list from `scontrol show hostnames
+"$SLURM_JOB_NODELIST"`, waits until every worker listens, and runs the job with them; the token
+is `PHOTONOXIDE_FARM_TOKEN` when set, a fresh random one otherwise, passed in the environment and
+never on a command line. With `--no-kill`, a node that fails mid-run loses its worker and the run
+finishes on the others, as with a worker killed anywhere. `PHOTONOXIDE` names the program, for
+one run through Apptainer: `PHOTONOXIDE="apptainer exec photonoxide.sif photonoxide"`
+([docker.md](docker.md#on-a-cluster-with-apptainer)). Beside it,
+[run.sh](../docker/slurm/scripts/run.sh) runs one job on one node, and
+[array.sh](../docker/slurm/scripts/array.sh) splits a sweep into an array's parts, each a run of
+its own (`sbatch --array=0-3 array.sh job.toml`): a farm gives one record of the whole sweep,
+an array fits small jobs into a busy scheduler's gaps.
+
+At a job's time limit Slurm sends SIGTERM, and `KillWait` seconds later (30 by default) SIGKILL.
+The run stops at its next check on the SIGTERM, as when its window closes: its record ends with
+its `stopped` event, `results.json` says why, and it exits 4. The workers drop their tasks and
+exit 4. Give the job a limit with room for the run's own `timeout_minutes`, which ends it with
+exit 3 and a whole record before Slurm has to.
+
+The scripts are tested on a Slurm cluster in Docker ([docker.md](docker.md#a-slurm-cluster-in-docker)):
+a batch job, an array, a farm on three nodes whose record is the one-process run's to the bit,
+a node killed mid-farm, and the time limit. Those containers share one machine, so the test is
+of correctness, signals and the scheduler, not of speed.
+
 ## The same record
 
 The farmed run's `events.jsonl` is the one the run writes on its own, to the last bit, on any

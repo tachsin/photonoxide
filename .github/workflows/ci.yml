@@ -2,38 +2,45 @@ name: CI
 
 # Tests in tiers (issue #315):
 #
-# - Tier 1, every pull request and every push to main: what the change can break. The area map
-#   (.github/areas.sh) turns the changed files into the unit tests, validation cases and examples
-#   of their areas and of the areas that use them; a file of no area runs everything. Files
-#   nothing reads run only the docs' links. A pull request that changes the library (src/ or the
-#   root Cargo.toml) has its public API checked against its base's (cargo-semver-checks).
-#   A pull request runs on Linux alone, unless a file that differs by system changed (native/,
-#   the studio's Rust code and setup, the toolchain, build scripts, CI's own files, a Rust file
-#   with a cfg on the system: .github/areas.sh's OS_FILES): then its unit tests and the studio
-#   run on Windows and macOS too. Every push to main runs them on the three systems.
-#   The studio's tests come in two tiers (.github/studio-slow-tests.txt): a pull request that
-#   changes only what the studio reads as text (the README, the roadmap, the changelog, the
-#   Academy, the methods pages, its web view) runs its fast tier, which skips the physics solves;
-#   a change to its Rust code, a job or circuit file, or a library area it uses runs every test,
-#   as every push to main, Tier 2 and Tier 3 do.
+# - A pull request (and the merge queue), Tier 1: what the change can break, in few jobs. The area
+#   map (.github/areas.sh) turns the changed files into the unit tests, validation cases and
+#   examples of their areas and of the areas that use them; a file of no area runs everything.
+#   Files nothing reads run only the docs' links. Its jobs: What changed, Docs, Lint (rustfmt,
+#   clippy, the docs, the MSRV check, the library compiled for Windows and macOS from Linux, the
+#   canaries, the studio's lint and build when the change reaches it), Semver (a change to src/
+#   or the root Cargo.toml), "Test" (the changed areas' unit tests, one job), "Validation and
+#   examples" (one job: it builds the report's test binary and the examples and runs the changed
+#   areas' case groups and examples side by side on the runner's cores, .github/run-pool.sh) and
+#   "CI passed". A change to CI's own files (the workflows, .github/actions, the scripts at
+#   .github/'s top) runs "CI's own files" (actionlint, the shards' exactly-once check over every
+#   case and the area map on set file lists, .github/check-shards.sh) and a smoke run of
+#   "Validation and examples" (the material cases and one example), not the whole suite.
+#   On Linux alone: no Windows or macOS runner but for the release PR and one labelled full-ci.
+#   No CI job runs the studio's tests or photonoxide-native's: the studio's run on the
+#   workstation before a push (`just studio-check`, `just studio-slow`, the pre-push hook),
+#   native's by hand (the Libraries workflow, `just native-tests`): CONTRIBUTING.md.
+# - Every push to main: everything (every unit test, every case, every example but the 3D
+#   devices) on Linux, in shards (below); it blocks no pull request. It compares main with the
+#   last commit whose push run passed, for a dependency change since (Tier 2).
 # - Tier 2, the release pull request (release-plz's branch), a pull request labelled `full-ci`
 #   (the Full CI workflow starts it), and a change that can alter the dependencies or the
 #   features (Cargo.lock's packages, the root Cargo.toml's dependency, feature, patch and
-#   workspace tables: .github/dependencies.sh; any other edit of the two is Tier 1, which runs
-#   every test on Linux for it): everything, the tests on Linux, Windows and macOS, single-threaded
-#   too, every example on all three systems, the 3D devices, the whole validation report and the
-#   studio, every test of it, on each system.
+#   workspace tables: .github/dependencies.sh; any other edit of the two is Tier 1): everything,
+#   in shards, the tests single-threaded too, every example, the 3D devices and the whole
+#   validation report; on Windows and macOS too for the release PR and full-ci.
 # - Tier 3, Mondays (the Weekly workflow, when code changed in the past seven days) and by hand
-#   (Run workflow): Tier 2, and the Weekly workflow adds the Libraries workflow's installs, the
-#   Systems comparison and every Python wheel.
+#   (Run workflow): Tier 2 on the three systems, and the Weekly workflow adds the canaries on
+#   Windows and macOS, the Systems comparison and every Python wheel.
 #
-# What a run checks is split among runners (.github/shards.sh, by measured times): the unit tests
-# in two jobs on each system, the validation cases in groups, the examples in two jobs on each
-# system, so that the longest job, which sets the run's wall time, is short. Every test, case and
-# example runs in exactly one job, as it did in one before; the "What changed" job fails when the
-# split leaves a case or an example out or runs it twice. On Linux one job ("Release build")
-# compiles the validation report's test binary and the examples once, and the jobs of the cases
-# and examples download them and run them; on Windows and macOS each examples job builds its own.
+# The shards (.github/shards.sh, by measured times): the unit tests in two jobs on each system,
+# the validation cases in groups, the examples in two jobs on each system, so that the longest
+# job is short. Every test, case and example runs in exactly one job; the "What changed" job fails
+# when the split leaves a case or an example out or runs it twice. In a sharded run one job
+# ("Release build") compiles the validation report's test binary and the examples once on Linux,
+# and the jobs of the cases and examples download them and run them; on Windows and macOS each
+# examples job builds its own. A pull request's "Validation and examples" job runs the same
+# groups, side by side in one job, and builds its binaries itself (one consumer: an artifact
+# would only add its upload and download).
 #
 # A draft pull request runs nothing: its jobs are skipped (a skipped job counts as passed, and
 # main has no required check) until it is marked ready for review, which runs CI.
@@ -42,6 +49,11 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # the merge queue: a queued pull request is checked again merged onto the latest main (and the
+  # queued ones before it), as a pull request is (Tier 1 by its areas, Tier 2 for a dependency
+  # change, on Linux); "CI passed" below is the check the queue waits for
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       tier:
@@ -60,8 +72,10 @@ on:
 # main with the last commit whose push run passed). Runs started by hand or by the Weekly
 # workflow each run to the end. The other workflows (Release, release-plz, the binaries, the
 # Python wheels) keep their own groups: nothing here stops them.
+# A merge group's run has a group of its own (its ref is the group's), which nothing stops but the
+# queue itself.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.run_id }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || ((github.event_name == 'push' || github.event_name == 'merge_group') && github.ref) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
@@ -89,6 +103,8 @@ jobs:
       actions: read
     outputs:
       tier: ${{ steps.classify.outputs.tier }}
+      mode: ${{ steps.classify.outputs.mode }}
+      ci: ${{ steps.classify.outputs.ci }}
       code: ${{ steps.classify.outputs.code }}
       tests: ${{ steps.classify.outputs.tests }}
       test: ${{ steps.classify.outputs.test }}
@@ -97,8 +113,6 @@ jobs:
       build_cases: ${{ steps.classify.outputs.build_cases }}
       build_examples: ${{ steps.classify.outputs.build_examples }}
       studio: ${{ steps.classify.outputs.studio }}
-      studio_tier: ${{ steps.classify.outputs.studio_tier }}
-      studio_skip: ${{ steps.classify.outputs.studio_skip }}
       library: ${{ steps.classify.outputs.library }}
     steps:
       - uses: actions/checkout@v7
@@ -109,6 +123,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
           HEAD_REF: ${{ github.head_ref }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           TIER: ${{ inputs.tier }}
@@ -116,11 +131,17 @@ jobs:
         run: |
           set -euo pipefail
           tier=${TIER:-1}
+          # a pull request that asks for Windows and macOS (below)
+          os_pr=false
           if [ "$EVENT" = pull_request ]; then
-            case "$HEAD_REF" in release-plz-*) tier=2 ;; esac
-            if jq -e 'index("full-ci")' <<<"$LABELS" > /dev/null; then tier=2; fi
+            case "$HEAD_REF" in release-plz-*) tier=2 os_pr=true ;; esac
+            if jq -e 'index("full-ci")' <<<"$LABELS" > /dev/null; then tier=2 os_pr=true; fi
             range="$PR_BASE...$GITHUB_SHA" base="$PR_BASE"
             from=$(git merge-base "$PR_BASE" "$GITHUB_SHA" 2>/dev/null || true)
+          elif [ "$EVENT" = merge_group ]; then
+            # the group's merge commit against the main it was made on: the queued pull
+            # requests' changes, as a pull request's (GITHUB_SHA is the group's head)
+            range="$GROUP_BASE..$GITHUB_SHA" base="$GROUP_BASE" from="$GROUP_BASE"
           else
             base="$PUSH_BEFORE"
             if [ "$EVENT" = push ]; then
@@ -156,62 +177,75 @@ jobs:
             fi
           fi
           # the library's public API, checked on a pull request that changes it (src/ or the root
-          # manifest), or this workflow, on any tier; not on the release PR, whose version
+          # manifest), on any tier; not on the release PR, whose version
           # release-plz chose by the same check
           library=false
           if [ "$EVENT" = pull_request ] && [[ "$HEAD_REF" != release-plz-* ]] &&
             git cat-file -e "$PR_BASE^{commit}" 2>/dev/null; then
             git diff --name-only "$range" > "$RUNNER_TEMP/pr-files.txt"
-            if grep -qE '^(src/|Cargo\.toml$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/pr-files.txt"; then
+            if grep -qE '^(src/|Cargo\.toml$)' "$RUNNER_TEMP/pr-files.txt"; then
               library=true
             fi
           fi
-          if [ "$tier" = 1 ]; then
+          # pooled: a pull request's or the merge queue's Tier 1 run, the changed areas in few jobs;
+          # sharded: everything else (a push to main, Tier 2 and 3), everything in shards
+          mode=sharded
+          case "$EVENT" in pull_request | merge_group) [ "$tier" != 1 ] || mode=pooled ;; esac
+          if [ "$mode" = pooled ]; then
             AREAS_RANGE="$range" bash .github/areas.sh < "$RUNNER_TEMP/changed.txt" > "$RUNNER_TEMP/areas.txt"
           else
+            # a push to main on Tier 1 too: every unit test, case and example (not the 3D devices,
+            # nor the tests on one thread: Tier 2's)
             bash .github/areas.sh --all < /dev/null > "$RUNNER_TEMP/areas.txt"
           fi
-          # every push to main (and Tier 2 and 3): the unit tests and the studio on the three
-          # systems, and every test of the studio, whatever changed, so that main stays checked
-          # where a pull request ran Linux alone or the studio's fast tier
-          if [ "$EVENT" != pull_request ] || [ "$tier" != 1 ]; then
-            sed -i -e 's/^systems=.*/systems=all/' -e 's/^studio=fast$/studio=every/' \
-              -e 's/^studio_skip=.*/studio_skip=/' "$RUNNER_TEMP/areas.txt"
-          fi
+          # Windows and macOS: the Weekly run and a run by hand take the unit tests there (and, on
+          # Tier 2 and 3, the examples), and the release PR and one labelled full-ci, which ask for
+          # them; a pull request, the merge queue and a push to main start no Windows or macOS
+          # runner (the Weekly workflow's canaries and Systems comparison check the systems)
+          systems=linux
+          case "$EVENT" in
+            pull_request | merge_group | push) [ "$os_pr" = false ] || systems=all ;;
+            *) systems=all ;;
+          esac
+          sed -i -e "s/^systems=.*/systems=$systems/" "$RUNNER_TEMP/areas.txt"
           echo "tier $tier"
           cat "$RUNNER_TEMP/areas.txt"
           get() { sed -n "s/^$1=//p" "$RUNNER_TEMP/areas.txt"; }
-          code=$(get code) tests=$(get tests) studio_tier=$(get studio) systems=$(get systems)
-          # the jobs of the release build and of the unit tests, split by measured times, and
-          # the check that every case and example the run wants is in exactly one of them
-          bash .github/shards.sh "$tier" < "$RUNNER_TEMP/areas.txt" > "$RUNNER_TEMP/shards.txt"
+          code=$(get code) tests=$(get tests) ci=$(get ci)
+          # the jobs of the release build and of the unit tests, split by measured times (pooled:
+          # one unit-test job, the release groups for one job), and the check that every case and
+          # example the run wants is in exactly one of them
+          POOLED=$([ "$mode" = pooled ] && echo true || echo false) \
+            bash .github/shards.sh "$tier" < "$RUNNER_TEMP/areas.txt" > "$RUNNER_TEMP/shards.txt"
           shard() { sed -n "s/^$1=//p" "$RUNNER_TEMP/shards.txt"; }
-
-          # the studio: on Linux, or on the three systems; its fast tier skips the slow tests by
-          # their exact names
-          case "$studio_tier" in
-            "") studio='[]' ;;
-            *) if [ "$systems" = all ]; then studio='["ubuntu-latest","windows-latest","macos-latest"]'; else studio='["ubuntu-latest"]'; fi ;;
-          esac
-          skip=""
-          for name in $(get studio_skip); do skip+=" --skip $name"; done
-          [ -z "$skip" ] || skip="--exact$skip"
+          release=$(shard release) build_cases=$(shard build_cases) build_examples=$(shard build_examples)
+          # a change to CI's own files alone: a smoke run of the cases and examples' job (the
+          # material cases, which take a second, with the report's head and list of cases, and
+          # one example), not the whole suite
+          if [ "$mode" = pooled ] && [ "$ci" = true ] && [ "$release" = "[]" ]; then
+            release='[{"name":"smoke","os":"ubuntu-latest","cases":"material/","examples":"silicon_index","head":true}]'
+            build_cases=true build_examples=silicon_index
+          fi
+          # the studio's lints and build, on Linux, when the change reaches it (its tests run on
+          # the workstation, not here: CONTRIBUTING.md)
+          studio=false
+          if [ -n "$(get studio)" ]; then studio=true; fi
           {
             echo "tier=$tier"
+            echo "mode=$mode"
+            echo "ci=$ci"
             echo "code=$code"
             echo "tests=$tests"
             echo "test=$(shard test)"
-            echo "release=$(shard release)"
+            echo "release=$release"
             echo "release_os=$(shard release_os)"
-            echo "build_cases=$(shard build_cases)"
-            echo "build_examples=$(shard build_examples)"
+            echo "build_cases=$build_cases"
+            echo "build_examples=$build_examples"
             echo "studio=$studio"
-            echo "studio_tier=$studio_tier"
-            echo "studio_skip=$skip"
             echo "library=$library"
           } | tee -a "$GITHUB_OUTPUT"
           {
-            echo "### Tier $tier"
+            echo "### Tier $tier, $mode"
             echo
             echo '```'
             cat "$RUNNER_TEMP/areas.txt"
@@ -250,6 +284,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/rust-toolchain
@@ -289,14 +326,90 @@ jobs:
         with:
           tool: cargo-machete@0.9.2
       - run: cargo machete
+      # the minimum Rust (Cargo.toml's rust-version): rust-toolchain.toml pins the newest for every
+      # cargo in this checkout, so the step asks for its own
+      - name: MSRV (1.95)
+        run: |
+          rustup toolchain install 1.95 --profile minimal --no-self-update
+          RUSTUP_TOOLCHAIN=1.95 cargo check --all-targets --all-features
+      # the library compiled for Windows and macOS from Linux (`cargo check`, every feature, the
+      # tests too): no pull request starts a Windows or macOS runner, and this catches code that
+      # doesn't build on one of them (a cfg on the system, a dependency's). The library is Rust
+      # alone, so no other system's SDK or linker is needed
+      - name: Check for Windows and macOS
+        if: needs.changes.outputs.tests != ''
+        run: |
+          rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin
+          cargo check --all-features --all-targets --target x86_64-pc-windows-msvc
+          cargo check --all-features --all-targets --target aarch64-apple-darwin
+      # the platform canaries, the justfile's `canaries` recipe (tests/canary.rs, the library's
+      # canary_ tests and the tests they reuse by name, in release; the recipe is their one list),
+      # on Linux here for every change with unit tests; the Weekly workflow runs them on Windows
+      # and macOS
+      - if: needs.changes.outputs.tests != '' && hashFiles('tests/canary*.rs') != ''
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: The canaries, on Linux
+        if: needs.changes.outputs.tests != '' && hashFiles('tests/canary*.rs') != ''
+        run: just canaries
+      # The studio's lints and build, when the change reaches it: its web view type-checked and
+      # built (oxlint, svelte-check, vite; the window's Rust code embeds it), rustfmt and clippy on
+      # its crates. Its tests run on the workstation, not here (`just studio-check`, `just
+      # studio-slow`, the pre-push hook: CONTRIBUTING.md). What Tauri needs on Linux, the
+      # WebKitGTK web view and its friends, is kept in the Actions cache; the lists are updated
+      # first (retried: .github/apt-get-update.sh), and the cache's version is the Ubuntu release
+      - id: ubuntu
+        if: needs.changes.outputs.studio == 'true'
+        run: |
+          bash .github/apt-get-update.sh
+          echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
+      - if: needs.changes.outputs.studio == 'true'
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: ${{ env.TAURI_APT_PACKAGES }}
+          # the number after the release: raise it to drop a bad cache
+          version: ubuntu-${{ steps.ubuntu.outputs.release }}-2
+      # the action reports success even when its install failed (and caches what it got), so
+      # the build's own check: the libraries pkg-config finds, else a plain install
+      - if: needs.changes.outputs.studio == 'true'
+        run: |
+          if pkg-config --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl && [ -f /usr/include/xdo.h ]; then
+            exit 0
+          fi
+          echo "::warning::the cached Tauri packages are missing or incomplete: installing them with apt (raise the cache's version to drop it)"
+          sudo apt-get install -y $TAURI_APT_PACKAGES
+      - if: needs.changes.outputs.studio == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: studio/package.json
+      - if: needs.changes.outputs.studio == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: studio/pnpm-lock.yaml
+      - name: The studio's web view
+        if: needs.changes.outputs.studio == 'true'
+        working-directory: studio
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      # and the Windows setup that carries it (studio/setup), built without its payload
+      - name: The studio's rustfmt and clippy
+        if: needs.changes.outputs.studio == 'true'
+        run: |
+          cargo fmt -p photonoxide-studio -p photonoxide-setup --check
+          cargo clippy -p photonoxide-studio -p photonoxide-setup --all-targets -- -D warnings
 
-  # Tier 1: the changed areas' unit tests, on Linux (and on Windows and macOS on every push to
-  # main and for a file that differs by system). Tier 2 and 3: every test on the three
-  # systems, and on Linux once more on one thread: parallel code must not rely on having more
-  # than one thread, and must give the same results on one thread as on many. In two jobs on
+  # A pull request: the changed areas' unit tests in one job on Linux (its test threads keep the
+  # runner's cores busy). A push to main: every test on Linux; Tier 2 and 3: every test, on the
+  # three systems but on a pull request other than the release PR's or one labelled full-ci, and
+  # on Linux once more on one thread: parallel code must not rely on having more than one thread,
+  # and must give the same results on one thread as on many. Those runs split it in two jobs on
   # each system (.github/shards.sh): job::'s tests in the first, every other test in the second,
   # which skips the first's (FILTERS: the test binaries' filters and --skip's), so each test runs
-  # once; photonoxide-native's tests in the second when there is one, else in the first.
+  # once.
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.part }})
     needs: changes
@@ -342,36 +455,18 @@ jobs:
         # shellcheck disable=SC2086
         run: cargo test --all-features --lib -- $FILTERS
       # this job's share of every test (the filters pick by name in each test binary and in the
-      # doc tests), and photonoxide-native's tests with them where the job runs them (its
-      # filters are then only --skip's, which no test of photonoxide-native's has in its name).
-      # In one Cargo command with photonoxide's own, every feature on: Cargo then resolves the
-      # features of the crates both use as it does for photonoxide's tests alone (photonoxide's
-      # dev-dependencies widen some, syn's and memchr's among them) and builds nothing of
-      # photonoxide's again; `cargo test -p photonoxide-native` on its own after it built about
-      # 44 crates once more, the library among them (that step took 185, 384 and 339 s on Linux,
-      # Windows and macOS in run 42390305695, mostly building)
+      # doc tests), photonoxide's alone: photonoxide-native's tests run by hand (the Libraries
+      # workflow, `just native-tests`; CONTRIBUTING.md), its clippy in Lint
       - name: Every test
         if: env.TESTS == '*'
         # shellcheck disable=SC2086
-        run: cargo test --all-features $PACKAGES -- $FILTERS
-        env:
-          PACKAGES: ${{ matrix.native && '-p photonoxide -p photonoxide-native' || '' }}
+        run: cargo test --all-features -- $FILTERS
       - name: Every test, on one thread
         if: env.TESTS == '*' && needs.changes.outputs.tier != '1' && runner.os == 'Linux'
         # shellcheck disable=SC2086
         run: cargo test --all-features -- $FILTERS
         env:
           RAYON_NUM_THREADS: 1
-      # photonoxide-native against its test library, where the job doesn't run every test (Tier 1:
-      # one command can't hold both crates' tests, since the changed areas' filters reach every
-      # test binary and would leave native's out, and no filter picks all of native's and none
-      # of photonoxide's); real libraries are found only where installed. Its dev-dependencies
-      # repeat photonoxide's and turn on photonoxide's features (native/Cargo.toml, checked by
-      # .github/shards.sh), so this command resolves the shared crates as the changed areas' unit
-      # tests did and builds only photonoxide's library and native itself
-      - name: photonoxide-native
-        if: matrix.native && env.TESTS != '*'
-        run: cargo test --all-features -p photonoxide-native
 
   # The release build's checks on Linux, built once: this job compiles the validation report's
   # test binary and the examples the run wants (one release build of the library, through
@@ -382,7 +477,7 @@ jobs:
   build:
     name: Release build
     needs: changes
-    if: needs.changes.outputs.release != '[]'
+    if: needs.changes.outputs.mode == 'sharded' && needs.changes.outputs.release != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:
@@ -460,7 +555,7 @@ jobs:
   release:
     name: Validation and examples (${{ matrix.name }})
     needs: [changes, build]
-    if: needs.changes.outputs.release != '[]'
+    if: needs.changes.outputs.mode == 'sharded' && needs.changes.outputs.release != '[]'
     strategy:
       fail-fast: false
       matrix:
@@ -504,6 +599,83 @@ jobs:
             echo "::endgroup::"
             echo "$((SECONDS - start)) s  $name"
           done
+
+  # A pull request's validation cases and examples, in one job: it builds the report's test binary
+  # and the examples (through sccache: about a minute and a half; a shared build's artifact would
+  # only add its upload and download for one job), then runs the groups the shards would give jobs
+  # of their own side by side on the runner's cores (.github/run-pool.sh: each case group in one
+  # process, each example in one, at most one 3D group at a time)
+  checks:
+    name: Validation and examples
+    needs: changes
+    if: needs.changes.outputs.mode == 'pooled' && needs.changes.outputs.release != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      CASES: ${{ needs.changes.outputs.build_cases }}
+      EXAMPLES: ${{ needs.changes.outputs.build_examples }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Compile through sccache
+        run: |
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server; then
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
+          fi
+      - name: The validation report's test binary
+        if: env.CASES == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/build"
+          cargo test --release --test validation_report --no-run --message-format=json-render-diagnostics > "$RUNNER_TEMP/cargo.json"
+          bin=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "validation_report" and .profile.test) | .executable // empty' "$RUNNER_TEMP/cargo.json" | tail -n 1)
+          if [ -z "$bin" ]; then
+            echo "::error::Cargo named no validation_report test binary"
+            exit 1
+          fi
+          cp "$bin" "$RUNNER_TEMP/build/validation_report"
+      - name: The examples
+        if: env.EXAMPLES != ''
+        run: |
+          set -euo pipefail
+          args=()
+          for name in $EXAMPLES; do args+=(--example "$name"); done
+          cargo build --release --quiet "${args[@]}"
+          mkdir -p "$RUNNER_TEMP/build/examples"
+          for name in $EXAMPLES; do cp "target/release/examples/$name" "$RUNNER_TEMP/build/examples/"; done
+      - name: The cases and examples, side by side
+        env:
+          RELEASE: ${{ needs.changes.outputs.release }}
+        run: BUILD="$RUNNER_TEMP/build" bash .github/run-pool.sh
+
+  # CI's own files changed (the workflows, .github/actions, the scripts at .github/'s top): the
+  # workflows linted (actionlint; .github/actionlint.yaml), the shards' exactly-once check over
+  # every case and example and the area map on set file lists (.github/check-shards.sh). The
+  # smoke run of "Validation and examples" checks that job's own steps.
+  ci-files:
+    name: CI's own files
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: |
+          python3 -m pip install --quiet --user actionlint-py==1.7.12.25
+          ~/.local/bin/actionlint -shellcheck= -pyflakes=
+      - run: bash .github/check-shards.sh
 
   # The examples on Windows and macOS (Tier 2 and 3): the system's maths library mustn't show in
   # what an example prints (issue #280; the Systems workflow runs the 3D devices and the report on
@@ -573,126 +745,6 @@ jobs:
             echo "$((SECONDS - start)) s  $name"
           done
 
-  # The studio: on Linux, and on Windows and macOS on every push to main, Tier 2 and 3, and for a
-  # file that differs by system (its code differs by platform: the nightly channel's prerequisites
-  # and installs). Its fast tier skips its slow tests (.github/studio-slow-tests.txt: physics
-  # solves, each over a minute) by their exact names; every push to main, Tier 2 and 3, and a
-  # change to its Rust code, a job or circuit file, or a library area it uses run them all.
-  studio:
-    name: Studio (${{ matrix.os }}${{ needs.changes.outputs.studio_tier == 'fast' && ', fast tier' || '' }})
-    needs: changes
-    if: needs.changes.outputs.studio != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(needs.changes.outputs.studio) }}
-    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
-    timeout-minutes: 60 # 9 to 21 minutes in recent runs
-    env:
-      TAURI_APT_PACKAGES: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-    defaults:
-      run:
-        working-directory: studio
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-      # what Tauri needs on Linux: the WebKitGTK web view and its friends, kept in the Actions
-      # cache (installing them took over a minute and a half). The action picks the packages'
-      # versions from the image's package lists, which can name versions the mirror has dropped,
-      # so the lists are updated first (retried: .github/apt-get-update.sh); its key leaves out
-      # the Ubuntu release, so that is the cache's version, and a new ubuntu-latest starts a
-      # fresh cache
-      - id: ubuntu
-        if: runner.os == 'Linux'
-        run: |
-          bash "$GITHUB_WORKSPACE/.github/apt-get-update.sh"
-          echo "release=$(lsb_release -rs)" >> "$GITHUB_OUTPUT"
-      - if: runner.os == 'Linux'
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: ${{ env.TAURI_APT_PACKAGES }}
-          # the number after the release: raise it to drop a bad cache
-          version: ubuntu-${{ steps.ubuntu.outputs.release }}-2
-      # the action reports success even when its install failed (and caches what it got), so
-      # the build's own check: the libraries pkg-config finds, else a plain install
-      - if: runner.os == 'Linux'
-        run: |
-          if pkg-config --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl && [ -f /usr/include/xdo.h ]; then
-            exit 0
-          fi
-          echo "::warning::the cached Tauri packages are missing or incomplete: installing them with apt (raise the cache's version to drop it)"
-          sudo apt-get install -y $TAURI_APT_PACKAGES
-      - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: studio/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: studio/pnpm-lock.yaml
-      - uses: ./.github/actions/rust-toolchain
-      # the studio keeps its target/ in rust-cache: through sccache its Tauri build was slower,
-      # 17, 27 and 19 min on Linux, Windows and macOS against 12, 27 and 15 (#507)
-      - uses: Swatinem/rust-cache@v2
-      - run: pnpm install --frozen-lockfile
-      # type-checks the web view and builds it
-      - run: pnpm build
-      # the Fabrication views' animation, its plain functions, by Node's own test runner
-      - run: pnpm test
-      # and the Windows setup that carries it (studio/setup), built without its payload
-      - run: cargo fmt -p photonoxide-studio -p photonoxide-setup --check
-      - run: cargo clippy -p photonoxide-studio -p photonoxide-setup --all-targets -- -D warnings
-      # SKIP: in the fast tier, `--exact --skip NAME` for each slow test; empty: every test
-      - name: cargo test (${{ needs.changes.outputs.studio_tier == 'fast' && 'the fast tier, the slow tests skipped' || 'every test' }})
-        env:
-          SKIP: ${{ needs.changes.outputs.studio_skip }}
-        # shellcheck disable=SC2086
-        run: cargo test -p photonoxide-studio -p photonoxide-setup ${SKIP:+-- $SKIP}
-      # a slow test renamed without its line in the list runs in the fast tier again: say so
-      - name: The slow tests' list names the studio's tests
-        if: needs.changes.outputs.studio_tier == 'every' && runner.os == 'Linux'
-        run: |
-          cargo test -p photonoxide-studio -p photonoxide-setup -q -- --list 2>/dev/null | sed -n 's/: test$//p' > "$RUNNER_TEMP/studio-tests.txt"
-          awk '!/^[[:space:]]*(#|$)/ { print $1 }' ../.github/studio-slow-tests.txt | while read -r name; do
-            if ! grep -qxF "$name" "$RUNNER_TEMP/studio-tests.txt"; then
-              echo "::warning::.github/studio-slow-tests.txt names $name, which no test of the studio has: the fast tier runs it again"
-            fi
-          done
-
-  msrv:
-    name: MSRV (1.95)
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
-    # rust-toolchain.toml pins the newest Rust for every cargo in this checkout: this job asks for
-    # its own, for rustup, rust-cache and sccache as well as cargo
-    env:
-      RUSTUP_TOOLCHAIN: "1.95"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.95
-      # the registry and git checkouts: the compiled crates are sccache's, shared across the jobs
-      # and the systems, so the two caches don't hold the same things twice (#507)
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-targets: false
-      # sccache in GitHub's cache; the action prints its hits and misses in the job's summary
-      - uses: mozilla-actions/sccache-action@v0.0.11
-      # and compiling without it when GitHub's cache can't be reached (its storage answers 503 when the
-      # account's egress is over its limit): sccache would otherwise fail every compile
-      - name: Compile through sccache
-        shell: bash
-        run: |
-          export SCCACHE_GHA_ENABLED=true
-          if sccache --start-server; then
-            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-            echo "SCCACHE_IGNORE_SERVER_IO_ERROR=1" >> "$GITHUB_ENV"
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          else
-            echo "::warning::sccache didn't start (GitHub's cache unreachable): compiling without it"
-          fi
-      - run: cargo check --all-targets --all-features
-
   # The library's public API, by cargo-semver-checks. A pull request is checked against its base
   # on main, so it answers for its own breaks only, not for those main already has since the
   # last release. The release PR (release-plz's branch), and a run that isn't a pull request, are
@@ -755,3 +807,24 @@ jobs:
     uses: ./.github/workflows/changelog.yml
     with:
       branch: ${{ github.head_ref }}
+
+  # The one check a pull request and the merge queue wait for (the ruleset's required check): it
+  # fails when any job above failed or was cancelled, and passes when each passed or was skipped
+  # (a job a change doesn't need). The matrices' jobs have names that change with what runs, so
+  # they can't be required one by one.
+  result:
+    name: CI passed
+    needs: [changes, docs, lint, test, build, release, checks, ci-files, release-os, semver, changelog]
+    if: ${{ always() && github.event.pull_request.draft != true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "the jobs: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success | skipped) ;;
+              *) echo "::error::a job of this run ended $r"; exit 1 ;;
+            esac
+          done

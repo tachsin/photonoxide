@@ -18,14 +18,18 @@
 #               checks docs/validation.md's head and list of cases, which every job's rows share
 #   release_os  the same on Windows and macOS (examples only, Tier 2 and 3), each job building its own
 #   test        the unit tests' jobs: {os, part, filters, native}: the filters (and --skip's) given
+#               (with POOLED=true, a pull request's run: one job on each system, no split; the
+#               release entries are then run side by side in one job, .github/run-pool.sh)
 #               to the test binaries, and whether photonoxide-native's tests run there too
 #               (in the same Cargo command as photonoxide's where the job runs every test)
 #   build_cases     true when a Linux job runs validation cases: the build makes their binary
 #   build_examples  the examples the Linux jobs run, which the build makes
 #
-# The unit tests run on the systems the area map's `systems` names (Linux, or all three when a
-# file that differs by system changed; ci.yml makes it all three on every push to main and on
-# Tier 2 and 3); the examples on Windows and macOS only on Tier 2 and 3.
+# The unit tests run on the systems the area map's `systems` names (ci.yml sets it: Linux on a
+# pull request, in the merge queue and on a push to main; all three in the Weekly run, by hand, on
+# the release PR and with full-ci); the
+# examples on Windows and macOS only on Tier 2 and 3 with systems=all. A group of cases that would
+# run none of the report's cases makes no job.
 #
 # Then it checks the split: every validation case of docs/validation.md the run wants is in exactly
 # one job, and no case is in two; every example the run wants is in exactly one job on each system
@@ -41,8 +45,11 @@ set -f
 tier=${1:?the tier: 1, 2 or 3}
 areas=$(cat)
 get() { sed -n "s/^$1=//p" <<<"$areas"; }
-tests=$(get tests) native=$(get native) cases=$(get cases) examples=$(get examples)
+tests=$(get tests) cases=$(get cases) examples=$(get examples)
 systems_key=$(get systems)
+# photonoxide-native's tests run in no CI job (by hand: the Libraries workflow, `just
+# native-tests`; CONTRIBUTING.md), whatever the area map says
+native=false
 
 # The values go into JSON strings as they are: the names, prefixes and filters here have no
 # quotes, backslashes or control characters
@@ -70,8 +77,9 @@ test_entry() {
 }
 json() { local IFS=,; echo "[$*]"; }
 
-# the examples' systems: Linux on Tier 1, the three on Tier 2 and 3
-if [ "$tier" = 1 ]; then systems="ubuntu-latest"; else systems="ubuntu-latest windows-latest macos-latest"; fi
+# the examples' systems: Linux on Tier 1, the three on Tier 2 and 3 where the run goes to Windows
+# and macOS (the area map's systems=all: not on a pull request but the release PR's and full-ci's)
+if [ "$tier" = 1 ] || [ "$systems_key" != all ]; then systems="ubuntu-latest"; else systems="ubuntu-latest windows-latest macos-latest"; fi
 # the unit tests': as the area map says (Linux alone when it says nothing)
 case "$systems_key" in
   all) test_systems="ubuntu-latest windows-latest macos-latest" ;;
@@ -120,26 +128,64 @@ group "eme/3d (the rest)" "eme/3d-"
 group "eme/ (the rest)" "eme/"
 group "quantum/ and nonlinear/" "quantum/ nonlinear/"
 group "job/ and pockels/" "job/ pockels/"
+# selects PREFIXES ID: whether a job with these cases runs the case ID, as
+# tests/validation_report.rs reads them (no prefixes: the job runs no cases, its step is skipped)
+selects() {
+  local p include=false any=false
+  [ -n "$1" ] || return 1
+  for p in $1; do
+    case "$p" in
+      -*) case "$2" in "${p#-}"*) return 1 ;; esac ;;
+      *) any=true; case "$2" in "$p"*) include=true ;; esac ;;
+    esac
+  done
+  [ "$any" = false ] || [ "$include" = true ]
+}
+# the report's case ids, in order
+report_ids=()
+while IFS= read -r line; do
+  id=${line#| \`}; report_ids+=("${id%%\`*}")
+done < <(grep -E '^\| `' docs/validation.md)
+# runs_any PREFIXES: whether a job with these cases would run at least one case of the report: a
+# job that would run none isn't made (it would start a runner and fetch the build for nothing)
+runs_any() {
+  local id
+  for id in "${report_ids[@]}"; do
+    if selects "$1" "$id"; then return 0; fi
+  done
+  return 1
+}
+# first_group ID_PREFIX: the first group (the most specific: the groups go from narrow to wide)
+# with a prefix that holds the area's prefix, which alone runs it
+first_group() {
+  local i p
+  for i in "${!gnames[@]}"; do
+    for p in ${gprefixes[$i]}; do
+      case "$1" in "$p"*) echo "$i"; return ;; esac
+    done
+  done
+  echo -1
+}
 rest=""
 if [ -n "$cases" ]; then
   for i in "${!gnames[@]}"; do
     # the group's prefixes that the changed areas reach: a prefix inside an area's (fdtd/adjoint
-    # in fdtd/), or an area inside the prefix
+    # in fdtd/) whole; an area's inside the prefix (device/study- in device/) alone, in the first
+    # group that holds it, not the whole of the group's prefix
     mine=""
     for p in ${gprefixes[$i]}; do
-      take=false
       if [ "$cases" = "*" ]; then
-        take=true
-      else
-        for c in $cases; do
-          case "$p" in "$c"*) take=true ;; esac
-          case "$c" in "$p"*) take=true ;; esac
-        done
+        mine+=" $p"
+        continue
       fi
-      [ "$take" = true ] && mine+=" $p"
+      for c in $cases; do
+        case "$p" in "$c"*) mine+=" $p"; continue ;; esac
+        case "$c" in "$p"*) if [ "$(first_group "$c")" = "$i" ]; then mine+=" $c"; fi ;; esac
+      done
     done
-    [ -n "$mine" ] || continue
-    these="${mine# }"
+    mine=$(tr ' ' '\n' <<<"$mine" | awk 'NF && !seen[$0]++' | tr '\n' ' ')
+    [ -n "${mine// /}" ] || continue
+    these="${mine% }"
     for ((j = 0; j < i; j++)); do
       for q in ${gprefixes[$j]}; do
         for p in $mine; do
@@ -147,6 +193,7 @@ if [ -n "$cases" ]; then
         done
       done
     done
+    runs_any "$these" || continue
     entry "${gnames[$i]}" ubuntu-latest "$these" ""
   done
   if [ "$cases" = "*" ]; then
@@ -172,7 +219,7 @@ if [ -n "$cases" ]; then
     done
   fi
 fi
-if [ -n "${rest// /}" ]; then
+if [ -n "${rest// /}" ] && runs_any "${rest# }"; then
   entry "the rest" ubuntu-latest "${rest# }" ""
 fi
 
@@ -224,8 +271,9 @@ fi
 #
 # In two jobs on each system: job::'s tests in the first, every other in the second. A test whose
 # name holds one of the first job's filters runs there, and the second skips it (--skip takes the
-# same substrings), so each test runs once. photonoxide-native's tests run in the second job when
-# there is one, else in the first: with every test in the same Cargo command as photonoxide's
+# same substrings), so each test runs once. photonoxide-native's tests no longer run here
+# (native=false, above); the code below keeps their place for a run that wants them: in the
+# second job when there is one, else in the first: with every test in the same Cargo command as photonoxide's
 # (its filters are then only --skip's), else in a command of their own after the changed areas'
 # unit tests, whose build they reuse while native/Cargo.toml's dev-dependencies repeat
 # photonoxide's (checked below; a test filter would reach native's test binaries too). Measured on
@@ -256,6 +304,16 @@ fi
 native1=$native native2=false
 if [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
 for os in $test_systems; do
+  if [ "${POOLED:-false}" = true ]; then
+    # a pull request's run: one job on each system, every filter in one `cargo test` (its test
+    # threads keep the runner's cores busy), no split
+    if [ "$tests" = "*" ]; then
+      test_entry "$os" "all" "" "$native"
+    elif [ -n "$tests" ] || [ "$native" = true ]; then
+      test_entry "$os" "the changed areas" "$tests" "$native"
+    fi
+    continue
+  fi
   if [ -n "$first" ] || [ "$native1" = true ]; then test_entry "$os" "1 of 2" "$first" "$native1"; fi
   if [ -n "$second" ] || [ "$native2" = true ]; then test_entry "$os" "2 of 2" "$second" "$native2"; fi
 done
@@ -266,19 +324,7 @@ failed=false
 fail() { echo "::error::shards.sh: $1" >&2; failed=true; }
 field() { sed -E "s/.*\"$2\":\"([^\"]*)\".*/\1/" <<<"$1"; }
 
-# selects PREFIXES ID: whether a job with these cases runs the case ID, as
-# tests/validation_report.rs reads them (no prefixes: the job runs no cases, its step is skipped)
-selects() {
-  local p include=false any=false
-  [ -n "$1" ] || return 1
-  for p in $1; do
-    case "$p" in
-      -*) case "$2" in "${p#-}"*) return 1 ;; esac ;;
-      *) any=true; case "$2" in "$p"*) include=true ;; esac ;;
-    esac
-  done
-  [ "$any" = false ] || [ "$include" = true ]
-}
+# (selects: above, with the groups)
 if [ -n "$cases" ]; then
   job_cases=()
   for e in "${release[@]}"; do job_cases+=("$(field "$e" cases)"); done

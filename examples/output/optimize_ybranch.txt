@@ -36,16 +36,30 @@ Zhang et al.'s Y-branch on 220 nm SOI, its 2 µm taper's widths w2–w12 optimiz
   the device's 2D model: 0.496783 into each arm, 0.0280 dB
   insertion loss, 2D, 20 nm (dB)         0.028035   paper below 0.2              ok
 Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B from Table 1's, each evaluation a solve and its adjoint, at most 51 (102 solves)
-  dP/dw2 at Table 1's: adjoint -2.957688e-2, central differences -2.957142e-2 (1.8e-4)
-  dP/dw5 at Table 1's: adjoint 4.685902e-2, central differences 4.685905e-2 (7.4e-7)
-  dP/dw8 at Table 1's: adjoint -6.222073e-2, central differences -6.221850e-2 (3.6e-5)
-  dP/dw11 at Table 1's: adjoint -4.640159e-2, central differences -4.640164e-2 (1.2e-6)
-  adjoint against differences (relative)     0.000185   paper below 0.001        ok
+  dP/dw2 at Table 1's: adjoint -2.95769e-2, fourth-order differences -2.95769e-2 (resolved to 2e-7)
+  dP/dw5 at Table 1's: adjoint 4.68590e-2, fourth-order differences 4.68590e-2 (resolved to 1e-7)
+  dP/dw8 at Table 1's: adjoint -6.22207e-2, fourth-order differences -6.22207e-2 (resolved to 1e-7)
+  dP/dw11 at Table 1's: adjoint -4.64016e-2, fourth-order differences -4.64016e-2 (resolved to 2e-7)
+  derivatives within the differences' resolution            4   paper 4          ok
   51 evaluations, 102 solves; its best, 0.495567 into the upper arm in the swarm's model (the swarm's, after 1500: 0.497111)
   the widths w1–w13 (µm): 0.5000, 0.5000, 0.6728, 1.2958, 1.2314, 1.2714, 1.3954, 1.3118, 1.3588, 1.3271, 1.2591, 1.2874, 1.2000
   the device's 2D model: 0.495532 into each arm, 0.0390 dB (the swarm's 0.0280 dB)
   insertion loss, 2D, adjoint (dB)       0.038987   paper below 0.2              ok
   adjoint's 2D loss above the swarm's (dB)     0.010952   paper below 0.02       ok
+Khan et al.'s lithography inside the loop: each design printed by a proxy, a Gaussian blur of σ = 58.16 nm and a threshold at 0.5 (the widest blur that prints a 150 nm line, Selvaraja et al.'s narrowest on target, within 1 % of its width: 148.50 nm), in the swarm's 2D model
+  dP/dw2 at Table 1's: adjoint -3.54629e-2, fourth-order differences -3.54629e-2 (resolved to 2e-7)
+  dP/dw5 at Table 1's: adjoint 3.80714e-2, fourth-order differences 3.80714e-2 (resolved to 2e-7)
+  dP/dw8 at Table 1's: adjoint -1.10441e-2, fourth-order differences -1.10441e-2 (resolved to 6e-7)
+  dP/dw11 at Table 1's: adjoint -4.22931e-2, fourth-order differences -4.22931e-2 (resolved to 2e-7)
+  through the proxy, within the resolution            4   paper 4                ok
+  designed printed (Khan et al.'s FAID): the same L-BFGS-B from Table 1's on the printed model, 51 evaluations, 102 solves
+  its widths w1–w13 (µm): 0.5000, 0.5000, 0.5678, 1.1448, 1.2901, 1.1893, 1.4354, 1.2923, 1.3419, 1.3597, 1.2296, 1.3151, 1.2000
+  insertion loss (dB)          drawn    printed
+  the adjoint's design        0.0387    0.0543
+  designed printed            0.0670    0.0357
+  Khan et al.'s Table 1, their Y-branch at 1320 nm, EBL: 0.067 as designed, 0.072 printed, 0.067 designed printed (their device, wavelength and models: context, not compared)
+  Khan et al.'s Table 1, their Y-branch at 1320 nm, DUV: 0.067 as designed, 0.089 printed, 0.068 designed printed (their device, wavelength and models: context, not compared)
+  printed loss, designed printed less the standard's (dB)    -0.018568   paper below 0 ok
 3D FDFD of the swarm's design, TE-like, at 1.55 µm:
   what --full found (recorded):
   44.0 nm cells: 0.468725 into each arm, 0.2805 dB
@@ -60,4 +74,4 @@ Lalau-Keraly et al.'s adjoint search: the same widths by genoxide's L-BFGS-B fro
   31.4 nm cells: 0.477102 into each arm, 0.2036 dB
   22.0 nm cells: 0.479050 into each arm, 0.1859 dB
   extrapolated: 0.4809 ± 0.0027 into each arm, 0.169 ± 0.024 dB (Lalau-Keraly et al.'s 3D FDTD: 0.07 dB; reported, not checked)
-all 4 within tolerance of the paper
+all 6 within tolerance of the paper

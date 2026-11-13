@@ -1,7 +1,7 @@
 ---
 title: "Densities, filters, projections, robust designs and length scales"
 module: topology
-summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit; and minimum linewidth and spacing as constraints with their gradients; and the subpixel-smoothed projection, differentiable up to β = ∞."
+summary: "A design region's pixels, each with a density between 0 and 1, filtered by a cone and projected towards 0 or 1 to the permittivity a solver sees; the solver's adjoint gradient pulled back through the projection and the filter's transpose to the densities, checked against finite differences in 2D FDFD; robust designs: the eroded, nominal and dilated realizations, the length scale and edge displacement their thresholds impose, and the epigraph form of their worst case; and the minimum length scale of any binary design, measured after the fact by morphological opening and closing, which reproduces the testbed's published lengths bit for bit; and minimum linewidth and spacing as constraints with their gradients; and the subpixel-smoothed projection, differentiable up to β = ∞; level sets and their shape derivatives; and a lithography proxy inside the loop, a Gaussian blur and a threshold, with its gradient."
 order: 23.7
 papers:
   - cite: "F. Wang, B. S. Lazarov, O. Sigmund, Struct. Multidiscip. Optim. 43, 767 (published online 24 December 2010; the June 2011 issue) (the filter, Eqs. 4–5; the chain rule, Eq. 7; the projection, Eq. 9)"
@@ -30,6 +30,10 @@ papers:
     doi: 10.1364/OE.21.021693
   - cite: "M. Vercruysse, L. Su, R. Trivedi, N. V. Sapra, J. Vučković, Sci. Rep. 9, 8999 (2019) (the gap and curvature constraints on a level set, Eqs. 1–3)"
     doi: 10.1038/s41598-019-45026-0
+  - cite: "S. Raza (Khan), M. Hammood, N. A. F. Jaeger, L. Chrostowski, Opt. Lett. 50, 117 (2024) (lithography inside the loop, Eq. 2 and Fig. 1; the Y-branch and the SWG-to-strip converter, Fig. 2 and Table 1)"
+    doi: 10.1364/OL.543961
+  - cite: "S. K. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, J. Lightwave Technol. 27, 4076 (2009) (193 nm lithography on target from 150 nm, and the 1 % photonic circuits ask, Section II-B and Fig. 6: the examples' blur)"
+    doi: 10.1109/JLT.2009.2022282
 validation:
   - topology/projection-derivative
   - topology/projection-identities
@@ -58,6 +62,10 @@ validation:
   - topology/penalty-gap
   - topology/penalty-curvature
   - topology/penalty-gradient
+  - topology/litho-blur
+  - topology/litho-transpose
+  - topology/litho-print-edge
+  - topology/litho-gradient
 ---
 
 Topology optimization gives every pixel of a design region its own variable, a density ρ
@@ -376,6 +384,70 @@ resolve; the gap term's switch on a cosine grating at a period of 2d, second ord
 radius of d/2; and the penalty's gradient against differences. The penalty is smooth but at the
 kinks of its ramps and absolute values, so the differences are taken 1e-7 wide.
 
+## Lithography inside the loop
+
+A design is optimized as drawn, but a lithography step prints something else: its corners round,
+its narrow lines shrink or vanish, its narrow gaps close. Khan et al. 2024 compute the figure of
+merit on what a lithography model predicts the design prints as, and its gradient by the chain
+rule through the model (their Eq. 2): the adjoint's sensitivity on the printed pattern, times the
+model's Jacobian. Their models (UBC's DUV model in Mentor Graphics Calibre, and PreFab's neural
+network for electron-beam lithography) are not open, and the paper gives no parameter of either.
+`topology::Lithography` is the simplest differentiable model of the same kind, a proxy:
+
+- **the blur:** the mask m (each pixel's share of the pattern: 1 inside, 0 outside, a fill
+  between) convolved with a normalized Gaussian of standard deviation σ in the plane,
+  I = G_σ ∗ m (`topology::GaussianBlur`). The mask is constant over each pixel, so each pixel's
+  weight is the Gaussian's integral over it, ½ [erf((k + ½)Δ/√2σ) − erf((k − ½)Δ/√2σ)] along
+  each axis (the Gaussian is separable): the blurred value at a pixel's centre is the pixelated
+  mask's exact convolution, with no sampling error at any σ. The region's edges are renormalized
+  (a guide that crosses an edge is kept) or padded with a fixed value, as the filter's are. An
+  axis one pixel long isn't blurred at all, padded or not: a region of n × 1 pixels is a 1D
+  mask, blurred along x alone, and a 3D region's layers are blurred one by one;
+- **the threshold:** the printed pattern is where I exceeds t, by the subpixel-smoothed
+  projection above at η = t, sharp (β = ∞) unless β is given, so that the printed pattern stays
+  differentiable in the mask;
+- **the gradient:** ∂F/∂m is the threshold's transpose applied to ∂F/∂p (p the printed pattern),
+  then the blur's transpose, the same symmetric convolution (`Lithography::pullback`).
+
+On a straight edge the blur of a solid half-plane is ½ erfc(x/√2σ), so the printed edge moves
+into the void by
+
+$$\Delta x = \sqrt{2}\,\sigma \mathop{\mathrm{erfc}}^{-1}(2t),$$
+
+outwards for t < ½ and not at all at t = ½ (`Lithography::edge_shift`). An isolated line of width
+w peaks at erf(w/2√2σ) and is lost below t; where it prints, its width is where
+½ [erf((w/2 − x)/√2σ) + erf((w/2 + x)/√2σ)] = t (`Lithography::line_width`), and a gap of width s
+prints as a line of width s at 1 − t. A convex corner's blur is the product of its two edges', a
+quarter at its tip, so the tip recedes: the corner rounding, line shortening and proximity effects
+Khan et al. list, without roughness and without randomness.
+
+**The examples' blur.** With no parameters from Khan et al., the examples take σ from a process
+whose numbers are published: Selvaraja et al. 2009 (Section II-B and Fig. 6) printed lines from
+150 to 500 nm on target by 193 nm lithography, and photonic circuits ask 1 % of a line's width.
+The widest Gaussian that prints an isolated 150 nm line within 1 % of its width at t = ½ has
+σ = 58.16 nm (by bisection on `line_width`). That is a bound, not a calibration: a foundry's own
+model would replace it.
+
+**In use.** [`optimize_ybranch`](../../examples/optimize_ybranch.rs) designs its Y-branch's taper
+twice by the same adjoint search (L-BFGS-B, 51 evaluations from Zhang et al.'s Table 1), on the
+drawn design and on the printed one. In its 2D model the standard design loses 0.0387 dB drawn and
+0.0543 dB printed; the one designed printed loses 0.0357 dB printed (0.0670 dB drawn: it is drawn
+to print right). [`optimize_swg_converter`](../../examples/optimize_swg_converter.rs) does the
+same for Khan et al.'s second device, a converter between Halir et al.'s SWG and a strip, its 30
+gratings' widths and lengths and its bridge's edge (their Fig. 2). In both, the design made
+printed prints better than the standard one, Khan et al.'s test of a simulation. Their Table 1 is
+their own devices at 1320 nm under their models; the examples print it beside ours as context,
+not compared. Each example checks its derivatives against fourth-order differences of the power
+along the change of the cells' shares that a variable makes, within what the differences resolve:
+differences in the variable itself cross the areas' kinks, where an edge crosses a row of cells.
+
+**Checked** (`topology/litho-*`): the blur of pixelated shapes against the Gaussian's exact
+convolution (a half-plane, a corner and a three-pixel line, σ from 0.5 to 4 pixels), 7.8e-16; the
+transpose, 1.8e-15; the printed edge against Δx at t = 0.3, 0.5 and 0.7, within the smoothed
+threshold's own error (it fills a pixel by F₂ of its centre's distance, not by area: a row's area
+is off by up to 0.1217 pixel, whatever σ); and 2D FDFD's power against a 10 × 10 mask printed at
+σ = 30 nm, from one adjoint solve, within what fourth-order differences resolve.
+
 ## In use
 
 Two examples put the pieces together on 2D FDFD with genoxide's MMA, each on published problems:
@@ -455,6 +527,10 @@ image to a south port give the same powers in each mode to 10⁻⁹ (the job's t
 | `topology/penalty-gap` | Vercruysse et al.'s gap term on a cosine grating: the period below which it switches on, against 2d, nodes d/40 apart | 5.4e-4 d = 0.86 (h/d)² (held to (h/d)²) |
 | `topology/penalty-curvature` | their curvature term on a disc: the radius below which it switches on, against d/2, nodes d/40 apart | 7e-6 (held to 0.05 h/d) |
 | `topology/penalty-gradient` | the penalty's gradient against fourth-order differences, δ = 10⁻⁷ | 8.3e-11 relative (held to 1e-8) |
+| `topology/litho-blur` | the lithography proxy's blur of a half-plane, a quarter-plane and a three-pixel line on pixel boundaries against the Gaussian's exact convolution, σ = 0.5, 1, 2.5 and 4 pixels, renormalized and padded | 7.8e-16 (held to 1e-14) |
+| `topology/litho-transpose` | ⟨Bx, y⟩ against ⟨x, Bᵀy⟩ on 70 × 50 and 20 × 16 × 3 pixels, renormalized and padded | 1.8e-15 relative (held to 1e-12) |
+| `topology/litho-print-edge` | a straight edge printed at σ = 4 pixels against √2σ erfc⁻¹(2t), t = 0.3, 0.5 and 0.7, the mask's edge at four places in a pixel | 0.125 pixel (held to 0.1217 + 0.1 (Δ/σ)² = 0.128 pixel: the smoothed threshold's own row error, and the blur's curvature with 0.1 the envelope measured from σ = 1 to 8 pixels, the largest 0.076) |
+| `topology/litho-gradient` | 2D FDFD: a port mode's power against a 10 × 10 mask printed at σ = 30 nm, t = ½, sharp, against fourth-order differences, δ = 10⁻³ | 9.2e-10 relative, below the resolution of 1.5e-8 (held to 5e-8) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every
 β: $f'(x) = \mathop{\mathrm{Im}} f(x + ih)/h$ with $h = 10^{-30}$ for any analytic f.
@@ -516,3 +592,9 @@ threshold, since a bar rounded up to a whole pixel would move b by up to two pix
   curved edges move by other amounts, which I3's length-scale metric measures on the design.
 - The conic filter only. The Helmholtz-equation filter of Lazarov & Sigmund (the one Christiansen
   & Sigmund's Eq. 17 solves) comes with the robust demultiplexer it is used for (the plan's I4).
+- The lithography proxy is a Gaussian blur and a threshold, not a calibrated process model: no
+  partial coherence, no etch bias, no roughness and no randomness. A model that isn't
+  differentiable (Khan et al.'s Calibre model) would need its Jacobian by differences; one that
+  is (a network) would take the place of `Lithography::print` and its pullback.
+- The printed pattern's edges are placed by the subpixel-smoothed threshold, within an eighth of a
+  pixel of where the blurred image crosses t.

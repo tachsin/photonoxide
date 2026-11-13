@@ -916,6 +916,12 @@
   venue: "Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 31, 050825"
   year: 2013
 
+- doi: 10.1364/OE.22.021037
+  authors: "V. Donzella, A. Sherwali, J. Flueckiger, S. Talebi Fard, S. M. Grist, L. Chrostowski"
+  title: "Sub-wavelength grating components for integrated optics applications on SOI chips"
+  venue: "Opt. Express 22, 21037"
+  year: 2014
+
 - doi: 10.1137/0733054
   authors: "W. Dörfler"
   title: "A Convergent Adaptive Algorithm for Poisson’s Equation"
@@ -2133,6 +2139,12 @@
   title: "Nonlinear optical phenomena in silicon waveguides: modeling and applications"
   venue: "Opt. Express 15, 16604"
   year: 2007
+
+- doi: 10.1109/JSTQE.2019.2958931
+  authors: "S. Lin, M. Hammood, H. Yun, E. Luan, N. A. F. Jaeger, L. Chrostowski"
+  title: "Computational Lithography for Silicon Photonics Design"
+  venue: "IEEE J. Select. Topics Quantum Electron. 26, 1"
+  year: 2020
 
 - key: lindhard-scharff-schiott-1963
   authors: "J. Lindhard, M. Scharff, H. E. Schiøtt"
@@ -3917,6 +3929,12 @@
   title: "Quantum computational advantage using photons"
   venue: "Science 370, 1460"
   year: 2020
+
+- doi: 10.1364/AO.53.002720
+  authors: "M. Zhou, B. S. Lazarov, O. Sigmund"
+  title: "Topology optimization for optical projection lithography with manufacturing uncertainties"
+  venue: "Appl. Opt. 53, 2720"
+  year: 2014
 
 - doi: 10.1016/j.cma.2015.05.003
   authors: "M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund"

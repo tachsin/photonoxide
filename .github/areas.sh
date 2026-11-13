@@ -18,8 +18,13 @@
 #              "every" (every test of the studio)
 #   studio_skip  in the fast tier, the slow tests it skips (.github/studio-slow-tests.txt, less
 #              those a changed file of theirs runs), separated by spaces
-#   systems    "linux", or "all" when a file that differs by system changed (below): the unit
-#              tests and the studio then run on Windows and macOS too
+#   ci         true when CI's own files changed (the workflows, .github/actions, the scripts
+#              and lists at .github/'s top: the area map, the shards, ...): CI checks itself
+#              (actionlint, the shards' exactly-once check over every case, a smoke run of the
+#              cases and examples), and runs no area for them
+#   systems    "linux", or "all" with --all; CI's "What changed" job sets it from the event
+#              (Linux on a pull request but the release PR's and full-ci's, the three systems
+#              on every push to main and the Weekly run), not from the files
 #
 # The shards (.github/shards.sh) then split these tests, cases and examples among CI's jobs.
 #
@@ -39,8 +44,8 @@
 # raster and averaging (src/averaging.rs and src/averaging/, its analytic cases, which FDFD and the
 # rasters read);
 # Cargo.toml and Cargo.lock; anything new). When in doubt, a file is shared. Files nothing builds or reads (the site, Markdown no test reads, the
-# other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) and the
-# Libraries workflow's installs (libraries.yml) start by their own `paths`.
+# other workflows) run nothing but the docs' links. The Python wheels (python-wheels.yml) start by
+# their own `paths`; the Libraries workflow's installs (libraries.yml) run by hand only.
 #
 # The release pull request and the weekly run run everything whatever changed, and catch what a
 # missing entry here would let through.
@@ -54,11 +59,11 @@
 # (STUDIO_SLOW below), and no library area it uses changed. Anything else that reaches the studio
 # runs every test of it (`studio=every`), as does CI on every push to main, on Tier 2 and 3.
 #
-# The systems: a pull request runs on Linux alone, unless a file that differs by system changed
-# (OS_FILES below: photonoxide-native's backends, the studio's Rust code and its Windows setup,
-# the toolchain, the build scripts, CI itself, and any Rust file with a cfg on the system); then
-# its unit tests and the studio run on Windows and macOS too. CI runs them on the three systems on
-# every push to main, on Tier 2 and 3, whatever changed (ci.yml's "What changed" job).
+# The systems: a pull request runs on Linux alone, whatever it changes (a job compiles the
+# library for Windows and macOS from Linux), as do the merge queue and a push to main; the Weekly
+# run takes the unit tests to the three systems (ci.yml's "What changed" job). The studio's tests and photonoxide-native's run in no CI
+# job (CONTRIBUTING.md): `studio` here says only whether the studio's lints and build run, and its
+# fast and every-test tiers are for the workstation's pre-push hook.
 #
 # Bash only, no Python (AGENTS.md).
 set -euo pipefail
@@ -106,11 +111,12 @@ area fdfd \
   "bump_oskooi cpml_roden_gedney lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder optimize_grating_pareto"
 
 # inverse design's densities (0.7, #761): filters, projections and the gradient pulled back to
-# the densities; its chain case runs 2D FDFD's adjoint
+# the densities; its chain case runs 2D FDFD's adjoint; the lithography proxy (I8) with the Y-branch
+# and the SWG converter that use it
 area topology \
   "src/topology/* src/cases/topology/* src/validation/topology.rs examples/designs/*" \
   "fdfd" \
-  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend optimize_crossing_ssp"
+  "topology::" "topology/" "optimize_mode_converter optimize_demux_robust optimize_foundry_bend optimize_crossing_ssp optimize_swg_converter optimize_ybranch"
 
 # eigenmode expansion (#432): slab stacks' modes and their S-matrices; its taper case runs 2D FDFD
 area eme \
@@ -132,9 +138,10 @@ area nonlinear \
   "material mode" \
   "nonlinear::" "nonlinear/ material/linbo3-zelmon-opo material/linbo3-jundt-opo" "qpm_fejer ppln_wang pairs_zhao soliton_coen comb_pu"
 
-# with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand)
+# with the GPU's report (tests/gpu_report.rs, docs/validation-gpu.md, run by hand); and the
+# validation cases' files (src/validation/) that no other area names (VALIDATION_REST, below)
 area fdtd \
-  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* src/validation/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
+  "src/fdtd.rs src/fdtd/* src/cases/fdtd/* tests/gpu_report.rs src/lstsq.rs src/traffic.rs" \
   "mode material fdfd" \
   "fdtd::" "fdtd/" \
   "bump_oskooi cpml_roden_gedney l3_akahane lorentz_okoniewski pml_oskooi subpixel_holes tfsf_square_cylinder"
@@ -254,6 +261,11 @@ area facade \
   "material mode job circuit compact device" \
   "facade::" "" ""
 
+# the platform canaries (CONTRIBUTING.md, "Platform canaries"): their own files and the
+# justfile, whose `canaries` recipe CI runs (Lint, for any change with unit tests); the tests they
+# reuse by name are their areas'
+area canary   "tests/canary.rs tests/data/canary/* src/canary_tests.rs src/canary_tests/* justfile"   ""   "canary_" "" ""
+
 # the layering test (src/layering.rs; the layers are in docs/architecture.md): it reads every
 # file under src/, so any change to the source runs it, whatever area the change is in (below,
 # where files are matched), and it makes no file shared
@@ -294,15 +306,12 @@ area studio \
   "material sparse mode fdfd fdtd eme job circuit device generator compact facade bench native nonlinear quantum fabrication export statics shifter line" \
   "" "" ""
 
+# The validation cases' files of no area of their own: fdtd's
+VALIDATION_REST="src/validation/*"
+
 # The studio's files that run every test of it (the others are text to it, or its web view,
 # which its fast tier checks): its Rust code, and the jobs and circuits it builds in and runs
 STUDIO_SLOW="studio/src-tauri/* jobs/* tests/jobs-toml/* circuits/*"
-
-# The files that differ by system: photonoxide-native (the external libraries' backends, found
-# per system), the studio's Rust code (its installs, channels and window differ by system) and its
-# Windows setup, the toolchain, build scripts, and CI's own files; and any changed Rust file that
-# has a cfg on the system (checked below, by its content)
-OS_FILES="native/* studio/src-tauri/* studio/setup/* rust-toolchain.toml build.rs */build.rs .github/workflows/ci.yml .github/areas.sh .github/shards.sh .github/dependencies.sh .github/studio-slow-tests.txt .github/actions/*"
 
 # matches FILE GLOBS: whether the file matches one of the globs
 matches() {
@@ -330,15 +339,14 @@ ignored() {
     # the list of sources, which the Docs job's references check reads (docs/references.md)
     docs/references.yaml) return 0 ;;
     # the full suite on your own machine, the hooks that start it, and the justfile's recipes
-    .github/full-suite.sh | .github/hooks/* | justfile) return 0 ;;
+    .github/full-suite.sh | .github/lints.sh | .github/studio-tests.sh | .github/hooks/* | justfile) return 0 ;;
     # the codebase report on the release PR, which its own workflow runs
     .github/codebase-report.sh | .github/workflows/codebase-report.yml) return 0 ;;
     # the cross-code harness (openEMS run on your own machine, `just openems`), a crate of its
     # own outside the workspace that CI never builds (docs/cross-code.md)
     crosscode/*) return 0 ;;
-    # this workflow, the map and the shards run everything; the others run as themselves
-    .github/workflows/ci.yml | .github/areas.sh | .github/shards.sh) return 1 ;;
-    .github/workflows/*) return 0 ;;
+    # the container images (docker/, .dockerignore), which their own workflow builds and checks
+    docker/* | .dockerignore) return 0 ;;
     assets/* | studio/scripts/* | LICENSE* | .gitignore | .gitattributes) return 0 ;;
   esac
   return 1
@@ -347,6 +355,7 @@ ignored() {
 declare -A touched hit run
 everything=false
 code=false
+ci=false
 systems=linux
 # a change that runs every test of the studio, not its fast tier alone
 studio_slow=false
@@ -362,16 +371,19 @@ if [ "${1:-}" = --all ]; then
 else
   while IFS= read -r f; do
     [ -n "$f" ] || continue
+    # CI's own files: CI checks itself (the ci key, above), and no area runs for them. The
+    # studio's apt script is the studio's (its lint runs it); the scripts run on your own
+    # machine (the full suite, the lints the hooks run, the studio's tests, the codebase report),
+    # the hooks and .github/scripts are the Docs job's (below)
+    case "$f" in
+      .github/apt-get-update.sh | .github/full-suite.sh | .github/lints.sh | .github/studio-tests.sh | .github/codebase-report.sh) ;;
+      .github/workflows/* | .github/actions/* | .github/*.sh | .github/*.txt | .github/*.yaml)
+        ci=true
+        continue
+        ;;
+    esac
     if ignored "$f"; then continue; fi
     changed+=("$f")
-    if matches "$f" "$OS_FILES"; then systems=all; fi
-    # a Rust file with code for one system (`#[cfg(windows)]`, `cfg!(target_os = "macos")`, ...)
-    case "$f" in
-      *.rs)
-        if [ -f "$f" ] && grep -qE 'cfg(_attr)?!?\(.*(windows|unix|target_os|target_family|target_env|target_vendor)' "$f"; then
-          systems=all
-        fi ;;
-    esac
     case "$f" in
       # the validation report: the cases whose rows changed, or all of them when its head did;
       # the studio reads it as text (the Academy's lessons name its cases)
@@ -410,6 +422,9 @@ else
     for a in "${areas[@]}"; do
       if matches "$f" "${files[$a]}"; then touch_area "$a"; found=true; fi
     done
+    # a validation cases' file no area names is fdtd's, where they began (topology's, eme's, ...
+    # are their areas' alone: fdtd's cases don't read them)
+    if [ "$found" = false ] && matches "$f" "$VALIDATION_REST"; then touch_area fdtd; found=true; fi
     if matches "$f" "$STUDIO_SLOW"; then studio_slow=true; fi
     if [ "$found" = false ]; then
       echo "shared: $f" >&2
@@ -439,6 +454,7 @@ slow_skips() {
 
 if [ "$everything" = true ]; then
   echo "code=true"
+  echo "ci=$ci"
   echo "areas=${areas[*]}"
   echo "tests=*"
   echo "native=true"
@@ -502,6 +518,7 @@ if [ -n "${run[studio]:-}" ]; then
 fi
 
 echo "code=$code"
+echo "ci=$ci"
 echo "areas=$(echo "$names" | once)"
 echo "tests=$(echo "$t" | once)"
 echo "native=$([ -n "${run[native]:-}" ] && echo true || echo false)"

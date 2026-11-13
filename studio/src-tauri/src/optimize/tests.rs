@@ -239,7 +239,7 @@ fn built_in(file: &str) -> Job {
         .find(|j| j.file == file)
         .expect("a built-in job")
         .text;
-    crate::studio::parse_job(&text).expect("a job")
+    crate::job_text::parse_job(&text).expect("a job")
 }
 
 /// A chip job's optimum: its variables, after checking its record is the same bits on 1 and 4
