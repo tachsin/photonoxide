@@ -56,8 +56,8 @@
 # runs every test of it (`studio=every`), as does CI on every push to main, on Tier 2 and 3.
 #
 # The systems: a pull request runs on Linux alone, whatever it changes (a job compiles the
-# library for Windows and macOS from Linux); every push to main runs the unit tests on the three
-# systems (ci.yml's "What changed" job). The studio's tests and photonoxide-native's run in no CI
+# library for Windows and macOS from Linux), as do the merge queue and a push to main; the Weekly
+# run takes the unit tests to the three systems (ci.yml's "What changed" job). The studio's tests and photonoxide-native's run in no CI
 # job (CONTRIBUTING.md): `studio` here says only whether the studio's lints and build run, and its
 # fast and every-test tiers are for the workstation's pre-push hook.
 #

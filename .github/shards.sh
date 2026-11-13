@@ -24,7 +24,8 @@
 #   build_examples  the examples the Linux jobs run, which the build makes
 #
 # The unit tests run on the systems the area map's `systems` names (ci.yml sets it: Linux on a
-# pull request, all three on every push to main, the Weekly run, the release PR and full-ci); the
+# pull request, in the merge queue and on a push to main; all three in the Weekly run, by hand, on
+# the release PR and with full-ci); the
 # examples on Windows and macOS only on Tier 2 and 3 with systems=all. A group of cases that would
 # run none of the report's cases makes no job.
 #

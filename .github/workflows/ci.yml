@@ -9,7 +9,8 @@ name: CI
 #   root Cargo.toml) has its public API checked against its base's (cargo-semver-checks).
 #   A pull request runs on Linux alone: no Windows or macOS runner but for the release PR and
 #   one labelled full-ci. The "Check for Windows and macOS" job compiles the library for both
-#   from Linux. Every push to main runs the unit tests on the three systems.
+#   from Linux. Windows and macOS run in the Weekly workflow (its CI run, its canaries and the
+#   Systems comparison) and by hand; not on a push to main or in the merge queue.
 #   No CI job runs the studio's tests or photonoxide-native's: the studio's run on the
 #   workstation before a push (`just studio-check`, `just studio-slow`, the pre-push hook),
 #   native's by hand (the Libraries workflow, `just native-tests`): CONTRIBUTING.md. CI lints
@@ -41,6 +42,11 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # the merge queue: a queued pull request is checked again merged onto the latest main (and the
+  # queued ones before it), as a pull request is (Tier 1 by its areas, Tier 2 for a dependency
+  # change, on Linux); "CI passed" below is the check the queue waits for
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       tier:
@@ -59,8 +65,10 @@ on:
 # main with the last commit whose push run passed). Runs started by hand or by the Weekly
 # workflow each run to the end. The other workflows (Release, release-plz, the binaries, the
 # Python wheels) keep their own groups: nothing here stops them.
+# A merge group's run has a group of its own (its ref is the group's), which nothing stops but the
+# queue itself.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.run_id }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || ((github.event_name == 'push' || github.event_name == 'merge_group') && github.ref) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
@@ -106,6 +114,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
           HEAD_REF: ${{ github.head_ref }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           TIER: ${{ inputs.tier }}
@@ -120,6 +129,10 @@ jobs:
             if jq -e 'index("full-ci")' <<<"$LABELS" > /dev/null; then tier=2 os_pr=true; fi
             range="$PR_BASE...$GITHUB_SHA" base="$PR_BASE"
             from=$(git merge-base "$PR_BASE" "$GITHUB_SHA" 2>/dev/null || true)
+          elif [ "$EVENT" = merge_group ]; then
+            # the group's merge commit against the main it was made on: the queued pull
+            # requests' changes, as a pull request's (GITHUB_SHA is the group's head)
+            range="$GROUP_BASE..$GITHUB_SHA" base="$GROUP_BASE" from="$GROUP_BASE"
           else
             base="$PUSH_BEFORE"
             if [ "$EVENT" = push ]; then
@@ -170,12 +183,15 @@ jobs:
           else
             bash .github/areas.sh --all < /dev/null > "$RUNNER_TEMP/areas.txt"
           fi
-          # Windows and macOS: every push to main, the Weekly run and a run by hand take the unit
-          # tests there (and, on Tier 2 and 3, the examples); a pull request starts no Windows or
-          # macOS runner, but the release PR and one labelled full-ci, which ask for them (a
-          # dependency change runs everything on Linux, and on the three systems after its merge)
+          # Windows and macOS: the Weekly run and a run by hand take the unit tests there (and, on
+          # Tier 2 and 3, the examples), and the release PR and one labelled full-ci, which ask for
+          # them; a pull request, the merge queue and a push to main start no Windows or macOS
+          # runner (the Weekly workflow's canaries and Systems comparison check the systems)
           systems=linux
-          if [ "$EVENT" != pull_request ] || [ "$os_pr" = true ]; then systems=all; fi
+          case "$EVENT" in
+            pull_request | merge_group | push) [ "$os_pr" = false ] || systems=all ;;
+            *) systems=all ;;
+          esac
           sed -i -e "s/^systems=.*/systems=$systems/" "$RUNNER_TEMP/areas.txt"
           echo "tier $tier"
           cat "$RUNNER_TEMP/areas.txt"
@@ -281,8 +297,7 @@ jobs:
           tool: cargo-machete@0.9.2
       - run: cargo machete
 
-  # Tier 1: the changed areas' unit tests, on Linux (and on Windows and macOS on every push to
-  # main). Tier 2 and 3: every test, on the three systems but on a pull request other than the
+  # Tier 1: the changed areas' unit tests, on Linux. Tier 2 and 3: every test, on the three systems but on a pull request other than the
   # release PR's or one labelled full-ci, and on Linux once more on one thread: parallel code must
   # not rely on having more than one thread, and must give the same results on one thread as on
   # many. In two jobs on each system (.github/shards.sh): job::'s tests in the first, every other
@@ -376,6 +391,16 @@ jobs:
       - run: rustup target add x86_64-pc-windows-msvc aarch64-apple-darwin
       - run: cargo check --all-features --all-targets --target x86_64-pc-windows-msvc
       - run: cargo check --all-features --all-targets --target aarch64-apple-darwin
+      # the canaries (tests/canary*.rs: fast checks of what can differ by system), on Linux here;
+      # the Weekly workflow runs them on Windows and macOS. Skipped while there are none
+      - name: The canaries, on Linux
+        if: hashFiles('tests/canary*.rs') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          for f in tests/canary*.rs; do args+=(--test "$(basename "$f" .rs)"); done
+          cargo test --release --all-features "${args[@]}"
 
   # The release build's checks on Linux, built once: this job compiles the validation report's
   # test binary and the examples the run wants (one release build of the library, through
@@ -734,3 +759,24 @@ jobs:
     uses: ./.github/workflows/changelog.yml
     with:
       branch: ${{ github.head_ref }}
+
+  # The one check a pull request and the merge queue wait for (the ruleset's required check): it
+  # fails when any job above failed or was cancelled, and passes when each passed or was skipped
+  # (a job a change doesn't need). The matrices' jobs have names that change with what runs, so
+  # they can't be required one by one.
+  result:
+    name: CI passed
+    needs: [changes, docs, lint, test, cross, build, release, release-os, studio, msrv, semver, changelog]
+    if: ${{ always() && github.event.pull_request.draft != true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "the jobs: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success | skipped) ;;
+              *) echo "::error::a job of this run ended $r"; exit 1 ;;
+            esac
+          done
