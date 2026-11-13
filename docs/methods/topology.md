@@ -410,7 +410,7 @@ network for electron-beam lithography) are not open, and the paper gives no para
 On a straight edge the blur of a solid half-plane is ½ erfc(x/√2σ), so the printed edge moves
 into the void by
 
-$$\Delta x = \sqrt{2}\,\sigma \operatorname{erfc}^{-1}(2t),$$
+$$\Delta x = \sqrt{2}\,\sigma \mathop{mathrm{erfc}}^{-1}(2t),$$
 
 outwards for t < ½ and not at all at t = ½ (`Lithography::edge_shift`). An isolated line of width
 w peaks at erf(w/2√2σ) and is lost below t; where it prints, its width is where
