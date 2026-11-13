@@ -400,7 +400,9 @@ network for electron-beam lithography) are not open, and the paper gives no para
   weight is the Gaussian's integral over it, ½ [erf((k + ½)Δ/√2σ) − erf((k − ½)Δ/√2σ)] along
   each axis (the Gaussian is separable): the blurred value at a pixel's centre is the pixelated
   mask's exact convolution, with no sampling error at any σ. The region's edges are renormalized
-  (a guide that crosses an edge is kept) or padded with a fixed value, as the filter's are;
+  (a guide that crosses an edge is kept) or padded with a fixed value, as the filter's are. An
+  axis one pixel long isn't blurred at all, padded or not: a region of n × 1 pixels is a 1D
+  mask, blurred along x alone, and a 3D region's layers are blurred one by one;
 - **the threshold:** the printed pattern is where I exceeds t, by the subpixel-smoothed
   projection above at η = t, sharp (β = ∞) unless β is given, so that the printed pattern stays
   differentiable in the mask;
@@ -410,7 +412,7 @@ network for electron-beam lithography) are not open, and the paper gives no para
 On a straight edge the blur of a solid half-plane is ½ erfc(x/√2σ), so the printed edge moves
 into the void by
 
-$$\Delta x = \sqrt{2}\,\sigma \mathop{mathrm{erfc}}^{-1}(2t),$$
+$$\Delta x = \sqrt{2}\,\sigma \mathop{\mathrm{erfc}}^{-1}(2t),$$
 
 outwards for t < ½ and not at all at t = ½ (`Lithography::edge_shift`). An isolated line of width
 w peaks at erf(w/2√2σ) and is lost below t; where it prints, its width is where
@@ -527,7 +529,7 @@ image to a south port give the same powers in each mode to 10⁻⁹ (the job's t
 | `topology/penalty-gradient` | the penalty's gradient against fourth-order differences, δ = 10⁻⁷ | 8.3e-11 relative (held to 1e-8) |
 | `topology/litho-blur` | the lithography proxy's blur of a half-plane, a quarter-plane and a three-pixel line on pixel boundaries against the Gaussian's exact convolution, σ = 0.5, 1, 2.5 and 4 pixels, renormalized and padded | 7.8e-16 (held to 1e-14) |
 | `topology/litho-transpose` | ⟨Bx, y⟩ against ⟨x, Bᵀy⟩ on 70 × 50 and 20 × 16 × 3 pixels, renormalized and padded | 1.8e-15 relative (held to 1e-12) |
-| `topology/litho-print-edge` | a straight edge printed at σ = 4 pixels against √2σ erfc⁻¹(2t), t = 0.3, 0.5 and 0.7, the mask's edge at four places in a pixel | 0.125 pixel (held to 0.1217 + 0.1 (Δ/σ)² = 0.128 pixel: the smoothed threshold's own row error and the blur's curvature) |
+| `topology/litho-print-edge` | a straight edge printed at σ = 4 pixels against √2σ erfc⁻¹(2t), t = 0.3, 0.5 and 0.7, the mask's edge at four places in a pixel | 0.125 pixel (held to 0.1217 + 0.1 (Δ/σ)² = 0.128 pixel: the smoothed threshold's own row error, and the blur's curvature with 0.1 the envelope measured from σ = 1 to 8 pixels, the largest 0.076) |
 | `topology/litho-gradient` | 2D FDFD: a port mode's power against a 10 × 10 mask printed at σ = 30 nm, t = ½, sharp, against fourth-order differences, δ = 10⁻³ | 9.2e-10 relative, below the resolution of 1.5e-8 (held to 5e-8) |
 
 **The complex step** takes no difference, so it checks the derivative to round-off at every

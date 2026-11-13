@@ -309,7 +309,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Discretisation,
                 crate::topology::checks::SSP_ROW_ERROR + 0.1 / 16.0,
                 Measured,
-                "the subpixel-smoothed threshold fills a pixel by F₂ of its centre's distance, not by its area: a row's area is off by up to 0.1217 px across a straight edge (the supremum over the edge's place in a pixel), and the blur's curvature across a pixel adds 0.053, 0.019, 0.0035 and 0.0005 px at σ = 1, 2, 4 and 8 px, second order in Δ/σ (the_litho_study: worst 0.174, 0.141, 0.125 and 0.122 px); held to 0.1217 + 0.1 (Δ/σ)² px, 0.128 px at σ = 4 px",
+                "the subpixel-smoothed threshold fills a pixel by F₂ of its centre's distance, not by its area: a row's area is off by up to 0.1217 px across a straight edge (the supremum over the edge's place in a pixel), and the blur's curvature across a pixel adds 0.053, 0.019, 0.0035 and 0.0005 px at σ = 1, 2, 4 and 8 px (the_litho_study: worst 0.174, 0.141, 0.125 and 0.122 px), falling with σ but not cleanly as (Δ/σ)²: 0.052, 0.076, 0.053 and 0.03 (Δ/σ)²; held to 0.1217 + 0.1 (Δ/σ)² px, 0.1 the measured envelope of those (the largest, 0.076, rounded up), 0.128 px at σ = 4 px",
             ),
         ),
         (

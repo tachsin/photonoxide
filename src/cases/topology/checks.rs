@@ -209,7 +209,7 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "topology/litho-blur",
-            title: r"The lithography proxy's Gaussian blur of pixelated shapes whose edges lie on pixel boundaries, at every pixel centre within $6\sigma$ of an edge: a half-plane against $\frac12 \mathop{mathrm{erfc}}(x/\sqrt2\sigma)$, a quarter-plane (its corner) against the product of two, and a line three pixels wide against the difference of two, for $\sigma$ = 0.5, 1, 2.5 and 4 pixels, renormalized at the region's edges, and the line padded with void (largest difference shown)",
+            title: r"The lithography proxy's Gaussian blur of pixelated shapes whose edges lie on pixel boundaries, at every pixel centre within $6\sigma$ of an edge: a half-plane against $\frac12 \mathop{\mathrm{erfc}}(x/\sqrt2\sigma)$, a quarter-plane (its corner) against the product of two, and a line three pixels wide against the difference of two, for $\sigma$ = 0.5, 1, 2.5 and 4 pixels, renormalized at the region's edges, and the line padded with void (largest difference shown)",
             tier: Tier::Analytic,
             source: r"S. Raza (Khan), M. Hammood, N. A. F. Jaeger, L. Chrostowski, Opt. Lett. 50, 117 (2024), doi:10.1364/OL.543961, Eq. 2 and Fig. 1: a lithography model applied to the design inside the loop; here a Gaussian blur, each pixel's weight the Gaussian's integral over it, so that the blur of a pixelated mask is its exact convolution at the pixels' centres; the Gaussian is separable, so a corner's blur is the product of two edges'",
             run: litho_blur_case,
@@ -223,9 +223,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "topology/litho-print-edge",
-            title: r"A straight edge printed by the lithography proxy ($\sigma$ = 4 pixels, the threshold sharp by the subpixel-smoothed projection): the printed area per row less the mask's against the closed-form shift $\sqrt2\sigma \mathop{mathrm{erfc}}^{-1}(2t)$ at thresholds $t$ = 0.3, 0.5 and 0.7, the mask's edge on a pixel boundary and 0.25, 0.5 and 0.75 of a pixel past one (largest difference shown, in pixels)",
+            title: r"A straight edge printed by the lithography proxy ($\sigma$ = 4 pixels, the threshold sharp by the subpixel-smoothed projection): the printed area per row less the mask's against the closed-form shift $\sqrt2\sigma \mathop{\mathrm{erfc}}^{-1}(2t)$ at thresholds $t$ = 0.3, 0.5 and 0.7, the mask's edge on a pixel boundary and 0.25, 0.5 and 0.75 of a pixel past one (largest difference shown, in pixels)",
             tier: Tier::Analytic,
-            source: r"the blurred half-plane $\frac12 \mathop{mathrm{erfc}}(x/\sqrt2\sigma)$ crosses $t$ at $x = \sqrt2\sigma \mathop{mathrm{erfc}}^{-1}(2t)$; A. M. Hammond et al., Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7 and 10: the threshold fills each pixel by the kernel's share of it at its centre, $F_2(d/\hat R)$, not by its area",
+            source: r"the blurred half-plane $\frac12 \mathop{\mathrm{erfc}}(x/\sqrt2\sigma)$ crosses $t$ at $x = \sqrt2\sigma \mathop{\mathrm{erfc}}^{-1}(2t)$; A. M. Hammond et al., Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7 and 10: the threshold fills each pixel by the kernel's share of it at its centre, $F_2(d/\hat R)$, not by its area",
             run: litho_print_edge_case,
         },
         Case {

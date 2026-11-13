@@ -412,22 +412,6 @@ fn loss(t: f64) -> f64 {
     -5.0 * math::ln(t) / LN_10
 }
 
-/// The proxy's σ, µm: the widest Gaussian that prints an isolated line LINEAR_FROM wide within
-/// ACCURACY of its width at THRESHOLD (`Lithography::line_width`), by bisection.
-fn duv_sigma() -> f64 {
-    let (mut lo, mut hi) = (0.0, LINEAR_FROM);
-    for _ in 0..60 {
-        let mid = 0.5 * (lo + hi);
-        let printed = Lithography::line_width(LINEAR_FROM, mid, THRESHOLD);
-        if LINEAR_FROM - printed <= ACCURACY * LINEAR_FROM {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    lo
-}
-
 /// The variables' bounds.
 fn bounds() -> Vec<std::ops::RangeInclusive<f64>> {
     let mut b = vec![W_BOUNDS.0..=W_BOUNDS.1; PERIODS];
@@ -478,7 +462,10 @@ fn residual(model: &Model, x: &[f64]) -> photonoxide::Result<f64> {
 /// shares, the derivative ∂m/∂x the adjoint is dotted with (δ = 1e-5 µm): each within what the
 /// differences resolve, the powers' precision u (twice the solve's residual, rounded up to a
 /// power of ten) through the formula's weights, (18/12) u T/(δ |g|). How many are within it, of
-/// three (the differences' last digits are each platform's, so only the count is printed).
+/// three: the check is the count, not the relative differences, whose last digits vary by system.
+/// The adjoint's and the differences' values are printed beside it to 6 significant digits (the
+/// designs to 1 nm, the losses to 4 decimals); Linux and Windows print the committed output, and
+/// the Weekly run's examples job compares macOS.
 fn check_derivatives(model: &Model, label: &str) -> photonoxide::Result<usize> {
     let x = plain();
     let (t, exact) = model.power(&x, true)?;
@@ -521,7 +508,7 @@ fn check_derivatives(model: &Model, label: &str) -> photonoxide::Result<usize> {
 
 pub fn main() -> photonoxide::Result<ExitCode> {
     let mut checks = common::Checks::default();
-    let sigma = duv_sigma();
+    let sigma = Lithography::widest_sigma(LINEAR_FROM, ACCURACY, THRESHOLD);
     let drawn = Model::new(STEP, None)?;
     let printing = Model::new(STEP, Some(sigma))?;
     let mut setup = common::Setup::new();

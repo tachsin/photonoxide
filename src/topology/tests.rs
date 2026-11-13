@@ -587,3 +587,42 @@ fn the_lithography_proxy() {
     assert!(GaussianBlur::new([3, 3, 1], 0.01, 0.0, Edge::Renormalized).is_err());
     assert!(Lithography::new([3, 3, 1], 0.01, 0.02, 1.0, Edge::Renormalized).is_err());
 }
+
+#[test]
+fn the_lithography_proxy_at_a_finite_beta() {
+    use crate::topology::{Edge, Lithography, SmoothedProjection};
+    let l = Lithography::new([24, 18, 1], 0.01, 0.02, 0.45, Edge::Renormalized)
+        .unwrap()
+        .with_beta(32.0)
+        .unwrap();
+    assert_eq!(l.beta(), 32.0);
+    assert_eq!(l.threshold(), 0.45);
+    let mask: Vec<f64> = (0..24 * 18)
+        .map(|p| 0.5 + 0.4 * (0.4 * (p % 24) as f64).sin() * (0.3 * (p / 24) as f64).cos())
+        .collect();
+    // the value: the blur, then the smoothed projection at that β
+    let blurred = l.blur().apply(&mask).unwrap();
+    let projected = SmoothedProjection::new(32.0, 0.45)
+        .unwrap()
+        .apply([24, 18, 1], 0.01, &blurred)
+        .unwrap();
+    assert_eq!(l.print(&mask).unwrap(), projected);
+    // the gradient against fourth-order differences
+    let w: Vec<f64> = (0..24 * 18).map(|p| (0.37 * p as f64).cos()).collect();
+    let f = |m: &[f64]| -> f64 { l.print(m).unwrap().iter().zip(&w).map(|(a, b)| a * b).sum() };
+    let g = l.pullback(&mask, &w).unwrap();
+    let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    for p in (0..24 * 18).step_by(11) {
+        let at = |d: f64| {
+            let mut m = mask.clone();
+            m[p] += d;
+            f(&m)
+        };
+        let fd = (at(-2e-5) - 8.0 * at(-1e-5) + 8.0 * at(1e-5) - at(2e-5)) / 1.2e-4;
+        assert!(
+            (g[p] - fd).abs() < 1e-7 * scale,
+            "pixel {p}: {} against {fd}",
+            g[p]
+        );
+    }
+}

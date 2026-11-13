@@ -540,8 +540,8 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
 
 ## 6. Where the work stands
 
-*2026-11-12: I1 to I7 are done on `feat/inverse-design-0.7`, pull request #796. The work goes on
-from here on another machine.*
+*2026-11-13: I1 to I7 are merged (pull request #796); I8 is on `feat/inverse-design-i8`, pull
+request #806. Each later phase is its own branch and pull request from main.*
 
 **Done** (each phase's *Done* paragraph above has its numbers):
 - I1 to I3: densities, filters, projections, robust designs, length scales;
@@ -552,13 +552,12 @@ from here on another machine.*
 - I8 (2026-11-13, its own pull request): the lithography proxy inside the loop, the Y-branch and
   the SWG-to-strip converter designed printed; Table 1's comparison left open (I8 above).
 
-The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to add.
+The validation report has 31 topology cases (27 from I1 to I7, 4 from I8) and
+`fdfd/adjoint-gradient-row`.
 
-**Left on this branch, before #796 merges:**
+**Settled with #796:**
 
-1. **The validation report.** `docs/validation.md` doesn't have the new cases yet: rewrite it with
-   `cargo run -p photonoxide-studio --release -- validate --write docs/validation.md` (every case,
-   some 3D; hours). Until then the report's check and the studio's `tests/methods.rs` fail.
+1. **The validation report:** rewritten with every case (`validate --write`, about an hour).
 2. **The Y-branch's adjoint design in 3D: done 2026-11-12.** `--full` solved the swarm's design
    and then the adjoint search's on the 44, 31.4 and 22 nm grids (36 minutes on 6 threads, a
    peak of 33 GB); the swarm's three powers repeat the recorded ones, and the adjoint design's
@@ -569,8 +568,8 @@ The validation report has 27 topology cases and `fdfd/adjoint-gradient-row` to a
    (0.009 dB) is above a third of the printed digits' 0.005 dB, so by decision 7 they are not a
    validation case: the numbers are reported (I4 above) and the gap is listed in #595.
 
-**Left of the plan, after #796** (each its own pull request, part of #761; the phases above say
-what each holds and how it is validated):
+**Left of the plan** (each its own pull request, part of #761; the phases above say what each
+holds and how it is validated):
 - I9: adjoints for the other solvers;
 - I10: quantum objectives;
 - I11: device and circuit co-design;
@@ -593,8 +592,7 @@ says which are read and for what).
 
 ```bash
 git fetch origin
-git switch feat/inverse-design-0.7
-git merge origin/main        # main moves; merge, never rebase the branch
+git switch -c feat/inverse-design-i9 origin/main   # a phase's branch, from main
 cargo test --release --lib topology
-cargo run -p photonoxide-studio --release -- validate --write docs/validation.md
+cargo run -p photonoxide-studio --release -- validate --write docs/validation.md   # once, at the end
 ```

@@ -62,7 +62,8 @@ impl GaussianBlur {
     /// The blur of standard deviation `sigma_um` on a region of `shape` pixels, each `pixel_um`
     /// wide, its edges treated as `edge` ([`Edge::Renormalized`]: only the region's pixels are
     /// averaged, which keeps a guide that crosses an edge; [`Edge::Padded`]: the mask continues
-    /// outside with that value).
+    /// outside with that value). An axis one pixel long isn't blurred, padded or not: a region of
+    /// n × 1 pixels is a 1D mask, blurred along x alone, with the padding beyond its two ends.
     ///
     /// # Errors
     ///
@@ -353,5 +354,23 @@ impl Lithography {
             }
         }
         lo + hi
+    }
+
+    /// The widest σ, µm, at which an isolated line of width `width_um` prints within
+    /// `accuracy` (relative) of its width at `threshold` ([`Lithography::line_width`]), by
+    /// bisection on [0, w]: a process that prints that line on target to that accuracy blurs no
+    /// more than this.
+    pub fn widest_sigma(width_um: f64, accuracy: f64, threshold: f64) -> f64 {
+        let (mut lo, mut hi) = (0.0, width_um);
+        for _ in 0..60 {
+            let mid = 0.5 * (lo + hi);
+            let printed = Lithography::line_width(width_um, mid, threshold);
+            if width_um - printed <= accuracy * width_um {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        lo
     }
 }

@@ -534,7 +534,10 @@ fn mask(g: &Grid, arms: &[f64], w: &[f64]) -> Vec<f64> {
 /// derivative ∂m/∂w that the adjoint is dotted with (δ = 1e-5 µm of the width): each within
 /// what the differences resolve, the powers' precision u (twice the solve's residual, rounded up
 /// to a power of ten) through the formula's weights, (18/12) u P/(δ |g|). How many are within
-/// it, of four (the differences' last digits are each platform's, so only the count is printed).
+/// it, of four: the check is the count, not the relative differences, whose last digits vary by
+/// system. The adjoint's and the differences' values are printed beside it to 6 significant
+/// digits; Linux and Windows print the committed output, and the Weekly run's examples job
+/// compares macOS.
 /// Differences in the width itself would cross the areas' kinks, where a width's edge crosses a
 /// row of cells; along the shares the power is smooth.
 fn check_derivatives(model: &Model) -> photonoxide::Result<usize> {
@@ -608,22 +611,6 @@ fn adjoint_search(model: &Model) -> (Vec<f64>, u64, usize) {
     )
 }
 
-/// The proxy's σ, µm: the widest Gaussian that prints an isolated line LINEAR_FROM wide within
-/// ACCURACY of its width at THRESHOLD (`Lithography::line_width`), by bisection.
-fn duv_sigma() -> f64 {
-    let (mut lo, mut hi) = (0.0, LINEAR_FROM);
-    for _ in 0..60 {
-        let mid = 0.5 * (lo + hi);
-        let printed = Lithography::line_width(LINEAR_FROM, mid, THRESHOLD);
-        if LINEAR_FROM - printed <= ACCURACY * LINEAR_FROM {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    lo
-}
-
 /// Khan et al.'s lithography inside the loop: the standard (`drawn`) design and one found by the
 /// same search on the printed model, each drawn and printed.
 fn lithography_in_the_loop(
@@ -632,7 +619,7 @@ fn lithography_in_the_loop(
     drawn: &Model,
     standard: &[f64],
 ) -> photonoxide::Result<()> {
-    let sigma = duv_sigma();
+    let sigma = Lithography::widest_sigma(LINEAR_FROM, ACCURACY, THRESHOLD);
     println!(
         "Khan et al.'s lithography inside the loop: each design printed by a proxy, a Gaussian blur of σ = {:.2} nm and a threshold at {THRESHOLD} (the widest blur that prints a {:.0} nm line, Selvaraja et al.'s narrowest on target, within {:.0} % of its width: {:.2} nm), in the swarm's 2D model",
         1000.0 * sigma,
