@@ -53,6 +53,7 @@ use crate::{Error, Result};
 
 // the one import that points up a layer (the allow-list in src/layering.rs): the shifter's types
 // keep their `thermal::` paths
+use crate::portable;
 pub use crate::shifter::{Drive, Efficiency, Guide, Optics, PhaseShifter, StepResponses, Timing};
 pub use crate::statics::{
     Axis, Boundary, Cut, Features, Field, Grading, Grid, MAX_CELLS, Section, Side, Tensor,
@@ -806,7 +807,7 @@ impl Heat {
     pub(crate) fn cutoff_weighted(&self, watch: &[(usize, f64)]) -> Result<f64> {
         let half = std::f64::consts::FRAC_1_SQRT_2;
         let response = self.responder(watch)?;
-        let below = |f: f64| -> Result<bool> { Ok(response(f)?.norm() < half) };
+        let below = |f: f64| -> Result<bool> { Ok(portable::complex::abs(response(f)?) < half) };
         let (mut lo, mut hi) = (1.0f64, 1e12f64);
         if below(lo)? || !below(hi)? {
             return Err(Error::invalid(

@@ -8,6 +8,7 @@ use std::f64::consts::{PI, TAU};
 
 use super::RcModel;
 use super::rc::solve;
+use crate::portable;
 use crate::{Error, Result};
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -204,12 +205,12 @@ impl Correction {
             .zip(&self.target)
             .map(|(p, t)| p - t)
             .collect();
-        let f = d.iter().map(|e| 1.0 - e.cos()).sum();
+        let f = d.iter().map(|e| 1.0 - portable::cos(*e)).sum();
         let g = (0..self.heaters())
             .map(|j| {
                 d.iter()
                     .zip(&self.response)
-                    .map(|(e, row)| e.sin() * row[j])
+                    .map(|(e, row)| portable::sin(*e) * row[j])
                     .sum()
             })
             .collect();

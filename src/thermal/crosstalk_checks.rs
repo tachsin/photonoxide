@@ -10,6 +10,7 @@ use super::shifter_checks::{OK, finer, gated, outcome, rect, wavelength};
 use super::{
     Boundary, Drive, Features, Grid, Guide, Heat, Optics, PhaseShifter, Section, Side, Tensor,
 };
+use crate::portable;
 use crate::validation::{Case, Tier};
 
 /// What fills a chip's gap between the heater and its neighbours.
@@ -323,7 +324,10 @@ fn line_pair(r: f64) -> f64 {
         })
         .collect();
     let image = 2.0 * plane - source_y;
-    let t = |x: f64, y: f64| (x.hypot(y - image) / x.hypot(y - source_y)).ln() / (2.0 * PI * 1.38);
+    let t = |x: f64, y: f64| {
+        portable::ln(portable::hypot(x, y - image) / portable::hypot(x, y - source_y))
+            / (2.0 * PI * 1.38)
+    };
     let exact: Vec<f64> = guides
         .iter()
         .map(|g| g.cells.iter().map(|&([x, y], w)| w * t(x, y)).sum())
@@ -528,7 +532,9 @@ mod tests {
             .map(|g| ps.steady(0, g, true).expect(OK))
             .collect();
         // k_z from 10 to 1e8 per metre, 8 per decade
-        let ks: Vec<f64> = (0..=56).map(|i| 10f64.powf(1.0 + i as f64 / 8.0)).collect();
+        let ks: Vec<f64> = (0..=56)
+            .map(|i| portable::powf(10f64, 1.0 + i as f64 / 8.0))
+            .collect();
         let start = std::time::Instant::now();
         let tau: Vec<Vec<f64>> = ks
             .iter()
@@ -561,10 +567,10 @@ mod tests {
             }
             let n = ks.len() - 1;
             if k >= ks[n] {
-                return tau[n][g] * (ks[n] / k).powi(2);
+                return tau[n][g] * portable::powi(ks[n] / k, 2);
             }
             let i = ks.partition_point(|&x| x <= k) - 1;
-            let s = (k / ks[i]).ln() / (ks[i + 1] / ks[i]).ln();
+            let s = portable::ln(k / ks[i]) / portable::ln(ks[i + 1] / ks[i]);
             tau[i][g] + s * (tau[i + 1][g] - tau[i][g])
         };
         let e = ps.efficiency().expect(OK);
@@ -579,7 +585,7 @@ mod tests {
                     let mut sum = 0.0;
                     for i in 0..n {
                         let u = (i as f64 + 0.5) * du;
-                        let s = u.sin() / u;
+                        let s = portable::sin(u) / u;
                         sum += s * s * tau_at(g, 2.0 * u / l);
                     }
                     2.0 / PI * sum * du
