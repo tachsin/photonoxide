@@ -241,7 +241,9 @@ pub(crate) const DEVICE_FITS: [DeviceFit; 10] = [
     //   7 poles, 11:             7.9e-4 (7.9e-4),   1.4e-4: unstable
     //   8 poles, 15:             1.88e-3 (1.88e-3), 1.4e-6: stable (taken: the first stable one
     //                            in the order fixed beforehand, one knob, the 2 × 2's poles)
-    //   6 poles, 11:             1.06e-3 (1.06e-3), 2.0e-8: stable
+    //   6 poles, 11:             1.06e-3 (1.06e-3), 2.0e-8: stable, and better conditioned than
+    //                            the one taken (a magnification of 2e5 against 1.4e7): the one
+    //                            to choose deliberately if a later change wants more margin
     //   8 poles, 21:             2.26e-3 (2.26e-3), 2.1e-6: stable
     //   7 poles, 15 / 6, 15 / 7, 21 / 6, 21: 1.04e-3 / 9.9e-4 / 1.04e-3 / 9.3e-4, each under
     //                            5e-8: stable
