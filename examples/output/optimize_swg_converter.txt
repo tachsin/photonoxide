@@ -1,0 +1,34 @@
+Setup
+  wavelength: 1.55 µm
+  SWG (Halir et al.'s Table 1): 220 nm silicon in oxide, period 190 nm, duty cycle 50 %, 500 nm wide
+  converters: 30 gratings over a bridge narrowing from 500 nm to nothing (Khan et al.'s Fig. 2), two back to back with 10 periods of SWG between, from a strip to a strip
+  variables: the gratings' widths (300 nm to 800 nm) and lengths (40 nm to 150 nm), the bridge's half-width at 6 points (0 µm to 250 nm); the second converter the first's mirror image
+  2D plane: the effective index method's: the 220 nm slab's TE index, n 2.847488, in the silicon, the oxide's, n 1.444024, outside; H along z
+  grid: 789 × 150 cells of 20 nm, PMLs 12 cells, each cell's share of silicon its exact area; the designs also on 10 nm cells
+  lithography proxy: a Gaussian blur of σ 58.16455 nm and a threshold at 0.5, sharp: the widest blur that prints a 150 nm line within 1 % (Selvaraja et al.)
+  solver: genoxide's L-BFGS-B from the plain converter, 40 evaluations, each a solve and its adjoint
+
+Khan et al.'s SWG-to-strip converter, designed drawn and designed printed by a lithography proxy (σ = 58.16 nm, threshold 0.5), at 1.55 µm
+  drawn: dT/dw5, adjoint -1.40602e-3, fourth-order differences -1.40602e-3 (resolved to 1e-5)
+  drawn: dT/dl13, adjoint 3.68326e-3, fourth-order differences 3.68326e-3 (resolved to 4e-6)
+  drawn: dT/db3, adjoint 7.00856e-3, fourth-order differences 7.00856e-3 (resolved to 2e-6)
+  printed: dT/dw5, adjoint -2.69095e-3, fourth-order differences -2.69095e-3 (resolved to 5e-6)
+  printed: dT/dl13, adjoint 3.02199e-2, fourth-order differences 3.02199e-2 (resolved to 5e-7)
+  printed: dT/db3, adjoint -5.99377e-2, fourth-order differences -5.99377e-2 (resolved to 2e-7)
+  derivatives within the differences' resolution            6   paper 6          ok
+  the standard design: L-BFGS-B on the drawn model, 40 evaluations
+  designed printed (Khan et al.'s FAID): on the printed model, 40 evaluations
+  standard: the gratings' widths (nm) 497 502 498 498 499 502 502 501 498 499 500 500 501 499 501 499 501 499 501 499 500 499 500 499 500 500 501 501 505 495
+  standard: their lengths (nm) 95 95 96 97 95 91 91 94 96 97 96 97 93 96 96 96 97 94 96 92 95 91 94 90 95 90 96 92 93 97
+  standard: the bridge's half-width (nm) 217 179 149 106 67 34
+  designed printed: the gratings' widths (nm) 500 500 489 496 495 499 501 502 502 495 495 497 498 501 502 506 506 503 501 500 500 499 500 500 501 501 501 502 502 499
+  designed printed: their lengths (nm) 95 95 89 92 91 95 99 101 98 85 83 86 91 99 106 122 118 108 101 95 93 92 90 90 89 91 92 94 93 98
+  designed printed: the bridge's half-width (nm) 191 179 146 140 66 23
+  each converter's loss (dB)   drawn, 20 nm   10 nm    printed, 20 nm   10 nm
+  the plain converter        0.0005         0.0004   0.0579           0.0640
+  the standard design        0.0001         0.0015   0.0403           0.0437
+  designed printed           0.0480         0.0518   0.0017           0.0029
+  Khan et al.'s Table 1, their converter at 1320 nm, EBL: 0.034 as designed, 0.072 printed, 0.036 designed printed (their device, wavelength and models: context, not compared)
+  Khan et al.'s Table 1, their converter at 1320 nm, DUV: 0.034 as designed, 0.836 printed, 0.111 designed printed (their device, wavelength and models: context, not compared)
+  printed loss, designed printed less the standard's (dB)    -0.038593   paper below 0 ok
+all 2 within tolerance of the paper

@@ -51,8 +51,10 @@ run_task() {
     PHOTONOXIDE_VALIDATION_CASES="$3" CARGO_MANIFEST_DIR="$GITHUB_WORKSPACE" \
       "$BUILD/validation_report" --ignored --nocapture 2>&1 || status=$?
   else
-    "$BUILD/examples/$2" > "$logs/$2.out" 2>&1 || status=$?
-    if [ "$status" = 0 ]; then diff -u "examples/output/$2.txt" "$logs/$2.out" || status=$?; else cat "$logs/$2.out"; fi
+    # stdout alone is compared: an example's progress goes to stderr (examples/README.md), shown
+    # only when it fails
+    "$BUILD/examples/$2" > "$logs/$2.out" 2> "$logs/$2.err" || status=$?
+    if [ "$status" = 0 ]; then diff -u "examples/output/$2.txt" "$logs/$2.out" || status=$?; else cat "$logs/$2.out" "$logs/$2.err"; fi
   fi
   echo "$((SECONDS - start)) s  $1 $2 (exit $status)"
   return "$status"

@@ -207,6 +207,34 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"Vercruysse et al. 2019, Eqs. 1–3; forward-mode derivatives of each node's terms in its value and differences, then the differences' stencils transposed",
             run: penalty_gradient_case,
         },
+        Case {
+            id: "topology/litho-blur",
+            title: r"The lithography proxy's Gaussian blur of pixelated shapes whose edges lie on pixel boundaries, at every pixel centre within $6\sigma$ of an edge: a half-plane against $\frac12 \mathop{\mathrm{erfc}}(x/\sqrt2\sigma)$, a quarter-plane (its corner) against the product of two, and a line three pixels wide against the difference of two, for $\sigma$ = 0.5, 1, 2.5 and 4 pixels, renormalized at the region's edges, and the line padded with void (largest difference shown)",
+            tier: Tier::Analytic,
+            source: r"S. Raza (Khan), M. Hammood, N. A. F. Jaeger, L. Chrostowski, Opt. Lett. 50, 117 (2024), doi:10.1364/OL.543961, Eq. 2 and Fig. 1: a lithography model applied to the design inside the loop; here a Gaussian blur, each pixel's weight the Gaussian's integral over it, so that the blur of a pixelated mask is its exact convolution at the pixels' centres; the Gaussian is separable, so a corner's blur is the product of two edges'",
+            run: litho_blur_case,
+        },
+        Case {
+            id: "topology/litho-transpose",
+            title: r"The lithography blur's transpose: $\langle B x, y\rangle$ against $\langle x, B^{\mathsf T} y\rangle$ for masks drawn on 70 × 50 pixels ($\sigma$ = 1.7 pixels) and 20 × 16 × 3 (0.9), renormalized at the edges and padded (relative difference, largest shown)",
+            tier: Tier::Analytic,
+            source: r"Khan et al. 2024, Eq. 2: the gradient with respect to the mask is the lithography model's Jacobian, here the blur's transpose, applied to the gradient with respect to the printed pattern; an exact identity of the two sums",
+            run: litho_transpose_case,
+        },
+        Case {
+            id: "topology/litho-print-edge",
+            title: r"A straight edge printed by the lithography proxy ($\sigma$ = 4 pixels, the threshold sharp by the subpixel-smoothed projection): the printed area per row less the mask's against the closed-form shift $\sqrt2\sigma \mathop{\mathrm{erfc}}^{-1}(2t)$ at thresholds $t$ = 0.3, 0.5 and 0.7, the mask's edge on a pixel boundary and 0.25, 0.5 and 0.75 of a pixel past one (largest difference shown, in pixels)",
+            tier: Tier::Analytic,
+            source: r"the blurred half-plane $\frac12 \mathop{\mathrm{erfc}}(x/\sqrt2\sigma)$ crosses $t$ at $x = \sqrt2\sigma \mathop{\mathrm{erfc}}^{-1}(2t)$; A. M. Hammond et al., Opt. Express 33, 33620 (2025), doi:10.1364/OE.563512, Eqs. 7 and 10: the threshold fills each pixel by the kernel's share of it at its centre, $F_2(d/\hat R)$, not by its area",
+            run: litho_print_edge_case,
+        },
+        Case {
+            id: "topology/litho-gradient",
+            title: r"2D FDFD, $E$ along $z$: the gradient of a port mode's power with respect to a 10 × 10 region's mask (silicon in oxide beside a 220 nm slab, 20 nm grid) printed by the lithography proxy ($\sigma$ = 30 nm, $t = 1/2$, sharp), from the adjoint pulled back through the threshold and the blur's transpose, against fourth-order central differences of the mask ($\delta = 10^{-3}$) at a corner, an edge and the middle (largest relative difference shown)",
+            tier: Tier::Analytic,
+            source: r"Khan et al. 2024, Eq. 2, the adjoint's sensitivity on the printed pattern times the model's Jacobian; G. Veronis, R. W. Dutton, S. Fan, Opt. Lett. 29, 2288 (2004), doi:10.1364/OL.29.002288, Eqs. 2–4",
+            run: litho_gradient_case,
+        },
     ]
 }
 
@@ -1610,4 +1638,229 @@ fn penalty_curvature_case() -> Outcome {
 
 fn penalty_gradient_case() -> Outcome {
     zero(penalty_gradient_error(1e-7), 1e-8)
+}
+
+/// ½ erfc(x/√2σ): a solid half-plane x < 0 blurred by a Gaussian of σ, at x.
+fn half_plane_blur(x: f64, sigma: f64) -> f64 {
+    0.5 * libm::erfc(x / (std::f64::consts::SQRT_2 * sigma))
+}
+
+/// A shape on pixels, whether pixel (i, j) is inside, and its exact blur at (x, y), in pixels from
+/// the shapes' corner.
+type BlurShape<'a> = (
+    &'a dyn Fn(usize, usize) -> bool,
+    &'a dyn Fn(f64, f64) -> f64,
+);
+
+/// The lithography proxy's blur of pixelated shapes whose edges lie on pixel boundaries, against
+/// the Gaussian's exact convolution at every pixel centre within 6σ of an edge: a half-plane, a
+/// quarter-plane (its corner) and an isolated line three pixels wide, for σ of 0.5, 1, 2.5 and 4
+/// pixels, renormalized at the region's edges; and the line in a small region padded with void.
+/// The largest difference.
+pub(crate) fn litho_blur_error() -> f64 {
+    let mut worst = 0.0f64;
+    for sigma_px in [0.5, 1.0, 2.5, 4.0] {
+        let reach = (9.0f64 * sigma_px).ceil() as usize;
+        let near = (6.0f64 * sigma_px).ceil() as usize;
+        let n = 2 * (reach + near) + 2;
+        let c = n / 2; // the edges lie at pixel boundary c (x = 0 there)
+        let x = |i: usize| i as f64 + 0.5 - c as f64;
+        let blur = crate::topology::GaussianBlur::new([n, n, 1], 1.0, sigma_px, Edge::Renormalized)
+            .expect("a blur");
+        let half = |x: f64, _: f64| half_plane_blur(x, sigma_px);
+        let corner = |x: f64, y: f64| half_plane_blur(x, sigma_px) * half_plane_blur(y, sigma_px);
+        let line = |x: f64, _: f64| {
+            half_plane_blur(x - 2.0, sigma_px) - half_plane_blur(x + 1.0, sigma_px)
+        };
+        let shapes: [BlurShape; 3] = [
+            (&|i, _| i < c, &half),
+            (&|i, j| i < c && j < c, &corner),
+            (&|i, _| (c - 1..c + 2).contains(&i), &line),
+        ];
+        for (inside, exact) in shapes {
+            let mask: Vec<f64> = (0..n * n)
+                .map(|p| f64::from(u8::from(inside(p % n, p / n))))
+                .collect();
+            let blurred = blur.apply(&mask).expect("blurred");
+            for j in c - near..c + near {
+                for i in c - near..c + near {
+                    let e = exact(x(i), x(j));
+                    worst = worst.max((blurred[j * n + i] - e).abs());
+                }
+            }
+        }
+        // padded with void: the line in a region that ends 2σ from it
+        let m = 3 + 2 * (2.0f64 * sigma_px).ceil() as usize;
+        let blur = crate::topology::GaussianBlur::new([m, 1, 1], 1.0, sigma_px, Edge::Padded(0.0))
+            .expect("a blur");
+        let lo = (m - 3) / 2;
+        let mask: Vec<f64> = (0..m)
+            .map(|i| f64::from(u8::from((lo..lo + 3).contains(&i))))
+            .collect();
+        for (i, b) in blur.apply(&mask).expect("blurred").iter().enumerate() {
+            let xi = i as f64 + 0.5 - (lo as f64 + 1.5);
+            let e = half_plane_blur(xi - 1.5, sigma_px) - half_plane_blur(xi + 1.5, sigma_px);
+            worst = worst.max((b - e).abs());
+        }
+    }
+    worst
+}
+
+/// The largest relative difference between ⟨B x, y⟩ and ⟨x, Bᵀ y⟩ for the lithography proxy's
+/// blur (its linear part: padded, B x − B 0), on 70 × 50 pixels (σ = 1.7 pixels) and 20 × 16 × 3
+/// (σ = 0.9), renormalized and padded.
+pub(crate) fn litho_transpose_error() -> f64 {
+    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(p, q)| p * q).sum::<f64>();
+    let mut worst = 0.0f64;
+    let mut k = 0u64;
+    for edge in [Edge::Renormalized, Edge::Padded(0.3)] {
+        for (shape, sigma) in [([70, 50, 1], 0.017), ([20, 16, 3], 0.009)] {
+            let b = crate::topology::GaussianBlur::new(shape, 0.01, sigma, edge).expect("a blur");
+            let n: usize = shape.iter().product();
+            k += 1;
+            let (x, y) = (draws(n, 40 + 2 * k), draws(n, 41 + 2 * k));
+            let zero = b.apply(&vec![0.0; n]).expect("blurred");
+            let bx: Vec<f64> = b
+                .apply(&x)
+                .expect("blurred")
+                .iter()
+                .zip(&zero)
+                .map(|(a, z)| a - z)
+                .collect();
+            let left = dot(&bx, &y);
+            let right = dot(&x, &b.transpose(&y).expect("transposed"));
+            worst = worst.max((left - right).abs() / left.abs());
+        }
+    }
+    worst
+}
+
+/// A straight edge printed by the proxy (σ = `sigma_px` pixels, threshold `t`, sharp): the
+/// printed pattern's area per row less the mask's, in pixels, against `Lithography::edge_shift`,
+/// the mask's edge `offset` of a pixel past a pixel boundary (a partly filled pixel); the
+/// difference in pixels.
+pub(crate) fn litho_print_edge(sigma_px: f64, t: f64, offset: f64) -> f64 {
+    let reach = (9.0f64 * sigma_px).ceil() as usize;
+    let n = 2 * (reach + (6.0f64 * sigma_px).ceil() as usize) + 8;
+    let c = n / 2;
+    let litho = crate::topology::Lithography::new([n, 3, 1], 1.0, sigma_px, t, Edge::Renormalized)
+        .expect("a proxy");
+    let mask: Vec<f64> = (0..3 * n)
+        .map(|p| match (p % n).cmp(&c) {
+            std::cmp::Ordering::Less => 1.0,
+            std::cmp::Ordering::Equal => offset,
+            std::cmp::Ordering::Greater => 0.0,
+        })
+        .collect();
+    let printed = litho.print(&mask).expect("printed");
+    let row = |v: &[f64]| v[n..2 * n].iter().sum::<f64>();
+    row(&printed) - row(&mask) - crate::topology::Lithography::edge_shift(sigma_px, t)
+}
+
+/// The largest departure of [`litho_print_edge`] over thresholds 0.3, 0.5 and 0.7 and the mask's
+/// edge at a boundary and at 0.25, 0.5 and 0.75 of a pixel, at σ = `sigma_px` pixels, in pixels.
+pub(crate) fn litho_print_error(sigma_px: f64) -> f64 {
+    let mut worst = 0.0f64;
+    for t in [0.3, 0.5, 0.7] {
+        for offset in [0.0, 0.25, 0.5, 0.75] {
+            worst = worst.max(litho_print_edge(sigma_px, t, offset).abs());
+        }
+    }
+    worst
+}
+
+/// The lithography gradient's probes: a corner, an edge and the middle.
+pub(crate) const LITHO_PIXELS: [usize; 3] = [0, 5, 55];
+
+/// 2D FDFD (E along z, 20 nm) beside a 220 nm slab, a 10 × 10-cell region whose permittivities
+/// are the proxy's print (σ = 30 nm, t = ½, sharp) of a varied mask: the power into the slab's
+/// mode and its gradient in the mask, the adjoint pulled back through the threshold and the
+/// blur's transpose, against fourth-order differences `delta` wide at three pixels.
+pub(crate) fn litho_probes(delta: f64) -> Vec<Probe> {
+    let c = chain();
+    let (clad, core) = (1.444f64.powi(2), 3.476f64.powi(2));
+    let litho = crate::topology::Lithography::new([10, 10, 1], 0.02, 0.03, 0.5, Edge::Renormalized)
+        .expect("a proxy");
+    let lam = Wavelength::um(LAMBDA_UM).expect("a wavelength");
+    let cells_at = |mask: &[f64]| {
+        let eps: Vec<f64> = litho
+            .print(mask)
+            .expect("printed")
+            .iter()
+            .map(|p| clad + p * (core - clad))
+            .collect();
+        let mut cells = c.cells.clone();
+        c.placement.embed(&eps, &mut cells).expect("placed");
+        cells
+    };
+    let base = Solver2d::from_cells(
+        c.grid,
+        Polarization::Ez,
+        lam,
+        &cells_at(&c.rho),
+        Boundaries::pml(20),
+    )
+    .expect("a problem");
+    let ports = two_ports(&base);
+    let source = base.mode_source(&ports[0].mode, Direction::Forward);
+    let field = base.solve_system(&source).expect("solved");
+    let (power, per_cell) = base
+        .mode_power_gradient(&field, &ports[1].mode, Direction::Forward)
+        .expect("a gradient");
+    let d_printed: Vec<f64> = c
+        .placement
+        .restrict(&per_cell)
+        .expect("restricted")
+        .iter()
+        .map(|g| g * (core - clad))
+        .collect();
+    let gradient = litho.pullback(&c.rho, &d_printed).expect("pulled back");
+    let residual = base.residual(&field, &source).expect("a residual");
+    LITHO_PIXELS
+        .iter()
+        .map(|&p| {
+            let at = |d: f64| {
+                let mut m = c.rho.clone();
+                m[p] += d;
+                let s = base.reuse_cells(lam, &cells_at(&m)).expect("a problem");
+                let f = s.solve_system(&source).expect("solved");
+                f.mode_amplitudes(&ports[1].mode).0.norm_sqr()
+            };
+            Probe {
+                gradient: gradient[p],
+                power,
+                delta,
+                at: [-2.0, -1.0, 1.0, 2.0].map(|s| at(s * delta)),
+                residual,
+            }
+        })
+        .collect()
+}
+
+fn litho_blur_case() -> Outcome {
+    zero(litho_blur_error(), 1e-14)
+}
+
+fn litho_transpose_case() -> Outcome {
+    zero(litho_transpose_error(), 1e-12)
+}
+
+/// F₂'s largest error in a row's area across a straight edge, in pixels: the supremum over the
+/// edge's place within a pixel of Σᵢ F₂(dᵢ/R̂) less the solid's length (0.1217 px at e = 0.234).
+pub(crate) const SSP_ROW_ERROR: f64 = 0.1217;
+
+fn litho_print_edge_case() -> Outcome {
+    zero(litho_print_error(4.0), SSP_ROW_ERROR + 0.1 / 16.0)
+}
+
+fn litho_gradient_case() -> Outcome {
+    let probes = litho_probes(1e-3);
+    crate::verdict::note_numerical(probes.iter().map(Probe::resolution).fold(0.0, f64::max));
+    zero(
+        probes
+            .iter()
+            .map(|p| (p.gradient - p.differences()).abs() / p.gradient.abs())
+            .fold(0.0, f64::max),
+        5e-8,
+    )
 }
