@@ -23,6 +23,7 @@
 use num_complex::Complex64 as c64;
 
 use super::Polarization;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -241,11 +242,11 @@ impl Profile {
             .map(|&p| {
                 let mut im = 0.0;
                 if self.pml.0 > 0.0 && p < start + self.pml.0 {
-                    im -= self.strength * (start + self.pml.0 - p).powi(3)
+                    im -= self.strength * portable::powi(start + self.pml.0 - p, 3)
                         / (3.0 * self.pml.0 * self.pml.0);
                 }
                 if self.pml.1 > 0.0 && p > end - self.pml.1 {
-                    im += self.strength * (p - (end - self.pml.1)).powi(3)
+                    im += self.strength * portable::powi(p - (end - self.pml.1), 3)
                         / (3.0 * self.pml.1 * self.pml.1);
                 }
                 c64::new(p, im)
@@ -308,10 +309,10 @@ fn residual_floor(entries: &[(usize, usize, c64)], shift: c64) -> f64 {
         if rows.len() <= i {
             rows.resize(i + 1, 0.0);
         }
-        rows[i] += v.norm();
+        rows[i] += portable::complex::abs(v);
     }
     let norm = rows.iter().copied().fold(0.0, f64::max);
-    f64::EPSILON * norm / shift.norm().max(1.0)
+    f64::EPSILON * norm / portable::complex::abs(shift).max(1.0)
 }
 
 impl ProfileMode {
@@ -320,10 +321,10 @@ impl ProfileMode {
         let peak = vector
             .iter()
             .copied()
-            .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+            .max_by(|a, b| portable::complex::abs(*a).total_cmp(&portable::complex::abs(*b)))
             .unwrap_or(c64::new(1.0, 0.0));
         ProfileMode {
-            effective_index: beta2.sqrt() / k,
+            effective_index: portable::complex::sqrt(beta2) / k,
             field: vector.iter().map(|v| v / peak).collect(),
         }
     }
@@ -383,7 +384,7 @@ mod tests {
                 })
                 .collect();
             for w in errors.windows(2) {
-                let order = (w[0] / w[1]).abs().log2();
+                let order = portable::log2((w[0] / w[1]).abs());
                 assert!((order - 2.0).abs() < 0.1, "{pol:?}: {errors:?}");
             }
         }
@@ -409,7 +410,7 @@ mod tests {
             .collect();
         eprintln!("{errors:?}");
         for w in errors.windows(2) {
-            let order = (w[0] / w[1]).abs().log2();
+            let order = portable::log2((w[0] / w[1]).abs());
             assert!((order - 2.0).abs() < 0.1, "{errors:?}");
         }
     }
@@ -451,9 +452,15 @@ mod tests {
                 .unwrap()
                 .into_iter()
                 .map(|m| m.effective_index)
-                .min_by(|a, b| (a - target).norm().total_cmp(&(b - target).norm()))
+                .min_by(|a, b| {
+                    portable::complex::abs(a - target)
+                        .total_cmp(&portable::complex::abs(b - target))
+                })
                 .unwrap();
-            assert!((best - target).norm() < 2e-5, "{best} vs {target}");
+            assert!(
+                portable::complex::abs(best - target) < 2e-5,
+                "{best} vs {target}"
+            );
         }
     }
 

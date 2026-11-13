@@ -12,6 +12,7 @@ use crate::mode::multilayer::Multilayer;
 use crate::mode::quantities::{Product, Region, orthogonality};
 use crate::mode::slab::Slab;
 use crate::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity, VectorMode};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -38,7 +39,7 @@ pub(crate) fn gaussian(
     let zero = c64::new(0.0, 0.0);
     for x in &xc {
         for y in &yc {
-            let g = c64::new((-(x * x + y * y) / (w * w)).exp(), 0.0);
+            let g = c64::new(portable::exp(-(x * x + y * y) / (w * w)), 0.0);
             e.push([g, zero, zero]);
             hh.push([zero, g, zero]);
         }
@@ -112,13 +113,13 @@ pub(crate) fn slab_te_exact(t: f64) -> (f64, f64) {
         .modes(Polarization::Te, lam())[0];
     let (h, q, p) = m.wavenumbers();
     let (a, b) = (1.0, q / h);
-    let (r2, phi) = (a * a + b * b, b.atan2(a));
-    let s = |n: f64| (n * (h * t - phi)).sin() + (n * phi).sin();
+    let (r2, phi) = (a * a + b * b, portable::atan2(b, a));
+    let s = |n: f64| portable::sin(n * (h * t - phi)) + portable::sin(n * phi);
     let core2 = r2 * (t / 2.0 + s(2.0) / (4.0 * h));
     let core4 = r2 * r2 * (3.0 * t / 8.0 + s(2.0) / (4.0 * h) + s(4.0) / (32.0 * h));
     let top = m.field(Length::um(t)).0;
     let all2 = core2 + a * a / (2.0 * q) + top * top / (2.0 * p);
-    let all4 = core4 + a.powi(4) / (4.0 * q) + top.powi(4) / (4.0 * p);
+    let all4 = core4 + portable::powi(a, 4) / (4.0 * q) + portable::powi(top, 4) / (4.0 * p);
     (all2 * all2 / all4, core2 / all2)
 }
 
@@ -279,14 +280,14 @@ fn rod_kerr_grid(d: f64, h: f64, stair: bool, hows: &[u8], exact_h: bool) -> Vec
     let mut shares = Vec::with_capacity(n * n);
     for i in 0..n {
         for j in 0..n {
-            let r = (0.5 * (x[i] + x[i + 1])).hypot(0.5 * (x[j] + x[j + 1]));
+            let r = portable::hypot(0.5 * (x[i] + x[i + 1]), 0.5 * (x[j] + x[j + 1]));
             let f = if (r - a).abs() < h {
                 let k = 64;
                 let inside = (0..k * k)
                     .filter(|s| {
                         let px = x[i] + ((s % k) as f64 + 0.5) / k as f64 * (x[i + 1] - x[i]);
                         let py = x[j] + ((s / k) as f64 + 0.5) / k as f64 * (x[j + 1] - x[j]);
-                        px.hypot(py) < a
+                        portable::hypot(px, py) < a
                     })
                     .count();
                 inside as f64 / (k * k) as f64
@@ -499,7 +500,7 @@ fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8
             if split >= 2 && f > 0.0 && f < 1.0 {
                 // E along the edge and D across it, both continuous, the mean over the cells
                 // of one material within two cells of this one
-                let r = fields.xc[a].hypot(fields.yc[b]);
+                let r = portable::hypot(fields.xc[a], fields.yc[b]);
                 let (nx, ny) = (fields.xc[a] / r, fields.yc[b] / r);
                 let (mut along, mut across, mut count) =
                     (c64::new(0.0, 0.0), c64::new(0.0, 0.0), 0.0);
@@ -534,7 +535,7 @@ fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8
                 add([dx / mean, dy / mean, ez], hh, w, n2, area);
                 continue;
             }
-            let r = fields.xc[a].hypot(fields.yc[b]);
+            let r = portable::hypot(fields.xc[a], fields.yc[b]);
             let (nx, ny) = (fields.xc[a] / r, fields.yc[b] / r);
             let along = (-ny * dx + nx * dy) / mean;
             let across = nx * dx + ny * dy;
@@ -691,7 +692,7 @@ impl RodExact {
         (0..m)
             .map(|i| {
                 let t = (i as f64 + 0.5) / m as f64 * std::f64::consts::PI;
-                (n * t - x * t.sin()).cos()
+                portable::cos(n * t - x * portable::sin(t))
             })
             .sum::<f64>()
             / m as f64
@@ -703,7 +704,7 @@ impl RodExact {
         (0..m)
             .map(|i| {
                 let t = (i as f64 + 0.5) / m as f64 * top;
-                (-x * t.cosh()).exp() * (n * t).cosh()
+                portable::exp(-x * portable::cosh(t)) * portable::cosh(n * t)
             })
             .sum::<f64>()
             * top
@@ -755,13 +756,13 @@ impl RodExact {
         };
         // F/r, its limit u/2 at the centre
         let fr = if r < self.a && self.u * r < 1e-3 {
-            self.u * (0.5 - (self.u * r).powi(2) / 16.0)
+            self.u * (0.5 - portable::powi(self.u * r, 2) / 16.0)
         } else {
             f / r
         };
         let (beta, k, b) = (self.beta, self.k, self.b);
         let i = c64::new(0.0, 1.0);
-        let (cs, sn) = (phi.cos(), phi.sin());
+        let (cs, sn) = (portable::cos(phi), portable::sin(phi));
         let e = [
             i / kappa2 * (beta * df + k * b * fr) * cs,
             i / kappa2 * (-beta * fr - k * b * df) * sn,
@@ -777,10 +778,10 @@ impl RodExact {
 
     /// H's Cartesian components at (x, y).
     fn h_at(&self, x: f64, y: f64) -> [c64; 3] {
-        let r = x.hypot(y);
-        let phi = y.atan2(x);
+        let r = portable::hypot(x, y);
+        let phi = portable::atan2(y, x);
         let (_, _, [hr, hp, hz]) = self.polar(r.max(1e-12), phi);
-        let (cs, sn) = (phi.cos(), phi.sin());
+        let (cs, sn) = (portable::cos(phi), portable::sin(phi));
         [hr * cs - hp * sn, hr * sn + hp * cs, hz]
     }
 }
@@ -930,7 +931,7 @@ pub(crate) fn facade_quantities() -> (f64, f64) {
                     .expect("a confinement"),
             ));
         for (b, &overlap) in f.orthogonality.iter().enumerate().take(library.len()) {
-            gap = gap.max((overlap - products.get(a, b)).norm());
+            gap = gap.max(portable::complex::abs(overlap - products.get(a, b)));
         }
     }
     (gap, facade[0].effective_area_um2)
@@ -946,7 +947,7 @@ fn the_facades_quantities_are_the_librarys() {
 /// The observed order of `error` over spacings 10, 5 and 2.5 nm: the mean of the two halvings'.
 fn order(error: impl Fn(f64) -> f64) -> f64 {
     let e: Vec<f64> = [0.01, 0.005, 0.0025].into_iter().map(error).collect();
-    0.5 * ((e[0] / e[1]).log2() + (e[1] / e[2]).log2())
+    0.5 * (portable::log2(e[0] / e[1]) + portable::log2(e[1] / e[2]))
 }
 
 /// to `digits` significant digits, so the report reads the same on every system.
@@ -954,7 +955,7 @@ fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 
@@ -1214,7 +1215,7 @@ mod tests {
                 let (px, py) = (f.xc[c / n], f.yc[c % n]);
                 let ex = rod.h_at(px, py);
                 for q in 0..3 {
-                    let e = (hh[q] - ex[q]).norm();
+                    let e = portable::complex::abs(hh[q] - ex[q]);
                     if e > worst[q].0 {
                         worst[q] = (e, c);
                     }
@@ -1224,7 +1225,7 @@ mod tests {
                 let (px, py) = (f.xc[c / n], f.yc[c % n]);
                 println!(
                     "h {h}: H[{q}] largest error {e:.3e} at r {:.5} (x {px:.5}, y {py:.5}), exact {:.4}",
-                    px.hypot(py),
+                    portable::hypot(px, py),
                     rod.h_at(px, py)[q]
                 );
             }

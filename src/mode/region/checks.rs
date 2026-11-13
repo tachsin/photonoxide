@@ -6,6 +6,7 @@ use super::{Region, Search};
 use crate::mode::Polarization;
 use crate::mode::slab_fd::{Profile, chilwell_profile};
 use crate::mode::vector::{self, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -71,7 +72,7 @@ pub(crate) fn chilwell_bound() -> f64 {
             return f64::NAN;
         }
         for (m, t) in found.modes.iter().zip(table) {
-            worst = worst.max((m.effective_index - t).norm());
+            worst = worst.max(portable::complex::abs(m.effective_index - t));
         }
     }
     worst
@@ -128,7 +129,7 @@ pub(crate) fn dense_leaky() -> f64 {
     };
     let mut want: Vec<c64> = all
         .iter()
-        .map(|b| b.sqrt() / k)
+        .map(|b| portable::complex::sqrt(*b) / k)
         .filter(|z| region.contains(*z))
         .collect();
     let Ok(found) = profile.modes_in(Polarization::Te, w, &region, &Search::default()) else {
@@ -142,7 +143,7 @@ pub(crate) fn dense_leaky() -> f64 {
         .modes
         .iter()
         .zip(&want)
-        .map(|(m, w)| (m.effective_index - w).norm())
+        .map(|(m, w)| portable::complex::abs(m.effective_index - w))
         .fold(0.0, f64::max)
 }
 
@@ -164,9 +165,10 @@ pub(crate) fn uniform_box() -> (f64, usize, usize) {
     let (nodes_x, nodes_y) = (nx + 1, ny + 1);
     let term = |p: usize, h: f64, nodes: usize| {
         4.0 / (h * h)
-            * (p as f64 * std::f64::consts::PI / (2.0 * (nodes as f64 + 1.0)))
-                .sin()
-                .powi(2)
+            * portable::powi(
+                portable::sin(p as f64 * std::f64::consts::PI / (2.0 * (nodes as f64 + 1.0))),
+                2,
+            )
     };
     let mut exact: Vec<f64> = (1..=nodes_x)
         .flat_map(|p| (1..=nodes_y).map(move |q| (p, q)))
@@ -192,7 +194,7 @@ pub(crate) fn uniform_box() -> (f64, usize, usize) {
         .zip(&want)
         .map(|(m, &b)| {
             let n = m.effective_index();
-            ((n * n * k * k - b).norm()) / b
+            (portable::complex::abs(n * n * k * k - b)) / b
         })
         .fold(0.0, f64::max);
     (worst, found.modes.len(), want.len())
@@ -221,7 +223,7 @@ pub(crate) fn strip_against_shift_invert() -> f64 {
         .modes
         .iter()
         .zip(&arnoldi)
-        .map(|(a, b)| (a.effective_index() - b.effective_index()).norm())
+        .map(|(a, b)| portable::complex::abs(a.effective_index() - b.effective_index()))
         .fold(0.0, f64::max)
 }
 
@@ -245,7 +247,7 @@ pub(crate) fn leaky_against_shift_invert() -> f64 {
     found
         .iter()
         .zip(&arnoldi)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max)
 }
 
@@ -269,7 +271,7 @@ pub(crate) fn one_pass_error(points: usize) -> f64 {
             .modes
             .iter()
             .zip(&exact.modes)
-            .map(|(a, b)| (a.effective_index - b.effective_index).norm())
+            .map(|(a, b)| portable::complex::abs(a.effective_index - b.effective_index))
             .fold(0.0, f64::max),
         _ => f64::NAN,
     }
@@ -280,8 +282,8 @@ pub(crate) fn one_pass_error(points: usize) -> f64 {
 /// power of N. Rounded to two decimals, so the report reads the same on every machine.
 pub(crate) fn exponential_rate() -> f64 {
     let e = [6, 12, 24].map(one_pass_error);
-    let q1 = (e[1] / e[0]).ln() / 6.0;
-    let q2 = (e[2] / e[1]).ln() / 12.0;
+    let q1 = portable::ln(e[1] / e[0]) / 6.0;
+    let q2 = portable::ln(e[2] / e[1]) / 12.0;
     (100.0 * q2 / q1).round() / 100.0
 }
 

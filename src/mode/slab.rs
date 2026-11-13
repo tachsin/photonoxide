@@ -21,6 +21,7 @@
 use std::f64::consts::PI;
 
 use super::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -84,9 +85,12 @@ impl Slab {
         let p = k * (n * n - n3 * n3).max(0.0).sqrt();
         let (q, p) = match pol {
             Polarization::Te => (q, p),
-            Polarization::Tm => ((n2 / n1).powi(2) * q, (n2 / n3).powi(2) * p),
+            Polarization::Tm => (
+                portable::powi(n2 / n1, 2) * q,
+                portable::powi(n2 / n3, 2) * p,
+            ),
         };
-        h * self.thickness.to_um() - q.atan2(h) - p.atan2(h) - m as f64 * PI
+        h * self.thickness.to_um() - portable::atan2(q, h) - portable::atan2(p, h) - m as f64 * PI
     }
 
     /// The guided modes of one polarization at `wavelength`, fundamental first (highest
@@ -176,21 +180,21 @@ impl SlabMode {
         let (a, b, lower) = match self.polarization {
             Polarization::Te => (1.0, q / h, q),
             Polarization::Tm => {
-                let qb = (self.slab.core / self.slab.below).powi(2) * q;
+                let qb = portable::powi(self.slab.core / self.slab.below, 2) * q;
                 (h / qb, 1.0, q)
             }
         };
         if x < 0.0 {
-            let v = a * (lower * x).exp();
+            let v = a * portable::exp(lower * x);
             (v, lower * v)
         } else if x <= t {
             (
-                a * (h * x).cos() + b * (h * x).sin(),
-                h * (b * (h * x).cos() - a * (h * x).sin()),
+                a * portable::cos(h * x) + b * portable::sin(h * x),
+                h * (b * portable::cos(h * x) - a * portable::sin(h * x)),
             )
         } else {
-            let top = a * (h * t).cos() + b * (h * t).sin();
-            let v = top * (-p * (x - t)).exp();
+            let top = a * portable::cos(h * t) + b * portable::sin(h * t);
+            let v = top * portable::exp(-p * (x - t));
             (v, -p * v)
         }
     }
@@ -244,11 +248,14 @@ mod tests {
                 let rhs = match pol {
                     Polarization::Te => (p + q) / h / (1.0 - p * q / (h * h)),
                     Polarization::Tm => {
-                        let (qb, pb) = (3.473f64.powi(2) * q, (3.473f64 / 1.444).powi(2) * p);
+                        let (qb, pb) = (
+                            portable::powi(3.473f64, 2) * q,
+                            portable::powi(3.473f64 / 1.444, 2) * p,
+                        );
                         h * (pb + qb) / (h * h - pb * qb)
                     }
                 };
-                let lhs = (h * t).tan();
+                let lhs = portable::tan(h * t);
                 assert!(
                     (lhs - rhs).abs() < 1e-9 * (1.0 + rhs.abs()),
                     "{pol:?} {}: {lhs} vs {rhs}",
@@ -279,7 +286,7 @@ mod tests {
         let (n1, n2, n3): (f64, f64, f64) = (1.0, 2.0, 1.5);
         let k = lam(1.0).wavenumber();
         let root = (n2 * n2 - n3 * n3).sqrt();
-        let t_c = ((n3 * n3 - n1 * n1).sqrt() / root).atan() / (k * root);
+        let t_c = portable::atan((n3 * n3 - n1 * n1).sqrt() / root) / (k * root);
         let below = Slab::new(n3, n2, n1, Length::um(0.98 * t_c)).unwrap();
         let above = Slab::new(n3, n2, n1, Length::um(1.02 * t_c)).unwrap();
         assert!(below.modes(Polarization::Te, lam(1.0)).is_empty());

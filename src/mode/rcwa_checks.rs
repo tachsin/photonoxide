@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 use super::Polarization;
 use super::multilayer::Multilayer;
 use super::rcwa::{Factorization, Grating, Layer};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -78,7 +79,9 @@ fn uniform_multilayer() -> Outcome {
         for angle in [0.0, 0.5] {
             let d = g.diffract(pol, wl(1.0), angle, 5).expect(OK);
             let m = ml.reflection(pol, wl(1.0), angle).expect(OK);
-            error = error.max((d.r[5] - m.r).norm()).max((d.t[5] - m.t).norm());
+            error = error
+                .max(portable::complex::abs(d.r[5] - m.r))
+                .max(portable::complex::abs(d.t[5] - m.t));
         }
     }
     Outcome {
@@ -153,12 +156,16 @@ fn effective_medium_error(period: f64, orders: usize) -> [f64; 2] {
         } else {
             across
         };
-        let film = Multilayer::new(re(1.0), &[(eps.sqrt(), Length::um(0.3))], re(1.45))
-            .expect(OK)
-            .reflection(pol, wl(1.55), 0.0)
-            .expect(OK);
+        let film = Multilayer::new(
+            re(1.0),
+            &[(portable::complex::sqrt(eps), Length::um(0.3))],
+            re(1.45),
+        )
+        .expect(OK)
+        .reflection(pol, wl(1.55), 0.0)
+        .expect(OK);
         let d = g.diffract(pol, wl(1.55), 0.0, orders).expect(OK);
-        (d.t[orders] - film.t).norm()
+        portable::complex::abs(d.t[orders] - film.t)
     })
 }
 
@@ -168,7 +175,7 @@ fn effective_medium_order() -> Outcome {
         .map(|&p| effective_medium_error(p, 40))
         .collect();
     // the order of the last halving: TE's second, TM's first
-    let order = |k: usize| (e[0][k] / e[1][k]).log2();
+    let order = |k: usize| portable::log2(e[0][k] / e[1][k]);
     let error = (order(0) - 2.0).abs().max((order(1) - 1.0).abs());
     Outcome {
         measured: error,
@@ -220,7 +227,7 @@ fn bulk_and_faces(pol: Polarization, p: f64, orders: usize, rule: Factorization)
     let k0 = 2.0 * std::f64::consts::PI / 1.55;
     let phase = |d: f64| {
         let (_, t) = embedded(pol, p, d, re(n0), orders, rule);
-        (t * c64::new(0.0, -k0 * n0 * d).exp()).arg()
+        portable::complex::arg(t * portable::complex::exp(c64::new(0.0, -k0 * n0 * d)))
     };
     let half = 1.55 / (2.0 * n0);
     let (a, b) = (phase(half), phase(2.0 * half));
@@ -236,7 +243,7 @@ fn effective_medium_faces() -> Outcome {
             let (bulk, faces) = bulk_and_faces(pol, p, 40, Factorization::Li);
             if face { faces } else { bulk }
         });
-        (coarse / fine).log2()
+        portable::log2(coarse / fine)
     };
     let error = (order(Polarization::Te, false) - 2.0)
         .abs()
@@ -273,7 +280,7 @@ fn tm_convergence() -> Outcome {
         .iter()
         .map(|&m| deep_tm(m, Factorization::Laurent))
         .collect();
-    let order = ((t[1] - t[0]) / (t[2] - t[1])).log2();
+    let order = portable::log2((t[1] - t[0]) / (t[2] - t[1]));
     Outcome {
         measured: order,
         expected: 1.0,
@@ -461,10 +468,14 @@ mod tests {
             let across = 1.0 / (f / e1 + (1.0 - f) / e2);
             let along = e1 * f + e2 * (1.0 - f);
             for (pol, eps) in [(Polarization::Tm, across), (Polarization::Te, along)] {
-                let film = Multilayer::new(re(1.0), &[(eps.sqrt(), Length::um(d))], re(1.0))
-                    .expect(OK)
-                    .reflection(pol, wl(1.55), 0.0)
-                    .expect(OK);
+                let film = Multilayer::new(
+                    re(1.0),
+                    &[(portable::complex::sqrt(eps), Length::um(d))],
+                    re(1.0),
+                )
+                .expect(OK)
+                .reflection(pol, wl(1.55), 0.0)
+                .expect(OK);
                 let t = g.diffract(pol, wl(1.55), 0.0, 40).expect(OK).t[40];
                 eprintln!("{pol:?} thickness {d}: t/t_film {:.6e}", (t / film.t) - 1.0);
             }
@@ -514,8 +525,8 @@ mod tests {
         let k0 = 2.0 * std::f64::consts::PI / 1.55;
         // the second order in Λ/λ
         let second = |pol: Polarization, p: f64| {
-            let s =
-                (std::f64::consts::PI * p / 1.55 * f * (1.0 - f)).powi(2) / 3.0 * (e1 - e2).powi(2);
+            let s = portable::powi(std::f64::consts::PI * p / 1.55 * f * (1.0 - f), 2) / 3.0
+                * portable::powi(e1 - e2, 2);
             let (along, across) = (
                 static_limit(Polarization::Te),
                 static_limit(Polarization::Tm),
@@ -523,7 +534,7 @@ mod tests {
             if pol == Polarization::Te {
                 along + s
             } else {
-                across + s * along * across.powi(3) / (e1 * e2).powi(2)
+                across + s * along * portable::powi(across, 3) / portable::powi(e1 * e2, 2)
             }
         };
         for pol in POLARIZATIONS {
@@ -539,7 +550,9 @@ mod tests {
                             .iter()
                             .map(|&d| {
                                 let (r, _) = embedded(pol, p, d, re(n0), m, rule);
-                                let s = r / (1.0 + c64::new(0.0, 2.0 * k0 * n0 * d).exp());
+                                let s = r
+                                    / (1.0
+                                        + portable::complex::exp(c64::new(0.0, 2.0 * k0 * n0 * d)));
                                 format!("{:.4e}{:+.4e}i", s.re, s.im)
                             })
                             .collect();

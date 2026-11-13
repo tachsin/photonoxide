@@ -6,6 +6,7 @@ use num_complex::Complex64 as c64;
 
 use super::roughness::{self, Roughness};
 use super::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -171,7 +172,7 @@ pub(crate) fn cases() -> Vec<Case> {
             run: || {
                 let s = silicon_study();
                 let v = &s.values;
-                let order = ((v[1] - v[0]) / (v[2] - v[1])).log2();
+                let order = portable::log2((v[1] - v[0]) / (v[2] - v[1]));
                 // two decimals: the digits that hold on every system
                 let order = (100.0 * order).round() / 100.0;
                 let expected = corner_order();

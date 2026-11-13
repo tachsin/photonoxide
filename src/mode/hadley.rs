@@ -55,6 +55,7 @@ use faer::sparse::{SparseColMat, Triplet};
 use faer::{Mat, c64};
 
 use crate::mode::vector::{self, Component, CrossSection, Numbering, VectorMode};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -75,13 +76,13 @@ fn bessel_j(n: u32, z: c64) -> c64 {
     }
     let q = -(h * h);
     let mut sum = term;
-    let mut peak = term.norm();
+    let mut peak = portable::complex::abs(term);
     let mut k = 1.0;
     loop {
         term *= q / (k * (k + f64::from(n)));
         sum += term;
-        peak = peak.max(term.norm());
-        if term.norm() <= 1e-17 * peak || k > 300.0 {
+        peak = peak.max(portable::complex::abs(term));
+        if portable::complex::abs(term) <= 1e-17 * peak || k > 300.0 {
             return sum;
         }
         k += 1.0;
@@ -104,7 +105,7 @@ impl Grid {
     /// ξ = √(k²(ε − ε̄)) (Hadley I, Eq. 3), imaginary where ε < ε̄; the equations depend only
     /// on ξ², so the branch doesn't matter.
     fn xi(&self, eps: f64) -> c64 {
-        (c64::new(self.k2 * eps, 0.0) - self.k2 * self.eb).sqrt()
+        portable::complex::sqrt(c64::new(self.k2 * eps, 0.0) - self.k2 * self.eb)
     }
 }
 
@@ -121,12 +122,12 @@ type Local = (isize, isize, c64);
 fn uniform(eps: f64, c: Component, g: &Grid) -> Result<Vec<Term>> {
     let xi = g.xi(eps);
     let (hx, hy) = (g.hx, g.hy);
-    let r = hx.hypot(hy);
-    let t0 = hy.atan2(hx);
+    let r = portable::hypot(hx, hy);
+    let t0 = portable::atan2(hy, hx);
     let j = |n: u32, h: f64| bessel_j(n, xi * h);
     let (j2x, j4x, j2y, j4y) = (j(2, hx), j(4, hx), j(2, hy), j(4, hy));
-    let p = j(2, r) * (2.0 * t0).cos();
-    let q = j(4, r) * (4.0 * t0).cos();
+    let p = j(2, r) * portable::cos(2.0 * t0);
+    let q = j(4, r) * portable::cos(4.0 * t0);
     let det = j2x * j4y + j4x * j2y;
     // (8) and (9)
     let a = -2.0 * (p * j4y + j2y * q) / det;
@@ -159,7 +160,10 @@ fn uniform(eps: f64, c: Component, g: &Grid) -> Result<Vec<Term>> {
 /// first scaled to unit size (the rows of Hadley I's Eqs. 21–24 differ by powers of ξh).
 fn solve4(mut m: [[c64; 4]; 4], mut rhs: [c64; 4]) -> Option<[c64; 4]> {
     for (row, b) in m.iter_mut().zip(rhs.iter_mut()) {
-        let s = row.iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let s = row
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         if s == 0.0 || !s.is_finite() {
             return None;
         }
@@ -169,8 +173,10 @@ fn solve4(mut m: [[c64; 4]; 4], mut rhs: [c64; 4]) -> Option<[c64; 4]> {
         *b /= s;
     }
     for col in 0..4 {
-        let pivot = (col..4).max_by(|&a, &b| m[a][col].norm().total_cmp(&m[b][col].norm()))?;
-        if m[pivot][col].norm() == 0.0 {
+        let pivot = (col..4).max_by(|&a, &b| {
+            portable::complex::abs(m[a][col]).total_cmp(&portable::complex::abs(m[b][col]))
+        })?;
+        if portable::complex::abs(m[pivot][col]) == 0.0 {
             return None;
         }
         m.swap(col, pivot);
@@ -221,10 +227,10 @@ fn interface(
     let al4 = al2 * al2;
     let be = ONE - al2;
     let (dx, dy) = (ha, hb);
-    let r = dx.hypot(dy);
-    let t0 = dy.atan2(dx);
-    let s = |n: f64| (n * t0).sin();
-    let c = |n: f64| (n * t0).cos();
+    let r = portable::hypot(dx, dy);
+    let t0 = portable::atan2(dy, dx);
+    let s = |n: f64| portable::sin(n * t0);
+    let c = |n: f64| portable::cos(n * t0);
     let j1 = |n: u32, h: f64| bessel_j(n, x1 * h);
     let j2 = |n: u32, h: f64| bessel_j(n, x2 * h);
     // R = ε₂/ε₁ in (31) and (32); 1 in (21) and (22)
@@ -363,7 +369,7 @@ fn corner_exponents(e: [f64; 4]) -> Option<(f64, f64)> {
     if !(s > 1e-12 && s <= 0.25 + 1e-12) {
         return None;
     }
-    let d = 2.0 / PI * s.min(0.25).sqrt().asin();
+    let d = 2.0 / PI * portable::asin(s.min(0.25).sqrt());
     Some((2.0 + d, 2.0 - d))
 }
 
@@ -384,18 +390,22 @@ fn corner(e: [f64; 4], c: Component, g: &Grid) -> Result<Vec<Term>> {
         )
     })?;
     let (hx, hy) = (g.hx, g.hy);
-    let r = hx.hypot(hy);
-    let th = hy.atan2(hx);
+    let r = portable::hypot(hx, hy);
+    let th = portable::atan2(hy, hx);
     let e1234 = (e1 - e2) / (e1 + e2) + (e3 - e4) / (e3 + e4);
-    let (c2, s2) = ((2.0 * th).cos(), (2.0 * th).sin());
+    let (c2, s2) = (portable::cos(2.0 * th), portable::sin(2.0 * th));
     // (A3)–(A8) and (A12)–(A13) for one exponent p: (A or C, B or D, E or F, E' or F')
     let appendix = |p: f64| {
-        let (cp, sp) = ((PI * p / 2.0).cos(), (PI * p / 2.0).sin());
-        let a = 2.0 * (r.powf(p - 2.0) * (p * th).cos() + hy.powf(p - 2.0) * c2 * cp);
+        let (cp, sp) = (portable::cos(PI * p / 2.0), portable::sin(PI * p / 2.0));
+        let a = 2.0
+            * (portable::powf(r, p - 2.0) * portable::cos(p * th)
+                + portable::powf(hy, p - 2.0) * c2 * cp);
         let b = -4.0 * sp / e1234
-            * (r.powf(p - 2.0) * (p * (th - PI / 2.0)).cos() - hx.powf(p - 2.0) * c2 * cp);
-        let ee = -hx.powf(p - 2.0) - hy.powf(p - 2.0) * cp;
-        let ep = 2.0 * sp / e1234 * (hy.powf(p - 2.0) + hx.powf(p - 2.0) * cp);
+            * (portable::powf(r, p - 2.0) * portable::cos(p * (th - PI / 2.0))
+                - portable::powf(hx, p - 2.0) * c2 * cp);
+        let ee = -portable::powf(hx, p - 2.0) - portable::powf(hy, p - 2.0) * cp;
+        let ep =
+            2.0 * sp / e1234 * (portable::powf(hy, p - 2.0) + portable::powf(hx, p - 2.0) * cp);
         (a, b, ee, ep)
     };
     let (a, b, ee, ep) = appendix(nu);
@@ -408,11 +418,11 @@ fn corner(e: [f64; 4], c: Component, g: &Grid) -> Result<Vec<Term>> {
     let cb3 = (a * fp - cc * ep) / den;
     let sum = e1 + e2 + e3 + e4;
     // (A9), (A14)
-    let ca1 = ((2.0 * ca2 * th.cos() / r + 1.0 / hx) * (e2 + e3 - e1 - e4)
-        + 2.0 * ca3 * th.sin() / r * (e1 + e2 - e3 - e4))
+    let ca1 = ((2.0 * ca2 * portable::cos(th) / r + 1.0 / hx) * (e2 + e3 - e1 - e4)
+        + 2.0 * ca3 * portable::sin(th) / r * (e1 + e2 - e3 - e4))
         / sum;
-    let cb1 = ((2.0 * cb3 * th.sin() / r + 1.0 / hy) * (e1 + e2 - e3 - e4)
-        + 2.0 * cb2 * th.cos() / r * (e2 + e3 - e1 - e4))
+    let cb1 = ((2.0 * cb3 * portable::sin(th) / r + 1.0 / hy) * (e1 + e2 - e3 - e4)
+        + 2.0 * cb2 * portable::cos(th) / r * (e2 + e3 - e1 - e4))
         / sum;
     if ![ca1, ca2, ca3, cb1, cb2, cb3].iter().all(|v| v.is_finite()) {
         return Err(Error::invalid(
@@ -495,10 +505,10 @@ fn corner(e: [f64; 4], c: Component, g: &Grid) -> Result<Vec<Term>> {
     // α ≡ ε₂ + ε₄ − ε₁ − ε₃ (after Eq. 49), and ξ₂² − ξ₄²
     let alpha = e2 + e4 - e1 - e3;
     let dxi = k2 * (e2 - e4);
-    let ln = (hx / hy).ln();
+    let ln = portable::ln(hx / hy);
     // θ sin 2θ as in Eq. (47); Eqs. (50) and (52) misprint it as θ sin θ (see the module docs)
-    let sin_term = th * s2 + c2 * th.sin().ln();
-    let cos_term = (PI / 2.0 - th) * s2 - c2 * th.cos().ln();
+    let sin_term = th * s2 + c2 * portable::ln(portable::sin(th));
+    let cos_term = (PI / 2.0 - th) * s2 - c2 * portable::ln(portable::cos(th));
     let ka = k2 * alpha;
     let scaled = |terms: Vec<Term>, f: f64| -> Vec<Term> {
         terms
@@ -645,7 +655,7 @@ fn refine(
     for _ in 0..30 {
         let grid = |eb: c64| Grid { k2, eb, hx, hy };
         let m = assemble(cs, numbering, &grid(eb))?;
-        let delta = 1e-6 * eb.norm().max(1.0);
+        let delta = 1e-6 * portable::complex::abs(eb).max(1.0);
         let plus = assemble(cs, numbering, &grid(eb + delta))?;
         let minus = assemble(cs, numbering, &grid(eb - delta))?;
         // M′ v
@@ -668,7 +678,7 @@ fn refine(
         v = w.iter().map(|x| x / wn).collect();
         // converged: the change is below 1e-13 relative, or, on a grid large enough that the
         // solves' round-off holds it above that, it has stopped falling once below 1e-10
-        let change = step.norm() / eb.norm();
+        let change = portable::complex::abs(step) / portable::complex::abs(eb);
         if change <= 1e-13 || (change <= 1e-10 && change >= last) {
             return Ok((eb, v));
         }
@@ -710,8 +720,8 @@ fn check(cs: &CrossSection) -> Result<(f64, f64)> {
             let real_iso = e.xx.im == 0.0
                 && e.xx == e.yy
                 && e.xx == e.zz
-                && e.xy.norm() == 0.0
-                && e.yx.norm() == 0.0
+                && portable::complex::abs(e.xy) == 0.0
+                && portable::complex::abs(e.yx) == 0.0
                 && e.xx.re > 0.0;
             if !real_iso {
                 return Err(Error::invalid(
@@ -766,7 +776,7 @@ pub fn refined(
     let k = wavelength.wavenumber();
     let k2 = k * k;
     let numbering = Numbering::new(cs);
-    let r = hx.hypot(hy);
+    let r = portable::hypot(hx, hy);
     let mut out = Vec::with_capacity(start.len());
     for mode in start {
         if stopped() {
@@ -778,9 +788,7 @@ pub fn refined(
             let worst = (0..cs.x().len() - 1)
                 .flat_map(|i| (0..cs.y().len() - 1).map(move |j| (i, j)))
                 .map(|(i, j)| {
-                    (k2 * (cs.cell(i as isize, j as isize).xx - eb))
-                        .norm()
-                        .sqrt()
+                    portable::complex::abs(k2 * (cs.cell(i as isize, j as isize).xx - eb)).sqrt()
                         * r
                 })
                 .fold(0.0, f64::max);
@@ -823,7 +831,8 @@ pub(crate) fn uniform_box(n: usize) -> (CrossSection, Wavelength, f64) {
     .expect("a valid box");
     let w = Wavelength::from_um_unchecked(1.15);
     let k = w.wavenumber();
-    let exact = (eps - ((PI / 4.0).powi(2) + (PI / 2.0).powi(2)) / (k * k)).sqrt();
+    let exact =
+        (eps - (portable::powi(PI / 4.0, 2) + portable::powi(PI / 2.0, 2)) / (k * k)).sqrt();
     (cs, w, exact)
 }
 
@@ -831,10 +840,10 @@ pub(crate) fn uniform_box(n: usize) -> (CrossSection, Wavelength, f64) {
 fn tan_term(kappa2: f64, l: f64) -> f64 {
     if kappa2 >= 0.0 {
         let k = kappa2.sqrt();
-        k * (k * l).tan()
+        k * portable::tan(k * l)
     } else {
         let g = (-kappa2).sqrt();
-        -g * (g * l).tanh()
+        -g * portable::tanh(g * l)
     }
 }
 
@@ -875,12 +884,12 @@ pub(crate) fn two_dielectric_box(
     })
     .expect("a valid box");
     let w = Wavelength::from_um_unchecked(0.975);
-    let k2 = w.wavenumber().powi(2);
-    let q2 = (PI / width).powi(2);
+    let k2 = portable::powi(w.wavenumber(), 2);
+    let q2 = portable::powi(PI / width, 2);
     let f = |eb: f64| tan_term(k2 * (bottom - eb) - q2, lb) + tan_term(k2 * (top - eb) - q2, lt);
     // κ_b L_b from π/2 (f → +∞) down to 0 (f < 0): f decreases with ε̄
     let (mut lo, mut hi) = (
-        bottom - (q2 + (PI / (2.0 * lb)).powi(2)) / k2 + 1e-12,
+        bottom - (q2 + portable::powi(PI / (2.0 * lb), 2)) / k2 + 1e-12,
         bottom - q2 / k2,
     );
     for _ in 0..200 {
@@ -964,8 +973,8 @@ mod tests {
 
     impl Field {
         fn at(&self, x: f64, y: f64) -> c64 {
-            let r = x.hypot(y);
-            let t = y.atan2(x);
+            let r = portable::hypot(x, y);
+            let t = portable::atan2(y, x);
             let (xi, c, d) = if y >= 0.0 {
                 (self.x1, &self.c, &self.d)
             } else {
@@ -974,7 +983,8 @@ mod tests {
             (0..c.len())
                 .map(|n| {
                     let nt = n as f64 * t;
-                    bessel_j(n as u32, xi * r) * (c[n] * nt.cos() + d[n] * nt.sin())
+                    bessel_j(n as u32, xi * r)
+                        * (c[n] * portable::cos(nt) + d[n] * portable::sin(nt))
                 })
                 .sum()
         }
@@ -985,7 +995,7 @@ mod tests {
         let c = (0..=DEGREE)
             .map(|n| {
                 let v = if n <= 8 {
-                    (seed + 1.3 * n as f64).sin()
+                    portable::sin(seed + 1.3 * n as f64)
                 } else {
                     0.0
                 };
@@ -995,7 +1005,7 @@ mod tests {
         let d = (0..=DEGREE)
             .map(|n| {
                 let v = if (1..=8).contains(&n) {
-                    (seed + 0.7 * n as f64).cos()
+                    portable::cos(seed + 0.7 * n as f64)
                 } else {
                     0.0
                 };
@@ -1053,17 +1063,20 @@ mod tests {
                 .map(|&(a, b, v)| v * field.at(a as f64 * h.0, b as f64 * h.1))
                 .sum()
         };
-        (on(same, f) + on(others, other)).norm() / f.at(0.0, 0.0).norm()
+        portable::complex::abs(on(same, f) + on(others, other))
+            / portable::complex::abs(f.at(0.0, 0.0))
     }
 
     /// The order p of a residual ∝ hᵖ, from h and h/2.
     fn order(at: impl Fn(f64) -> f64, h: f64) -> f64 {
-        (at(h) / at(h / 2.0)).log2()
+        portable::log2(at(h) / at(h / 2.0))
     }
 
     #[test]
     fn bessel_matches_known_values() {
-        let close = |a: c64, b: c64| (a - b).norm() < 1e-14 * b.norm().max(1.0);
+        let close = |a: c64, b: c64| {
+            portable::complex::abs(a - b) < 1e-14 * portable::complex::abs(b).max(1.0)
+        };
         let re = |v: f64| c64::new(v, 0.0);
         assert!(close(bessel_j(0, re(1.0)), re(0.765_197_686_557_966_6)));
         assert!(close(bessel_j(1, re(2.5)), re(0.497_094_102_464_274_1)));
@@ -1167,7 +1180,7 @@ mod tests {
             })
             .collect();
         for pair in e.windows(2) {
-            let p = (pair[0] / pair[1]).abs().log2();
+            let p = portable::log2((pair[0] / pair[1]).abs());
             assert!((p - 6.0).abs() < 0.2, "{e:?}: order {p}");
         }
         assert!(e[2].abs() < 3e-12, "{e:?}");
@@ -1186,7 +1199,7 @@ mod tests {
                 })
                 .collect();
             for pair in e.windows(2) {
-                let p = (pair[0] / pair[1]).abs().log2();
+                let p = portable::log2((pair[0] / pair[1]).abs());
                 assert!((p - 6.0).abs() < 0.3, "high {high}: {e:?}: order {p}");
             }
         }
@@ -1215,9 +1228,13 @@ mod tests {
             let (nu, mu) = corner_exponents(e).unwrap();
             let [e1, e2, e3, e4] = e;
             // Eq. (37)
-            let s = (e1 * e3 - e2 * e4).powi(2) / ((e1 + e2) * (e2 + e3) * (e3 + e4) * (e4 + e1));
+            let s = portable::powi(e1 * e3 - e2 * e4, 2)
+                / ((e1 + e2) * (e2 + e3) * (e3 + e4) * (e4 + e1));
             for p in [nu, mu] {
-                assert!(((PI * p / 2.0).sin().powi(2) - s).abs() < 1e-14, "{e:?}");
+                assert!(
+                    (portable::powi(portable::sin(PI * p / 2.0), 2) - s).abs() < 1e-14,
+                    "{e:?}"
+                );
                 assert!((5.0 / 3.0..=7.0 / 3.0).contains(&p), "{e:?}: {p}");
             }
             assert!((nu + mu - 4.0).abs() < 1e-14);
@@ -1247,7 +1264,7 @@ mod tests {
                     error(&cs, w, exact)
                 })
                 .collect();
-            let p = (e[0] / e[1]).abs().log2();
+            let p = portable::log2((e[0] / e[1]).abs());
             assert!(
                 (p - 2.0).abs() < 0.25,
                 "problem {problem}: {e:?}: order {p}"

@@ -30,6 +30,7 @@
 use num_complex::Complex64 as c64;
 
 use super::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -243,7 +244,7 @@ impl SlabBend {
                 dpsi += h / 6.0 * (k1d + 2.0 * k2d + 2.0 * k3d + k4d);
                 rho += h;
                 // only ψ'/ψ matters: keep the numbers in range
-                let scale = psi.norm();
+                let scale = portable::complex::abs(psi);
                 if rescale && !(1e-100..=1e100).contains(&scale) {
                     psi /= scale;
                     dpsi /= scale;
@@ -316,9 +317,9 @@ impl SlabBend {
         // is below its own start, so that it is never integrated inwards
         let lowest = rhos.iter().copied().fold(ends.start, f64::min);
         let inner = if lowest < ends.start {
-            let kappa = (nu * nu / (lowest * lowest)
-                - c64::new(k * k * self.inner * self.inner, 0.0))
-            .sqrt();
+            let kappa = portable::complex::sqrt(
+                nu * nu / (lowest * lowest) - c64::new(k * k * self.inner * self.inner, 0.0),
+            );
             (lowest, (one, kappa - 1.0 / (2.0 * lowest)))
         } else {
             (ends.start, ends.inner)
@@ -391,12 +392,15 @@ impl SlabBend {
         let rho0 = r + pml.edge;
         let kn2 = c64::new(k * k * self.outer * self.outer, 0.0);
         let beta2 = nu * nu / (r * r);
-        let u0 = r * (rho0 / r).ln();
+        let u0 = r * portable::ln(rho0 / r);
         // dũ/dt
         let speed = pml.stretch * (r / rho0);
         let f = |t: f64, y: c64, dy: c64| -> (c64, c64) {
             let u = u0 + speed * t;
-            (speed * dy, -speed * (kn2 * (2.0 * u / r).exp() - beta2) * y)
+            (
+                speed * dy,
+                -speed * (kn2 * portable::complex::exp(2.0 * u / r) - beta2) * y,
+            )
         };
         let longest = self.steps * (0.03 / (k * self.outer)).min(0.01);
         let one = c64::new(1.0, 0.0);
@@ -462,7 +466,9 @@ impl SlabBend {
         let middle = 0.5 * (first + last);
         // inside: a few decay lengths below the stack, the solution growing outwards
         let kappa = |rho: f64| {
-            (nu * nu / (rho * rho) - c64::new(k * k * self.inner * self.inner, 0.0)).sqrt()
+            portable::complex::sqrt(
+                nu * nu / (rho * rho) - c64::new(k * k * self.inner * self.inner, 0.0),
+            )
         };
         let start = (first - self.depth / kappa(first).re.max(1e-3)).max(0.5 * first);
         let inner = (c64::new(1.0, 0.0), kappa(start) - 1.0 / (2.0 * start));
@@ -476,7 +482,7 @@ impl SlabBend {
         let cosh = nu.re / (kn * last);
         let before = at_the_edge
             && cosh > 1.0
-            && nu.re * (1.0 - 1.0 / (cosh * cosh)).powf(1.5) >= DEBYE_REACH;
+            && nu.re * portable::powf(1.0 - 1.0 / (cosh * cosh), 1.5) >= DEBYE_REACH;
         if let Some(pml) = self.pml {
             // closed: the inner solution from the inner wall, the outer one from the PML's wall
             // back to the PML's inner edge
@@ -499,7 +505,7 @@ impl SlabBend {
             (last, kn * debye_log_derivative_evanescent(nu, kn * last))
         } else {
             // ν tan³β = the reach, at z = ν sec β
-            let sec = (1.0 + (DEBYE_REACH / nu.re).powf(2.0 / 3.0)).sqrt();
+            let sec = (1.0 + portable::powf(DEBYE_REACH / nu.re, 2.0 / 3.0)).sqrt();
             let rho = (sec * nu.re / kn).max(last);
             (rho, kn * debye_log_derivative(nu, kn * rho))
         };
@@ -543,7 +549,7 @@ impl SlabBend {
         .ok_or_else(|| Error::invalid("bent slab", "the straight guide guides no mode"))?;
         let mut guess = straight;
         for step in (0..=6).rev() {
-            let radius = self.radius * 2f64.powf(step as f64 / 2.0);
+            let radius = self.radius * portable::powf(2f64, step as f64 / 2.0);
             let bend = SlabBend {
                 radius,
                 ..self.clone()
@@ -584,7 +590,7 @@ impl SlabBend {
         let (mut f0, mut f1) = (f(x0), f(x1));
         // the integration's round-off makes f noisy near 1e-13: keep the best iterate, and
         // accept it once the steps have come down to 1e-9
-        let mut best = (f1.norm(), x1, f64::INFINITY);
+        let mut best = (portable::complex::abs(f1), x1, f64::INFINITY);
         for _ in 0..60 {
             if f1 == f0 {
                 break;
@@ -593,9 +599,9 @@ impl SlabBend {
             (x0, f0) = (x1, f1);
             x1 = x2;
             f1 = f(x1);
-            let step = (x1 - x0).norm() / x1.norm();
-            if f1.norm() < best.0 {
-                best = (f1.norm(), x1, step);
+            let step = portable::complex::abs(x1 - x0) / portable::complex::abs(x1);
+            if portable::complex::abs(f1) < best.0 {
+                best = (portable::complex::abs(f1), x1, step);
             }
             if step < 1e-13 {
                 return Ok(x1);
@@ -669,7 +675,7 @@ fn debye_polynomials(count: usize) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
 pub(crate) fn debye_log_derivative(nu: c64, z: f64) -> c64 {
     let (u, v) = debye_polynomials(10);
     let cos = nu / z;
-    let sin = (1.0 - cos * cos).sqrt();
+    let sin = portable::complex::sqrt(1.0 - cos * cos);
     let p = c64::new(0.0, -1.0) * cos / sin;
     let eval = |c: &[f64]| {
         c.iter()
@@ -700,8 +706,8 @@ pub(crate) fn debye_log_derivative(nu: c64, z: f64) -> c64 {
 pub(crate) fn debye_log_derivative_evanescent(nu: c64, z: f64) -> c64 {
     let (u, v) = debye_polynomials(10);
     let cosh = nu / z;
-    let sinh = (cosh * cosh - 1.0).sqrt();
-    let alpha = (cosh + sinh).ln();
+    let sinh = portable::complex::sqrt(cosh * cosh - 1.0);
+    let alpha = portable::complex::ln(cosh + sinh);
     let (tanh, coth) = (sinh / cosh, cosh / sinh);
     let eval = |c: &[f64]| {
         c.iter()
@@ -723,7 +729,7 @@ pub(crate) fn debye_log_derivative_evanescent(nu: c64, z: f64) -> c64 {
     }
     let y = -sinh * av / au; // Y'/Y
     let j = sinh * sv / su; // J'/J
-    let q = -0.5 * (-2.0 * nu * (alpha - tanh)).exp() * su / au; // J/Y
+    let q = -0.5 * portable::complex::exp(-2.0 * nu * (alpha - tanh)) * su / au; // J/Y
     let i = c64::new(0.0, 1.0);
     y * (1.0 - i * q * j / y) / (1.0 - i * q)
 }
@@ -747,7 +753,7 @@ pub(crate) fn hankel1_log_derivative(nu: c64, z: f64) -> c64 {
             let odd = (2 * k - 1) as f64;
             term *= c64::new(0.0, 1.0) * (four_mu2 - odd * odd) / (8.0 * k as f64 * z);
             sum += term;
-            if term.norm() < 1e-18 * sum.norm() {
+            if portable::complex::abs(term) < 1e-18 * portable::complex::abs(sum) {
                 break;
             }
         }
@@ -798,10 +804,13 @@ pub fn marcuse_loss(
     let beta = k * n_eff;
     let gamma = (beta * beta - k * k * cladding * cladding).sqrt();
     let kappa = (k * k * core * core - beta * beta).sqrt();
-    let u = (beta / gamma * ((1.0 + gamma / beta) / (1.0 - gamma / beta)).ln() - 2.0) * gamma * r;
+    let u = (beta / gamma * portable::ln((1.0 + gamma / beta) / (1.0 - gamma / beta)) - 2.0)
+        * gamma
+        * r;
     // 2α, power loss per unit length; symmetric: θ = γ
-    let two_alpha = 2.0 * gamma * kappa * kappa * (2.0 * gamma * d).exp() * (-u).exp()
-        / ((core * core - cladding * cladding) * k * k * beta * (2.0 * d + 2.0 / gamma));
+    let two_alpha =
+        2.0 * gamma * kappa * kappa * portable::exp(2.0 * gamma * d) * portable::exp(-u)
+            / ((core * core - cladding * cladding) * k * k * beta * (2.0 * d + 2.0 / gamma));
     // the amplitude decays as e^(−αz): Im β = α
     Ok(two_alpha / 2.0 / k)
 }
@@ -821,7 +830,10 @@ mod tests {
         for z in [30.0, 200.0, 1000.0] {
             let got = hankel1_log_derivative(c64::new(0.5, 0.0), z);
             let want = c64::new(-0.5 / z, 1.0);
-            assert!((got - want).norm() < 1e-14, "{z}: {got} vs {want}");
+            assert!(
+                portable::complex::abs(got - want) < 1e-14,
+                "{z}: {got} vs {want}"
+            );
         }
     }
 
@@ -847,7 +859,7 @@ mod tests {
         ] {
             let z = 2.0 * nu.norm_sqr() + 60.0;
             let (a, b) = (debye_log_derivative(nu, z), hankel1_log_derivative(nu, z));
-            assert!((a - b).norm() < 1e-12, "{nu}: {a} vs {b}");
+            assert!(portable::complex::abs(a - b) < 1e-12, "{nu}: {a} vs {b}");
         }
     }
 
@@ -873,7 +885,10 @@ mod tests {
                 z += h;
             }
             let (got, want) = (dy / y, hankel1_log_derivative(nu, z1));
-            assert!((got - want).norm() < 1e-7, "{nu}: {got} vs {want}");
+            assert!(
+                portable::complex::abs(got - want) < 1e-7,
+                "{nu}: {got} vs {want}"
+            );
         }
     }
 
@@ -893,7 +908,7 @@ mod tests {
             y += h / 6.0 * (a1 + 2.0 * a2 + 2.0 * a3 + a4);
             dy += h / 6.0 * (b1 + 2.0 * b2 + 2.0 * b3 + b4);
             z += h;
-            let scale = y.norm();
+            let scale = portable::complex::abs(y);
             y /= scale;
             dy /= scale;
         }
@@ -913,18 +928,24 @@ mod tests {
         ] {
             let z0 = 2.5 * nu.re;
             let start = debye_log_derivative(nu, z0);
-            let t = (DEBYE_REACH / nu.re).powf(1.0 / 3.0);
+            let t = portable::powf(DEBYE_REACH / nu.re, 1.0 / 3.0);
             // beyond: z = ν sec β
             let z = nu.re * (1.0 + t * t).sqrt();
             let (got, want) = (debye_log_derivative(nu, z), bessel_ratio(nu, z0, z, start));
-            assert!((got - want).norm() < 2e-9, "{nu} beyond: {got} vs {want}");
+            assert!(
+                portable::complex::abs(got - want) < 2e-9,
+                "{nu} beyond: {got} vs {want}"
+            );
             // before: z = ν sech α, at the reach and at twice it
             for reach in [1.0, 2.0] {
-                let tanh = t * f64::powf(reach, 1.0 / 3.0);
+                let tanh = t * portable::powf(reach, 1.0 / 3.0);
                 let z = nu.re * (1.0 - tanh * tanh).sqrt();
                 let got = debye_log_derivative_evanescent(nu, z);
                 let want = bessel_ratio(nu, z0, z, start);
-                assert!((got - want).norm() < 2e-10, "{nu} before: {got} vs {want}");
+                assert!(
+                    portable::complex::abs(got - want) < 2e-10,
+                    "{nu} before: {got} vs {want}"
+                );
                 // the wave decays outwards there, and (for a real order) carries power outwards:
                 // Im H'/H > 0, the Wronskian's sign
                 assert!(got.re < 0.0);

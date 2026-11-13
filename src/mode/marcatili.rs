@@ -21,6 +21,7 @@
 
 use std::f64::consts::PI;
 
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -127,12 +128,17 @@ impl Rectangle {
         (n_b, w_b): (f64, f64),
     ) -> Option<f64> {
         let k1 = k0 * core;
-        let limit = (k1 * k1 - (k0 * n_a).powi(2))
-            .min(k1 * k1 - (k0 * n_b).powi(2))
+        let limit = (k1 * k1 - portable::powi(k0 * n_a, 2))
+            .min(k1 * k1 - portable::powi(k0 * n_b, 2))
             .sqrt();
         let f = |k: f64| {
-            let xi = |n: f64| 1.0 / (k1 * k1 - (k0 * n).powi(2) - k * k).max(0.0).sqrt();
-            k * d + (w_a * k * xi(n_a)).atan() + (w_b * k * xi(n_b)).atan() - order as f64 * PI
+            let xi = |n: f64| {
+                1.0 / (k1 * k1 - portable::powi(k0 * n, 2) - k * k)
+                    .max(0.0)
+                    .sqrt()
+            };
+            k * d + portable::atan(w_a * k * xi(n_a)) + portable::atan(w_b * k * xi(n_b))
+                - order as f64 * PI
         };
         // f rises from −order·π at k = 0
         let (mut lo, mut hi) = (0.0, limit * (1.0 - 1e-15));

@@ -40,6 +40,7 @@ use faer::{Mat, Par};
 use num_complex::Complex64 as c64;
 
 use super::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -293,7 +294,7 @@ impl Grating {
         let k0 = 2.0 * PI / lambda;
         let m = orders as i32;
         let kx: Vec<f64> = (-m..=m)
-            .map(|o| self.cover.re * angle.sin() + f64::from(o) * lambda / self.period)
+            .map(|o| self.cover.re * portable::sin(angle) + f64::from(o) * lambda / self.period)
             .collect();
         let te = polarization == Polarization::Te;
         let cover = uniform_modes(self.cover * self.cover, &kx, te)?;
@@ -319,7 +320,7 @@ impl Grating {
             let x: Vec<c64> = here
                 .q
                 .iter()
-                .map(|&q| (-q * k0 * layer.thickness).exp())
+                .map(|&q| portable::complex::exp(-q * k0 * layer.thickness))
                 .collect();
             s = Some(propagate(joined, &x));
             above = here;
@@ -364,8 +365,8 @@ impl Grating {
 /// q for a mode of eigenvalue q² = `q2`: q = −ik_z, k_z = (−q²)^½ on the root that decays
 /// downward (Im k_z > 0), or for a propagating mode (Im k_z zero to rounding) travels downward.
 fn q_of(q2: c64) -> c64 {
-    let kz = (-q2).sqrt();
-    let down = if kz.im.abs() > 1e-12 * kz.norm() {
+    let kz = portable::complex::sqrt(-q2);
+    let down = if kz.im.abs() > 1e-12 * portable::complex::abs(kz) {
         kz.im > 0.0
     } else {
         kz.re >= 0.0
@@ -378,7 +379,7 @@ fn q_of(q2: c64) -> c64 {
 fn uniform_modes(eps: c64, kx: &[f64], te: bool) -> Result<Modes> {
     let n = kx.len();
     let q: Vec<c64> = kx.iter().map(|&k| q_of(k * k - eps)).collect();
-    if q.iter().any(|q| q.norm() == 0.0) {
+    if q.iter().any(|q| portable::complex::abs(*q) == 0.0) {
         return Err(Error::invalid(
             "diffraction",
             "an order is exactly at grazing (a Wood anomaly): move the wavelength or angle slightly",
@@ -411,7 +412,8 @@ fn coefficients(values: &[(c64, f64)], period: f64, size: usize) -> Vec<c64> {
                 sum += if h == 0 {
                     e * (b - a)
                 } else {
-                    let phase = |u: f64| c64::from_polar(1.0, -2.0 * PI * h as f64 * u);
+                    let phase =
+                        |u: f64| portable::complex::from_polar(1.0, -2.0 * PI * h as f64 * u);
                     e * (phase(a) - phase(b)) / c64::new(0.0, 2.0 * PI * h as f64)
                 };
                 x += w;
@@ -582,7 +584,7 @@ mod tests {
                 Polarization::Te => (1.0 - 1.5) / (1.0 + 1.5),
                 Polarization::Tm => (1.5 - 1.0) / (1.5 + 1.0),
             };
-            assert!((r - expected).norm() < 1e-14, "{pol:?}: {r}");
+            assert!(portable::complex::abs(r - expected) < 1e-14, "{pol:?}: {r}");
             assert!((d.reflectance + d.transmittance - 1.0).abs() < 1e-14);
         }
     }
