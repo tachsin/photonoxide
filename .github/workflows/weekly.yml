@@ -57,6 +57,9 @@ jobs:
       statuses: write
       # the Semver job (#355) reads the pull request; a called workflow can't ask for more than this
       pull-requests: read
+      # the "What changed" job reads the workflow's runs on main (a push's run compares with the
+      # last that passed)
+      actions: read
     uses: ./.github/workflows/ci.yml
     with:
       tier: "3"

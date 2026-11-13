@@ -8,13 +8,24 @@
 #   bash .github/areas.sh --all < /dev/null | bash .github/shards.sh 2     # Tier 2 and 3
 #
 # It reads the area map's KEY=VALUE lines on stdin, takes the tier (1, 2 or 3) as its argument,
-# and prints two KEY=VALUE lines for $GITHUB_OUTPUT, each the JSON list of a matrix's entries:
+# and prints KEY=VALUE lines for $GITHUB_OUTPUT, the first three each the JSON list of a matrix's
+# entries:
 #
-#   release  the release build's jobs: {name, os, cases, examples}: their validation cases (as
-#            PHOTONOXIDE_VALIDATION_CASES takes them, tests/validation_report.rs) and examples
-#   test     the unit tests' jobs: {os, part, filters, native}: the filters (and --skip's) given
-#            to the test binaries, and whether photonoxide-native's tests run there too
-#            (in the same Cargo command as photonoxide's where the job runs every test)
+#   release     the release build's jobs on Linux: {name, os, cases, examples, head}: their
+#               validation cases (as PHOTONOXIDE_VALIDATION_CASES takes them,
+#               tests/validation_report.rs) and examples, run from the binaries one job builds
+#               for all of them (ci.yml's "Release build"); head is true in the one job that also
+#               checks docs/validation.md's head and list of cases, which every job's rows share
+#   release_os  the same on Windows and macOS (examples only, Tier 2 and 3), each job building its own
+#   test        the unit tests' jobs: {os, part, filters, native}: the filters (and --skip's) given
+#               to the test binaries, and whether photonoxide-native's tests run there too
+#               (in the same Cargo command as photonoxide's where the job runs every test)
+#   build_cases     true when a Linux job runs validation cases: the build makes their binary
+#   build_examples  the examples the Linux jobs run, which the build makes
+#
+# The unit tests run on the systems the area map's `systems` names (Linux, or all three when a
+# file that differs by system changed; ci.yml makes it all three on every push to main and on
+# Tier 2 and 3); the examples on Windows and macOS only on Tier 2 and 3.
 #
 # Then it checks the split: every validation case of docs/validation.md the run wants is in exactly
 # one job, and no case is in two; every example the run wants is in exactly one job on each system
@@ -31,6 +42,7 @@ tier=${1:?the tier: 1, 2 or 3}
 areas=$(cat)
 get() { sed -n "s/^$1=//p" <<<"$areas"; }
 tests=$(get tests) native=$(get native) cases=$(get cases) examples=$(get examples)
+systems_key=$(get systems)
 
 # The values go into JSON strings as they are: the names, prefixes and filters here have no
 # quotes, backslashes or control characters
@@ -41,10 +53,14 @@ plain() {
   done
 }
 release=() tested=()
+# the first Linux job with cases checks the report's head and list of cases (head: true)
+head_taken=false
 # entry NAME OS CASES EXAMPLES: a job of the release build, its validation cases and examples
 entry() {
   plain "$@"
-  release+=("{\"name\":\"$1\",\"os\":\"$2\",\"cases\":\"$3\",\"examples\":\"$4\"}")
+  local head=false
+  if [ "$2" = ubuntu-latest ] && [ -n "$3" ] && [ "$head_taken" = false ]; then head=true head_taken=true; fi
+  release+=("{\"name\":\"$1\",\"os\":\"$2\",\"cases\":\"$3\",\"examples\":\"$4\",\"head\":$head}")
 }
 # test_entry OS PART FILTERS NATIVE: a job of the unit tests (NATIVE true or false)
 test_entry() {
@@ -54,7 +70,14 @@ test_entry() {
 }
 json() { local IFS=,; echo "[$*]"; }
 
+# the examples' systems: Linux on Tier 1, the three on Tier 2 and 3
 if [ "$tier" = 1 ]; then systems="ubuntu-latest"; else systems="ubuntu-latest windows-latest macos-latest"; fi
+# the unit tests': as the area map says (Linux alone when it says nothing)
+case "$systems_key" in
+  all) test_systems="ubuntu-latest windows-latest macos-latest" ;;
+  linux | "") test_systems="ubuntu-latest" ;;
+  *) echo "::error::shards.sh: systems is \"$systems_key\"" >&2; exit 1 ;;
+esac
 
 # --- The validation cases ----------------------------------------------------------------------
 #
@@ -73,6 +96,12 @@ if [ "$tier" = 1 ]; then systems="ubuntu-latest"; else systems="ubuntu-latest wi
 # eme/3d-cut, 9.5; the rest of eme/ 8.9), and device/'s pcm, thermo, threads and compact 14.0
 # (pcm 5.4, threads 1.7, thermo 3.7, compact 3.2). So eme/ is split in two, device/'s four in two
 # (pcm with threads 7.1, thermo with compact 6.9), and the rest is left with 9.4.
+# Measured again from the cases' times in the CI logs of 7 to 12 November 2026 (minutes of cases,
+# 978 cases): eme/ without its 3D cut had grown to 22.0 (a job of 16 minutes at its median, 28 at
+# p90 and 52 at most) and the rest to 15.7 (quantum/ 3.1, job/ 2.8, nonlinear/ 2.1, pockels/ 1.4),
+# against a median of 7 for the other groups. So eme/ is split in three more (its drawn 3D taper
+# 6.0, the other 3D sections 7.0, the rest of eme/ with the bends 9.0), and two groups come out of
+# the rest (quantum/ with nonlinear/ 5.2, job/ with pockels/ 4.2), which leaves it 6.3.
 gnames=() gprefixes=()
 group() { gnames+=("$1"); gprefixes+=("$2"); }
 group "fdtd/adjoint" "fdtd/adjoint"
@@ -86,7 +115,11 @@ group "device/ (thermo, compact)" "device/thermo device/compact"
 group "device/ (the rest) and mode/" "device/ mode/"
 group "shifter/ and line/" "shifter/ line/"
 group "eme/3d-cut" "eme/3d-cut"
+group "eme/3d-drawing" "eme/3d-drawing"
+group "eme/3d (the rest)" "eme/3d-"
 group "eme/ (the rest)" "eme/"
+group "quantum/ and nonlinear/" "quantum/ nonlinear/"
+group "job/ and pockels/" "job/ pockels/"
 rest=""
 if [ -n "$cases" ]; then
   for i in "${!gnames[@]}"; do
@@ -222,7 +255,7 @@ else
 fi
 native1=$native native2=false
 if [ "$native" = true ] && [ -n "$second" ]; then native1=false native2=true; fi
-for os in $systems; do
+for os in $test_systems; do
   if [ -n "$first" ] || [ "$native1" = true ]; then test_entry "$os" "1 of 2" "$first" "$native1"; fi
   if [ -n "$second" ] || [ "$native2" = true ]; then test_entry "$os" "2 of 2" "$second" "$native2"; fi
 done
@@ -299,7 +332,7 @@ if [ "${#want[@]}" -ne "${#seen[@]}" ]; then fail "${#seen[@]} examples run, ${#
 # every test they run in the same command as photonoxide's, so its filters must all be --skip's
 # (a filter would leave them out)
 if [ "$native" = true ]; then
-  for os in $systems; do
+  for os in $test_systems; do
     k=0
     for e in "${tested[@]}"; do
       case "$e" in *"\"os\":\"$os\""*"\"native\":true"*) ;; *) continue ;; esac
@@ -333,5 +366,20 @@ fi
 [ "$failed" = false ] || exit 1
 echo "checked: each of the ${#want[@]} examples wanted (by system) in exactly one job" >&2
 
-echo "release=$(json "${release[@]}")"
+# the Linux jobs run what one build makes; the others build their own
+linux=() others=() build_cases=false build_examples=""
+for e in "${release[@]}"; do
+  if [ "$(field "$e" os)" = ubuntu-latest ]; then
+    linux+=("$e")
+    [ -z "$(field "$e" cases)" ] || build_cases=true
+    these=$(field "$e" examples)
+    [ -z "$these" ] || build_examples+=" $these"
+  else
+    others+=("$e")
+  fi
+done
+echo "release=$(json "${linux[@]}")"
+echo "release_os=$(json "${others[@]}")"
 echo "test=$(json "${tested[@]}")"
+echo "build_cases=$build_cases"
+echo "build_examples=${build_examples# }"
