@@ -8,6 +8,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Component, Fidelity, Fixed, Parameter, Port, Provenance, SMatrix, ports};
 use crate::Result;
+use crate::portable;
 use crate::units::Wavelength;
 
 /// A straight waveguide, ports `a` and `b`: t = 10^(−αL/20) e^(i 2π n(λ) L/λ), its effective
@@ -53,9 +54,9 @@ impl Waveguide {
 
     /// The transmission over `length` µm at `wavelength_um`.
     pub(crate) fn transmission(&self, wavelength_um: f64, length: f64) -> c64 {
-        let amplitude = 10f64.powf(-self.loss_db_per_cm * length * 1e-4 / 20.0);
+        let amplitude = portable::powf(10f64, -self.loss_db_per_cm * length * 1e-4 / 20.0);
         let phase = TAU * self.effective_index(wavelength_um) * length / wavelength_um;
-        amplitude * c64::new(0.0, phase).exp()
+        amplitude * portable::complex::exp(c64::new(0.0, phase))
     }
 }
 
@@ -235,25 +236,26 @@ pub(crate) fn mzi_closed_form(t_upper: c64, t_lower: c64, kappa2: f64, q: usize,
 /// Bogaerts 2011, Eq. 1: the all-pass ring's through field, e^(i(π + φ)) (a − r e^(−iφ)) /
 /// (1 − r a e^(iφ)), r the self-coupling, a the single-pass amplitude, φ the single-pass phase.
 pub(crate) fn bogaerts_eq1(r: f64, a: f64, phi: f64) -> c64 {
-    let e = |x: f64| c64::new(0.0, x).exp();
+    let e = |x: f64| portable::complex::exp(c64::new(0.0, x));
     e(std::f64::consts::PI + phi) * (a - r * e(-phi)) / (1.0 - r * a * e(phi))
 }
 
 /// Bogaerts 2011, Eq. 2: the all-pass ring's through intensity.
 pub(crate) fn bogaerts_eq2(r: f64, a: f64, phi: f64) -> f64 {
-    (a * a - 2.0 * r * a * phi.cos() + r * r) / (1.0 - 2.0 * a * r * phi.cos() + (r * a).powi(2))
+    (a * a - 2.0 * r * a * portable::cos(phi) + r * r)
+        / (1.0 - 2.0 * a * r * portable::cos(phi) + portable::powi(r * a, 2))
 }
 
 /// Bogaerts 2011, Eq. 5: the add-drop ring's through intensity.
 pub(crate) fn bogaerts_eq5(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
-    (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1)
-        / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))
+    (r2 * r2 * a * a - 2.0 * r1 * r2 * a * portable::cos(phi) + r1 * r1)
+        / (1.0 - 2.0 * r1 * r2 * a * portable::cos(phi) + portable::powi(r1 * r2 * a, 2))
 }
 
 /// Bogaerts 2011, Eq. 6: the add-drop ring's drop intensity.
 pub(crate) fn bogaerts_eq6(r1: f64, r2: f64, a: f64, phi: f64) -> f64 {
     (1.0 - r1 * r1) * (1.0 - r2 * r2) * a
-        / (1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2))
+        / (1.0 - 2.0 * r1 * r2 * a * portable::cos(phi) + portable::powi(r1 * r2 * a, 2))
 }
 
 /// A silicon wire's numbers: n_eff 2.4 and n_g 4.2 at 1.55 µm, 3 dB/cm.
@@ -270,8 +272,8 @@ pub(crate) fn sweep() -> Vec<Wavelength> {
 pub(crate) fn reflective(n: usize, seed: f64) -> std::sync::Arc<dyn Component> {
     let raw = SMatrix::from_fn(n, |q, p| {
         let (lo, hi) = (q.min(p) as f64, q.max(p) as f64);
-        c64::from_polar(1.0, seed * (1.0 + 3.0 * lo + 7.0 * hi * hi))
-            * (0.3 + 0.2 * (seed * (lo + 2.0 * hi)).sin().abs())
+        portable::complex::from_polar(1.0, seed * (1.0 + 3.0 * lo + 7.0 * hi * hi))
+            * (0.3 + 0.2 * portable::sin(seed * (lo + 2.0 * hi)).abs())
     });
     let scale = 0.95 / raw.largest_singular_value().expect("a valid netlist");
     let s = SMatrix::from_fn(n, |q, p| raw[(q, p)] * scale);

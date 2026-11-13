@@ -7,6 +7,7 @@ use super::*;
 use crate::circuit::{Component, Netlist, SMatrix, Spectrum};
 use crate::material;
 use crate::mode::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 fn um(x: f64) -> Wavelength {
@@ -58,8 +59,11 @@ fn a_waveguide_turns_the_phase_by_its_index_and_loses_its_loss() {
     let d = wire(3.0);
     // n(λ) second order: n₀ + n′Δ + n″Δ²/2
     let n = d.effective_index_at(um(1.56));
-    let expected = c64::from_polar(10f64.powf(-3.0 * 100e-4 / 20.0), TAU * n * 100.0 / 1.56);
-    assert!((s[(1, 0)] - expected).norm() < 1e-13);
+    let expected = portable::complex::from_polar(
+        portable::powf(10f64, -3.0 * 100e-4 / 20.0),
+        TAU * n * 100.0 / 1.56,
+    );
+    assert!(portable::complex::abs(s[(1, 0)] - expected) < 1e-13);
     assert_eq!(s[(0, 1)], s[(1, 0)]);
     assert_eq!(s[(0, 0)], c64::new(0.0, 0.0));
     // the group index is n − λ dn/dλ at λ₀, and the model's own derivative elsewhere
@@ -92,7 +96,7 @@ fn closed_forms_have_exact_derivatives() {
                     .rows()
                     .iter()
                     .flatten()
-                    .map(|z| z.norm())
+                    .map(|z| portable::complex::abs(*z))
                     .fold(1.0, f64::max);
                 let err = dk.max_difference(&fd).unwrap() / scale;
                 assert!(err < 1e-6, "{} parameter {k}: {err}", c.kind());
@@ -178,12 +182,15 @@ fn the_all_pass_ring_is_bogaerts_eq_1_and_its_netlist() {
         for w in sweep() {
             let s = ring.s_matrix(w, &[length, kappa2]).unwrap();
             let round = c64::new(0.0, 1.0) * wire(3.0).propagation(w) * length;
-            let (a, phi) = (round.exp().norm(), round.im);
-            let e = |x: f64| c64::new(0.0, x).exp();
+            let (a, phi) = (
+                portable::complex::abs(portable::complex::exp(round)),
+                round.im,
+            );
+            let e = |x: f64| portable::complex::exp(c64::new(0.0, x));
             let eq1 = e(PI + phi) * (a - r * e(-phi)) / (1.0 - r * a * e(phi));
-            assert!((s[(1, 0)] - eq1).norm() < 1e-12);
-            let eq2 = (a * a - 2.0 * r * a * phi.cos() + r * r)
-                / (1.0 - 2.0 * a * r * phi.cos() + (r * a).powi(2));
+            assert!(portable::complex::abs(s[(1, 0)] - eq1) < 1e-12);
+            let eq2 = (a * a - 2.0 * r * a * portable::cos(phi) + r * r)
+                / (1.0 - 2.0 * a * r * portable::cos(phi) + portable::powi(r * a, 2));
             assert!((s.power(1, 0) - eq2).abs() < 1e-12);
             let net = circuit.s_matrix(w).unwrap();
             assert!(net.max_difference(&s).unwrap() < 1e-12);
@@ -222,9 +229,12 @@ fn the_add_drop_ring_is_bogaerts_eqs_5_and_6_and_its_netlist() {
     for w in sweep() {
         let s = ring.s_matrix(w, &[length, k1, k2]).unwrap();
         let round = c64::new(0.0, 1.0) * guide.propagation(w) * length;
-        let (a, phi) = (round.exp().norm(), round.im);
-        let den = 1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2);
-        let eq5 = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1) / den;
+        let (a, phi) = (
+            portable::complex::abs(portable::complex::exp(round)),
+            round.im,
+        );
+        let den = 1.0 - 2.0 * r1 * r2 * a * portable::cos(phi) + portable::powi(r1 * r2 * a, 2);
+        let eq5 = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * portable::cos(phi) + r1 * r1) / den;
         let eq6 = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / den;
         assert!((s.power(1, 0) - eq5).abs() < 1e-12);
         assert!((s.power(3, 0) - eq6).abs() < 1e-12);
@@ -317,7 +327,7 @@ fn the_mzi_netlist_is_its_closed_form() {
         let m = mzi_closed_form(c(0.5), c(0.3), t(150.0), t(50.0));
         for (q, out) in [(0, 3), (1, 2)] {
             for p in 0..2 {
-                assert!((s[(out, p)] - m[q][p]).norm() < 1e-13);
+                assert!(portable::complex::abs(s[(out, p)] - m[q][p]) < 1e-13);
             }
         }
     }
@@ -335,7 +345,7 @@ fn an_mzi_of_y_branches_adds_its_arms() {
     for w in sweep() {
         let t = |l: f64| guide.s_matrix(w, &[l, 0.0]).unwrap()[(1, 0)];
         let s = circuit.s_matrix(w).unwrap();
-        assert!((s[(1, 0)] - (t(150.0) + t(50.0)) / 2.0).norm() < 1e-13);
+        assert!(portable::complex::abs(s[(1, 0)] - (t(150.0) + t(50.0)) / 2.0) < 1e-13);
     }
 }
 
@@ -399,7 +409,7 @@ fn an_mmi_splits_at_its_self_images() {
     // 1 × 2 at 3L_π/8: equal outputs in phase, by symmetry
     let m = mmi_1x2();
     let s = m.s_matrix(um(1.55), &m.defaults()).unwrap();
-    assert!((s[(1, 0)] - s[(2, 0)]).norm() < 1e-12);
+    assert!(portable::complex::abs(s[(1, 0)] - s[(2, 0)]) < 1e-12);
     assert!(s.power(1, 0) > 0.4, "{}", s.power(1, 0));
     // 2 × 2 near L_π/2: half each way, a quarter turn apart. With 0.5 µm access guides the
     // high modes are excited too, and their β are far from Soldano's parabola (his Eq. 5): the
@@ -423,7 +433,7 @@ fn an_mmi_splits_at_its_self_images() {
         bar.norm_sqr(),
         cross.norm_sqr()
     );
-    let turn = (cross / bar).arg().abs();
+    let turn = portable::complex::arg(cross / bar).abs();
     assert!((turn - PI / 2.0).abs() < 0.15, "{turn}");
 }
 

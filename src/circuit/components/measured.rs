@@ -17,6 +17,7 @@ use super::{Dispersion, Waveguide, YBranch, mzi_y};
 use crate::circuit::{Circuit, Component};
 use crate::material;
 use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::Wavelength;
 
 const OK: &str = "a valid model";
@@ -122,13 +123,16 @@ pub(crate) fn dwivedi_extract(design: f64, width: f64) -> (f64, f64) {
     let mx = pairs.iter().map(|q| q.0).sum::<f64>() / k;
     let my = pairs.iter().map(|q| q.1).sum::<f64>() / k;
     let slope = pairs.iter().map(|q| (q.0 - mx) * (q.1 - my)).sum::<f64>()
-        / pairs.iter().map(|q| (q.0 - mx).powi(2)).sum::<f64>();
+        / pairs
+            .iter()
+            .map(|q| portable::powi(q.0 - mx, 2))
+            .sum::<f64>();
     let lr = peaks(&interferometer(fab, small), 1.52, 1.58)
         .into_iter()
         .min_by(|a, b| (a - CENTRE).abs().total_cmp(&(b - CENTRE).abs()))
         .expect("a peak in the band");
     let intercept = my - slope * mx;
-    let integral = intercept * (1.0 / CENTRE - 1.0 / lr) + slope * (lr / CENTRE).ln();
+    let integral = intercept * (1.0 / CENTRE - 1.0 / lr) + slope * portable::ln(lr / CENTRE);
     (
         CENTRE * (15.0 / small + integral),
         my + slope * (CENTRE - mx),

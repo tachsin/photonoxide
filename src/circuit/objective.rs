@@ -24,6 +24,7 @@
 use num_complex::Complex64 as c64;
 
 use super::SMatrix;
+use crate::portable;
 
 /// Σ_λ |S_qp(λ)|²: the power from port p to port q, summed over the wavelengths. Its sensitivity
 /// is conj(S_qp) at (q, p).
@@ -98,7 +99,7 @@ pub fn power_db(s: &[SMatrix], q: usize, p: usize) -> (f64, Vec<SMatrix>) {
         .iter()
         .map(|m| {
             let power = m.power(q, p);
-            value += 10.0 * power.log10();
+            value += 10.0 * portable::log10(power);
             only(m.size(), q, p, m[(q, p)].conj() * (scale / power))
         })
         .collect();
@@ -187,7 +188,7 @@ mod tests {
         assert!((power - 0.45).abs() < 1e-15);
         assert_eq!(g[0][(1, 0)], c64::new(0.6, -0.3)); // conj(S₂₁)
         let (error, _) = power_error(&[s], 1, 0, &[0.5]);
-        assert!((error - 0.05f64.powi(2)).abs() < 1e-15);
+        assert!((error - portable::powi(0.05f64, 2)).abs() < 1e-15);
     }
 
     #[test]
@@ -204,7 +205,7 @@ mod tests {
         let s = [at(0.3), at(0.7), at(0.5)];
         let per = |m: &SMatrix| at_one(m, |x| power_db(x, 1, 0));
         let (w, gw) = worst(&s, per);
-        assert_eq!(w, 10.0 * s[1].power(1, 0).log10());
+        assert_eq!(w, 10.0 * portable::log10(s[1].power(1, 0)));
         assert_eq!(gw[0], SMatrix::zeros(2));
         assert_eq!(gw[1], power_db(&s[1..2], 1, 0).1[0]);
         let (a, ga) = average(&s, |m| at_one(m, |x| power(x, 1, 0)));

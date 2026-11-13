@@ -8,6 +8,7 @@ use num_complex::Complex64 as c64;
 
 use super::components::{Coupler, PhaseShifter, mzi};
 use super::{Circuit, Component, Heated};
+use crate::portable;
 use crate::thermal::rc_checks::pair_steps;
 use crate::thermal::{RcFit, RcModel};
 use crate::units::Wavelength;
@@ -95,7 +96,7 @@ fn modulation_difference() -> f64 {
             let exact: c64 = (0..2)
                 .map(|k| m.by_phase[k] * r.steady[k][0] * s.response(0, k, f).expect(OK))
                 .sum();
-            (model - exact).norm() / dc.abs()
+            portable::complex::abs(model - exact) / dc.abs()
         })
         .fold(0.0, f64::max)
 }

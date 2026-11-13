@@ -12,6 +12,7 @@ use super::super::{
     Circuit, Component, Netlist, Parameter, Port, Provenance, SMatrix, objective, ports,
 };
 use crate::Result;
+use crate::portable;
 use crate::units::Wavelength;
 
 const OK: &str = "a valid netlist";
@@ -129,7 +130,7 @@ impl Component for Shifter {
     }
 
     fn s_matrix(&self, _: Wavelength, values: &[f64]) -> Result<SMatrix> {
-        let t = c64::from_polar(1.0, values[0]);
+        let t = portable::complex::from_polar(1.0, values[0]);
         Ok(SMatrix::from_fn(2, |q, p| {
             if q == p { c64::new(0.0, 0.0) } else { t }
         }))
@@ -338,7 +339,7 @@ pub(crate) fn nested() -> Circuit {
 fn mesh_target() -> SMatrix {
     SMatrix::from_fn(8, |q, p| {
         let x = (q * 8 + p) as f64;
-        c64::from_polar(0.1 + 0.05 * (0.7 * x).sin().abs(), 1.3 * x)
+        portable::complex::from_polar(0.1 + 0.05 * portable::sin(0.7 * x).abs(), 1.3 * x)
     })
 }
 
@@ -472,7 +473,7 @@ pub(crate) fn fallback_error() -> f64 {
                 .rows()
                 .iter()
                 .flatten()
-                .fold(0.0f64, |m, v| m.max(v.norm()));
+                .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
             exact.max_difference(&fd).expect("same size") / scale
         })
         .fold(0.0, f64::max)

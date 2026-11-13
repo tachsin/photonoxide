@@ -70,7 +70,7 @@ impl Dual {
 
     /// The principal square root; its derivative is infinite at 0.
     pub(crate) fn sqrt(self) -> Dual {
-        let s = self.v.sqrt();
+        let s = portable::complex::sqrt(self.v);
         Dual {
             v: s,
             d: self.d / (2.0 * s),
@@ -190,6 +190,9 @@ mod tests {
         let x = 0.7;
         let exact = f(Dual::variable(x)).d;
         let numeric = central(|t| f(Dual::real(t)).v, x, 1e-5);
-        assert!((exact - numeric).norm() < 1e-9, "{exact} against {numeric}");
+        assert!(
+            portable::complex::abs(exact - numeric) < 1e-9,
+            "{exact} against {numeric}"
+        );
     }
 }

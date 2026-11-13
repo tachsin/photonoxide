@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use super::super::ideal::{self, Waveguide, um};
 use super::super::*;
+use crate::portable;
 
 /// A silicon wire's numbers: n_eff 2.4, n_g 4.2 at 1.55 µm, 3 dB/cm.
 fn wire() -> Waveguide {
@@ -48,12 +49,15 @@ fn an_mzi_is_its_closed_form() {
             );
             for (q, p) in [(2, 0), (3, 0), (2, 1), (3, 1)] {
                 let expected = ideal::mzi_closed_form(tu, tl, kappa2, q - 2, p);
-                assert!((s[(q, p)] - expected).norm() < 1e-14);
+                assert!(portable::complex::abs(s[(q, p)] - expected) < 1e-14);
                 // and reciprocal
-                assert!((s[(p, q)] - expected).norm() < 1e-14);
+                assert!(portable::complex::abs(s[(p, q)] - expected) < 1e-14);
             }
             // nothing comes back
-            assert!(s[(0, 0)].norm() < 1e-15 && s[(1, 0)].norm() < 1e-15);
+            assert!(
+                portable::complex::abs(s[(0, 0)]) < 1e-15
+                    && portable::complex::abs(s[(1, 0)]) < 1e-15
+            );
         }
     }
     // a balanced MZI sends sin²(Δφ/2) to the bar port
@@ -62,7 +66,7 @@ fn an_mzi_is_its_closed_form() {
     let w = um(1.55);
     let dphi = TAU * 2.4 * 20.0 / 1.55;
     let bar = circuit.s_matrix(w).unwrap().power(2, 0);
-    assert!((bar - (dphi / 2.0).sin().powi(2)).abs() < 1e-14);
+    assert!((bar - portable::powi(portable::sin(dphi / 2.0), 2)).abs() < 1e-14);
 }
 
 #[test]
@@ -74,9 +78,9 @@ fn an_all_pass_ring_follows_bogaerts_equations_1_and_2() {
         let r = (1.0 - kappa2).sqrt();
         for w in sweep() {
             let t = guide.transmission(w.to_um(), length);
-            let (a, phi) = (t.norm(), t.arg());
+            let (a, phi) = (portable::complex::abs(t), portable::complex::arg(t));
             let s = circuit.s_matrix(w).unwrap();
-            assert!((s[(1, 0)] - ideal::bogaerts_eq1(r, a, phi)).norm() < 1e-13);
+            assert!(portable::complex::abs(s[(1, 0)] - ideal::bogaerts_eq1(r, a, phi)) < 1e-13);
             assert!((s.power(1, 0) - ideal::bogaerts_eq2(r, a, phi)).abs() < 1e-13);
         }
     }
@@ -91,7 +95,7 @@ fn an_add_drop_ring_follows_bogaerts_equations_5_and_6() {
     let (r1, r2) = ((1.0 - k1).sqrt(), (1.0 - k2).sqrt());
     for w in sweep() {
         let t = guide.transmission(w.to_um(), length);
-        let (a, phi) = (t.norm(), t.arg());
+        let (a, phi) = (portable::complex::abs(t), portable::complex::arg(t));
         let s = circuit.s_matrix(w).unwrap();
         assert!((s.power(1, 0) - ideal::bogaerts_eq5(r1, r2, a, phi)).abs() < 1e-13);
         assert!((s.power(3, 0) - ideal::bogaerts_eq6(r1, r2, a, phi)).abs() < 1e-13);

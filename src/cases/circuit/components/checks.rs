@@ -13,6 +13,7 @@ use crate::material;
 use crate::mode::Polarization;
 use crate::mode::bend::SlabBend;
 use crate::mode::slab::Slab;
+use crate::portable;
 use crate::run::Job;
 use crate::units::{Length, Wavelength, refractive_index};
 use crate::validation::Outcome;
@@ -88,7 +89,7 @@ fn add_drop_netlist(guide: Dispersion, length: f64, k1: f64, k2: f64) -> Circuit
 /// The round trip's amplitude and phase, a and φ, at λ.
 fn round_trip(guide: &Dispersion, wavelength: Wavelength, length: f64) -> (f64, f64) {
     let z = c64::new(0.0, 1.0) * guide.propagation(wavelength) * length;
-    (z.re.exp(), z.im)
+    (portable::exp(z.re), z.im)
 }
 
 /// The all-pass ring against Bogaerts's Eq. 1 and against its netlist, a [`Coupler`] and a
@@ -102,10 +103,10 @@ pub(crate) fn ring_all_pass() -> Outcome {
         for w in sweep() {
             let s = ring.s_matrix(w, &[RING, kappa2]).expect(OK);
             let (a, phi) = round_trip(&wire(3.0), w, RING);
-            let e = |x: f64| c64::new(0.0, x).exp();
+            let e = |x: f64| portable::complex::exp(c64::new(0.0, x));
             let eq1 = e(PI + phi) * (a - r * e(-phi)) / (1.0 - r * a * e(phi));
             worst = worst
-                .max((s[(1, 0)] - eq1).norm())
+                .max(portable::complex::abs(s[(1, 0)] - eq1))
                 .max(circuit.s_matrix(w).expect(OK).max_difference(&s).expect(OK));
         }
     }
@@ -122,8 +123,8 @@ pub(crate) fn ring_add_drop() -> Outcome {
     for w in sweep() {
         let s = ring.s_matrix(w, &[RING, k1, k2]).expect(OK);
         let (a, phi) = round_trip(&wire(3.0), w, RING);
-        let den = 1.0 - 2.0 * r1 * r2 * a * phi.cos() + (r1 * r2 * a).powi(2);
-        let eq5 = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * phi.cos() + r1 * r1) / den;
+        let den = 1.0 - 2.0 * r1 * r2 * a * portable::cos(phi) + portable::powi(r1 * r2 * a, 2);
+        let eq5 = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * portable::cos(phi) + r1 * r1) / den;
         let eq6 = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / den;
         worst = worst
             .max((s.power(1, 0) - eq5).abs())
@@ -235,11 +236,11 @@ fn fdfd_resonance(job: &Job, start: f64, fsr: f64, spans: &[f64]) -> f64 {
                 .map(|s| 1.0 / (1.0 - s[1][0].norm_sqr()))
                 .collect();
         // P + Q cos k(λ − c) + R sin k(λ − c) through the three points, λ − c = −h, 0, h
-        let (c, s) = ((k * h).cos(), (k * h).sin());
+        let (c, s) = (portable::cos(k * h), portable::sin(k * h));
         let r = (y[2] - y[0]) / (2.0 * s);
         let q = ((y[0] + y[2]) / 2.0 - y[1]) / (c - 1.0);
         // the minimum: k(λ − c) = atan2(R, Q) + π, the one nearest the centre
-        let mut turn = r.atan2(q) + PI;
+        let mut turn = portable::atan2(r, q) + PI;
         if turn > PI {
             turn -= TAU;
         }
@@ -335,7 +336,7 @@ pub(crate) fn mzi_netlist() -> Outcome {
         let m = mzi_closed_form(c(lengths[0]), c(lengths[1]), t(150.0), t(50.0));
         for (q, out) in [(0, 3), (1, 2)] {
             for p in 0..2 {
-                worst = worst.max((s[(out, p)] - m[q][p]).norm());
+                worst = worst.max(portable::complex::abs(s[(out, p)] - m[q][p]));
             }
         }
     }
@@ -465,7 +466,7 @@ pub(crate) fn derivatives() -> Outcome {
                     .rows()
                     .iter()
                     .flatten()
-                    .map(|z| z.norm())
+                    .map(|z| portable::complex::abs(*z))
                     .fold(f64::MIN_POSITIVE, f64::max);
                 // the best of four steps: a small derivative needs a large one against
                 // round-off, a ring's length on a resonance a small one against truncation
@@ -496,7 +497,7 @@ pub(crate) fn coupler_power() -> Outcome {
     for w in sweep() {
         for l in [5.0, 20.0, 39.0, 100.0] {
             let s = coupler.s_matrix(w, &[l]).expect(OK);
-            let eq = (PI * modes.splitting(w) * l / w.to_um()).sin().powi(2);
+            let eq = portable::powi(portable::sin(PI * modes.splitting(w) * l / w.to_um()), 2);
             worst = worst
                 .max((s.power(2, 0) - eq).abs())
                 .max((s.power(3, 0) - (1.0 - eq)).abs());
@@ -553,7 +554,7 @@ pub(crate) fn mmi_beat_length_measure() -> (f64, f64) {
         .modes(Polarization::Te, w)[0]
         .effective_index();
     // TM across the ridge: σ = 1
-    let we = 3.0 + w.to_um() / PI * (nc / nr).powi(2) / (nr * nr - nc * nc).sqrt();
+    let we = 3.0 + w.to_um() / PI * portable::powi(nc / nr, 2) / (nr * nr - nc * nc).sqrt();
     (exact, 4.0 * nr * we * we / (3.0 * w.to_um()))
 }
 

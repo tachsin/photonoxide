@@ -55,6 +55,8 @@
 //! # Ok::<(), photonoxide::Error>(())
 //! ```
 
+use crate::portable;
+
 pub mod adjoint;
 pub mod components;
 mod heated;
@@ -172,7 +174,7 @@ impl SMatrix {
     pub fn reciprocity_error(&self) -> f64 {
         (0..self.n)
             .flat_map(|q| (0..q).map(move |p| (q, p)))
-            .map(|(q, p)| (self[(q, p)] - self[(p, q)]).norm())
+            .map(|(q, p)| portable::complex::abs(self[(q, p)] - self[(p, q)]))
             .fold(0.0, f64::max)
     }
 
@@ -212,7 +214,7 @@ impl SMatrix {
             for j in 0..n {
                 let dot: c64 = (0..n).map(|q| self[(q, i)].conj() * self[(q, j)]).sum();
                 let identity = if i == j { 1.0 } else { 0.0 };
-                worst = worst.max((dot - identity).norm());
+                worst = worst.max(portable::complex::abs(dot - identity));
             }
         }
         worst
@@ -234,7 +236,7 @@ impl SMatrix {
             .values
             .iter()
             .zip(&other.values)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max))
     }
 }
