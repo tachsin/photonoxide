@@ -14,7 +14,12 @@
 #   cases      the validation cases: id prefixes, "*" for all, empty for none
 #   examples   the examples, each against its committed output: names, or "*" for every one but
 #              the 3D devices (which run on Tier 2 and 3, and when their own file changes)
-#   studio     the studio's checks: empty, "linux", or "all" (Linux, Windows and macOS)
+#   studio     the studio's checks: empty, "fast" (its fast tier: its slow tests skipped) or
+#              "every" (every test of the studio)
+#   studio_skip  in the fast tier, the slow tests it skips (.github/studio-slow-tests.txt, less
+#              those a changed file of theirs runs), separated by spaces
+#   systems    "linux", or "all" when a file that differs by system changed (below): the unit
+#              tests and the studio then run on Windows and macOS too
 #
 # The shards (.github/shards.sh) then split these tests, cases and examples among CI's jobs.
 #
@@ -39,6 +44,21 @@
 #
 # The release pull request and the weekly run run everything whatever changed, and catch what a
 # missing entry here would let through.
+#
+# The studio's tests come in two tiers. Its fast tier skips the slow tests that
+# .github/studio-slow-tests.txt names (physics solves, each over a minute) and runs the rest: the
+# consistency checks of what it reads as text (the README's counts, the roadmap against the site,
+# the methods pages, the Academy's lessons, the changelog) and the tests of its own code that take
+# seconds. A change reaches only the fast tier when every changed file the studio reads is text to
+# it: its area's files but its Rust code (studio/src-tauri), the job files and the circuits
+# (STUDIO_SLOW below), and no library area it uses changed. Anything else that reaches the studio
+# runs every test of it (`studio=every`), as does CI on every push to main, on Tier 2 and 3.
+#
+# The systems: a pull request runs on Linux alone, unless a file that differs by system changed
+# (OS_FILES below: photonoxide-native's backends, the studio's Rust code and its Windows setup,
+# the toolchain, the build scripts, CI itself, and any Rust file with a cfg on the system); then
+# its unit tests and the studio run on Windows and macOS too. CI runs them on the three systems on
+# every push to main, on Tier 2 and 3, whatever changed (ci.yml's "What changed" job).
 #
 # Bash only, no Python (AGENTS.md).
 set -euo pipefail
@@ -266,11 +286,24 @@ area python \
 # circuits, and reads the methods' write-ups, the examples' table and outputs, the changelog, the
 # Academy's lessons and the milestones they name, the validation report and the libraries' page;
 # its tests check the project site's static copy against the roadmap, its methods' categories
-# against docs/methods, and the README's counts against the files and the fabrication library
+# against docs/methods, and the README's counts against the files and the fabrication library.
+# It uses (`photonoxide::...` in studio/src-tauri) the areas below; eme, quantum, nonlinear,
+# fabrication, export, statics, shifter (src/thermal) and line (src/electro) directly too, of
+# which eme and quantum reached it through no other area before
 area studio \
-  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js site/lib/projects/photonoxide/latest.js site/lib/projects/photonoxide/milestones.js site/lib/projects/photonoxide/python-reference.js site/lib/projects/photonoxide/dependencies/*" \
-  "material sparse mode fdfd fdtd job circuit device generator compact facade bench native" \
+  "studio/* academy/* docs/methods/* docs/libraries.md examples/README.md CHANGELOG.md ROADMAP.md README.md docs/README.md jobs/* tests/jobs-toml/* circuits/* site/lib/projects/photonoxide/meta.js site/lib/projects/photonoxide/methods.js site/lib/projects/photonoxide/latest.js site/lib/projects/photonoxide/milestones.js site/lib/projects/photonoxide/python-reference.js site/lib/projects/photonoxide/dependencies/* .github/apt-get-update.sh" \
+  "material sparse mode fdfd fdtd eme job circuit device generator compact facade bench native nonlinear quantum fabrication export statics shifter line" \
   "" "" ""
+
+# The studio's files that run every test of it (the others are text to it, or its web view,
+# which its fast tier checks): its Rust code, and the jobs and circuits it builds in and runs
+STUDIO_SLOW="studio/src-tauri/* jobs/* tests/jobs-toml/* circuits/*"
+
+# The files that differ by system: photonoxide-native (the external libraries' backends, found
+# per system), the studio's Rust code (its installs, channels and window differ by system) and its
+# Windows setup, the toolchain, build scripts, and CI's own files; and any changed Rust file that
+# has a cfg on the system (checked below, by its content)
+OS_FILES="native/* studio/src-tauri/* studio/setup/* rust-toolchain.toml build.rs */build.rs .github/workflows/ci.yml .github/areas.sh .github/shards.sh .github/dependencies.sh .github/studio-slow-tests.txt .github/actions/*"
 
 # matches FILE GLOBS: whether the file matches one of the globs
 matches() {
@@ -315,20 +348,34 @@ ignored() {
 declare -A touched hit run
 everything=false
 code=false
-studio_systems=false
+systems=linux
+# a change that runs every test of the studio, not its fast tier alone
+studio_slow=false
+# the changed files that run something, for the slow tests' own globs
+changed=()
 direct_cases=""
 direct_examples=""
 
 touch_area() { touched[$1]=1; code=true; }
 
 if [ "${1:-}" = --all ]; then
-  everything=true
+  everything=true systems=all studio_slow=true
 else
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     if ignored "$f"; then continue; fi
+    changed+=("$f")
+    if matches "$f" "$OS_FILES"; then systems=all; fi
+    # a Rust file with code for one system (`#[cfg(windows)]`, `cfg!(target_os = "macos")`, ...)
     case "$f" in
-      # the validation report: the cases whose rows changed, or all of them when its head did
+      *.rs)
+        if [ -f "$f" ] && grep -qE 'cfg(_attr)?!?\(.*(windows|unix|target_os|target_family|target_env|target_vendor)' "$f"; then
+          systems=all
+        fi ;;
+    esac
+    case "$f" in
+      # the validation report: the cases whose rows changed, or all of them when its head did;
+      # the studio reads it as text (the Academy's lessons name its cases)
       docs/validation.md)
         touch_area studio
         if [ -z "${AREAS_RANGE:-}" ]; then
@@ -344,33 +391,52 @@ else
         continue ;;
       # the cases themselves: all of them (a change here usually comes with its area's too)
       src/validation.rs | src/verdict.rs | tests/validation_report.rs)
-        direct_cases="*"; touch_area studio; continue ;;
+        direct_cases="*"; touch_area studio; studio_slow=true; continue ;;
       # an example or its output: that example (the studio builds the examples in); their
       # helpers: every example using them
       examples/output/*.txt)
-        name=${f#examples/output/}; direct_examples+=" ${name%.txt}"; touch_area studio; continue ;;
+        name=${f#examples/output/}; direct_examples+=" ${name%.txt}"; touch_area studio; studio_slow=true; continue ;;
       examples/pdk/* | examples/common/*)
         helper=${f#examples/}; helper=${helper%%/*}
         set +f; all_examples=(examples/*.rs); set -f
         for e in "${all_examples[@]}"; do
           if grep -qE "^mod $helper;" "$e"; then n=${e#examples/}; direct_examples+=" ${n%.rs}"; fi
         done
-        touch_area studio; continue ;;
+        touch_area studio; studio_slow=true; continue ;;
       examples/*.rs)
-        name=${f#examples/}; direct_examples+=" ${name%.rs}"; touch_area studio; continue ;;
+        name=${f#examples/}; direct_examples+=" ${name%.rs}"; touch_area studio; studio_slow=true; continue ;;
     esac
     found=false
     case "$f" in src/*) touch_area layering ;; esac
     for a in "${areas[@]}"; do
       if matches "$f" "${files[$a]}"; then touch_area "$a"; found=true; fi
     done
-    case "$f" in studio/*) studio_systems=true ;; esac
+    if matches "$f" "$STUDIO_SLOW"; then studio_slow=true; fi
     if [ "$found" = false ]; then
       echo "shared: $f" >&2
       everything=true
     fi
   done
 fi
+
+# The slow tests the studio's fast tier skips: those of .github/studio-slow-tests.txt that no
+# changed file of their own globs runs
+slow_skips() {
+  local name globs f run skip=""
+  while read -r name globs; do
+    # a checkout with Windows' line ends
+    name=${name%$'\r'} globs=${globs%$'\r'}
+    case "$name" in '' | '#'*) continue ;; esac
+    run=false
+    if [ "${#changed[@]}" -gt 0 ]; then
+      for f in "${changed[@]}"; do
+        if matches "$f" "$globs"; then run=true; fi
+      done
+    fi
+    [ "$run" = true ] || skip+=" $name"
+  done < .github/studio-slow-tests.txt
+  echo "${skip# }"
+}
 
 if [ "$everything" = true ]; then
   echo "code=true"
@@ -379,8 +445,9 @@ if [ "$everything" = true ]; then
   echo "native=true"
   echo "cases=*"
   echo "examples=*"
-  # the studio's own code differs by system; the library under it doesn't
-  if [ "${1:-}" = --all ] || [ "$studio_systems" = true ]; then echo "studio=all"; else echo "studio=linux"; fi
+  echo "studio=every"
+  echo "studio_skip="
+  echo "systems=$systems"
   exit 0
 fi
 
@@ -404,6 +471,23 @@ for a in "${areas[@]}"; do
   done
 done
 
+# a touched library area the studio uses, directly or through another, runs its slow tests: they
+# solve with that code
+declare -A feeds
+# shellcheck disable=SC2206
+todo=(${uses[studio]})
+while [ "${#todo[@]}" -gt 0 ]; do
+  u=${todo[0]}
+  todo=("${todo[@]:1}")
+  [ -z "${feeds[$u]:-}" ] || continue
+  feeds[$u]=1
+  # shellcheck disable=SC2206
+  todo+=(${uses[$u]})
+done
+for a in "${!touched[@]}"; do
+  if [ -n "${feeds[$a]:-}" ]; then studio_slow=true; fi
+done
+
 names="" t="" c="" e=""
 for a in "${areas[@]}"; do
   [ -n "${run[$a]:-}" ] || continue
@@ -413,10 +497,9 @@ done
 # each word once, in order
 once() { tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ' | sed 's/ $//'; }
 
-studio=""
+studio="" studio_skip=""
 if [ -n "${run[studio]:-}" ]; then
-  studio=linux
-  if [ "$studio_systems" = true ]; then studio=all; fi
+  if [ "$studio_slow" = true ]; then studio=every; else studio=fast studio_skip=$(slow_skips); fi
 fi
 
 echo "code=$code"
@@ -426,3 +509,5 @@ echo "native=$([ -n "${run[native]:-}" ] && echo true || echo false)"
 if [ "$direct_cases" = "*" ]; then echo "cases=*"; else echo "cases=$(echo "$c $direct_cases" | once)"; fi
 echo "examples=$(echo "$e $direct_examples" | once)"
 echo "studio=$studio"
+echo "studio_skip=$studio_skip"
+echo "systems=$systems"

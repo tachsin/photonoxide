@@ -105,9 +105,17 @@ reads (most Markdown, the site, the other workflows) run only the docs' links. A
 or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io.
+crates.io. A PR runs on Linux alone unless it changes a file that differs by system (`OS_FILES` in
+the map: native/, the studio's Rust code and setup, the toolchain, build scripts, CI's own files);
+every push to main runs the unit tests and the studio on Windows and macOS too. The studio's fast
+tier skips its slow physics tests (.github/studio-slow-tests.txt; nothing is `#[ignore]`d) when
+a PR changes only what it reads as text (README, roadmap, changelog, Academy, methods pages, web
+view); its Rust code, a job or circuit file, or a library area it uses runs every test, as main
+does. A draft PR runs nothing: mark it ready for review when its local checks pass, and CI runs.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
-a change to `Cargo.toml` or `Cargo.lock`: every test on Linux, Windows and macOS (and on
+a change that can alter the dependencies or the features (`Cargo.lock`'s packages, the root
+`Cargo.toml`'s dependency, feature, patch or workspace tables: `.github/dependencies.sh`; other
+edits of the two are Tier 1): every test on Linux, Windows and macOS (and on
 one thread), every example on the three systems, the 3D devices, the whole validation report. The
 shards ([.github/shards.sh](.github/shards.sh)) split a run's tests, cases and examples among its
 jobs by measured times, each in exactly one job (the "What changed" job fails otherwise). **Tier
