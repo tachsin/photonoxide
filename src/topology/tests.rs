@@ -502,3 +502,127 @@ fn the_penalty_study() {
         println!("gradient, δ {delta}: {:.3e}", penalty_gradient_error(delta));
     }
 }
+
+/// The lithography proxy's checks: the blur's closed forms and transpose, the printed edge
+/// against the pixel, and the FDFD gradient against the step, with each probe's values.
+#[test]
+#[ignore = "a study: cargo test --release --lib the_litho_study -- --ignored --nocapture"]
+fn the_litho_study() {
+    use crate::topology::checks::{
+        litho_blur_error, litho_print_edge, litho_print_error, litho_probes, litho_transpose_error,
+    };
+    println!("blur: {:.3e}", litho_blur_error());
+    println!("transpose: {:.3e}", litho_transpose_error());
+    for sigma in [1.0, 2.0, 4.0, 8.0, 16.0] {
+        let worst = litho_print_error(sigma);
+        println!(
+            "printed edge at σ = {sigma} px: worst {worst:.4e} px ({:.4e} σ)",
+            worst / sigma
+        );
+        for t in [0.3, 0.5, 0.7] {
+            let row: Vec<String> = [0.0, 0.25, 0.5, 0.75]
+                .iter()
+                .map(|&o| format!("{:+.3e}", litho_print_edge(sigma, t, o)))
+                .collect();
+            println!("  t = {t}: {}", row.join(" "));
+        }
+    }
+    for delta in [1e-5, 1e-4, 1e-3, 1e-2] {
+        for p in litho_probes(delta) {
+            println!(
+                "δ {delta}: exact {:.6e}, differences {:.6e}, relative {:.2e}, resolution {:.2e}",
+                p.gradient,
+                p.differences(),
+                (p.gradient - p.differences()).abs() / p.gradient.abs(),
+                p.resolution()
+            );
+        }
+    }
+}
+
+#[test]
+fn the_lithography_proxy() {
+    use crate::topology::{Edge, GaussianBlur, Lithography};
+    // the closed forms
+    assert!(Lithography::edge_shift(0.05, 0.5).abs() < 1e-15);
+    let s = Lithography::edge_shift(0.05, 0.3);
+    assert!(s > 0.0);
+    assert!((0.5 * libm::erfc(s / (std::f64::consts::SQRT_2 * 0.05)) - 0.3).abs() < 1e-14);
+    assert!((Lithography::edge_shift(0.05, 0.7) + s).abs() < 1e-14);
+    assert!((Lithography::line_width(10.0, 0.05, 0.5) - 10.0).abs() < 1e-12);
+    assert_eq!(Lithography::line_width(0.05, 0.05, 0.5), 0.0);
+    // a uniform mask is kept, renormalized and padded with the same value
+    let u = vec![0.37; 30 * 20];
+    for edge in [Edge::Renormalized, Edge::Padded(0.37)] {
+        let b = GaussianBlur::new([30, 20, 1], 0.01, 0.023, edge).unwrap();
+        assert!(
+            b.apply(&u)
+                .unwrap()
+                .iter()
+                .all(|v| (v - 0.37).abs() < 1e-15)
+        );
+    }
+    // the print's gradient against differences, without a solver
+    let l = Lithography::new([24, 18, 1], 0.01, 0.02, 0.45, Edge::Renormalized).unwrap();
+    let mask: Vec<f64> = (0..24 * 18)
+        .map(|p| 0.5 + 0.4 * (0.4 * (p % 24) as f64).sin() * (0.3 * (p / 24) as f64).cos())
+        .collect();
+    let w: Vec<f64> = (0..24 * 18).map(|p| (0.37 * p as f64).cos()).collect();
+    let f = |m: &[f64]| -> f64 { l.print(m).unwrap().iter().zip(&w).map(|(a, b)| a * b).sum() };
+    let g = l.pullback(&mask, &w).unwrap();
+    let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    for p in (0..24 * 18).step_by(11) {
+        let at = |d: f64| {
+            let mut m = mask.clone();
+            m[p] += d;
+            f(&m)
+        };
+        let fd = (at(-2e-5) - 8.0 * at(-1e-5) + 8.0 * at(1e-5) - at(2e-5)) / 1.2e-4;
+        assert!(
+            (g[p] - fd).abs() < 1e-7 * scale,
+            "pixel {p}: {} against {fd}",
+            g[p]
+        );
+    }
+    assert!(GaussianBlur::new([3, 3, 1], 0.01, 0.0, Edge::Renormalized).is_err());
+    assert!(Lithography::new([3, 3, 1], 0.01, 0.02, 1.0, Edge::Renormalized).is_err());
+}
+
+#[test]
+fn the_lithography_proxy_at_a_finite_beta() {
+    use crate::topology::{Edge, Lithography, SmoothedProjection};
+    let l = Lithography::new([24, 18, 1], 0.01, 0.02, 0.45, Edge::Renormalized)
+        .unwrap()
+        .with_beta(32.0)
+        .unwrap();
+    assert_eq!(l.beta(), 32.0);
+    assert_eq!(l.threshold(), 0.45);
+    let mask: Vec<f64> = (0..24 * 18)
+        .map(|p| 0.5 + 0.4 * (0.4 * (p % 24) as f64).sin() * (0.3 * (p / 24) as f64).cos())
+        .collect();
+    // the value: the blur, then the smoothed projection at that β
+    let blurred = l.blur().apply(&mask).unwrap();
+    let projected = SmoothedProjection::new(32.0, 0.45)
+        .unwrap()
+        .apply([24, 18, 1], 0.01, &blurred)
+        .unwrap();
+    assert_eq!(l.print(&mask).unwrap(), projected);
+    // the gradient against fourth-order differences
+    let w: Vec<f64> = (0..24 * 18).map(|p| (0.37 * p as f64).cos()).collect();
+    let f = |m: &[f64]| -> f64 { l.print(m).unwrap().iter().zip(&w).map(|(a, b)| a * b).sum() };
+    let g = l.pullback(&mask, &w).unwrap();
+    let scale = g.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    for p in (0..24 * 18).step_by(11) {
+        let at = |d: f64| {
+            let mut m = mask.clone();
+            m[p] += d;
+            f(&m)
+        };
+        let fd = (at(-2e-5) - 8.0 * at(-1e-5) + 8.0 * at(1e-5) - at(2e-5)) / 1.2e-4;
+        assert!(
+            (g[p] - fd).abs() < 1e-7 * scale,
+            "pixel {p}: {} against {fd}",
+            g[p]
+        );
+    }
+}

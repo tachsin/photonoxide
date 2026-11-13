@@ -282,5 +282,46 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the penalty is smooth but at its ramps' and absolute values' kinks, which differences wider than 1e-7 cross at some node (1.8e-3 at 1e-6); at 1e-7, 8.3e-11 (the_penalty_study); held to 1e-8",
             ),
         ),
+        (
+            "topology/litho-blur",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-14,
+                Exact,
+                "each pixel's weight is the Gaussian's integral over it, so the blur of a pixelated shape is its exact convolution: sums of differences of erfc below 1, 7.8e-16 (the_litho_study); held to 1e-14",
+            ),
+        ),
+        (
+            "topology/litho-transpose",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the two sides are the same sum of 10³ to 10⁴ products in two orders: 1.8e-15 (the_litho_study); held to 1e-12",
+            ),
+        ),
+        (
+            "topology/litho-print-edge",
+            Rule::new(
+                Absolute,
+                Discretisation,
+                crate::topology::checks::SSP_ROW_ERROR + 0.1 / 16.0,
+                Measured,
+                "the subpixel-smoothed threshold fills a pixel by F₂ of its centre's distance, not by its area: a row's area is off by up to 0.1217 px across a straight edge (the supremum over the edge's place in a pixel), and the blur's curvature across a pixel adds 0.053, 0.019, 0.0035 and 0.0005 px at σ = 1, 2, 4 and 8 px (the_litho_study: worst 0.174, 0.141, 0.125 and 0.122 px), falling with σ but not cleanly as (Δ/σ)²: 0.052, 0.076, 0.053 and 0.03 (Δ/σ)²; held to 0.1217 + 0.1 (Δ/σ)² px, 0.1 the measured envelope of those (the largest, 0.076, rounded up), 0.128 px at σ = 4 px",
+            ),
+        ),
+        (
+            "topology/litho-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-8,
+                Noted,
+                "fourth-order differences of the mask: at δ = 1e-5, 1e-4 and 1e-3 every error (at most 1.4e-7, 2.2e-8 and 9.2e-10) is below what they resolve (1.5e-6, 1.5e-7 and 1.5e-8), and at 1e-2 the truncation shows (8.3e-5; the_litho_study); at δ = 1e-3 the resolution, 1.5e-8, is noted; held to 5e-8, above three times it",
+            )
+            .varying(),
+        ),
     ]
 }
