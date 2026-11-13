@@ -12,6 +12,9 @@
 # The steps, in order: a name, then the command (run with eval from the repository's root).
 # shellcheck disable=SC2034 # read by the scripts that source this file
 LINTS=(
+  # the same numbers on every system (#822): the allows of the system's maths functions only go
+  # down, libm only in src/portable/, no mul_add (seconds; nothing builds)
+  "portable|bash .github/scripts/check-portable.sh"
   "fmt|cargo fmt --all --check"
   # CI's three clippy steps (the library with all its features, the native crates, the Python
   # binding) as one command, so that the library is checked once: run separately, Cargo picks other
