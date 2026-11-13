@@ -269,9 +269,12 @@ then builds the multigrid without its finest matrix, `Multigrid::coarse` saying 
 operators and `Multigrid::jacobi` the finest level's smoothing. Its results differ from the
 stored matrix's multigrid's in their last bits (another smoother), so it is asked for, never
 assumed: the default stays the matrix, and `Product::Auto` keeps the matrix on Shin and Fan's
-operator. Plain QMR takes the operator too (its transpose is the product above); ILU(0) and an
-iterative backend need the matrix and are refused. `photonoxide bench`'s catalogue has the
-three side by side (`fdfd3d-iterative/strip-ports-multigrid-*` and `guide-multigrid-*`).
+operator. Plain QMR takes the operator too (its transpose is the product above); ILU(0) needs
+the matrix and is refused. An iterative backend that runs it (`cusparse`, #337: the stencil on
+Vulkan beside cuSPARSE, [the backends' write-up](backends.md#cusparse-photonoxides-qmr-and-gmres-on-an-nvidia-gpu))
+is given the finest level and GMRES's operator as their stencil; one that doesn't is refused.
+`photonoxide bench`'s catalogue has the three side by side
+(`fdfd3d-iterative/strip-ports-multigrid-*` and `guide-multigrid-*`).
 
 ## Left
 
@@ -284,5 +287,3 @@ three side by side (`fdfd3d-iterative/strip-ports-multigrid-*` and `guide-multig
   with Galerkin's operators it is the largest thing left (3 GB on the strip at 20 nm).
 - **The Galerkin build from the stencil** makes each fine row about three times, once for each
   coarse row that reaches it; keeping a slab's rows while its coarse rows are summed would cut it.
-- **A GPU's or another backend's cycle:** the backend's cycle takes each level's matrix, so the
-  multigrid without the finest one runs on photonoxide's own GMRES.

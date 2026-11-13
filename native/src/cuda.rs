@@ -64,8 +64,28 @@ pub(crate) struct Runtime {
     synchronize: unsafe extern "C" fn() -> c_int,
     mem_get_info: unsafe extern "C" fn(*mut usize, *mut usize) -> c_int,
     device_attribute: Option<unsafe extern "C" fn(*mut c_int, c_int, c_int) -> c_int>,
+    /// Memory another API (Vulkan) allocated, seen by CUDA: for the multigrid's stencil.
+    // the multigrid's stencil runs on Windows and Linux only (no CUDA on macOS)
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+    pub(crate) external: Option<External>,
     // last: the functions above must not outlive it
     _library: Library,
+}
+
+/// The runtime's functions for memory another API exported, and for which GPU is CUDA's.
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+pub(crate) struct External {
+    /// `cudaImportExternalMemory(cudaExternalMemory_t*, const cudaExternalMemoryHandleDesc*)`
+    pub(crate) import: unsafe extern "C" fn(*mut Opaque, *const c_void) -> c_int,
+    /// `cudaExternalMemoryGetMappedBuffer(void**, cudaExternalMemory_t, const
+    /// cudaExternalMemoryBufferDesc*)`
+    pub(crate) mapped: unsafe extern "C" fn(*mut Opaque, Opaque, *const c_void) -> c_int,
+    /// `cudaDestroyExternalMemory(cudaExternalMemory_t)`
+    pub(crate) destroy: unsafe extern "C" fn(Opaque) -> c_int,
+    /// `cudaGetDevice(int*)`
+    device: unsafe extern "C" fn(*mut c_int) -> c_int,
+    /// `cudaDeviceGetPCIBusId(char*, int, int)`
+    bus_id: unsafe extern "C" fn(*mut std::os::raw::c_char, c_int, c_int) -> c_int,
 }
 
 impl Runtime {
@@ -84,6 +104,16 @@ impl Runtime {
                     synchronize: library.function("cudaDeviceSynchronize")?,
                     mem_get_info: library.function("cudaMemGetInfo")?,
                     device_attribute: library.function("cudaDeviceGetAttribute").ok(),
+                    external: (|| -> Result<External> {
+                        Ok(External {
+                            import: library.function("cudaImportExternalMemory")?,
+                            mapped: library.function("cudaExternalMemoryGetMappedBuffer")?,
+                            destroy: library.function("cudaDestroyExternalMemory")?,
+                            device: library.function("cudaGetDevice")?,
+                            bus_id: library.function("cudaDeviceGetPCIBusId")?,
+                        })
+                    })()
+                    .ok(),
                     _library: library,
                 })
             }
@@ -112,6 +142,29 @@ impl Runtime {
         // SAFETY: a writable int; the attribute and device 0 (the current one) are ints
         let status = unsafe { get(&mut ratio, SINGLE_TO_DOUBLE_PRECISION_PERF_RATIO, 0) };
         (status == 0 && ratio > 0).then_some(ratio)
+    }
+
+    /// The PCI bus id of CUDA's current GPU, as `0000:01:00.0` in lower case: which GPU Vulkan
+    /// must open to share memory with it.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+    pub(crate) fn bus_id(&self) -> Result<String> {
+        let external = self
+            .external
+            .as_ref()
+            .ok_or_else(|| error("this CUDA runtime can't import another API's memory"))?;
+        let _serial = serial();
+        let mut device = 0;
+        // SAFETY: a writable int
+        check(unsafe { (external.device)(&mut device) }, "cudaGetDevice")?;
+        let mut text = [0 as std::os::raw::c_char; 64];
+        check(
+            // SAFETY: the buffer holds 64 characters, as its length says
+            unsafe { (external.bus_id)(text.as_mut_ptr(), text.len() as c_int, device) },
+            "cudaDeviceGetPCIBusId",
+        )?;
+        // SAFETY: the runtime wrote a terminated string into the buffer
+        let id = unsafe { std::ffi::CStr::from_ptr(text.as_ptr()) };
+        Ok(id.to_string_lossy().to_lowercase())
     }
 
     /// The GPU's free memory, in bytes.
@@ -145,6 +198,22 @@ impl Buffer {
         let buffer = Buffer::with_bytes(runtime, size_of_val(data))?;
         buffer.write(data)?;
         Ok(buffer)
+    }
+
+    /// The device memory at `ptr`, `bytes` long, owned from now on: freed by `cudaFree` when
+    /// dropped.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be device memory of at least `bytes` that `cudaFree` releases (from
+    /// `cudaMalloc`, or a mapped external buffer), owned by nothing else.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+    pub(crate) unsafe fn adopt(runtime: &Arc<Runtime>, ptr: Opaque, bytes: usize) -> Buffer {
+        Buffer {
+            runtime: runtime.clone(),
+            ptr,
+            bytes,
+        }
     }
 
     /// `bytes` of device memory, its contents undefined.

@@ -3642,12 +3642,14 @@ dependencies = [
 name = "photonoxide-native"
 version = "0.6.4"
 dependencies = [
+ "ash",
  "boon",
  "genoxide",
  "libloading 0.9.0",
  "num-complex",
  "photonoxide",
  "rayon",
+ "wgpu",
  "zip 4.6.1",
 ]
 

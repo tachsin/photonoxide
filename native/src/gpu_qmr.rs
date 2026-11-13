@@ -27,8 +27,8 @@ use std::sync::Arc;
 use num_complex::Complex64 as c64;
 use photonoxide::Result;
 use photonoxide::backend::{
-    Capabilities, Form, IluFactors, IterativeSolver, Matrix, MultigridCycle, QmrRun, RowMatrix,
-    Threads,
+    Capabilities, Fine, Form, IluFactors, IterativeSolver, Matrix, MultigridCycle,
+    PreparedMultigrid, QmrRun, RowMatrix, Threads,
 };
 use photonoxide::fdfd::{Convergence, Stopping};
 
@@ -298,13 +298,21 @@ pub(crate) struct DeviceVector {
 impl DeviceVector {
     /// A vector of these values, its sparse view over `indices` (0, 1, …, n − 1).
     fn new(api: &Arc<Api>, values: &[c64], indices: &Buffer) -> Result<DeviceVector> {
+        let buffer = Buffer::new(&api.runtime, values)?;
+        DeviceVector::over(api, buffer, values.len(), indices)
+    }
+
+    /// A vector of `n` values in `values` (at least that many bytes), its sparse view over
+    /// `indices`.
+    fn over(api: &Arc<Api>, values: Buffer, n: usize, indices: &Buffer) -> Result<DeviceVector> {
         let _serial = serial();
-        let n = values.len() as i64;
+        assert!(values.bytes() >= n * size_of::<c64>() && indices.bytes() >= n * 4);
+        let n = n as i64;
         let mut v = DeviceVector {
             api: api.clone(),
             dense: std::ptr::null_mut(),
             sparse: std::ptr::null_mut(),
-            values: Buffer::new(&api.runtime, values)?,
+            values,
         };
         // SAFETY: the buffer holds n values and `indices` n 32-bit indices, both alive as long
         // as the descriptors (the session holds the indices)
@@ -403,6 +411,12 @@ impl Session {
     /// A vector of these values, at most the session's n of them.
     pub(crate) fn vector(&self, values: &[c64]) -> Result<DeviceVector> {
         DeviceVector::new(&self.api, values, &self.indices)
+    }
+
+    /// A vector of `n` values in `buffer`, which it frees, at most the session's n of them.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+    pub(crate) fn vector_over(&self, buffer: Buffer, n: usize) -> Result<DeviceVector> {
+        DeviceVector::over(&self.api, buffer, n, &self.indices)
     }
 
     fn reserve(&mut self, bytes: usize) -> Result<()> {
@@ -766,6 +780,10 @@ impl Operator<'_> {
 /// photonoxide's QMR on the GPU, as an iterative backend named `cusparse`.
 pub struct GpuQmr {
     pub(crate) api: Arc<Api>,
+    /// The Vulkan device on the same GPU, for the multigrid's stencil: opened the first time a
+    /// cycle without the finest matrix comes, or why it can't be.
+    #[cfg(any(windows, target_os = "linux"))]
+    interop: std::sync::OnceLock<std::result::Result<Arc<crate::interop::Interop>, String>>,
 }
 
 impl GpuQmr {
@@ -775,7 +793,35 @@ impl GpuQmr {
     ///
     /// Why not: not found, a function missing.
     pub fn load() -> std::result::Result<GpuQmr, String> {
-        Api::load().map(|api| GpuQmr { api: Arc::new(api) })
+        Api::load().map(|api| GpuQmr {
+            api: Arc::new(api),
+            #[cfg(any(windows, target_os = "linux"))]
+            interop: std::sync::OnceLock::new(),
+        })
+    }
+
+    /// The Vulkan device that runs the multigrid's stencil on CUDA's GPU, or why there is none.
+    ///
+    /// # Errors
+    ///
+    /// Why not, as [`crate::interop::Interop::new`] says; on macOS, that there is no CUDA.
+    #[cfg(any(windows, target_os = "linux"))]
+    pub(crate) fn interop(&self) -> std::result::Result<Arc<crate::interop::Interop>, String> {
+        self.interop
+            .get_or_init(|| {
+                let _serial = serial();
+                crate::interop::Interop::new(&self.api.runtime).map(Arc::new)
+            })
+            .clone()
+    }
+
+    /// Whether the multigrid without its finest matrix runs here, and on what: the Vulkan
+    /// adapter and driver, or why not.
+    pub fn stencil_device(&self) -> std::result::Result<String, String> {
+        #[cfg(any(windows, target_os = "linux"))]
+        return self.interop().map(|i| i.name().to_string());
+        #[cfg(not(any(windows, target_os = "linux")))]
+        Err("no CUDA on this system".into())
     }
 }
 
@@ -846,7 +892,35 @@ impl IterativeSolver for GpuQmr {
         b: &[c64],
         stopping: Stopping,
     ) -> Result<(Vec<c64>, Convergence)> {
-        crate::gpu_multigrid::gmres(&self.api, matrix, cycle, b, stopping)
+        crate::gpu_multigrid::Prepared::new(&self.api, None, Fine::Matrix(matrix), cycle)?
+            .run(cycle, b, stopping)
+    }
+
+    fn runs_multigrid_stencil(&self) -> bool {
+        self.stencil_device().is_ok()
+    }
+
+    fn prepare_multigrid(
+        &self,
+        fine: Fine<'_>,
+        cycle: &MultigridCycle<'_>,
+    ) -> Result<Option<Box<dyn PreparedMultigrid>>> {
+        let stencil = matches!(fine, Fine::Stencil(_)) || cycle.stencil().is_some();
+        #[cfg(any(windows, target_os = "linux"))]
+        let interop = if stencil {
+            Some(self.interop().map_err(error)?)
+        } else {
+            None
+        };
+        #[cfg(not(any(windows, target_os = "linux")))]
+        let interop = if stencil {
+            return Err(error("no CUDA on this system"));
+        } else {
+            None
+        };
+        Ok(Some(Box::new(crate::gpu_multigrid::Prepared::new(
+            &self.api, interop, fine, cycle,
+        )?)))
     }
 }
 

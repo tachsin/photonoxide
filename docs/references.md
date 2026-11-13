@@ -1378,7 +1378,7 @@ R. W. Freund, "Conjugate Gradient-Type Methods for Linear Systems with Complex S
 
 - Methods pages: [backends.md:353](methods/backends.md?plain=1#L353), [block-qmr.md:14](methods/block-qmr.md?plain=1#L14), [fdfd-3d.md:20](methods/fdfd-3d.md?plain=1#L20), [417](methods/fdfd-3d.md?plain=1#L417)
 - Validation cases: [`fdfd3d/qmr-symmetric-direct`](validation.md?plain=1#L174), [`fdfd3d/block-qmr-s-matrix`](validation.md?plain=1#L182)
-- Code: [src/backend/iterative.rs:13](../src/backend/iterative.rs#L13), [src/backend/krylov.rs:880](../src/backend/krylov.rs#L880), [src/validation.rs:1248](../src/validation.rs#L1248), [1304](../src/validation.rs#L1304)
+- Code: [src/backend/iterative.rs:17](../src/backend/iterative.rs#L17), [src/backend/krylov.rs:880](../src/backend/krylov.rs#L880), [src/validation.rs:1248](../src/validation.rs#L1248), [1304](../src/validation.rs#L1304)
 - Other documents: [docs/plans/performance.md:614](plans/performance.md?plain=1#L614)
 
 #### Freund and Malhotra 1997
@@ -1387,7 +1387,7 @@ R. W. Freund, M. Malhotra, "A block QMR algorithm for non-Hermitian linear syste
 
 - Methods pages: [block-qmr.md:8](methods/block-qmr.md?plain=1#L8), [49](methods/block-qmr.md?plain=1#L49)
 - Validation cases: [`fdfd3d/block-qmr-s-matrix`](validation.md?plain=1#L182), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L183), [`fdfd3d/block-qmr-iterations`](validation.md?plain=1#L184), [`fdfd3d/block-qmr-dependent`](validation.md?plain=1#L185), [`fdfd3d/block-qmr-freund-malhotra`](validation.md?plain=1#L187)
-- Code: [src/backend/krylov/block.rs:6](../src/backend/krylov/block.rs#L6), [src/backend/krylov/example.rs:10](../src/backend/krylov/example.rs#L10), [src/fdfd/three/iterative.rs:679](../src/fdfd/three/iterative.rs#L679), [src/validation.rs:1304](../src/validation.rs#L1304), [1311](../src/validation.rs#L1311), [1318](../src/validation.rs#L1318), [1325](../src/validation.rs#L1325), [1339](../src/validation.rs#L1339)
+- Code: [src/backend/krylov/block.rs:6](../src/backend/krylov/block.rs#L6), [src/backend/krylov/example.rs:10](../src/backend/krylov/example.rs#L10), [src/fdfd/three/iterative.rs:712](../src/fdfd/three/iterative.rs#L712), [src/validation.rs:1304](../src/validation.rs#L1304), [1311](../src/validation.rs#L1311), [1318](../src/validation.rs#L1318), [1325](../src/validation.rs#L1325), [1339](../src/validation.rs#L1339)
 - Other documents: [docs/plans/performance.md:615](plans/performance.md?plain=1#L615)
 
 #### Freund and Nachtigal 1991
@@ -1397,7 +1397,7 @@ R. W. Freund, N. M. Nachtigal, "QMR: a quasi-minimal residual method for non-Her
 - Methods pages: [backends.md:355](methods/backends.md?plain=1#L355), [block-qmr.md:12](methods/block-qmr.md?plain=1#L12), [fdfd-3d.md:18](methods/fdfd-3d.md?plain=1#L18)
 - Academy lessons: [fdfd-and-adjoints.md:61](../academy/fdfd-and-adjoints.md?plain=1#L61), [415](../academy/fdfd-and-adjoints.md?plain=1#L415), [768](../academy/fdfd-and-adjoints.md?plain=1#L768)
 - Validation cases: [`fdfd3d/qmr-direct`](validation.md?plain=1#L173), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L183)
-- Code: [src/backend/iterative.rs:12](../src/backend/iterative.rs#L12), [src/backend/krylov.rs:4](../src/backend/krylov.rs#L4), [src/fdfd/three/iterative.rs:106](../src/fdfd/three/iterative.rs#L106), [src/validation.rs:1241](../src/validation.rs#L1241), [1311](../src/validation.rs#L1311)
+- Code: [src/backend/iterative.rs:16](../src/backend/iterative.rs#L16), [src/backend/krylov.rs:4](../src/backend/krylov.rs#L4), [src/fdfd/three/iterative.rs:106](../src/fdfd/three/iterative.rs#L106), [src/validation.rs:1241](../src/validation.rs#L1241), [1311](../src/validation.rs#L1311)
 
 #### Frey et al. 2006
 
@@ -3797,7 +3797,7 @@ Y. Saad, "Iterative Methods for Sparse Linear Systems", Society for Industrial a
 
 - Methods pages: [backends.md:359](methods/backends.md?plain=1#L359), [fdfd-3d.md:46](methods/fdfd-3d.md?plain=1#L46), [mixed-precision.md:14](methods/mixed-precision.md?plain=1#L14), [71](methods/mixed-precision.md?plain=1#L71), [recycling.md:14](methods/recycling.md?plain=1#L14)
 - Validation cases: [`fdfd3d/qmr-ilu-direct`](validation.md?plain=1#L180), [`fdfd3d/gmres-multigrid-direct`](validation.md?plain=1#L181), [`fdfd3d/block-qmr-ilu-s-matrix`](validation.md?plain=1#L183)
-- Code: [src/backend/iterative.rs:89](../src/backend/iterative.rs#L89), [src/backend/krylov.rs:487](../src/backend/krylov.rs#L487), [1384](../src/backend/krylov.rs#L1384), [src/fdfd/three/iterative.rs:334](../src/fdfd/three/iterative.rs#L334), [375](../src/fdfd/three/iterative.rs#L375), [src/sparse/refine.rs:38](../src/sparse/refine.rs#L38), [src/validation.rs:1290](../src/validation.rs#L1290), [1297](../src/validation.rs#L1297), [1311](../src/validation.rs#L1311)
+- Code: [src/backend/iterative.rs:93](../src/backend/iterative.rs#L93), [src/backend/krylov.rs:487](../src/backend/krylov.rs#L487), [1384](../src/backend/krylov.rs#L1384), [src/fdfd/three/iterative.rs:334](../src/fdfd/three/iterative.rs#L334), [375](../src/fdfd/three/iterative.rs#L375), [src/sparse/refine.rs:38](../src/sparse/refine.rs#L38), [src/validation.rs:1290](../src/validation.rs#L1290), [1297](../src/validation.rs#L1297), [1311](../src/validation.rs#L1311)
 - Other documents: [docs/plans/performance.md:583](plans/performance.md?plain=1#L583)
 
 #### Saad 2011

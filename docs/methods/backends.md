@@ -365,16 +365,30 @@ on the same recurrences as photonoxide's own (#190):
   the same residual as photonoxide's own.
 - **Choosing one:** `IterativeSolver3d::with_iterative_backend(&Choice)`, and in the
   catalogue each problem that takes one (`Entry::takes_an_iterative_backend`: the guides by
-  QMR, ILU(0) or the multigrid, Diel's guide and the strip with ports). A solver without the
-  matrix can't be given one. With a backend named, an S-matrix's ports and a block solve run
-  one right-hand side at a time on it, and recycling's solves go to it as plain solves.
+  QMR, ILU(0) or the multigrid, with or without its finest matrix, Diel's guide and the strip
+  with ports). A solver without the matrix can be given one only for the multigrid without its
+  finest matrix, if the backend runs it. With a backend named, an S-matrix's ports and a block
+  solve run one right-hand side at a time on it, and recycling's solves go to it as plain
+  solves.
 - **`auto`** is photonoxide's own, unless the process prefers a backend
   (`backend::prefer_iterative`, which nothing in photonoxide calls: the validation run on a
-  backend does). Then the solves it runs as photonoxide would go to it (one right-hand side, by
-  the matrix: plain QMR, QMR with ILU(0)'s exact solves, GMRES with the multigrid if it runs it
-  and the hierarchy has every level's matrix and Galerkin's coarse operators), and the others
-  stay photonoxide's: block QMR, GCRO-DR's recycling, and every solve without the matrix. The
+  backend does). Then the solves it runs as photonoxide would go to it (one right-hand side:
+  plain QMR and QMR with ILU(0)'s exact solves by the matrix, GMRES with the multigrid if it
+  runs it, with every level's matrix and Galerkin's coarse operators, or, if it runs that too,
+  without the finest matrix or with coarse levels discretized again), and the others stay
+  photonoxide's: block QMR, GCRO-DR's recycling, and plain QMR without the matrix. The
   benchmark's measurements don't choose an iterative backend yet.
+- **The multigrid without its finest matrix** (#337) goes to a backend that says it runs it
+  (`runs_multigrid_stencil`): the finest level as its stencil (`Stencil`: ε, ε⁻¹ at the nodes,
+  k₀²(1 + iβ), 1/(s h) at the nodes and halfway after them along each axis, and each axis'
+  walls or Bloch phase), smoothed by damped Jacobi (ω D⁻¹), GMRES's operator as the same stencil
+  unshifted (`Fine::Stencil`), and a coarse level discretized again with its restriction's
+  weights (`MultigridLevel::scaling`: W⁻¹ Pᵀ D_f). `Stencil::apply` and `MultigridCycle::cycle`
+  are the product and the cycle a backend reproduces, on one thread.
+- **Kept between solves** (#229): a backend may keep what it made of a hierarchy
+  (`prepare_multigrid`, a `PreparedMultigrid`), as a direct solver keeps its analysis and
+  factorization. The solver keeps it with its hierarchy, so an S-matrix's ports and every solve
+  that follows on the same solver copy the hierarchy up and analyse it once.
 
 ### cuSPARSE: photonoxide's QMR and GMRES on an NVIDIA GPU
 
@@ -401,9 +415,23 @@ solve on the smoke test's systems in both forms.
   on the curl-curl matrix of `strip-40` (192 000 unknowns) and on one with rows of 100 000
   entries, where cuSPARSE's default, `CSR_ALG1`, gave different bits; `CSR_ALG2` took 0.367 ms a
   product on the curl-curl matrix against `CSR_ALG1`'s 0.342 ms (RTX 4060, cuSPARSE 12.7.3).
-- **Not on the GPU:** block QMR, GCRO-DR, and any solve without the matrix: the matrix-free
-  QMR, and the multigrid without its finest matrix (0.6, #351), whose cycle the backend
-  can't be given (#337).
+- **The multigrid without its finest matrix** (#337): cuSPARSE has no kernel for a stencil, so
+  Shin and Fan's product is a compute shader of photonoxide's own (`native/src/stencil.wgsl`,
+  three passes: H = ∇ × E at the faces, ε⁻¹ ∇ · (ε E) at the nodes, the product), on Vulkan
+  through wgpu in f64 (`shaderFloat64`), as photonoxide's own GPU kernels are wgpu's. It reads
+  and writes two buffers Vulkan allocates exportable and CUDA imports
+  (`VK_KHR_external_memory_win32` or `_fd`, `cudaImportExternalMemory`), on the Vulkan adapter
+  with CUDA's PCI bus id, so nothing goes through the host: a product is the vector copied into
+  the shared input on cuSPARSE, CUDA's work finished, the three passes submitted and waited for,
+  and the output copied out. Damped Jacobi is a product with the diagonal ω D⁻¹, and a weighted
+  restriction one matrix, W⁻¹ Pᵀ D_f, its rows and columns scaled on the host. The rest, GMRES
+  and the coarse levels, is as above. Each value of the product is written by one invocation,
+  each sum in the CPU's order, with no atomics: a product is photonoxide's to 3.1e-16 of its
+  largest value on PMLs, walls and Bloch sides, and a repeat gives the same bits (a test).
+- **Kept between solves** (#229): the matrices, factors, their analyses, the stencil and
+  GMRES's vectors stay on the GPU with the solver's hierarchy (`PreparedMultigrid`), for the
+  next solve.
+- **Not on the GPU:** block QMR, GCRO-DR, and plain QMR without the matrix.
 
 ### The validation cases on cusparse
 
@@ -435,6 +463,24 @@ The block, recycling and matrix-free cases are listed for the plain solves they 
 make, which went to the GPU: their references, their one-port runs, and the solves for the
 correction after recycling's initial guess. Their block QMR, GCRO-DR and matrix-free solves
 stayed photonoxide's.
+
+Run again on 2026-11-12 for the multigrid without its finest matrix (#337), on the cases of
+`fdfd3d/` and `device/fdfd-3d-iterative` (`-- cusparse fdfd3d/ device/fdfd-3d-iterative`; the
+same GPU, driver 616.56, 4 threads): 14 of their 49 cases go through it now, every one within
+its tolerance. Nine of the ten above gave the same values; `fdfd3d/recycle-convergence` gives
+0.300000 on both sides, its case having changed since. These four are new, the stencil's
+solves:
+
+| Case | Runs | photonoxide | cusparse | Difference | Tolerance |
+|---|---|---|---|---|---|
+| `fdfd3d/multigrid-stencil-direct` | 2 | 3.23056e-10 | 3.23056e-10 | 7.3e-17 | 1e-08 |
+| `fdfd3d/multigrid-stencil-s-matrix` | 32 | 8.39236e-12 | 8.39287e-12 | 5.1e-16 | 1e-09 |
+| `fdfd3d/multigrid-stencil-refinement` | 9 | 1.100000 | 1.100000 | 0 | 1.5 |
+| `device/fdfd-3d-iterative` | 2 | 1.73203e-09 | 1.73203e-09 | 1.9e-16 | 1e-08 |
+
+`fdfd3d/multigrid-stencil-s-matrix`'s 32 runs are its plain sweeps' solves (its recycled ones
+are GCRO-DR's, photonoxide's); `fdfd3d/multigrid-stencil-threads` is all recycled, and makes
+none.
 
 ### Measured: the 3D iterative problems
 
@@ -493,8 +539,54 @@ against the exact one. What they say:
   at 24 000 and 81 000 on the guide: a step is a product and a few vector updates, each a call
   with its latency, and a small matrix stays in the CPU's cache. The guide's larger sizes
   weren't run, their reference fields taking over an hour.
-- **What wasn't run:** the matrix-free problems, which a backend can't be given (#337). A run
-  that wouldn't fit in the GPU's 8 GB is refused, saying how much it needs.
+- **What wasn't run here:** plain QMR without the matrix, which a backend can't be given; the
+  multigrid without its finest matrix is below. A run that wouldn't fit in the GPU's 8 GB is
+  refused, saying how much it needs.
+
+### Measured: the multigrid without its finest matrix (#337)
+
+```sh
+cargo run -p photonoxide-native --release --example gpu_iterative -- --rounds 2 fdfd3d-iterative/guide-multigrid-stencil-44 …
+```
+
+The four catalogue families of #337 on `cusparse` (the stencil on Vulkan beside it) and on
+photonoxide's own, alternating, each side's faster run of two kept, on 2026-11-12 on the same
+RTX 4060 (driver 616.56, CUDA 13.1, cuSPARSE 12.7.3) against the Core Ultra 7 265K on **4
+threads** (the machine was shared, and its builds and runs are kept to 4 threads; the tables
+above are on 20). A step's time counts everything the solve does, the hierarchy copied up and
+analysed included (once for the strip's two ports, which share it); the error is the entry's
+own check, the same for both sides.
+
+| Problem | Grid | Unknowns | Iterations, CPU / GPU | CPU solve (a step) | GPU solve (a step) | Speed-up | Error, CPU / GPU |
+|---|---|---|---|---|---|---|---|
+| `guide-multigrid-rediscretized-44` | 44 × 44 × 44 cells of 10 nm, stretched PMLs of 10 | 255 552 | 27 / 27 | 0.824 s (30.53 ms) | 0.666 s (24.68 ms) | 1.24 | 3.4e-6 / 3.4e-6 |
+| `guide-multigrid-rediscretized-68` | 68 × 68 × 68 cells of 10 nm, stretched PMLs of 14 | 943 296 | 29 / 29 | 3.024 s (104.27 ms) | 1.395 s (48.11 ms) | 2.17 | 1.3e-6 / 1.3e-6 |
+| `guide-multigrid-rediscretized-96` | 96 × 96 × 96 cells of 10 nm, stretched PMLs of 10 | 2 654 208 | 47 / 47 | 12.840 s (273.19 ms) | 3.852 s (81.95 ms) | 3.33 | 6.5e-6 / 6.5e-6 |
+| `guide-multigrid-stencil-44` | 44 × 44 × 44 cells of 10 nm, stretched PMLs of 10 | 255 552 | 22 / 22 | 0.790 s (35.93 ms) | 0.813 s (36.97 ms) | 0.97 | 2.3e-6 / 2.3e-6 |
+| `guide-multigrid-stencil-68` | 68 × 68 × 68 cells of 10 nm, stretched PMLs of 14 | 943 296 | 23 / 23 | 2.714 s (118.01 ms) | 1.827 s (79.45 ms) | 1.49 | 1.7e-6 / 1.7e-6 |
+| `guide-multigrid-stencil-96` | 96 × 96 × 96 cells of 10 nm, stretched PMLs of 10 | 2 654 208 | 33 / 33 | 9.957 s (301.74 ms) | 4.265 s (129.23 ms) | 2.33 | 2.7e-6 / 2.7e-6 |
+| `strip-ports-multigrid-rediscretized-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 84 / 84 | 16.578 s (197.36 ms) | 5.050 s (60.11 ms) | 3.28 | 1.1e-8 / 1.1e-8 |
+| `strip-ports-multigrid-rediscretized-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 88 / 88 | 8.716 s (99.04 ms) | 2.838 s (32.25 ms) | 3.07 | 4.8e-9 / 4.8e-9 |
+| `strip-ports-multigrid-rediscretized-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 95 / 95 | 2.235 s (23.53 ms) | 1.115 s (11.74 ms) | 2.00 | 1.6e-9 / 1.6e-9 |
+| `strip-ports-multigrid-stencil-20nm` | 72 × 102 × 82 cells of 20 nm, stretched PMLs of 16 | 1 806 624 | 62 / 62 | 13.181 s (212.60 ms) | 5.205 s (83.95 ms) | 2.53 | 3.5e-9 / 3.5e-9 |
+| `strip-ports-multigrid-stencil-25nm` | 58 × 82 × 66 cells of 25 nm, stretched PMLs of 13 | 941 688 | 61 / 61 | 7.314 s (119.90 ms) | 3.101 s (50.83 ms) | 2.36 | 9.9e-9 / 9.9e-9 |
+| `strip-ports-multigrid-stencil-40nm` | 36 × 51 × 41 cells of 40 nm, stretched PMLs of 8 | 225 828 | 62 / 62 | 1.905 s (30.72 ms) | 1.100 s (17.73 ms) | 1.73 | 2.5e-9 / 2.5e-9 |
+
+- **The same answers.** Every GPU run takes the CPU's iterations exactly and gives its error
+  to the two digits shown, within the problem's tolerance; every repeated GPU run gave the
+  same error to the bit.
+- **Faster from 10⁶ unknowns:** 1.5 to 3.3 times against 4 CPU threads, and more with the
+  coarse operators discretized again (2.2 to 3.3 times), whose coarse levels are smaller; the
+  strip with ports gains 1.7 to 2.0 times from 2 × 10⁵ unknowns. The 44³ guide is at par with
+  Galerkin's operators: the copies and the analysis are a fixed cost. With the hierarchy
+  prepared, an iteration at 68³ takes 34.6 ms on the GPU ([the plan's
+  measurement](../plans/backends.md#the-multigrid-without-its-finest-matrix-on-the-gpu-337-2026-11-12)),
+  against 79 ms a step here, where 23 iterations carry the hierarchy's copy and analysis.
+- **What fits:** the guide at 96³ (2.65 million unknowns) and the strip at 20 nm (1.8
+  million) fit in the 4060's 8 GB with either coarse operator. The 128³ guide (6.3 million)
+  wasn't run: GMRES's 40 vectors take 4 GB there and Galerkin's first coarse level about
+  5 GB more, and its reference solve, the stored matrix's multigrid, peaks at 34 GB of the
+  CPU's memory, more than this shared machine had free.
 
 ### AmgX
 
@@ -509,5 +601,5 @@ The mode solvers' shift-and-invert still calls faer's LU directly. AMD's AOCL an
 Performance Libraries are loaded as dense kernels, but neither has yet run with photonoxide:
 their discovery and the interface checks are tested (the CI's test library has their
 variants), the libraries themselves wait for an AMD and an Arm machine. AMD's AOCL-Sparse as an
-iterative backend is #189; the multigrid without its finest matrix on the GPU is #337.
+iterative backend is #189.
 Eigensolvers get their own trait with their first backend.

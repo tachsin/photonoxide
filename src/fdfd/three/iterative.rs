@@ -431,37 +431,41 @@ impl IterativeSolver3d {
     /// GPU's, say. photonoxide's own for `auto` and `photonoxide`. A backend runs plain QMR, QMR
     /// with ILU(0) on factors photonoxide computes ([`backend::IluFactors`]), and, if it says so
     /// ([`IterativeSolver::runs_multigrid`]), GMRES with the multigrid cycle photonoxide builds
-    /// ([`backend::MultigridCycle`]). photonoxide keeps the restarts and the similar matrix's
-    /// tolerance around QMR's runs, and checks GMRES's solution on its own residual, so the
-    /// solution is held to the same residual as photonoxide's own.
+    /// ([`backend::MultigridCycle`]); and, if it runs it
+    /// ([`IterativeSolver::runs_multigrid_stencil`]), the multigrid without its finest matrix,
+    /// GMRES's operator and the finest level given as their stencil ([`backend::Stencil`]).
+    /// What the backend makes of a hierarchy is kept for the solver's next solves
+    /// ([`IterativeSolver::prepare_multigrid`]). photonoxide keeps the restarts and the similar
+    /// matrix's tolerance around QMR's runs, and checks GMRES's solution on its own residual, so
+    /// the solution is held to the same residual as photonoxide's own.
     ///
     /// `auto`, the default, is photonoxide's own unless the process prefers a backend
     /// ([`backend::prefer_iterative`]); then that backend runs the solves it runs as photonoxide
     /// would (one right-hand side, by the matrix, plain, with ILU(0)'s exact solves, or by the
-    /// multigrid if it runs it and the hierarchy has every level's matrix and Galerkin's coarse
-    /// operators), and photonoxide's own the others (block QMR, GCRO-DR's recycling, and any
-    /// solve without the matrix).
+    /// multigrid if it runs it: with every level's matrix and Galerkin's coarse operators, or,
+    /// if it runs that too, without the finest matrix or with coarse levels discretized again),
+    /// and photonoxide's own the others (block QMR, GCRO-DR's recycling, and plain QMR without
+    /// the matrix).
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidValue`] for a backend that isn't registered or available, and for a
-    /// solver preconditioned by multigrid with a backend that doesn't run it.
+    /// [`Error::InvalidValue`] for a backend that isn't registered or available, for a solver
+    /// preconditioned by multigrid with a backend that doesn't run it, and for a solver without
+    /// the matrix unless its multigrid is one the backend runs without the finest matrix.
     pub fn with_iterative_backend(mut self, choice: &Choice) -> Result<IterativeSolver3d> {
         self.backend = backend::iterative(choice)?;
         self.auto = *choice == Choice::Auto;
         self.id = next_id();
-        if self.backend.is_some() {
-            self.needs_matrix("an iterative backend")?;
-        }
         self.check_backend()?;
         Ok(self)
     }
 
     fn check_backend(&self) -> Result<()> {
-        if let Some(solver) = &self.backend
-            && matches!(self.preconditioner, Preconditioning::Multigrid(_))
-            && !solver.runs_multigrid()
-        {
+        let Some(solver) = &self.backend else {
+            return Ok(());
+        };
+        let multigrid = matches!(self.preconditioner, Preconditioning::Multigrid(_));
+        if multigrid && !solver.runs_multigrid() {
             return Err(Error::invalid(
                 "iterative backend",
                 format!(
@@ -469,6 +473,22 @@ impl IterativeSolver3d {
                     solver.capabilities().name
                 ),
             ));
+        }
+        // without the matrix, only the multigrid of a backend that runs it from the stencil
+        if self.free.is_some()
+            && !(multigrid && solver.runs_multigrid() && solver.runs_multigrid_stencil())
+        {
+            if multigrid {
+                return Err(Error::invalid(
+                    "iterative backend",
+                    format!(
+                        "{} runs the multigrid with each level's matrix, and this solver's finest \
+                         level has none",
+                        solver.capabilities().name
+                    ),
+                ));
+            }
+            self.needs_matrix("an iterative backend")?;
         }
         Ok(())
     }
@@ -480,15 +500,19 @@ impl IterativeSolver3d {
         if self.backend.is_some() {
             return self.backend.clone();
         }
-        if !self.auto || self.free.is_some() {
+        if !self.auto {
             return None;
         }
         let solver = backend::preferred_iterative()?;
         let runs = match &self.preconditioner {
+            Preconditioning::None | Preconditioning::Ilu(_) if self.free.is_some() => false,
             Preconditioning::None => true,
             Preconditioning::Ilu(ilu) => ilu.has_factors(),
             Preconditioning::Multigrid(h) => {
-                solver.runs_multigrid() && h.cycle_for_backend().is_ok()
+                let stencil = h.needs_stencil();
+                solver.runs_multigrid()
+                    && (!stencil || solver.runs_multigrid_stencil())
+                    && h.cycle_for_backend(stencil).is_ok()
             }
         };
         runs.then_some(solver)
@@ -603,12 +627,21 @@ impl IterativeSolver3d {
             // a cycle is worth many products with A, and GMRES takes one per iteration where
             // QMR takes two (the cycle and its transpose)
             Preconditioning::Multigrid(h) => match &runner {
-                Some(solver) => {
-                    let cycle = h.cycle_for_backend()?;
-                    let (x, how) =
-                        solver.gmres_multigrid(self.matrix.rows(), &cycle, b, stopping)?;
-                    checked(&self.matrix, b, x, how, stopping)?
-                }
+                Some(solver) => match &self.free {
+                    Some(operator) => {
+                        let stencil = operator.stencil().ok_or_else(|| {
+                            Error::invalid("iterative backend", "an operator without its stencil")
+                        })?;
+                        let (x, how) =
+                            h.gmres_on(solver, backend::Fine::Stencil(stencil), b, stopping)?;
+                        checked(operator, b, x, how, stopping)?
+                    }
+                    None => {
+                        let fine = backend::Fine::Matrix(self.matrix.rows());
+                        let (x, how) = h.gmres_on(solver, fine, b, stopping)?;
+                        checked(&self.matrix, b, x, how, stopping)?
+                    }
+                },
                 None => match &self.free {
                     Some(operator) => {
                         gmres_preconditioned(operator, h.as_ref(), b, stopping, h.restart())?
@@ -742,7 +775,7 @@ impl IterativeSolver3d {
 /// A backend's solution of A x = b, held to `stopping`'s tolerance on the residual computed
 /// here, which its convergence then reports.
 fn checked(
-    a: &Sparse,
+    a: &dyn crate::fdfd::krylov::Operator,
     b: &[c64],
     x: Vec<c64>,
     mut how: Convergence,

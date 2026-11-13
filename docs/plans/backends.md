@@ -118,6 +118,58 @@ So AmgX isn't loaded. Should a release fix its complex GMRES and add a complex s
 holds on indefinite systems, this is the place to look again; its GPU AMG would still be an
 algebraic one on a curl-curl operator, which photonoxide's geometric multigrid exists for.
 
+### The multigrid without its finest matrix on the GPU (#337, 2026-11-12)
+
+#337 asked first for a choice, measured on the 68³ guide: the finest level's stencil as a kernel
+of photonoxide's own on wgpu, its vectors shared with cuSPARSE's run (a), or the whole cycle on
+wgpu (b), which would also run on AMD's and Apple's GPUs. *(Chosen with #337's work from the
+measurements below, not yet reviewed by me.)*
+
+Measured on `fdfd3d-iterative/guide-multigrid-stencil-68` (68³ cells of 10 nm, stretched PMLs
+of 14, 943 296 unknowns, Galerkin's coarse operators: levels of 273 375, 107 811, 46 875,
+24 000, 10 125 and 3 000 unknowns below the finest, the coarsest 375), RTX 4060 (8 GB, driver
+616.56, CUDA 13.1, cuSPARSE 12.7.3), with (a) built (`cargo test -p photonoxide-native --release
+--lib gpu_multigrid::tests::measure -- --ignored --nocapture`):
+
+| What | Time |
+|---|---|
+| The stencil's product on Vulkan, the kernel alone, f64 | 1.144 ms |
+| The same in f32 | 0.234 ms (f64 4.9 times slower; CUDA gives the 4060's f32 to f64 ratio as 64) |
+| A product as the cycle takes it, on the two buffers Vulkan and CUDA share: the vector copied in and out on cuSPARSE, both sides waited for | 1.541 ms (a copy 0.146 ms, an empty wait on both sides 0.011 ms) |
+| The same vector through the host instead, each way | 5.2 ms (CUDA's down and up), 5.7 ms (Vulkan's) |
+| A V-cycle | 24.6 ms, 19.2 ms of it the levels below the finest |
+| The first coarse level on cuSPARSE: a product (16.1 M entries), ILU(0)'s two triangular solves | 2.0 ms, 2.8 ms |
+| Its triangular factors' level schedules (what a solve on Vulkan would dispatch level by level) | 230 levels each |
+| A dispatch on Vulkan in a chain of 1 000, each waiting for the one before | 1.5 µs |
+| An iteration of GMRES, everything on the GPU (89 iterations from a random right-hand side) | 34.6 ms |
+
+- **What (a) costs over (b):** sharing the two buffers costs 0.4 ms a product (two copies and two
+  waits), three products an iteration (GMRES's and the cycle's two residuals): 1.2 ms of the
+  34.6 ms, 3.5%. Through the host it would have cost 11 ms a product, as much as the rest of the
+  iteration; the buffers Vulkan exports and CUDA imports are what make (a) worth having.
+- **What (b) would win:** at most those 1.2 ms. The cycle's time is its coarse levels' (19.2 of
+  24.6 ms), on cuSPARSE's products and triangular solves; on Vulkan they would need a sparse
+  product and a level-scheduled triangular solve of our own. The dispatches would not stop
+  them (2 × 230 levels at 1.5 µs is 0.7 ms against cuSPARSE's 2.8 ms), and a product of 16 M
+  entries at the 4060's 272 GB/s reads for about 1.2 ms against cuSPARSE's 2.0 ms, so (b) could
+  match cuSPARSE, but nothing measured says it would beat it by more than the 3.5%, and it is
+  GMRES, the sparse products, the triangular solves and the reductions written again.
+- **Precision:** f64 on Vulkan, which cuSPARSE's vectors are. (b) on Apple's GPUs would be f32
+  only (Metal has no f64), the cycle in f32 under GMRES in f64, which is Phase D's mixed
+  precision ([the performance plan](performance.md)), not this.
+
+**So (a):** the finest level's stencil on Vulkan through wgpu, in f64, on two buffers Vulkan
+exports and CUDA imports (`VK_KHR_external_memory_win32`, `_fd` on Linux;
+`cudaImportExternalMemory`), the rest of the cycle and GMRES on cuSPARSE as before
+(`native/src/interop.rs`, `stencil.wgsl`, `gpu_multigrid.rs`). (b) stays open for AMD's GPUs
+(Vulkan has f64 there), as a backend of its own once there is an AMD GPU to measure it on; the
+stencil's kernel is the part both share.
+
+**Status (#802).** (a) is in, measured on the catalogue's four families in [the backends'
+write-up](../methods/backends.md#measured-the-multigrid-without-its-finest-matrix-337). Left:
+the 128³ guide, which doesn't fit in the 4060's 8 GB with Galerkin's coarse operators, and the
+stencil's kernel itself, three passes at about 110 GB/s where one fused pass would read less.
+
 ## Rules for backends
 
 - **Checked before offered.** A backend is registered only after its smoke test: a small
