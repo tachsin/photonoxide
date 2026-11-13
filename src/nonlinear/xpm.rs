@@ -176,7 +176,7 @@ pub fn gaussian_phase(
         cross * peaks[1] * (-(tau - td).powi(2)).exp()
     } else {
         0.5 * cross * peaks[1] * std::f64::consts::PI.sqrt() / delta
-            * (libm::erf(tau - td) - libm::erf(tau - td - delta))
+            * (crate::portable::erf(tau - td) - crate::portable::erf(tau - td - delta))
     };
     gamma * length * (spm + xpm)
 }

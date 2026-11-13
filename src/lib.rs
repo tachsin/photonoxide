@@ -49,6 +49,9 @@
 //!   permanents, output probabilities with partly distinguishable photons, an exact sampler,
 //!   Hong–Ou–Mandel dips with the photons' spectra, and the Reck and Clements meshes.
 //! - [`parallel`]: independent problems (a sweep's points) side by side, collected in order.
+//! - [`portable`]: the maths functions (exp, ln, powf, powi, sin, atan2, hypot, erf, ...) and
+//!   the complex ones with the same bits on every system, which the library takes instead of
+//!   the system's.
 //! - [`farm`]: the same across processes, on this machine or others over TCP: a sweep's points
 //!   or whole jobs (a population, corners) sent to workers and gathered by index.
 //! - [`facade`]: a small, stable façade of plain types, which the Python package wraps.
@@ -100,7 +103,7 @@ pub mod material;
 pub mod mode;
 pub mod nonlinear;
 pub mod parallel;
-mod portable;
+pub mod portable;
 pub mod quantum;
 pub mod raster;
 pub mod run;

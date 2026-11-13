@@ -41,7 +41,7 @@ use std::f64::consts::PI;
 use num_complex::Complex64 as c64;
 
 use crate::mode::marcatili::{Family, Rectangle};
-use crate::portable::exp_c;
+use crate::portable::complex;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -79,7 +79,7 @@ fn norm(z: c64) -> f64 {
 /// ∫ e^(−p|u − u′|) du′ over a strip from −w/2 to w/2, at u: closed.
 fn across(p: c64, u: f64, w: f64) -> c64 {
     let (u, half) = (u.abs(), 0.5 * w);
-    let e = |z: f64| exp_c(-p * z);
+    let e = |z: f64| complex::exp(-p * z);
     if u <= half {
         (2.0 - e(half - u) - e(half + u)) / p
     } else {
@@ -97,7 +97,7 @@ impl Slab {
     /// Mode m's weight at y from a sheet at `sheets`' height: φ_m(y) φ_m(s).
     fn weight(&self, m: usize, sheets: &Sheets, y: f64) -> f64 {
         let k = self.k(m);
-        2.0 / self.height * libm::sin(k * y) * libm::sin(k * sheets.height)
+        2.0 / self.height * crate::portable::sin(k * y) * crate::portable::sin(k * sheets.height)
     }
 
     /// Mode m's term at (x, y) for the transverse decay `p`: the strips' Green's functions
@@ -188,8 +188,8 @@ impl Slab {
         let mut rest = 0.0;
         for m in 0..200_000 {
             let k = self.k(m);
-            let sin = libm::sin(k * s);
-            let mean = -2.0 * (1.0 - libm::exp(-k * w)) / (k * k * w);
+            let sin = crate::portable::sin(k * s);
+            let mean = -2.0 * (1.0 - crate::portable::exp(-k * w)) / (k * k * w);
             rest += 2.0 / h * sin * sin * mean / k;
         }
         share / w / (2.0 * self.conductivity) * (2.0 * across_height + rest)
@@ -250,7 +250,8 @@ impl Slab {
                 let u = c - x;
                 share / w
                     * 0.5
-                    * (libm::erf((u + 0.5 * w) / sigma) - libm::erf((u - 0.5 * w) / sigma))
+                    * (crate::portable::erf((u + 0.5 * w) / sigma)
+                        - crate::portable::erf((u - 0.5 * w) / sigma))
             })
             .sum()
     }
@@ -269,11 +270,11 @@ impl Slab {
             return steady;
         }
         const NODES: usize = 160;
-        let (z0, z1) = (libm::log(t), libm::log(end));
+        let (z0, z1) = (crate::portable::ln(t), crate::portable::ln(end));
         let dz = (z1 - z0) / NODES as f64;
         let nodes: Vec<(f64, f64)> = (0..=NODES)
             .map(|i| {
-                let tau = libm::exp(z0 + dz * i as f64);
+                let tau = crate::portable::exp(z0 + dz * i as f64);
                 let simpson = if i == 0 || i == NODES {
                     1.0
                 } else if i % 2 == 1 {
@@ -294,7 +295,7 @@ impl Slab {
             }
             let integral: f64 = nodes
                 .iter()
-                .map(|&(tau, f)| libm::exp(-rate * tau) * f)
+                .map(|&(tau, f)| crate::portable::exp(-rate * tau) * f)
                 .sum::<f64>()
                 * dz
                 / 3.0;
@@ -316,7 +317,7 @@ impl Slab {
                 .map(|(s, &u)| self.step(s, x, y, u, t))
                 .sum()
         };
-        let target = (1.0 - libm::exp(-1.0)) * steady;
+        let target = (1.0 - crate::portable::exp(-1.0)) * steady;
         let (mut lo, mut hi) = (1e-2 * self.slowest(), 5.0 * self.slowest());
         while hi / lo > 1.0 + 1e-7 {
             let mid = (lo * hi).sqrt();
@@ -388,7 +389,7 @@ pub(super) fn sqrt_c(z: c64) -> c64 {
 
 /// cosh z and sinh z.
 fn cosh_sinh(z: c64) -> (c64, c64) {
-    let (a, b) = (exp_c(z), exp_c(-z));
+    let (a, b) = (complex::exp(z), complex::exp(-z));
     (0.5 * (a + b), 0.5 * (a - b))
 }
 
@@ -437,7 +438,7 @@ impl Fin {
             return c64::new(k / d + spread, 0.0);
         }
         let g = sqrt_c(s / diffusivity);
-        let e = exp_c(-2.0 * g * d);
+        let e = complex::exp(-2.0 * g * d);
         k * g * (1.0 + e) / (1.0 - e) + spread
     }
 
@@ -527,7 +528,7 @@ impl Fin {
     /// The 1/e time (s) of the centre's rise when the drive is turned on, by bisection in log t
     /// from 1 ns to 1 ms, to 1e-7.
     pub(super) fn one_over_e(&self) -> f64 {
-        let target = (1.0 - libm::exp(-1.0)) * self.steady();
+        let target = (1.0 - crate::portable::exp(-1.0)) * self.steady();
         let (mut lo, mut hi) = (1e-9f64, 1e-3f64);
         while hi / lo > 1.0 + 1e-7 {
             let mid = (lo * hi).sqrt();
@@ -549,14 +550,14 @@ impl Fin {
 pub(super) fn talbot(f: impl Fn(c64) -> c64, t: f64) -> f64 {
     let m = TALBOT as f64;
     let r = 2.0 * m / (5.0 * t);
-    let mut sum = 0.5 * (f(c64::new(r, 0.0)) * libm::exp(r * t)).re;
+    let mut sum = 0.5 * (f(c64::new(r, 0.0)) * crate::portable::exp(r * t)).re;
     for k in 1..TALBOT {
         let theta = k as f64 * PI / m;
-        let (sin, cos) = libm::sincos(theta);
+        let (sin, cos) = crate::portable::sin_cos(theta);
         let cot = cos / sin;
         let s = c64::new(r * theta * cot, r * theta);
         let sigma = theta + (theta * cot - 1.0) * cot;
-        sum += (exp_c(t * s) * f(s) * c64::new(1.0, sigma)).re;
+        sum += (complex::exp(t * s) * f(s) * c64::new(1.0, sigma)).re;
     }
     r / m * sum
 }

@@ -332,7 +332,7 @@ impl Waveform {
             } => {
                 let u = (t - delay) / width;
                 c64::new(0.0, portable::exp(-u * u))
-                    * portable::exp_c(c64::new(0.0, -frequency.angular() * (t - delay)))
+                    * portable::complex::exp(c64::new(0.0, -frequency.angular() * (t - delay)))
             }
             Waveform::DifferentiatedGaussian { .. } => c64::new(self.at(t), 0.0),
             Waveform::Continuous {
@@ -342,7 +342,7 @@ impl Waveform {
             } => {
                 smoothstep(t, ramp)
                     * amplitude
-                    * portable::exp_c(c64::new(0.0, -frequency.angular() * t))
+                    * portable::complex::exp(c64::new(0.0, -frequency.angular() * t))
             }
         }
     }
@@ -387,7 +387,7 @@ impl Waveform {
         (0..steps)
             .map(|n| {
                 let t = n as f64 * dt + offset;
-                value(self, t) * portable::exp_c(c64::new(0.0, omega * t)) * dt
+                value(self, t) * portable::complex::exp(c64::new(0.0, omega * t)) * dt
             })
             .sum()
     }
@@ -413,7 +413,8 @@ impl Waveform {
                 ramp,
             } => {
                 smoothstep(t, ramp)
-                    * (amplitude * portable::exp_c(c64::new(0.0, -frequency.angular() * t))).re
+                    * (amplitude * portable::complex::exp(c64::new(0.0, -frequency.angular() * t)))
+                        .re
             }
         }
     }

@@ -339,7 +339,7 @@ fn referred(s: Vec<Vec<c64>>, placed: &[Placed], planes: &[f64], beta: &[f64]) -
         .iter()
         .zip(planes)
         .zip(beta)
-        .map(|((p, &at), &b)| crate::portable::exp_c(c64::new(0.0, -b * (at - p.x).abs())))
+        .map(|((p, &at), &b)| crate::portable::complex::exp(c64::new(0.0, -b * (at - p.x).abs())))
         .collect();
     let n = s.len();
     SMatrix::from_rows(

@@ -281,7 +281,7 @@ fn coupler_closed_forms() -> Outcome {
     let c = f("C");
     let e = (f("L_x") / (PI / (2.0 * c)) - 1.0)
         .abs()
-        .max((f("cross") - libm::sin(c * 9.0).powi(2)).abs());
+        .max((f("cross") - crate::portable::sin(c * 9.0).powi(2)).abs());
     Outcome {
         measured: e,
         expected: 0.0,

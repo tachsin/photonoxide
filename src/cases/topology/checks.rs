@@ -230,8 +230,8 @@ fn points() -> impl Iterator<Item = f64> {
 /// The projection's value at a complex argument, Eq. 9 with complex tanh.
 fn projection_c(p: &Projection, z: c64) -> c64 {
     let (b, e) = (p.beta(), p.eta());
-    let denominator = libm::tanh(b * e) + libm::tanh(b * (1.0 - e));
-    (libm::tanh(b * e) + (b * (z - e)).tanh()) / denominator
+    let denominator = crate::portable::tanh(b * e) + crate::portable::tanh(b * (1.0 - e));
+    (crate::portable::tanh(b * e) + (b * (z - e)).tanh()) / denominator
 }
 
 /// The largest difference between the analytic derivative and the complex step's, relative to

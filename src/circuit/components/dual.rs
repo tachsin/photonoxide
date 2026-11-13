@@ -61,7 +61,7 @@ impl Dual {
     /// ([`crate::portable`]): optimizations run on these S-matrices, and how many steps they take
     /// can hinge on the last bit.
     pub(crate) fn exp(self) -> Dual {
-        let e = portable::exp_c(self.v);
+        let e = portable::complex::exp(self.v);
         Dual {
             v: e,
             d: e * self.d,
@@ -80,16 +80,16 @@ impl Dual {
     /// cos self.
     pub(crate) fn cos(self) -> Dual {
         Dual {
-            v: portable::cos_c(self.v),
-            d: -portable::sin_c(self.v) * self.d,
+            v: portable::complex::cos(self.v),
+            d: -portable::complex::sin(self.v) * self.d,
         }
     }
 
     /// sin self.
     pub(crate) fn sin(self) -> Dual {
         Dual {
-            v: portable::sin_c(self.v),
-            d: portable::cos_c(self.v) * self.d,
+            v: portable::complex::sin(self.v),
+            d: portable::complex::cos(self.v) * self.d,
         }
     }
 

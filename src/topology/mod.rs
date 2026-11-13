@@ -317,18 +317,20 @@ impl Projection {
     }
 
     fn denominator(&self) -> f64 {
-        libm::tanh(self.beta * self.eta) + libm::tanh(self.beta * (1.0 - self.eta))
+        crate::portable::tanh(self.beta * self.eta)
+            + crate::portable::tanh(self.beta * (1.0 - self.eta))
     }
 
     /// ρ̂ at the filtered density `x`.
     pub fn value(&self, x: f64) -> f64 {
-        (libm::tanh(self.beta * self.eta) + libm::tanh(self.beta * (x - self.eta)))
+        (crate::portable::tanh(self.beta * self.eta)
+            + crate::portable::tanh(self.beta * (x - self.eta)))
             / self.denominator()
     }
 
     /// dρ̂/dρ̃ at `x`: β sech² β(x − η) over the denominator (0 where the cosh overflows).
     pub fn derivative(&self, x: f64) -> f64 {
-        let sech = 1.0 / libm::cosh(self.beta * (x - self.eta));
+        let sech = 1.0 / crate::portable::cosh(self.beta * (x - self.eta));
         self.beta * sech * sech / self.denominator()
     }
 }

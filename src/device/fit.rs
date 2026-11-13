@@ -287,7 +287,7 @@ fn coupling_table(gap: f64, width: f64, thickness: f64) -> (f64, f64) {
     for (i, plane) in COUPLING.iter().enumerate() {
         for (j, row) in plane.iter().enumerate() {
             for (k, &v) in row.iter().enumerate() {
-                let ln = libm::log(v);
+                let ln = crate::portable::ln(v);
                 value += a[i] * b[j] * c[k] * ln;
                 slope += a[i] * b[j] * dc[k] * ln;
             }
@@ -309,7 +309,7 @@ pub(super) fn coupling(gap: f64, width: f64, thickness: f64) -> Result<(f64, f64
     within("thicknesses", thickness, &PAIR_THICKNESSES)?;
     let (ln, slope) = coupling_table(gap, width, thickness);
     let (ln0, _) = coupling_table(AT.2, AT.0, AT.1);
-    Ok((COUPLING_ANCHOR * libm::exp(ln - ln0), -slope))
+    Ok((COUPLING_ANCHOR * crate::portable::exp(ln - ln0), -slope))
 }
 
 #[cfg(test)]

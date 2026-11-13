@@ -222,7 +222,7 @@ impl LengthConstraints {
             let t = filtered[q];
             let bar = p.value(t);
             let dbar = p.derivative(t);
-            let e = libm::exp(-c * (gx[q] * gx[q] + gy[q] * gy[q]));
+            let e = crate::portable::exp(-c * (gx[q] * gx[q] + gy[q] * gy[q]));
             // the solid's: I = ρ̄ e, m = min(ρ̃ − η_e, 0); the void's: I = (1 − ρ̄) e, m = min(η_d − ρ̃, 0)
             let terms = [
                 (bar, dbar, (t - self.eta_e).min(0.0), 1.0),
@@ -293,8 +293,9 @@ pub fn geometric_threshold(c_tilde: f64, share: f64) -> Result<f64> {
             ),
         ));
     }
-    let integral = 3.0 * std::f64::consts::PI.sqrt() * libm::erf(c_tilde.sqrt())
+    let integral = 3.0 * std::f64::consts::PI.sqrt() * crate::portable::erf(c_tilde.sqrt())
         / (128.0 * c_tilde.powf(2.5))
-        - libm::exp(-c_tilde) * (3.0 / (64.0 * c_tilde * c_tilde) + 1.0 / (32.0 * c_tilde));
+        - crate::portable::exp(-c_tilde)
+            * (3.0 / (64.0 * c_tilde * c_tilde) + 1.0 / (32.0 * c_tilde));
     Ok(share * integral)
 }

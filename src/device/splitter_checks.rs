@@ -274,7 +274,7 @@ fn mmi_self_imaging() -> Outcome {
 pub(crate) fn mzi_mismatch() -> f64 {
     let mut worst: f64 = 0.0;
     let phase = 40f64.to_radians();
-    let shift = crate::portable::exp_c(c64::new(0.0, phase));
+    let shift = crate::portable::complex::exp(c64::new(0.0, phase));
     // of couplers
     let mzi = StripMzi::couplers();
     let v = Values::new(&mzi, &[("phase", 40.0)]).expect(OK);
@@ -627,7 +627,7 @@ pub(crate) fn straight(averaging: Averaging) -> [f64; 3] {
             .as_ref()
             .expect("a port's mode")
             .effective_index;
-        let ahead = crate::portable::exp_c(c64::new(0.0, lam.wavenumber() * n * 2.0));
+        let ahead = crate::portable::complex::exp(c64::new(0.0, lam.wavenumber() * n * 2.0));
         worst[0] = worst[0].max(s[(0, 0)].norm_sqr()).max(s[(1, 1)].norm_sqr());
         worst[1] = worst[1].max((s[(1, 0)] - s[(0, 1)]).norm());
         worst[2] = worst[2].max((s[(1, 0)] - ahead).norm());
