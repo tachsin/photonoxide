@@ -11,6 +11,7 @@ use faer::Mat;
 use faer::prelude::Solve;
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// The relative tolerance AAA stops at on its samples by default: the paper's, 1e-13 relative
@@ -75,7 +76,10 @@ impl Rational {
             return Err(Error::invalid("AAA", "the points must be distinct"));
         }
         let m_total = x.len();
-        let scale = f.iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let scale = f
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         let mean = f.iter().sum::<c64>() / m_total as f64;
         let mut r = vec![mean; m_total];
         // J of Fig. 4.1: the samples not yet support points
@@ -90,7 +94,7 @@ impl Rational {
                 .enumerate()
                 .map(|(k, &i)| {
                     // a zero of the denominator at a sample: the largest residual there is
-                    let e = (f[i] - r[i]).norm();
+                    let e = portable::complex::abs(f[i] - r[i]);
                     (k, if e.is_nan() { f64::INFINITY } else { e })
                 })
                 .fold((0, -1.0), |best, c| if c.1 > best.1 { c } else { best });
@@ -118,7 +122,7 @@ impl Rational {
                 r[i] = f[i];
             }
             let error = (0..m_total)
-                .map(|i| (f[i] - r[i]).norm())
+                .map(|i| portable::complex::abs(f[i] - r[i]))
                 .fold(
                     0.0,
                     |a: f64, b| if b.is_nan() { f64::INFINITY } else { a.max(b) },
@@ -213,7 +217,7 @@ pub(super) fn poles(support: &[f64], weights: &[c64]) -> Vec<c64> {
         return Vec::new();
     };
     mu.into_iter()
-        .filter(|mu| mu.norm() * width > 1e-8)
+        .filter(|mu| portable::complex::abs(*mu) * width > 1e-8)
         .map(|mu| s + 1.0 / mu)
         .collect()
 }
@@ -250,7 +254,7 @@ fn jacobi(a: &Mat<c64>) -> (Vec<f64>, Mat<c64>) {
                     beta += u[(i, q)].norm_sqr();
                     gamma += u[(i, p)].conj() * u[(i, q)];
                 }
-                let g = gamma.norm();
+                let g = portable::complex::abs(gamma);
                 if g == 0.0 || g <= f64::EPSILON * (alpha * beta).sqrt() {
                     continue;
                 }

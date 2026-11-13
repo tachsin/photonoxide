@@ -131,6 +131,7 @@ pub use set::{RationalSet, SweepSet};
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// How a [`Sweep`] samples and when it stops.
@@ -489,7 +490,7 @@ fn noise_shown(window: &[(f64, f64)], least: f64, tolerance: f64) -> bool {
 
 /// The AAA tolerances a stalled sweep tries for its fits: 1e-13 to 1e-1, two a decade.
 fn tolerances() -> impl Iterator<Item = f64> {
-    (0..=24).map(|k| DEFAULT_TOLERANCE * 10f64.powf(f64::from(k) / 2.0))
+    (0..=24).map(|k| DEFAULT_TOLERANCE * portable::powf(10f64, f64::from(k) / 2.0))
 }
 
 /// The samples' roughness and the sweep's fit above it, for a sweep that has stalled: for each
@@ -505,7 +506,10 @@ fn refit_above_roughness(
     from: f64,
     to: f64,
 ) -> Result<(f64, f64, Step)> {
-    let scale = samples.iter().map(|s| s.1.norm()).fold(0.0, f64::max);
+    let scale = samples
+        .iter()
+        .map(|s| portable::complex::abs(s.1))
+        .fold(0.0, f64::max);
     let halves: [Vec<&(f64, c64)>; 2] = [
         samples.iter().step_by(2).collect(),
         samples.iter().skip(1).step_by(2).collect(),
@@ -589,7 +593,10 @@ fn estimate(
                 .filter(|&x| x >= from && x <= to),
         );
     }
-    let scale = samples.iter().map(|s| s.1.norm()).fold(0.0, f64::max);
+    let scale = samples
+        .iter()
+        .map(|s| portable::complex::abs(s.1))
+        .fold(0.0, f64::max);
     let separation = 1e-9 * (to - from);
     let mut largest = 0.0f64;
     let mut next: Option<(f64, f64)> = None;
@@ -597,7 +604,7 @@ fn estimate(
         let r = fit.eval(x);
         let d = halves
             .iter()
-            .map(|h| (r - h.eval(x)).norm())
+            .map(|h| portable::complex::abs(r - h.eval(x)))
             .fold(
                 0.0,
                 |a: f64, b| if b.is_nan() { f64::INFINITY } else { a.max(b) },

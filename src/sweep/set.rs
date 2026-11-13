@@ -10,6 +10,7 @@ use num_complex::Complex64 as c64;
 
 use super::aaa::{poles, smallest_right_singular_vector};
 use super::{DEFAULT_TOLERANCE, FLOOR, Options, relative_to};
+use crate::portable;
 use crate::{Error, Result};
 
 /// K rational functions of type (m − 1, m − 1) that share their m support points z_j and their
@@ -84,7 +85,11 @@ impl RationalSet {
             ));
         }
         let m_total = x.len();
-        let scale = f.iter().flatten().map(|v| v.norm()).fold(0.0, f64::max);
+        let scale = f
+            .iter()
+            .flatten()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         let mean: Vec<c64> = (0..count)
             .map(|k| f.iter().map(|v| v[k]).sum::<c64>() / m_total as f64)
             .collect();
@@ -93,7 +98,7 @@ impl RationalSet {
         // is the largest residual
         let residual = |i: usize, r: &[Vec<c64>]| {
             (0..count)
-                .map(|k| (f[i][k] - r[i][k]).norm())
+                .map(|k| portable::complex::abs(f[i][k] - r[i][k]))
                 .fold(
                     0.0,
                     |a: f64, b| if b.is_nan() { f64::INFINITY } else { a.max(b) },
@@ -374,7 +379,7 @@ fn estimate(samples: &[(f64, Vec<c64>)], grid: &[f64], from: f64, to: f64) -> Re
     let scale = samples
         .iter()
         .flat_map(|s| s.1.iter())
-        .map(|v| v.norm())
+        .map(|v| portable::complex::abs(*v))
         .fold(0.0, f64::max);
     let separation = 1e-9 * (to - from);
     let mut largest = vec![0.0f64; count];
@@ -385,7 +390,8 @@ fn estimate(samples: &[(f64, Vec<c64>)], grid: &[f64], from: f64, to: f64) -> Re
         let h = [halves[0].eval(x), halves[1].eval(x)];
         let mut worst = 0.0f64;
         for k in 0..count {
-            let d = finite((r[k] - h[0][k]).norm()).max(finite((r[k] - h[1][k]).norm()));
+            let d = finite(portable::complex::abs(r[k] - h[0][k]))
+                .max(finite(portable::complex::abs(r[k] - h[1][k])));
             largest[k] = largest[k].max(d);
             worst = worst.max(d);
         }
