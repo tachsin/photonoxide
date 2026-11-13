@@ -1,6 +1,7 @@
 use super::checks::{self, order_of};
 use super::*;
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::thermal::{Scheme, Stepping};
 use crate::units::Length;
 use num_complex::Complex64 as c64;
@@ -194,7 +195,7 @@ fn a_turn_off_is_the_steady_state_less_a_turn_on() {
             );
         }
         // the rise and the fall cross 1/e at the same time
-        let e = 1.0 - (-1.0f64).exp();
+        let e = 1.0 - portable::exp(-1.0f64);
         let (rise, fall) = (
             on.crossing(0, 0.0, steady, e).unwrap(),
             off.crossing(0, steady, 0.0, e).unwrap(),
@@ -213,16 +214,16 @@ fn a_turn_off_is_the_steady_state_less_a_turn_on() {
 fn a_response_is_one_at_zero_frequency_and_falls() {
     let (heat, upper) = column();
     let dc = heat.response(0.0, &upper).unwrap();
-    assert!((dc - c64::new(1.0, 0.0)).norm() < 1e-12);
+    assert!(portable::complex::abs(dc - c64::new(1.0, 0.0)) < 1e-12);
     let cutoff = heat.cutoff(&upper).unwrap();
     let at = heat.response(cutoff, &upper).unwrap();
     assert!(
-        (at.norm() - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-5,
+        (portable::complex::abs(at) - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-5,
         "{at}"
     );
     // lagging: the temperature follows the power late
     assert!(at.im < 0.0, "{at}");
-    assert!(heat.response(10.0 * cutoff, &upper).unwrap().norm() < 0.2);
+    assert!(portable::complex::abs(heat.response(10.0 * cutoff, &upper).unwrap()) < 0.2);
 }
 
 #[test]

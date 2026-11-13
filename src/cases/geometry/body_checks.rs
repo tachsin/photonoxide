@@ -9,6 +9,7 @@ use std::f64::consts::PI;
 
 use super::array_checks::{AKAHANE_A, AKAHANE_R, AKAHANE_SHIFT, AKAHANE_T, l3_lattice};
 use super::*;
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -20,11 +21,11 @@ fn um(v: f64) -> Length {
 /// z.
 pub(crate) fn rotation(a: f64, b: f64, c: f64) -> [[f64; 3]; 3] {
     let rz = |t: f64| {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]]
     };
     let rx = |t: f64| {
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]]
     };
     let mul = |p: [[f64; 3]; 3], q: [[f64; 3]; 3]| -> [[f64; 3]; 3] {
@@ -62,9 +63,9 @@ pub(crate) fn lens(ra: f64, rb: f64, d: f64) -> f64 {
         return 0.0;
     }
     if d <= (ra - rb).abs() {
-        return 4.0 / 3.0 * PI * ra.min(rb).powi(3);
+        return 4.0 / 3.0 * PI * portable::powi(ra.min(rb), 3);
     }
-    PI * (ra + rb - d).powi(2)
+    PI * portable::powi(ra + rb - d, 2)
         * (d * d + 2.0 * d * rb - 3.0 * rb * rb + 2.0 * d * ra + 6.0 * ra * rb - 3.0 * ra * ra)
         / (12.0 * d)
 }
@@ -78,7 +79,7 @@ pub(crate) fn volume_error() -> f64 {
         Ok(vec![
             (
                 Body::sphere([0.013, -0.021, 0.034], 0.37)?,
-                4.0 / 3.0 * PI * 0.37f64.powi(3),
+                4.0 / 3.0 * PI * portable::powi(0.37f64, 3),
             ),
             (
                 Body::ellipsoid([0.02, 0.01, -0.03], [0.41, 0.27, 0.19], axes)?,
@@ -155,7 +156,7 @@ pub(crate) fn extrusion_error() -> f64 {
         .abs()
         .max(((prism.volume() - want) / want).abs());
     let (h, r, angle) = (0.3, 0.2, 70f64.to_radians());
-    let run = 1.0 / angle.tan();
+    let run = 1.0 / portable::tan(angle);
     let Ok(Ok(disk)) = Shape::circle(Point::um(0.01, -0.02), um(r))
         .map(|c| Body::etched(c, [-0.1, -0.1 + h], angle))
     else {
@@ -174,13 +175,13 @@ pub(crate) fn extrusion_error() -> f64 {
 /// corners' cones by halving: the relative difference.
 pub(crate) fn sloped_error() -> f64 {
     let (w, d, h, angle) = (0.4, 0.25, 0.3, 70f64.to_radians());
-    let run = 1.0 / angle.tan();
+    let run = 1.0 / portable::tan(angle);
     let Ok(Ok(rect)) = Shape::rect(Point::um(0.0, 0.0), um(w), um(d))
         .map(|s| Body::etched(s, [-0.1, -0.1 + h], angle))
     else {
         return f64::INFINITY;
     };
-    let want = w * d * h + (w + d) * run * h * h + PI * run * run * h.powi(3) / 3.0;
+    let want = w * d * h + (w + d) * run * h * h + PI * run * run * portable::powi(h, 3) / 3.0;
     ((grid_sum(&rect, [-0.5; 3], [0.5; 3], 6) - want) / want).abs()
 }
 
@@ -213,12 +214,12 @@ pub(crate) fn distance_error() -> f64 {
     };
     // the distance in the plane through the z axis to a profile from (t₀, r₀) to (t₁, r₁)
     let turned = |p: [f64; 3], t: [f64; 2], r: [f64; 2]| -> f64 {
-        let (z, rho) = (p[2], p[0].hypot(p[1]));
+        let (z, rho) = (p[2], portable::hypot(p[0], p[1]));
         let seg = |a: [f64; 2], b: [f64; 2]| {
             let e = [b[0] - a[0], b[1] - a[1]];
             let s = (((z - a[0]) * e[0] + (rho - a[1]) * e[1]) / (e[0] * e[0] + e[1] * e[1]))
                 .clamp(0.0, 1.0);
-            (z - a[0] - s * e[0]).hypot(rho - a[1] - s * e[1])
+            portable::hypot(z - a[0] - s * e[0], rho - a[1] - s * e[1])
         };
         let d = seg([t[0], 0.0], [t[0], r[0]])
             .min(seg([t[0], r[0]], [t[1], r[1]]))
@@ -282,7 +283,10 @@ pub(crate) fn boolean_error() -> f64 {
     ) else {
         return f64::INFINITY;
     };
-    let (va, vb) = (4.0 / 3.0 * PI * ra.powi(3), 4.0 / 3.0 * PI * rb.powi(3));
+    let (va, vb) = (
+        4.0 / 3.0 * PI * portable::powi(ra, 3),
+        4.0 / 3.0 * PI * portable::powi(rb, 3),
+    );
     let both = lens(ra, rb, d);
     [
         (Operation::Union, va + vb - both),
@@ -304,7 +308,10 @@ pub(crate) fn boolean_error() -> f64 {
 /// difference from π r² L and π L (r₀² + r₀r₁ + r₁²)/3.
 pub(crate) fn oblique_error() -> f64 {
     let (a, b): ([f64; 3], [f64; 3]) = ([0.3, -0.2, 0.25], [-0.25, 0.3, -0.2]);
-    let l = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
+    let l = (portable::powi(a[0] - b[0], 2)
+        + portable::powi(a[1] - b[1], 2)
+        + portable::powi(a[2] - b[2], 2))
+    .sqrt();
     let (Ok(cyl), Ok(cone)) = (Body::cylinder(a, b, 0.17), Body::cone(a, b, [0.2, 0.05])) else {
         return f64::INFINITY;
     };
@@ -323,7 +330,7 @@ pub(crate) fn tangent_order() -> f64 {
     let Ok(sphere) = Body::sphere([0.013, -0.021, 0.034], r) else {
         return f64::NAN;
     };
-    let want = 4.0 / 3.0 * PI * r.powi(3);
+    let want = 4.0 / 3.0 * PI * portable::powi(r, 3);
     let error = |n: usize| {
         let h = 1.0 / n as f64;
         let mut sum = 0.0;
@@ -338,7 +345,7 @@ pub(crate) fn tangent_order() -> f64 {
         }
         (sum - want).abs()
     };
-    (error(32) / error(64)).log2()
+    portable::log2(error(32) / error(64))
 }
 
 /// Akahane et al.'s L3 cavity as a body in space: a silicon slab 0.6a thick (z from −0.3a to

@@ -1,4 +1,5 @@
 use super::rc::{Foster, RcFit, RcModel};
+use crate::portable;
 
 fn close(a: f64, b: f64, tol: f64) -> bool {
     (a - b).abs() <= tol * b.abs().max(1e-300)
@@ -101,7 +102,10 @@ fn a_cauer_ladder_has_its_foster_networks_impedance() {
     let c = f.cauer().unwrap();
     for hz in [0.0, 1e3, 1e4, 3e4, 1e5, 1e6] {
         let (a, b) = (f.impedance(hz), c.impedance(hz));
-        assert!((a - b).norm() < 1e-9 * a.norm(), "{hz} Hz: {a} against {b}");
+        assert!(
+            portable::complex::abs(a - b) < 1e-9 * portable::complex::abs(a),
+            "{hz} Hz: {a} against {b}"
+        );
     }
     let total: f64 = c.resistances().iter().sum();
     assert!(close(total, 4.8, 1e-12));

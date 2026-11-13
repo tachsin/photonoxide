@@ -31,6 +31,7 @@ use super::trace::{Curves, Span, Trace};
 use super::transform::Transform;
 use super::{Bounds, Point, boundary};
 use crate::expr::{Expr, Parameters};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -124,7 +125,7 @@ fn project(f: &Function, m: P, n: P, reach: f64) -> Option<P> {
 /// The unit normal to the right of the chord from a to b, and its length.
 fn chord_normal(a: P, b: P) -> (P, f64) {
     let e = [b[0] - a[0], b[1] - a[1]];
-    let l = e[0].hypot(e[1]);
+    let l = portable::hypot(e[0], e[1]);
     ([e[1] / l, -e[0] / l], l)
 }
 
@@ -280,7 +281,7 @@ impl Implicit {
         let s = &self.data.spec;
         let q = s.frame.from.map_um(um(p));
         let g = gradient(&s.f, q);
-        Length::um(value(&s.f, q) / g[0].hypot(g[1]) * s.frame.to.factor())
+        Length::um(value(&s.f, q) / portable::hypot(g[0], g[1]) * s.frame.to.factor())
     }
 
     /// The region's image under `t`: the same definition in a frame moved by `t`.
@@ -444,7 +445,7 @@ fn zero_set(spec: &Spec) -> Result<Vec<Vec<(P, bool)>>> {
     let tiny = 1e-9 * w.max(h);
     // crossings this close are one: a node where f is zero to round-off
     let merge = 1e-9 * (w / nx as f64).min(h / ny as f64);
-    let close = |a: P, b: P| (a[0] - b[0]).hypot(a[1] - b[1]) <= merge;
+    let close = |a: P, b: P| portable::hypot(a[0] - b[0], a[1] - b[1]) <= merge;
     let mut used = vec![false; segments.len()];
     let mut loops = Vec::new();
     for first in 0..segments.len() {
@@ -488,7 +489,7 @@ fn zero_set(spec: &Spec) -> Result<Vec<Vec<(P, bool)>>> {
 fn refine(f: &Function, ring: &[P], tiny: f64) -> Result<Vec<(P, bool)>> {
     let direction = |q: P| -> Result<P> {
         let g = gradient(f, q);
-        let l = g[0].hypot(g[1]);
+        let l = portable::hypot(g[0], g[1]);
         if !(l.is_finite() && l > 0.0) {
             return Err(implicit_error(format!(
                 "the gradient of f = \"{}\" is {l} at ({:.6}, {:.6}) um on its zero set: the \
@@ -500,11 +501,8 @@ fn refine(f: &Function, ring: &[P], tiny: f64) -> Result<Vec<(P, bool)>> {
         }
         Ok([g[0] / l, g[1] / l])
     };
-    let angle = |a: P, b: P| {
-        (a[0] * b[1] - a[1] * b[0])
-            .atan2(a[0] * b[0] + a[1] * b[1])
-            .abs()
-    };
+    let angle =
+        |a: P, b: P| portable::atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]).abs();
     let n = ring.len();
     let mut corner = vec![false; n];
     // the vertices strictly between each ring vertex and the next

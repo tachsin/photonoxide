@@ -6,6 +6,7 @@ use crate::material::Material;
 use crate::material::catalogue::{self, Conditions};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 fn c(x: f64) -> Complex64 {
@@ -58,7 +59,10 @@ fn euler_angles_and_the_cut_they_make_turn_a_tensor_alike() {
     let b = Orientation::cut(CrystalAxis::X, None).unwrap().rotate(p);
     for i in 0..3 {
         for j in 0..3 {
-            assert!((a[i][j] - b[i][j]).norm() < 1e-15, "{a:?} vs {b:?}");
+            assert!(
+                portable::complex::abs(a[i][j] - b[i][j]) < 1e-15,
+                "{a:?} vs {b:?}"
+            );
         }
     }
     // the x-cut's c axis (crystal z) on the chip's y, its x up
@@ -93,8 +97,8 @@ fn lithium_niobates_cuts_put_n_e_where_the_c_axis_lies() {
     assert!(x_cut.is_anisotropic() && x_cut.orientation().is_some());
     // one number for pictures: a third of the trace, the same in every orientation
     let mean = (eo + eo + ee) / 3.0;
-    assert!((x_cut.permittivity(w).unwrap() - mean).norm() < 1e-15);
-    assert!((z_cut.permittivity(w).unwrap() - mean).norm() < 1e-15);
+    assert!(portable::complex::abs(x_cut.permittivity(w).unwrap() - mean) < 1e-15);
+    assert!(portable::complex::abs(z_cut.permittivity(w).unwrap() - mean) < 1e-15);
     // an isotropic entry has no axes to turn, and a principal material must be isotropic
     let si = catalogue::entry("si").unwrap();
     assert!(
@@ -190,7 +194,7 @@ fn x_cut_and_z_cut_slabs_have_their_modes_exactly_at_second_order() {
                 .iter()
                 .map(|&h| cut_slab_error(cut, pol, h))
                 .collect();
-            let order = (errors[0] / errors[1]).abs().log2();
+            let order = portable::log2((errors[0] / errors[1]).abs());
             assert!(
                 (order - 2.0).abs() < 0.15,
                 "{cut:?} {pol:?}: order {order}, {errors:?}"

@@ -4,6 +4,7 @@
 use super::checks::{grid, steady_amplitude};
 use super::*;
 use crate::fdfd::{Boundaries3d, Solver3d};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// A Drude term and a Lorentz term, both well damped: ε∞ = 2, f_p = 1.2 c/µm, f₀ = 0.9 c/µm,
@@ -63,18 +64,24 @@ pub(crate) fn against_fdfd() -> (f64, f64) {
     let mut current = vec![c64::new(0.0, 0.0); g.unknowns()];
     current[g.index(Axis::Y, at)] = c64::new(1.0, 0.0);
     let tilde = s.leapfrog_wavenumber(frequency);
-    let loss = c64::new(0.0, sigma * (frequency.angular() * dt / 2.0).cos() / tilde);
+    let loss = c64::new(
+        0.0,
+        sigma * portable::cos(frequency.angular() * dt / 2.0) / tilde,
+    );
     let compare = |eps: c64| -> f64 {
         let lam = Wavelength::um(std::f64::consts::TAU / tilde).unwrap();
         let fdfd = Solver3d::new(g, lam, move |_, _, _| eps + loss, Boundaries3d::pml(0))
             .unwrap()
             .solve(&current)
             .unwrap();
-        let largest = fdfd.values().iter().fold(0.0f64, |m, v| m.max(v.norm()));
+        let largest = fdfd
+            .values()
+            .iter()
+            .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
         fdfd.values()
             .iter()
             .zip(&amplitude)
-            .fold(0.0f64, |m, (a, b)| m.max((a - b).norm()))
+            .fold(0.0f64, |m, (a, b)| m.max(portable::complex::abs(a - b)))
             / largest
     };
     (
@@ -142,7 +149,7 @@ fn transforms(series: &[c64], dt: f64, frequencies: &[f64], count: usize) -> Vec
                 (c64::new(0.0, 0.0), c64::new(0.0, 0.0)),
                 |(d, td), (n, &v)| {
                     let t = (n + 1) as f64 * dt;
-                    let w = c64::new(0.0, omega * t).exp() * v;
+                    let w = portable::complex::exp(c64::new(0.0, omega * t)) * v;
                     (d + w, td + w * t)
                 },
             )
@@ -211,16 +218,16 @@ pub(crate) fn drude_reflection(h: f64) -> (f64, Vec<(f64, c64, c64)>) {
             let frequency = Frequency::natural(f).unwrap();
             // the grid's wavenumber in vacuum: sin(kh/2)/h = sin(ωΔt/2)/Δt
             let w = frequency.angular();
-            let k = 2.0 / h * ((w * dt / 2.0).sin() * h / dt).asin();
-            let r = s / i * c64::new(0.0, -2.0 * k * distance).exp();
-            let n = metal.permittivity(frequency).sqrt();
+            let k = 2.0 / h * portable::asin(portable::sin(w * dt / 2.0) * h / dt);
+            let r = s / i * portable::complex::exp(c64::new(0.0, -2.0 * k * distance));
+            let n = portable::complex::sqrt(metal.permittivity(frequency));
             let fresnel = (1.0 - n) / (1.0 + n);
             (f, r, fresnel)
         })
         .collect();
-    let worst = rows
-        .iter()
-        .fold(0.0f64, |m, (_, r, fresnel)| m.max((r - fresnel).norm()));
+    let worst = rows.iter().fold(0.0f64, |m, (_, r, fresnel)| {
+        m.max(portable::complex::abs(r - fresnel))
+    });
     (worst, rows)
 }
 
@@ -241,7 +248,7 @@ pub(crate) const LORENTZ_BAND: [f64; 5] = [0.8, 0.9, 1.0, 1.1, 1.2];
 
 /// The group index of [`lorentz_glass`], Re d(nω)/dω, at `f` (c/µm).
 pub(crate) fn group_index(medium: &Dispersive, f: f64) -> f64 {
-    let n = |f: f64| medium.permittivity(Frequency::natural(f).unwrap()).sqrt();
+    let n = |f: f64| portable::complex::sqrt(medium.permittivity(Frequency::natural(f).unwrap()));
     let df = 1e-5 * f;
     (n(f) + f * (n(f + df) - n(f - df)) / (2.0 * df)).re
 }
@@ -300,12 +307,14 @@ pub(crate) fn lorentz_delay(h: f64) -> (f64, Vec<(f64, f64, f64, f64)>) {
             let tau = slope(d, td) - slope(d0, td0);
             let measured = 1.0 + tau / thickness;
             let first_pass = |f: f64| -> c64 {
-                let n = glass.permittivity(Frequency::natural(f).unwrap()).sqrt();
+                let n = portable::complex::sqrt(glass.permittivity(Frequency::natural(f).unwrap()));
                 let t = 4.0 * n / ((1.0 + n) * (1.0 + n));
-                t * (c64::new(0.0, std::f64::consts::TAU * f * thickness) * (n - 1.0)).exp()
+                t * portable::complex::exp(
+                    c64::new(0.0, std::f64::consts::TAU * f * thickness) * (n - 1.0),
+                )
             };
             let df = 1e-5 * f;
-            let phase = (first_pass(f + df) / first_pass(f - df)).arg();
+            let phase = portable::complex::arg(first_pass(f + df) / first_pass(f - df));
             let exact = 1.0 + phase / (std::f64::consts::TAU * 2.0 * df) / thickness;
             (f, measured, exact, group_index(&glass, f))
         })
@@ -420,7 +429,9 @@ pub(crate) fn fitted_slab(h: f64) -> (f64, Vec<(f64, f64, f64)>) {
                 .refractive_index(Wavelength::um(lam).unwrap())
                 .unwrap();
             let r12 = (1.0 - n) / (1.0 + n);
-            let phase = (c64::new(0.0, 2.0 * std::f64::consts::TAU / lam * thickness) * n).exp();
+            let phase = portable::complex::exp(
+                c64::new(0.0, 2.0 * std::f64::consts::TAU / lam * thickness) * n,
+            );
             let r = r12 * (1.0 - phase) / (1.0 - r12 * r12 * phase);
             (lam, measured, r.norm_sqr())
         })

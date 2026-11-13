@@ -11,6 +11,7 @@ use faer::Mat;
 use super::fit::{self, Options, Rational, Symmetry};
 use super::model::CompactModel;
 use super::param::{Crossing, Interpolation};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -111,15 +112,19 @@ pub(crate) fn paper_recovery(model: &Rational) -> (f64, f64, f64) {
             .iter()
             .enumerate()
             .filter(|(j, _)| !used[*j])
-            .min_by(|x, y| (x.1 - a).norm().total_cmp(&(y.1 - a).norm()))
+            .min_by(|x, y| {
+                portable::complex::abs(x.1 - a).total_cmp(&portable::complex::abs(y.1 - a))
+            })
             .expect("enough poles");
         used[j] = true;
-        pole_err = pole_err.max((model.poles[j] - a).norm() / a.norm());
-        residue_err = residue_err.max((model.residues[0][j] - c).norm() / c.norm());
+        pole_err =
+            pole_err.max(portable::complex::abs(model.poles[j] - a) / portable::complex::abs(a));
+        residue_err = residue_err
+            .max(portable::complex::abs(model.residues[0][j] - c) / portable::complex::abs(c));
     }
     let surplus = (0..model.poles.len())
         .filter(|&j| !used[j])
-        .map(|j| model.residues[0][j].norm())
+        .map(|j| portable::complex::abs(model.residues[0][j]))
         .fold(0.0, f64::max);
     (pole_err, residue_err, surplus)
 }
@@ -163,7 +168,7 @@ impl Ring {
 
     /// The through transmission at wavenumber k = 2π/λ (rad/µm), any complex k.
     pub(crate) fn through_k(&self, k: c64) -> c64 {
-        let z = (c64::new(0.0, 1.0) * self.phase(k)).exp();
+        let z = portable::complex::exp(c64::new(0.0, 1.0) * self.phase(k));
         (self.r - self.a * z) / (1.0 - self.r * self.a * z)
     }
 
@@ -183,7 +188,7 @@ impl Ring {
         let residue = c64::new(-(1.0 / self.r - self.r) / scale, 0.0);
         (m0..=m1)
             .map(|m| {
-                let k = c64::new(TAU * m as f64 + c, (self.r * self.a).ln()) / scale;
+                let k = c64::new(TAU * m as f64 + c, portable::ln(self.r * self.a)) / scale;
                 (c64::new(0.0, -1.0) * k, residue)
             })
             .collect()
@@ -375,7 +380,7 @@ pub(crate) fn ring_parametric(
         for k in 0..=400 {
             let w = 1.53 + 0.04 * k as f64 / 400.0;
             let s = c64::new(0.0, -TAU / w);
-            stable = stable.max((r.evaluate(0, s) - ring.through(w)).norm());
+            stable = stable.max(portable::complex::abs(r.evaluate(0, s) - ring.through(w)));
         }
     }
     let derivative = {
@@ -392,8 +397,8 @@ pub(crate) fn ring_parametric(
                     .expect("exact derivatives")[0][(0, 0)];
                 let s = |x: f64| model.s_matrix(w, &[x]).expect("in range")[(0, 0)];
                 let fd = (s(v + h) - s(v - h)) / (2.0 * h);
-                worst = worst.max((fd - exact).norm());
-                scale = scale.max(exact.norm());
+                worst = worst.max(portable::complex::abs(fd - exact));
+                scale = scale.max(portable::complex::abs(exact));
             }
         }
         worst / scale
@@ -440,7 +445,9 @@ pub(crate) fn crossings_missed(
         let poles = model.rational(&[v]).expect("in range").poles;
         (
             poles.iter().filter(|a| a.re > 0.0).count(),
-            poles.iter().any(|a| a.re.abs() <= MARGINAL * a.norm()),
+            poles
+                .iter()
+                .any(|a| a.re.abs() <= MARGINAL * portable::complex::abs(*a)),
         )
     };
     let at = |k: usize| lo + (hi - lo) * k as f64 / (points - 1) as f64;
@@ -471,7 +478,9 @@ pub(crate) fn crossing_confirmed(
         let poles = model.rational(&[v.clamp(lo, hi)]).expect("in range").poles;
         poles
             .into_iter()
-            .min_by(|a, b| (a - target).norm().total_cmp(&(b - target).norm()))
+            .min_by(|a, b| {
+                portable::complex::abs(a - target).total_cmp(&portable::complex::abs(b - target))
+            })
             .expect("poles")
     };
     // within the crossing's own stretch: half the way to the next one
@@ -483,9 +492,12 @@ pub(crate) fn crossing_confirmed(
         * 0.5;
     let (before, after) = (side(crossing.value - eps), side(crossing.value + eps));
     if before.re * after.re <= 0.0 {
-        return Some((before - target).norm() < 1e-3 && (after - target).norm() < 1e-3);
+        return Some(
+            portable::complex::abs(before - target) < 1e-3
+                && portable::complex::abs(after - target) < 1e-3,
+        );
     }
-    let marginal = |a: c64| a.re.abs() <= MARGINAL * a.norm();
+    let marginal = |a: c64| a.re.abs() <= MARGINAL * portable::complex::abs(a);
     if marginal(before) && marginal(after) {
         None
     } else {
@@ -554,7 +566,7 @@ fn ring_fit() -> &'static (f64, f64) {
             .map(|k| {
                 let w = 1.53 + 0.04 * k as f64 / 1000.0;
                 let s = model.at(Wavelength::from_um_unchecked(w)).expect("in band");
-                (s[(0, 0)] - ring.through(w)).norm()
+                portable::complex::abs(s[(0, 0)] - ring.through(w))
             })
             .fold(0.0, f64::max);
         let poles = &model.rational().poles;
@@ -564,7 +576,7 @@ fn ring_fit() -> &'static (f64, f64) {
             .map(|(a, _)| {
                 poles
                     .iter()
-                    .map(|b| (b - a).norm())
+                    .map(|b| portable::complex::abs(b - a))
                     .fold(f64::INFINITY, f64::min)
                     / a.re.abs()
             })

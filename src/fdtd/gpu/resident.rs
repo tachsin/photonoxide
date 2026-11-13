@@ -11,6 +11,7 @@ use super::{Gpu, Precision, gpu_error, wait};
 use crate::Result;
 use crate::fdfd::Axis;
 use crate::fdtd::{Field, Simulation};
+use crate::portable;
 
 /// Values converted, written and read back a chunk at a time.
 const CHUNK: usize = 1 << 22;
@@ -819,7 +820,7 @@ impl Resident {
             for omegas in &plan.dfts {
                 for time in [te, th] {
                     for &w in omegas {
-                        let p = c64::new(0.0, w * time).exp() * dt;
+                        let p = portable::complex::exp(c64::new(0.0, w * time)) * dt;
                         phases.extend([p.re, p.im]);
                     }
                 }

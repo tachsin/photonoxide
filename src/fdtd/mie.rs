@@ -46,6 +46,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::units::Frequency;
 use crate::{Error, Result};
 
@@ -126,7 +127,7 @@ impl Mie {
         let mut electric = Vec::with_capacity(most);
         let mut magnetic = Vec::with_capacity(most);
         // ψ and ξ at orders ν − 1 and ν, from ν = 1
-        let (sin, cos) = size.sin_cos();
+        let (sin, cos) = portable::sin_cos(size);
         let mut psi_before = sin;
         let mut xi_before = c64::new(sin, -cos);
         let mut xi = c64::new(sin / size - cos, -(cos / size + sin));
@@ -151,7 +152,7 @@ impl Mie {
             };
             electric.push(a);
             magnetic.push(b);
-            let term = (2.0 * nu + 1.0) * (a.norm() + b.norm());
+            let term = (2.0 * nu + 1.0) * (portable::complex::abs(a) + portable::complex::abs(b));
             sum += term;
             if terms.is_none() && nu > size && term <= 1e-17 * sum {
                 converged = true;
@@ -223,7 +224,7 @@ impl Mie {
 /// D_ν(z) = ψ_ν′(z)/ψ_ν(z) for ν = 0, …, `most`, stepped down from zero well above both `most`
 /// and |z|.
 pub(super) fn log_derivatives(z: c64, most: usize) -> Vec<c64> {
-    let start = most.max(z.norm().ceil() as usize) + 32;
+    let start = most.max(portable::complex::abs(z).ceil() as usize) + 32;
     let mut d = vec![c64::new(0.0, 0.0); most + 1];
     let mut current = c64::new(0.0, 0.0);
     for n in (1..=start).rev() {

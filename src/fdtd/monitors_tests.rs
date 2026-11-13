@@ -1,5 +1,6 @@
 use super::monitors_checks::*;
 use super::*;
+use crate::portable;
 
 #[test]
 fn a_transform_monitor_is_the_sum_by_hand() {
@@ -103,7 +104,7 @@ fn a_straight_and_a_bent_guides_s_parameters_are_fdfds() {
     for bend in [false, true] {
         let s = guide_2d(bend);
         for (a, b) in s.fdtd.iter().zip(&s.fdfd) {
-            assert!((a - b).norm() < 1e-4, "{bend}: {s:?}");
+            assert!(portable::complex::abs(a - b) < 1e-4, "{bend}: {s:?}");
         }
     }
 }

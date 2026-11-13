@@ -17,6 +17,7 @@ use super::{
     Choices, Depth, Kind, Physical, Quantity, Rule, Verdict, assess, generate, library, oxidation,
     process, round_trip, thermal,
 };
+use crate::portable;
 
 fn exact(count: usize) -> Outcome {
     let e = count as f64;
@@ -240,7 +241,7 @@ pub(crate) fn combined_gap() -> Option<(f64, f64)> {
         .iter()
         .find(|d| d.layer == "gap" && d.kind == Kind::Thickness)?;
     let step_nm = design.structure().stack().layer("Si")?.0.thickness.to_um() * 1000.0;
-    let expected = (30.0_f64.powi(2) + (0.10 * step_nm).powi(2)).sqrt();
+    let expected = (portable::powi(30.0_f64, 2) + portable::powi(0.10 * step_nm, 2)).sqrt();
     Some((d.combined?, expected))
 }
 

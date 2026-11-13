@@ -22,6 +22,7 @@ use crate::nonlinear::guide::{
 use crate::nonlinear::phase::{
     Device, Grating, Polarization as Pol, Process, State, Type, Uniaxial,
 };
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier, note_numerical};
 
@@ -329,7 +330,7 @@ pub(crate) fn slab_overlap() -> (f64, f64, f64) {
         .collect();
     let exact = slab_efficiency_exact(0.0025) * 0.01;
     let (value, error) = studied("slab SHG efficiency", &values);
-    let order = ((values[0].1 - values[1].1) / (values[1].1 - values[2].1)).log2();
+    let order = portable::log2((values[0].1 - values[1].1) / (values[1].1 - values[2].1));
     ((value / exact - 1.0).abs(), error / exact, order)
 }
 

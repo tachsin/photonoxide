@@ -67,6 +67,7 @@ use num_complex::Complex64 as c64;
 
 use super::line::{DB_PER_NEPER, mu_0};
 use super::{EPSILON_0, Electrostatic};
+use crate::portable;
 use crate::statics::{Boundary, Hold, Side};
 use crate::thermal::side_index;
 use crate::units::SPEED_OF_LIGHT;
@@ -178,11 +179,11 @@ fn stretched(v: f64, start: f64, end: f64, low: f64, high: f64, strength: f64) -
     let mut im = 0.0;
     if low > 0.0 && v < start + low {
         let u = start + low - v;
-        im -= strength * u.powi(3) / (3.0 * low * low);
+        im -= strength * portable::powi(u, 3) / (3.0 * low * low);
     }
     if high > 0.0 && v > end - high {
         let u = v - (end - high);
-        im += strength * u.powi(3) / (3.0 * high * high);
+        im += strength * portable::powi(u, 3) / (3.0 * high * high);
     }
     c64::new(v, im)
 }
@@ -685,7 +686,7 @@ impl FullWave {
     /// As [`FullWave::solve`], and a mode that carries no power or no current on the signal.
     pub fn field(&self, problem: &Electrostatic, frequency_hz: f64, near: f64) -> Result<RfField> {
         let (m, lattice) = self.picked(problem, frequency_hz, near)?;
-        if m.voltage.norm() == 0.0 || !m.voltage.is_finite() {
+        if portable::complex::abs(m.voltage) == 0.0 || !m.voltage.is_finite() {
             return Err(invalid(
                 "the mode carries no power or no current on the signal: it has no voltage",
             ));
@@ -760,7 +761,7 @@ impl FullWave {
         let k = w / SPEED_OF_LIGHT * 1e-6;
         let eta = (mu_0() / EPSILON_0).sqrt();
         let i1 = c64::new(0.0, 1.0);
-        let mut beta = beta2.sqrt();
+        let mut beta = portable::complex::sqrt(beta2);
         if beta.re < 0.0 {
             beta = -beta;
         }
@@ -862,7 +863,7 @@ impl FullWave {
         // e^(i(βz − ωt)) → e^(jωt − γz): γ = Im β + j Re β (1/m), Z₀ conjugated
         let gamma = c64::new(beta.im, beta.re) * 1e6;
         let (impedance, per_field, conductor, dielectric) =
-            if current.norm() > 0.0 && power.re > 0.0 {
+            if portable::complex::abs(current) > 0.0 && power.re > 0.0 {
                 (
                     (2.0 * power / (self.copies * current.norm_sqr())).conj(),
                     current.norm_sqr() / field,
@@ -883,7 +884,7 @@ impl FullWave {
             },
             // the voltage V = 2P/I* (photonoxide's convention; P and I the window's, so the
             // whole line's for a mirrored one too)
-            voltage: if current.norm() > 0.0 {
+            voltage: if portable::complex::abs(current) > 0.0 {
                 2.0 * power / current.conj()
             } else {
                 zero

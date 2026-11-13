@@ -8,6 +8,7 @@ use std::f64::consts::{FRAC_PI_2, PI};
 use super::checks::Numbers;
 use super::path::euler_half;
 use super::*;
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -90,7 +91,7 @@ pub(crate) fn euler_end_error() -> f64 {
                 return f64::NAN;
             };
             let e = path.end();
-            let (s, c) = angle.abs().sin_cos();
+            let (s, c) = portable::sin_cos(angle.abs());
             let want = [r * s, angle.signum() * r * (1.0 - c)];
             worst = worst
                 .max((e.position.x.to_um() - want[0]).abs())
@@ -123,7 +124,7 @@ pub(crate) fn euler_curvature_error() -> f64 {
         bend.min_radius.to_um(),
         bend.length.to_um(),
     );
-    let a2 = bend.parameter.to_um().powi(2);
+    let a2 = portable::powi(bend.parameter.to_um(), 2);
     let total = path.length().to_um();
     (0..=400)
         .map(|k| {
@@ -261,7 +262,7 @@ pub(crate) fn polygon_order() -> f64 {
             let tol = Tolerance::unsnapped(Length::nm(t)).ok()?;
             let p = path.polygons(tol);
             let n = p.contours[0].outer.len() as f64;
-            Some((n.ln(), p.deviation.to_um().ln()))
+            Some((portable::ln(n), portable::ln(p.deviation.to_um())))
         })
         .collect();
     let m = points.len() as f64;
@@ -278,7 +279,7 @@ pub(crate) fn polygon_order() -> f64 {
 /// y + x/tan(α/2) of the unscaled half bend: where it vanishes no bend of that p turns by α.
 fn denominator(alpha: f64, p: f64) -> f64 {
     let (x, y, _, _) = euler_half(alpha, p);
-    let (s, c) = (0.5 * alpha).sin_cos();
+    let (s, c) = portable::sin_cos(0.5 * alpha);
     y + x * c / s
 }
 

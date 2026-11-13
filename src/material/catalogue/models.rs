@@ -5,6 +5,7 @@
 //! they are the constants, so the two can't drift apart.
 
 use crate::material::{Material, Model, Provenance, SellmeierTerm};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -404,7 +405,7 @@ pub(crate) const GEHRSITZ_GAP_MARGIN: f64 = 0.024;
 pub(crate) const GEHRSITZ_SHORTEST: f64 = 0.47;
 
 fn coth(v: f64) -> f64 {
-    1.0 / v.tanh()
+    1.0 / portable::tanh(v)
 }
 
 /// Eq. (11): the direct gap of GaAs at T, in µm⁻¹.
@@ -424,7 +425,7 @@ fn quadratic(c: [f64; 3], t: f64) -> f64 {
 fn series(c: &[f64], x: f64) -> f64 {
     c.iter()
         .enumerate()
-        .map(|(i, ci)| ci * x.powi(i as i32 + 1))
+        .map(|(i, ci)| ci * portable::powi(x, i as i32 + 1))
         .sum()
 }
 
@@ -820,7 +821,7 @@ pub(crate) fn afromowitz_parameters(x: f64) -> (f64, f64, f64) {
 /// E_f and η of Eqs. (10)–(11), which the paper prints for GaAs and AlAs.
 pub(crate) fn afromowitz_constants(e0: f64, ed: f64, gap: f64) -> (f64, f64) {
     let ef = (2.0 * e0 * e0 - gap * gap).sqrt();
-    let eta = std::f64::consts::PI * ed / (2.0 * e0.powi(3) * (e0 * e0 - gap * gap));
+    let eta = std::f64::consts::PI * ed / (2.0 * portable::powi(e0, 3) * (e0 * e0 - gap * gap));
     (ef, eta)
 }
 

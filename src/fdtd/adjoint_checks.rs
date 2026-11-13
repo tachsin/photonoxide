@@ -8,6 +8,7 @@ use super::{Boundaries, Design, Field, FluxPlane, Simulation, Term, Waveform};
 use crate::fdfd::{
     Axis, Boundaries3d, Direction, Edges, Formulation, IterativeSolver3d, PortMode3d, Solver3d,
 };
+use crate::portable;
 use crate::units::Frequency;
 
 /// How far the transforms may move over a block of 1 µm/c when the open runs stop, relative to
@@ -366,7 +367,7 @@ pub(crate) fn strip_gradient_on(threads: usize, tiling: super::kernel::Tiling) -
 fn fdfd_of(s: &Simulation, frequency: Frequency, boundaries: Boundaries3d) -> Solver3d {
     let g = s.grid();
     let tilde = s.leapfrog_wavenumber(frequency);
-    let lag = (frequency.angular() * s.dt() / 2.0).cos();
+    let lag = portable::cos(frequency.angular() * s.dt() / 2.0);
     let solver = Solver3d::new(
         g,
         s.fdfd_wavelength(frequency).unwrap(),
@@ -560,15 +561,19 @@ pub(crate) fn adjoint_is_the_mode_sent_backward() -> (f64, c64) {
         .iter()
         .map(|t| (ours.value(t, 0), theirs.value(t, 0) / amplitude))
         .collect();
-    let largest = pairs.iter().fold(0.0f64, |m, p| m.max(p.1.norm()));
+    let largest = pairs
+        .iter()
+        .fold(0.0f64, |m, p| m.max(portable::complex::abs(p.1)));
     let g = back.grid();
     let expected = g.dx * g.dy * g.dz / 4.0;
     let ratios: Vec<c64> = pairs
         .iter()
-        .filter(|p| p.1.norm() > 1e-3 * largest)
+        .filter(|p| portable::complex::abs(p.1) > 1e-3 * largest)
         .map(|(adj, e)| adj / (a.conj() * e) / expected)
         .collect();
-    let worst = ratios.iter().fold(0.0f64, |m, r| m.max((r - 1.0).norm()));
+    let worst = ratios
+        .iter()
+        .fold(0.0f64, |m, r| m.max(portable::complex::abs(r - 1.0)));
     (worst, ratios.iter().sum::<c64>() / ratios.len() as f64)
 }
 
@@ -576,12 +581,12 @@ pub(crate) fn adjoint_is_the_mode_sent_backward() -> (f64, c64) {
 /// transmission T = 1/(1 + ((ε − 1)²/(4ε)) sin²(√ε k₀ d)) (Airy's formula) and dT/dε.
 pub(crate) fn airy() -> (f64, f64) {
     let (eps, d, k0) = (4.0f64, 0.3, std::f64::consts::TAU);
-    let a = (eps - 1.0).powi(2) / (4.0 * eps);
+    let a = portable::powi(eps - 1.0, 2) / (4.0 * eps);
     let phase = eps.sqrt() * k0 * d;
-    let s = phase.sin();
+    let s = portable::sin(phase);
     let t = 1.0 / (1.0 + a * s * s);
     let da = (eps * eps - 1.0) / (4.0 * eps * eps);
-    let ds2 = 2.0 * s * phase.cos() * k0 * d / (2.0 * eps.sqrt());
+    let ds2 = 2.0 * s * portable::cos(phase) * k0 * d / (2.0 * eps.sqrt());
     (t, -(da * s * s + a * ds2) * t * t)
 }
 

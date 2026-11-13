@@ -58,6 +58,7 @@ use super::fit::{
 };
 use super::model::{band_of, check_band, laplace, responses_of};
 use crate::circuit::{Component, Fidelity, Parameter, Port, Provenance, SMatrix, Spectrum, ports};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -168,7 +169,12 @@ fn monomials(vars: usize, degree: usize) -> Vec<Vec<usize>> {
 fn evaluate_monomials(exponents: &[Vec<usize>], x: &[f64]) -> Vec<f64> {
     exponents
         .iter()
-        .map(|e| e.iter().zip(x).map(|(&k, &v)| v.powi(k as i32)).product())
+        .map(|e| {
+            e.iter()
+                .zip(x)
+                .map(|(&k, &v)| portable::powi(v, k as i32))
+                .product()
+        })
         .collect()
 }
 
@@ -267,11 +273,11 @@ fn error_over(
     for (i, (responses, _)) in samples.iter().enumerate() {
         for (e, f) in responses.iter().enumerate() {
             for (k, &v) in f.iter().enumerate() {
-                let d = (value(i, k, e) - v).norm();
+                let d = portable::complex::abs(value(i, k, e) - v);
                 sum_e += d * d;
                 sum_f += v.norm_sqr();
                 max_e = max_e.max(d);
-                max_f = max_f.max(v.norm());
+                max_f = max_f.max(portable::complex::abs(v));
                 count += 1;
             }
         }
@@ -520,7 +526,7 @@ impl ParametricModel {
                     .map(|r| {
                         r.iter()
                             .zip(&s)
-                            .map(|(&v, &z)| v * (z * delay).exp())
+                            .map(|(&v, &z)| v * portable::complex::exp(z * delay))
                             .collect()
                     })
                     .collect();
@@ -598,7 +604,7 @@ impl ParametricModel {
             .map(|(smp, (_, m))| (responses_of(&smp.spectrum), m.clone()))
             .collect();
         model.error = error_over(&originals, |i, k, e| {
-            model.evaluate(e, s[k], &originals[i].1) * (-s[k] * delay).exp()
+            model.evaluate(e, s[k], &originals[i].1) * portable::complex::exp(-s[k] * delay)
         });
         Ok(model)
     }
@@ -716,7 +722,7 @@ impl ParametricModel {
                         .map(|(c, x)| c * x)
                         .sum::<c64>()
                         + 1.0;
-                    weights[i][j] = 1.0 / den.norm().max(f64::MIN_POSITIVE);
+                    weights[i][j] = 1.0 / portable::complex::abs(den).max(f64::MIN_POSITIVE);
                 }
             }
         }
@@ -823,9 +829,10 @@ impl ParametricModel {
                                     .zip(&x)
                                     .enumerate()
                                     .filter(|&(i, _)| i != k)
-                                    .map(|(_, (&p, &v))| v.powi(p as i32))
+                                    .map(|(_, (&p, &v))| portable::powi(v, p as i32))
                                     .product();
-                                e[k] as f64 * x[k].powi(e[k] as i32 - 1) * rest / self.half[k]
+                                e[k] as f64 * portable::powi(x[k], e[k] as i32 - 1) * rest
+                                    / self.half[k]
                             })
                             .collect()
                     })
@@ -873,7 +880,11 @@ impl ParametricModel {
     /// first parameter fastest; at most about 10⁴ in all.
     fn grid_values(&self, points: usize) -> Vec<Vec<f64>> {
         let vars = self.parameters.len();
-        let per = points.min((1e4f64.powf(1.0 / vars.max(1) as f64)).floor().max(2.0) as usize);
+        let per = points.min(
+            (portable::powf(1e4f64, 1.0 / vars.max(1) as f64))
+                .floor()
+                .max(2.0) as usize,
+        );
         let total = per.pow(vars as u32);
         (0..total)
             .map(|k| {
@@ -1029,7 +1040,7 @@ impl ParametricModel {
             .map(|f| {
                 f.iter()
                     .zip(&s)
-                    .map(|(&v, &z)| v * (-z * self.delay).exp())
+                    .map(|(&v, &z)| v * portable::complex::exp(-z * self.delay))
                     .collect()
             })
             .collect();
@@ -1084,7 +1095,7 @@ impl ParametricModel {
             .collect();
         Ok(error_over(&data, |i, k, e| {
             let z = s[i][k];
-            self.evaluate(e, z, &data[i].1) * (-z * self.delay).exp()
+            self.evaluate(e, z, &data[i].1) * portable::complex::exp(-z * self.delay)
         }))
     }
 
@@ -1106,7 +1117,7 @@ impl ParametricModel {
         for values in self.grid_values(points) {
             let m = self.weights_at(&values)?;
             for a in sigma_zeros(&self.basis, &self.sigma_at(&m))? {
-                worst = worst.max(a.re / a.norm());
+                worst = worst.max(a.re / portable::complex::abs(a));
             }
         }
         Ok(worst)
@@ -1209,9 +1220,11 @@ impl ParametricModel {
                 .generalized_eigen(&pencil_b)
                 .map_err(|e| failed(format!("the axis crossings: {e:?}")))?;
             let (alpha, beta) = (eig.S_a(), eig.S_b());
-            let scale = (0..n).map(|i| h[(i, i)].norm()).fold(1.0, f64::max);
+            let scale = (0..n)
+                .map(|i| portable::complex::abs(h[(i, i)]))
+                .fold(1.0, f64::max);
             for i in 0..size {
-                if beta[i].norm() <= 1e-12 * alpha[i].norm() {
+                if portable::complex::abs(beta[i]) <= 1e-12 * portable::complex::abs(alpha[i]) {
                     continue; // infinite
                 }
                 let z = alpha[i] / beta[i];
@@ -1244,7 +1257,10 @@ impl ParametricModel {
                         .map_err(|e| failed(format!("the poles along a segment: {e:?}")))?;
                     values
                         .into_iter()
-                        .min_by(|x, y| (x - target).norm().total_cmp(&(y - target).norm()))
+                        .min_by(|x, y| {
+                            portable::complex::abs(x - target)
+                                .total_cmp(&portable::complex::abs(y - target))
+                        })
                         .ok_or_else(|| failed("a segment without poles".into()))
                 };
                 let f0 = nearest(t0)?.re;
@@ -1276,7 +1292,7 @@ impl ParametricModel {
                     let pole = nearest(t)?;
                     // a sign change of the nearest eigenvalue that isn't on the axis is two
                     // poles trading places, not a crossing
-                    if pole.re.abs() > 1e-6 * pole.norm() {
+                    if pole.re.abs() > 1e-6 * portable::complex::abs(pole) {
                         continue;
                     }
                     let crossing = Crossing {
@@ -1317,7 +1333,7 @@ impl Component for ParametricModel {
         check_band("parametric model", self.band, wavelength)?;
         let m = self.weights_at(values)?;
         let s = laplace(wavelength);
-        let delay = (-s * self.delay).exp();
+        let delay = portable::complex::exp(-s * self.delay);
         let n = self.ports.len();
         Ok(SMatrix::from_fn(n, |q, p| {
             self.evaluate(q * n + p, s, &m) * delay
@@ -1333,7 +1349,7 @@ impl Component for ParametricModel {
         let m = self.weights_at(values)?;
         let slopes = self.weight_slopes(values)?;
         let s = laplace(wavelength);
-        let delay = (-s * self.delay).exp();
+        let delay = portable::complex::exp(-s * self.delay);
         let n = self.ports.len();
         let dot = |c: &[c64], x: &[f64]| -> c64 { c.iter().zip(x).map(|(c, x)| c * x).sum() };
         let (cn, cd) = self.columns(s, &m);

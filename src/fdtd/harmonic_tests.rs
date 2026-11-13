@@ -2,6 +2,7 @@ use num_complex::Complex64 as c64;
 
 use super::harmonic::element;
 use super::{Resonance, harmonic_inversion};
+use crate::portable;
 use crate::units::Frequency;
 
 fn f(value: f64) -> Frequency {
@@ -16,7 +17,10 @@ fn signal(terms: &[(f64, f64, c64)], tau: f64, n: usize) -> Vec<c64> {
             terms
                 .iter()
                 .map(|&(freq, decay, d)| {
-                    d * c64::new(-decay * t, -std::f64::consts::TAU * freq * t).exp()
+                    d * portable::complex::exp(c64::new(
+                        -decay * t,
+                        -std::f64::consts::TAU * freq * t,
+                    ))
                 })
                 .sum()
         })
@@ -26,14 +30,19 @@ fn signal(terms: &[(f64, f64, c64)], tau: f64, n: usize) -> Vec<c64> {
 #[test]
 fn the_matrices_closed_form_is_the_double_sum() {
     let c: Vec<c64> = (0..40)
-        .map(|n| c64::new((0.37 * n as f64).sin(), (0.11 * n as f64 * n as f64).cos()))
+        .map(|n| {
+            c64::new(
+                portable::sin(0.37 * n as f64),
+                portable::cos(0.11 * n as f64 * n as f64),
+            )
+        })
         .collect();
     let m = 12;
     let points = [
-        c64::from_polar(1.0, -0.3),
-        c64::from_polar(1.0, -0.31),
-        c64::from_polar(0.97, -0.5),
-        c64::from_polar(1.0, 2.0),
+        portable::complex::from_polar(1.0, -0.3),
+        portable::complex::from_polar(1.0, -0.31),
+        portable::complex::from_polar(0.97, -0.5),
+        portable::complex::from_polar(1.0, 2.0),
     ];
     for p in 0..3 {
         for &z in &points {
@@ -44,7 +53,8 @@ fn the_matrices_closed_form_is_the_double_sum() {
                     .sum();
                 let closed = element(&c, m, p, z, w);
                 assert!(
-                    (closed - direct).norm() < 1e-11 * direct.norm().max(1.0),
+                    portable::complex::abs(closed - direct)
+                        < 1e-11 * portable::complex::abs(direct).max(1.0),
                     "{p} {z} {w}: {closed} {direct}"
                 );
             }
@@ -71,7 +81,10 @@ fn two_terms_closer_than_the_fourier_resolution_are_recovered_to_round_off() {
     for (r, &(freq, decay, d)) in found.iter().zip(&terms) {
         assert!((r.frequency - freq).abs() < 1e-11, "{r:?}");
         assert!((r.decay - decay).abs() < 1e-10, "{r:?}");
-        assert!((r.amplitude - d).norm() < 1e-9 * d.norm(), "{r:?}");
+        assert!(
+            portable::complex::abs(r.amplitude - d) < 1e-9 * portable::complex::abs(d),
+            "{r:?}"
+        );
         assert!(r.error < 1e-9, "{r:?}");
     }
 }
@@ -84,8 +97,9 @@ fn a_real_signals_terms_are_half_its_amplitude_and_q_is_omega_over_twice_the_dec
     let real: Vec<c64> = (0..n)
         .map(|s| {
             let t = s as f64 * tau;
-            let v =
-                amplitude * (-decay * t).exp() * (std::f64::consts::TAU * freq * t - phase).cos();
+            let v = amplitude
+                * portable::exp(-decay * t)
+                * portable::cos(std::f64::consts::TAU * freq * t - phase);
             c64::new(v, 0.0)
         })
         .collect();
@@ -98,8 +112,11 @@ fn a_real_signals_terms_are_half_its_amplitude_and_q_is_omega_over_twice_the_dec
     let r = found[0];
     assert!((r.frequency - freq).abs() < 1e-11, "{r:?}");
     assert!((r.decay - decay).abs() < 1e-11, "{r:?}");
-    let expected = 0.5 * amplitude * c64::from_polar(1.0, phase);
-    assert!((r.amplitude - expected).norm() < 1e-9, "{r:?}");
+    let expected = 0.5 * amplitude * portable::complex::from_polar(1.0, phase);
+    assert!(
+        portable::complex::abs(r.amplitude - expected) < 1e-9,
+        "{r:?}"
+    );
     let q = std::f64::consts::TAU * freq / (2.0 * decay);
     assert!((r.q() - q).abs() < 1e-7 * q, "{} {q}", r.q());
 }

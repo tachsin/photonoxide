@@ -11,6 +11,7 @@
 use serde::Deserialize;
 
 use super::{CC0, Curve, Material, Model, Provenance, Table};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -41,7 +42,7 @@ pub(super) fn formula(number: u8, coefficients: &[f64], lam: f64) -> f64 {
         // 2, Sellmeier-2: n² − 1 = C1 + Σ C_i λ² / (λ² − C_{i+1})
         2 => 1.0 + c(cs, 1) + pairs(cs, 2, 17, |a, b| a * l2 / (l2 - b)),
         // 3, polynomial: n² = C1 + Σ C_i λ^C_{i+1}
-        3 => c(cs, 1) + pairs(cs, 2, 17, |a, b| a * lam.powf(b)),
+        3 => c(cs, 1) + pairs(cs, 2, 17, |a, b| a * portable::powf(lam, b)),
         // 4, RefractiveIndex.INFO: n² = C1 + C2 λ^C3 / (λ² − C4^C5) + C6 λ^C7 / (λ² − C8^C9)
         //    + Σ C_i λ^C_{i+1}, i = 10, …, 16
         4 => {
@@ -50,14 +51,15 @@ pub(super) fn formula(number: u8, coefficients: &[f64], lam: f64) -> f64 {
                 if k == 0.0 {
                     0.0
                 } else {
-                    k * lam.powf(c(cs, a + 1)) / (l2 - c(cs, a + 2).powf(c(cs, a + 3)))
+                    k * portable::powf(lam, c(cs, a + 1))
+                        / (l2 - portable::powf(c(cs, a + 2), c(cs, a + 3)))
                 }
             };
-            c(cs, 1) + pole(2) + pole(6) + pairs(cs, 10, 17, |a, b| a * lam.powf(b))
+            c(cs, 1) + pole(2) + pole(6) + pairs(cs, 10, 17, |a, b| a * portable::powf(lam, b))
         }
         // 5, Cauchy: n = C1 + Σ C_i λ^C_{i+1}, i = 2, …, 10
         5 => {
-            let n = c(cs, 1) + pairs(cs, 2, 11, |a, b| a * lam.powf(b));
+            let n = c(cs, 1) + pairs(cs, 2, 11, |a, b| a * portable::powf(lam, b));
             n * n
         }
         // 6, gases: n − 1 = C1 + Σ C_i / (C_{i+1} − λ⁻²), i = 2, …, 10
@@ -628,7 +630,7 @@ DATA:
                 let a = imported.refractive_index(lam(at)).unwrap();
                 let b = built_in.refractive_index(lam(at)).unwrap();
                 assert!(
-                    (a - b).norm() < 1e-14,
+                    portable::complex::abs(a - b) < 1e-14,
                     "{} at {at}: {a} vs {b}",
                     built_in.name()
                 );
@@ -685,25 +687,25 @@ DATA:
         assert!((formula(2, &c, l) - f2).abs() < 1e-14);
         // 3: n² = C1 + C2 λ^C3 + …
         let f3 = 0.5
-            + 1.2 * l.powf(0.1)
-            + 0.3 * l.powf(0.2)
-            + 0.05 * l.powf(2.0)
-            + 0.01 * l.powf(1.5)
-            + 0.002 * l.powf(2.0);
+            + 1.2 * portable::powf(l, 0.1)
+            + 0.3 * portable::powf(l, 0.2)
+            + 0.05 * portable::powf(l, 2.0)
+            + 0.01 * portable::powf(l, 1.5)
+            + 0.002 * portable::powf(l, 2.0);
         assert!((formula(3, &c, l) - f3).abs() < 1e-14);
         // 4: n² = C1 + C2λ^C3/(λ² − C4^C5) + C6λ^C7/(λ² − C8^C9) + C10 λ^C11
         let f4 = 0.5
-            + 1.2 * l.powf(0.1) / (l2 - 0.3f64.powf(0.2))
-            + 0.05 * l.powf(2.0) / (l2 - 0.01f64.powf(1.5))
-            + 0.002 * l.powf(2.0);
+            + 1.2 * portable::powf(l, 0.1) / (l2 - portable::powf(0.3f64, 0.2))
+            + 0.05 * portable::powf(l, 2.0) / (l2 - portable::powf(0.01f64, 1.5))
+            + 0.002 * portable::powf(l, 2.0);
         assert!((formula(4, &c, l) - f4).abs() < 1e-14);
         // 5: n = C1 + C2 λ^C3 + … + C10 λ^C11
         let n5 = 0.5
-            + 1.2 * l.powf(0.1)
-            + 0.3 * l.powf(0.2)
-            + 0.05 * l.powf(2.0)
-            + 0.01 * l.powf(1.5)
-            + 0.002 * l.powf(2.0);
+            + 1.2 * portable::powf(l, 0.1)
+            + 0.3 * portable::powf(l, 0.2)
+            + 0.05 * portable::powf(l, 2.0)
+            + 0.01 * portable::powf(l, 1.5)
+            + 0.002 * portable::powf(l, 2.0);
         assert!((formula(5, &c, l) - n5 * n5).abs() < 1e-13);
         // 6: n − 1 = C1 + C2/(C3 − λ⁻²) + …
         let g = 1.0 / l2;

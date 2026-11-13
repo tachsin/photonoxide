@@ -28,6 +28,7 @@ use serde::Serialize;
 
 use super::entries::src;
 use super::{Conditions, Source};
+use crate::portable;
 
 /// One edge of a window.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -82,7 +83,7 @@ pub(crate) const GAN: Varshni = (3.507, 0.909, 830.0);
 pub(crate) const ALN: Varshni = (6.23, 1.799, 1462.0);
 /// GaP's Γ gap, 2.886 + 0.1081[1 − coth(164/T)] eV (Table IV).
 fn gap_gamma(kelvin: f64) -> f64 {
-    2.886 + 0.1081 * (1.0 - 1.0 / (164.0 / kelvin).tanh())
+    2.886 + 0.1081 * (1.0 - 1.0 / portable::tanh(164.0 / kelvin))
 }
 /// The bowing parameters: AlGaAs's Γ (−0.127 + 1.310x), X (0.055) and L (0) (Table XII);
 /// GaInP's Γ (0.65, Table XV); wurtzite AlGaN's (1.0, Table XXX).

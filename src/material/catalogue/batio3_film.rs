@@ -7,6 +7,7 @@ use super::entries::{src, strings, table};
 use super::{Axis, IndexModel};
 use crate::Result;
 use crate::material::{Material, Model, Provenance, Table};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::verdict::Outcome;
 
@@ -63,7 +64,7 @@ pub(crate) fn dawson(x: f64) -> f64 {
             } else {
                 2.0
             };
-            w * (t * t - x * x).exp()
+            w * portable::exp(t * t - x * x)
         })
         .sum();
     s * h / 3.0
@@ -87,7 +88,7 @@ pub(crate) fn suceava_epsilon(e: f64, gaussian: bool) -> (f64, f64) {
             let s = br / (2.0 * std::f64::consts::LN_2.sqrt());
             let (a, b) = ((e - en) / s, (e + en) / s);
             re += 2.0 * amp / std::f64::consts::PI.sqrt() * (dawson(b) - dawson(a));
-            im += amp * ((-a * a).exp() - (-b * b).exp());
+            im += amp * (portable::exp(-a * a) - portable::exp(-b * b));
         } else {
             // Amp·Br·En/(En² − E² − iE·Br)
             let (dr, di) = (en * en - e * e, -e * br);
@@ -102,7 +103,7 @@ pub(crate) fn suceava_epsilon(e: f64, gaussian: bool) -> (f64, f64) {
 /// The film's ordinary n and k at `lam` µm by Table S1's model.
 pub(crate) fn suceava_index(lam: f64, gaussian: bool) -> (f64, f64) {
     let (re, im) = suceava_epsilon(HC / lam, gaussian);
-    let n = num_complex::Complex64::new(re, im).sqrt();
+    let n = portable::complex::sqrt(num_complex::Complex64::new(re, im));
     (n.re, n.im)
 }
 
@@ -190,7 +191,7 @@ pub(crate) fn film_reflectance(n1: f64, d: f64, n2: f64, lam: f64) -> f64 {
     use num_complex::Complex64 as c;
     let r01 = (1.0 - n1) / (1.0 + n1);
     let r12 = (n1 - n2) / (n1 + n2);
-    let phase = c::new(0.0, 4.0 * std::f64::consts::PI * n1 * d / lam).exp();
+    let phase = portable::complex::exp(c::new(0.0, 4.0 * std::f64::consts::PI * n1 * d / lam));
     let r = (c::new(r01, 0.0) + r12 * phase) / (c::new(1.0, 0.0) + r01 * r12 * phase);
     r.norm_sqr()
 }
@@ -208,7 +209,7 @@ pub(crate) fn suceava_reflectance() -> Outcome {
         })
         .map_or(f64::NAN, |n| n.re);
     let [a, b, cc] = SUCEAVA_SUBSTRATE;
-    let substrate = a + b / (lam * lam) + cc / lam.powi(4);
+    let substrate = a + b / (lam * lam) + cc / portable::powi(lam, 4);
     let r = film_reflectance(n, SUCEAVA_THICKNESS_UM, substrate, lam);
     Outcome {
         measured: r,
@@ -253,17 +254,19 @@ mod tests {
         assert!((o.measured - 0.1240).abs() < 1e-4, "{o:?}");
         // with the models' k the reflectance is 0.1294 (Gaussian) and 0.1345 (Lorentz), where
         // the paper computes 0.1237 and 0.1292
-        let sub = 2.001 + 0.01125 / 1.55f64.powi(2) + 0.00029005 / 1.55f64.powi(4);
+        let sub =
+            2.001 + 0.01125 / portable::powi(1.55f64, 2) + 0.00029005 / portable::powi(1.55f64, 4);
         let lossy = |n: f64, k: f64| {
             use num_complex::Complex64 as c;
             let n1 = c::new(n, k);
             let r01 = (1.0 - n1) / (1.0 + n1);
             let r12 = (n1 - sub) / (n1 + sub);
-            let ph = (c::new(
-                0.0,
-                4.0 * std::f64::consts::PI * SUCEAVA_THICKNESS_UM / 1.55,
-            ) * n1)
-                .exp();
+            let ph = portable::complex::exp(
+                c::new(
+                    0.0,
+                    4.0 * std::f64::consts::PI * SUCEAVA_THICKNESS_UM / 1.55,
+                ) * n1,
+            );
             ((r01 + r12 * ph) / (1.0 + r01 * r12 * ph)).norm_sqr()
         };
         assert!((lossy(ng, kg) - 0.1294).abs() < 1e-4);

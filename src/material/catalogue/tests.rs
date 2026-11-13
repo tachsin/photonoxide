@@ -3,6 +3,7 @@
 use super::models;
 use super::references::all_keys;
 use super::*;
+use crate::portable;
 use crate::units::Wavelength;
 
 fn n(m: &Material, lam: f64) -> f64 {
@@ -358,7 +359,7 @@ fn tanakas_quaternary_ends_at_its_inalp_fit() {
     let m = models::tanaka(0.51).unwrap();
     for e in [0.6, 1.0, 1.3] {
         let lam = crate::material::PHOTON_EV_UM / e;
-        let direct = (1.0 + 4.01 * 29.79 / (4.01f64.powi(2) - e * e)).sqrt();
+        let direct = (1.0 + 4.01 * 29.79 / (portable::powi(4.01f64, 2) - e * e)).sqrt();
         assert!((n(&m, lam) - direct).abs() < 2e-4, "{e} eV");
     }
     // and Pettit & Turner's InP at 1 um, 298 K: 3.3265

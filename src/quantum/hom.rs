@@ -21,6 +21,7 @@ use std::f64::consts::TAU;
 use num_complex::Complex64 as c64;
 
 use crate::circuit::Spectrum;
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
 
@@ -59,7 +60,7 @@ impl Wavepacket {
         let fwhm_omega = omega * fwhm_nm * 1e-9 / lambda;
         Ok(Wavepacket::Gaussian {
             center: omega,
-            width: fwhm_omega / (8.0 * 2f64.ln()).sqrt(),
+            width: fwhm_omega / (8.0 * portable::ln(2f64)).sqrt(),
         })
     }
 
@@ -68,7 +69,7 @@ impl Wavepacket {
         match self {
             Wavepacket::Gaussian { center, width } => {
                 let x = (omega - center) / width;
-                c64::new((-x * x / 4.0).exp(), 0.0)
+                c64::new(portable::exp(-x * x / 4.0), 0.0)
             }
             Wavepacket::Sampled(points) => {
                 let k = points.partition_point(|&(w, _)| w <= omega);
@@ -214,7 +215,7 @@ pub fn hom_dip(
     let coincidences = delays
         .iter()
         .map(|&tau| {
-            let phase = |i: usize| c64::from_polar(1.0, w[i] * tau);
+            let phase = |i: usize| portable::complex::from_polar(1.0, w[i] * tau);
             let ad = trapezoid(w, |i| a(i) * phase(i) * d(i).conj());
             let bc = trapezoid(w, |i| b(i) * (c(i) * phase(i)).conj());
             distinguishable + 2.0 * (ad * bc).re

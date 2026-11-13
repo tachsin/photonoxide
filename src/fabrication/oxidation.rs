@@ -7,6 +7,8 @@
 //! rate constant, and parabolic once it is thick, B the parabolic one. τ accounts for the oxide
 //! there at t = 0.
 
+use crate::portable;
+
 /// The oxidizing ambient.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ambient {
@@ -43,7 +45,7 @@ pub const DRY: [Row; 6] = [
 pub fn printed(text: &str) -> Option<(f64, f64)> {
     let value: f64 = text.parse().ok()?;
     let decimals = text.split_once('.').map_or(0, |(_, d)| d.len());
-    Some((value, 0.5 * 10f64.powi(-(decimals as i32))))
+    Some((value, 0.5 * portable::powi(10f64, -(decimals as i32))))
 }
 
 /// The rate constants at `temperature` °C in `ambient`, a row of the tables: (A µm, B µm²/h, τ
@@ -146,7 +148,8 @@ pub fn rates(ambient: Ambient, temperature: f64) -> Option<Rates> {
     }
     let (eb, eba) = activation(ambient);
     let kelvin = |c: f64| c + 273.15;
-    let factor = |e: f64| (-e / R_KCAL * (1.0 / kelvin(temperature) - 1.0 / kelvin(row.0))).exp();
+    let factor =
+        |e: f64| portable::exp(-e / R_KCAL * (1.0 / kelvin(temperature) - 1.0 / kelvin(row.0)));
     let b = b0 * factor(eb);
     let ba = b0 / a0 * factor(eba);
     let a = b / ba;

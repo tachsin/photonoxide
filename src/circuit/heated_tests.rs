@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::components::{Coupler, PhaseShifter, mzi};
 use super::{Component, Heated};
+use crate::portable;
 use crate::thermal::RcModel;
 use crate::units::Wavelength;
 
@@ -44,7 +45,7 @@ fn a_transient_ends_at_the_steady_state() {
     let on = vec![vec![0.015; 400], vec![0.0; 400]];
     let t = h.transient(w(), &times, &on).unwrap();
     let steady = h.s_matrix(w(), &[0.015, 0.0]).unwrap();
-    assert!((t.s[399][(2, 0)] - steady[(2, 0)]).norm() < 1e-9);
+    assert!(portable::complex::abs(t.s[399][(2, 0)] - steady[(2, 0)]) < 1e-9);
     assert_eq!(
         t.s[0][(2, 0)],
         h.s_matrix(w(), &[0.0, 0.0]).unwrap()[(2, 0)]

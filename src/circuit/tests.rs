@@ -6,6 +6,7 @@ use num_complex::Complex64 as c64;
 
 use super::*;
 use crate::mode::Polarization;
+use crate::portable;
 
 fn zero() -> c64 {
     c64::new(0.0, 0.0)
@@ -54,7 +55,7 @@ impl Component for Tunable {
         &self.parameters
     }
     fn s_matrix(&self, _: Wavelength, values: &[f64]) -> Result<SMatrix> {
-        let t = c64::new(0.0, values[0]).exp();
+        let t = portable::complex::exp(c64::new(0.0, values[0]));
         Ok(SMatrix::from_fn(2, |q, p| if q == p { zero() } else { t }))
     }
     fn provenance(&self) -> Provenance {
@@ -297,7 +298,7 @@ fn the_module_example() -> Result<()> {
     let circuit = netlist.compile()?;
 
     let s = circuit.s_matrix(Wavelength::um(1.55)?)?;
-    assert!((s[(1, 0)] - c64::new(-1.0, 0.0)).norm() < 1e-15); // a half turn
+    assert!(portable::complex::abs(s[(1, 0)] - c64::new(-1.0, 0.0)) < 1e-15); // a half turn
     Ok(())
 }
 

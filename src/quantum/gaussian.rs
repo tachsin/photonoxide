@@ -10,6 +10,7 @@ use num_complex::Complex64 as c64;
 use super::hafnian::{hafnian, loop_hafnian, repeated, torontonian};
 use super::matrix::{determinant, hermitian_eigen, inverse};
 use super::{Matrix, Transfer};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The most photons a pattern may hold: a hafnian of 2 × 30 rows is 2^30 terms.
@@ -245,7 +246,7 @@ impl Gaussian {
             let x = if i != j {
                 0.0
             } else if i == mode {
-                r.cosh()
+                portable::cosh(r)
             } else {
                 1.0
             };
@@ -253,7 +254,7 @@ impl Gaussian {
         });
         let w = Matrix::from_fn(n, n, |i, j| {
             if i == mode && j == mode {
-                -c64::from_polar(r.sinh(), phi)
+                -portable::complex::from_polar(portable::sinh(r), phi)
             } else {
                 c64::new(0.0, 0.0)
             }
@@ -280,7 +281,7 @@ impl Gaussian {
             let x = if i != j {
                 0.0
             } else if i == a || i == b {
-                r.cosh()
+                portable::cosh(r)
             } else {
                 1.0
             };
@@ -288,7 +289,7 @@ impl Gaussian {
         });
         let w = Matrix::from_fn(n, n, |i, j| {
             if (i == a && j == b) || (i == b && j == a) {
-                -c64::from_polar(r.sinh(), phi)
+                -portable::complex::from_polar(portable::sinh(r), phi)
             } else {
                 c64::new(0.0, 0.0)
             }
@@ -440,7 +441,7 @@ impl Gaussian {
     pub fn quadrature_variance(&self, mode: usize, theta: f64) -> Result<f64> {
         self.check_mode(mode)?;
         let (x, p) = (mode, mode + self.modes);
-        let (c, s) = (theta.cos(), theta.sin());
+        let (c, s) = (portable::cos(theta), portable::sin(theta));
         Ok(c * c * self.v(x, x) + s * s * self.v(p, p) + 2.0 * c * s * self.v(x, p))
     }
 
@@ -467,10 +468,12 @@ impl Gaussian {
     pub fn mean_photons(&self, mode: usize) -> Result<f64> {
         self.check_mode(mode)?;
         let (x, p) = (mode, mode + self.modes);
-        Ok(
-            (self.v(x, x) + self.v(p, p) + self.means[x].powi(2) + self.means[p].powi(2) - 2.0)
-                / 4.0,
-        )
+        Ok((self.v(x, x)
+            + self.v(p, p)
+            + portable::powi(self.means[x], 2)
+            + portable::powi(self.means[p], 2)
+            - 2.0)
+            / 4.0)
     }
 
     /// The covariance of the photon numbers of modes `a` and `b`, ⟨n_a n_b⟩ − ⟨n_a⟩⟨n_b⟩: for
@@ -577,7 +580,8 @@ impl Gaussian {
             .collect();
         let repeats: Vec<usize> = distinct.iter().map(|&i| pattern[i % n]).collect();
         let kan: f64 = repeats.iter().map(|&r| (r + 1) as f64).product();
-        let bjorklund = 2f64.powi(i32::try_from(total).unwrap_or(i32::MAX)) * (2 * total) as f64;
+        let bjorklund =
+            portable::powi(2f64, i32::try_from(total).unwrap_or(i32::MAX)) * (2 * total) as f64;
         let crowded = kan <= bjorklund;
         if !has_means {
             let value = if crowded {
@@ -600,7 +604,7 @@ impl Gaussian {
             .map(|c| (0..2 * n).map(|r| beta[r].conj() * qinv[(r, c)]).sum())
             .collect();
         let quadratic: c64 = (0..2 * n).map(|c| gamma[c] * beta[c]).sum();
-        let prefactor = (-0.5 * quadratic.re).exp() / (norm * factorials);
+        let prefactor = portable::exp(-0.5 * quadratic.re) / (norm * factorials);
         let value = if crowded {
             let loops: Vec<c64> = distinct.iter().map(|&i| gamma[i]).collect();
             repeated(&a.select(&distinct, &distinct), Some(&loops), &repeats)
@@ -694,7 +698,7 @@ impl Gaussian {
         let (dx, dp) = (x - self.means[ix], p - self.means[ip]);
         // (r − d)ᵀ V⁻¹ (r − d) with V⁻¹ = [[b, −c], [−c, a]] / det
         let q = (b * dx * dx - 2.0 * c * dx * dp + a * dp * dp) / det;
-        Ok((-0.5 * q).exp() / (std::f64::consts::TAU * det.sqrt()))
+        Ok(portable::exp(-0.5 * q) / (std::f64::consts::TAU * det.sqrt()))
     }
 
     /// The squeezing of `mode` in dB, 10 log₁₀ of its smallest quadrature variance: negative
@@ -704,7 +708,7 @@ impl Gaussian {
     ///
     /// [`Error::InvalidValue`] for a mode out of range.
     pub fn squeezing_db(&self, mode: usize) -> Result<f64> {
-        Ok(10.0 * self.quadrature_extremes(mode)?.0.log10())
+        Ok(10.0 * portable::log10(self.quadrature_extremes(mode)?.0))
     }
 }
 

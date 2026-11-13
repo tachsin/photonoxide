@@ -6,6 +6,7 @@ use num_complex::Complex64 as c64;
 
 use super::checks::grid;
 use super::*;
+use crate::portable;
 
 /// Fig. 8 (right): a point source E_z in 2D vacuum at a resolution of `resolution` cells a
 /// wavelength, in a square of `interior` wavelengths inside CPMLs `thickness` wavelengths thick
@@ -70,7 +71,7 @@ pub(crate) fn pml_rates(thickness: usize) -> [f64; 3] {
         let before = (fields[1] - fields[0]).norm_sqr();
         let after = (fields[2] - fields[1]).norm_sqr();
         let l = thickness as f64;
-        (before / after).ln() / ((l + 0.5) / (l - 0.5)).ln()
+        portable::ln(before / after) / portable::ln((l + 0.5) / (l - 0.5))
     })
 }
 
@@ -125,7 +126,11 @@ fn ring_run(resolution: usize) -> Vec<RingMode> {
     s.add_source(Source {
         field: Field::E,
         component: Axis::Z,
-        at: (node(1.45 * 0.3f64.cos()), node(1.45 * 0.3f64.sin()), 0),
+        at: (
+            node(1.45 * portable::cos(0.3f64)),
+            node(1.45 * portable::sin(0.3f64)),
+            0,
+        ),
         waveform: pulse,
     })
     .unwrap();
@@ -133,7 +138,11 @@ fn ring_run(resolution: usize) -> Vec<RingMode> {
         .add_probe(
             Field::E,
             Axis::Z,
-            (node(1.55 * 2.0f64.cos()), node(1.55 * 2.0f64.sin()), 0),
+            (
+                node(1.55 * portable::cos(2.0f64)),
+                node(1.55 * portable::sin(2.0f64)),
+                0,
+            ),
         )
         .unwrap();
     let Waveform::Gaussian { width, delay, .. } = pulse else {
@@ -164,8 +173,11 @@ fn ring_run(resolution: usize) -> Vec<RingMode> {
             let fdtd = c64::new(r.frequency, -r.decay / std::f64::consts::TAU);
             (0..16)
                 .filter_map(|m| ring.resonance(m, fdtd).ok().map(|e| (m, e)))
-                .filter(|(_, e)| (e - fdtd).norm() < 0.02 * fdtd.re && e.im < 0.0)
-                .min_by(|a, b| (a.1 - fdtd).norm().total_cmp(&(b.1 - fdtd).norm()))
+                .filter(|(_, e)| portable::complex::abs(e - fdtd) < 0.02 * fdtd.re && e.im < 0.0)
+                .min_by(|a, b| {
+                    portable::complex::abs(a.1 - fdtd)
+                        .total_cmp(&portable::complex::abs(b.1 - fdtd))
+                })
                 .map(|(order, exact)| RingMode { order, fdtd, exact })
         })
         .collect()

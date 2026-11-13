@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 /// A guide of β₂ (ps²/m) and γ = 1 /(W·m) at 1.55 µm, without loss.
 fn guide(beta2: f64) -> Guide {
@@ -9,10 +10,12 @@ fn guide(beta2: f64) -> Guide {
 fn the_dispersion_operator_is_the_taylor_series() {
     let d = Dispersion::new(1.55, &[-0.05, 0.002, 1e-5]).unwrap();
     let w: f64 = 3.0;
-    let phase = -0.05 * w * w / 2.0 + 0.002 * w.powi(3) / 6.0 + 1e-5 * w.powi(4) / 24.0;
+    let phase = -0.05 * w * w / 2.0
+        + 0.002 * portable::powi(w, 3) / 6.0
+        + 1e-5 * portable::powi(w, 4) / 24.0;
     assert!((d.phase(w) - phase).abs() < 1e-15);
     // only the even orders in the four-wave mismatch (Agrawal Eq. (10.4.12))
-    let dk = -0.05 * w * w + 2.0 * 1e-5 * w.powi(4) / 24.0;
+    let dk = -0.05 * w * w + 2.0 * 1e-5 * portable::powi(w, 4) / 24.0;
     assert!((d.four_wave_mismatch(w) - dk).abs() < 1e-14);
     assert_eq!(d.beta(5), 0.0);
     assert!(Dispersion::new(-1.0, &[]).is_err());
@@ -26,7 +29,7 @@ fn the_fit_recovers_a_polynomial_beta() {
     let n = |l: f64| -> crate::Result<f64> {
         let w = angular_frequency(l);
         let x = w - w0;
-        Ok(C_M_PER_PS * (b0 + b1 * x + b2 * x * x / 2.0 + b3 * x.powi(3) / 6.0) / w)
+        Ok(C_M_PER_PS * (b0 + b1 * x + b2 * x * x / 2.0 + b3 * portable::powi(x, 3) / 6.0) / w)
     };
     let d = Dispersion::of_index(n, 1.55, (1.3, 1.8), 4).unwrap();
     assert!((d.beta(1) / b1 - 1.0).abs() < 1e-12, "{}", d.beta(1));
@@ -46,7 +49,7 @@ fn the_soliton_relations_agree() {
     assert!((dispersion_length(t0, b2) / nonlinear_length(g, p0) - 1.0).abs() < 1e-15);
     assert!((soliton_period(t0, b2) - 0.5 * PI * 0.2).abs() < 1e-15);
     // u(0, τ) = 2 sech τ
-    assert!((second_order_soliton(0.0, 0.3).re - 2.0 / 0.3f64.cosh()).abs() < 1e-14);
+    assert!((second_order_soliton(0.0, 0.3).re - 2.0 / portable::cosh(0.3f64)).abs() < 1e-14);
     assert!((effective_length(0.0, 2.0) - 2.0).abs() < 1e-15);
     assert!((effective_length(1e-12, 2.0) - 2.0).abs() < 1e-11);
     assert!((spm_rms_broadening(0.0) - 1.0).abs() < 1e-15);
@@ -59,24 +62,31 @@ fn a_gaussian_has_its_closed_form_spectrum_and_the_carrier_its_sign() {
     let spectrum = pulse.spectrum();
     for (w, s) in pulse.frequencies().iter().zip(&spectrum) {
         // ∫ √P₀ e^{−T²/2T₀²} e^{iΩT} dT = √P₀ √(2π) T₀ e^{−Ω²T₀²/2}
-        let exact = p0.sqrt() * (2.0 * PI).sqrt() * t0 * (-0.5 * w * w * t0 * t0).exp();
-        assert!((s - exact).norm() < 1e-12, "{w}: {s} {exact}");
+        let exact = p0.sqrt() * (2.0 * PI).sqrt() * t0 * portable::exp(-0.5 * w * w * t0 * t0);
+        assert!(
+            portable::complex::abs(s - exact) < 1e-12,
+            "{w}: {s} {exact}"
+        );
     }
     assert!((pulse.rms_bandwidth() - 1.0 / (2f64.sqrt() * t0)).abs() < 1e-12);
     assert!((pulse.energy() - p0 * PI.sqrt() * t0).abs() < 1e-12);
     // a component e^{−iΩT} is at ω₀ + Ω: Ω > 0, bluer
     let shifted = Pulse::sampled(256, 20.0, |t| {
-        c64::new((-0.5 * (t / t0).powi(2)).exp(), 0.0) * c64::new(0.0, -8.0 * t).exp()
+        c64::new(portable::exp(-0.5 * portable::powi(t / t0, 2)), 0.0)
+            * portable::complex::exp(c64::new(0.0, -8.0 * t))
     })
     .unwrap();
     let (k, _) = shifted
         .spectrum()
         .iter()
         .enumerate()
-        .fold(
-            (0, 0.0),
-            |a, (i, v)| if v.norm() > a.1 { (i, v.norm()) } else { a },
-        );
+        .fold((0, 0.0), |a, (i, v)| {
+            if portable::complex::abs(*v) > a.1 {
+                (i, portable::complex::abs(*v))
+            } else {
+                a
+            }
+        });
     assert!((shifted.frequencies()[k] - 8.0).abs() < 0.2);
     assert!(Pulse::sampled(100, 1.0, |_| c64::new(1.0, 0.0)).is_err());
 }
@@ -94,8 +104,10 @@ fn the_fundamental_soliton_keeps_its_shape() {
         .iter()
         .zip(&end.field)
         .map(|(&t, v)| {
-            (v - c64::new(p0.sqrt() / (t / t0).cosh(), 0.0) * c64::new(0.0, 0.5 * z / ld).exp())
-                .norm()
+            portable::complex::abs(
+                v - c64::new(p0.sqrt() / portable::cosh(t / t0), 0.0)
+                    * portable::complex::exp(c64::new(0.0, 0.5 * z / ld)),
+            )
         })
         .fold(0.0, f64::max);
     assert!(worst < 2e-5 * p0.sqrt(), "{worst}");
@@ -112,12 +124,12 @@ fn the_snapshots_end_where_the_propagation_does() {
     assert_eq!(shots.len(), 4);
     let end = g.propagate(&start, 0.1, 40).unwrap();
     for (a, b) in shots[3].field.iter().zip(&end.field) {
-        assert!((a - b).norm() < 1e-13);
+        assert!(portable::complex::abs(a - b) < 1e-13);
     }
     // the first snapshot is a quarter of the way: a propagation of 10 steps over 0.025 m
     let quarter = g.propagate(&start, 0.025, 10).unwrap();
     for (a, b) in shots[0].field.iter().zip(&quarter.field) {
-        assert!((a - b).norm() < 1e-13);
+        assert!(portable::complex::abs(a - b) < 1e-13);
     }
     assert!(g.evolution(&start, 0.1, 10, 4).is_err());
 }
@@ -141,7 +153,7 @@ fn loss_alone_takes_the_energy_and_kerr_alone_keeps_it() {
 #[test]
 fn ramans_response_is_normalized_and_its_moment_agrawals() {
     let r = Raman::SILICA;
-    assert!((r.response(0.0) - 1.0).norm() < 1e-15);
+    assert!(portable::complex::abs(r.response(0.0) - 1.0) < 1e-15);
     // T_R = f_R ∫ T h_R dT = f_R 2τ₁²τ₂/(τ₁² + τ₂²), 1.46 fs: "about 2 fs for silica fibers"
     // (Agrawal, p. 44, whose Eq. (2.3.45) prints f_R τ₁τ₂²/(τ₁² + τ₂²), 1.92 fs)
     assert!(
@@ -156,8 +168,8 @@ fn ramans_response_is_normalized_and_its_moment_agrawals() {
             let t = k as f64 * h;
             t * (1.0 / (r.tau1 * r.tau1) + 1.0 / (r.tau2 * r.tau2))
                 * r.tau1
-                * (-t / r.tau2).exp()
-                * (t / r.tau1).sin()
+                * portable::exp(-t / r.tau2)
+                * portable::sin(t / r.tau1)
         })
         .sum::<f64>()
         * h;
@@ -202,7 +214,7 @@ fn two_photon_absorption_alone_is_exact() {
     let p = two_photon_power(20.0, 5e-12, 0.3e-12, 0.0, 0.01);
     let phi = two_photon_phase(30.0, 20.0, 5e-12, 0.3e-12, 0.0, 0.01);
     assert!((end.field[j].norm_sqr() / p - 1.0).abs() < 1e-13);
-    assert!(((end.field[j] / start.field[j]).arg() - phi).abs() < 1e-13);
+    assert!((portable::complex::arg(end.field[j] / start.field[j]) - phi).abs() < 1e-13);
     assert!(two_photon_phase(100.0, 20.0, 0.0, 0.3e-12, 0.0, 0.01) == 20.0);
 }
 

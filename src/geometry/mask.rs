@@ -24,6 +24,7 @@ use super::primitives::um;
 use super::region::{Distance, Location, Polygons, Region, Tolerance, assemble};
 use super::transform::Transform;
 use super::{Bounds, Point, bounds_um};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -330,7 +331,7 @@ impl Mask {
             // a point a quarter pixel to the left of the hole's first edge: in the region
             let (a, b) = (loops[h][0], loops[h][1 % loops[h].len()]);
             let e = [b[0] - a[0], b[1] - a[1]];
-            let l = e[0].hypot(e[1]);
+            let l = portable::hypot(e[0], e[1]);
             let p = [
                 0.5 * (a[0] + b[0]) - quarter * e[1] / l,
                 0.5 * (a[1] + b[1]) + quarter * e[0] / l,
@@ -429,7 +430,7 @@ impl Mask {
     fn nearest(&self, p: P) -> (f64, P, P) {
         let d = &self.data;
         let first = d.loops[0][0];
-        let ub = (p[0] - first[0]).hypot(p[1] - first[1]);
+        let ub = portable::hypot(p[0] - first[0], p[1] - first[1]);
         let r = ub * (1.0 + 1e-12) + 1e-12;
         let window = Bounds {
             min: Point::um(p[0] - r, p[1] - r),
@@ -526,7 +527,7 @@ impl Region for Mask {
                 (0..n)
                     .map(|k| {
                         let (a, b) = (r[k], r[(k + 1) % n]);
-                        (b[0] - a[0]).hypot(b[1] - a[1])
+                        portable::hypot(b[0] - a[0], b[1] - a[1])
                     })
                     .sum::<f64>()
             })

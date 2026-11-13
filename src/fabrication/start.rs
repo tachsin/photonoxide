@@ -15,6 +15,7 @@ use super::physical::Film;
 use super::simox;
 use super::smart_cut::{self, Route};
 use super::stated::number;
+use crate::portable;
 
 /// Where a flow starts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -430,7 +431,7 @@ fn route_steps(
 /// `v` as a power of ten, as the narration writes a dose: `1.76×10¹⁸`.
 fn power(v: f64) -> String {
     const SUP: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-    let e = v.abs().log10().floor() as i32;
+    let e = portable::log10(v.abs()).floor() as i32;
     let digits: String = e
         .unsigned_abs()
         .to_string()
@@ -438,7 +439,7 @@ fn power(v: f64) -> String {
         .map(|c| SUP[c.to_digit(10).unwrap_or(0) as usize])
         .collect();
     let sign = if e < 0 { "⁻" } else { "" };
-    format!("{}×10{sign}{digits}", number(v / 10f64.powi(e)))
+    format!("{}×10{sign}{digits}", number(v / portable::powi(10f64, e)))
 }
 
 /// The SIMOX route's steps, from the bare wafer to the wafer as it would have been bought:

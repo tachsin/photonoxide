@@ -21,6 +21,7 @@ use super::models::check_range;
 use super::{Axis, IndexModel};
 use crate::Result;
 use crate::material::{Material, Model, Provenance};
+use crate::portable;
 use crate::units::Wavelength;
 
 // ---------------------------------------------------------------------------------------------
@@ -220,11 +221,11 @@ pub(crate) fn bruner_n2(
     celsius: f64,
 ) -> f64 {
     let [a, b, c, d, e, f] = coefficients;
-    let k2 = (celsius + 273.15).powi(2);
+    let k2 = portable::powi(celsius + 273.15, 2);
     let l2 = lam * lam;
     let (g, h) = third;
     let pole = if g == 0.0 { 0.0 } else { g / (l2 - h * h) };
-    a + (b + factors.0 * k2) / (l2 - (c + factors.1 * k2).powi(2))
+    a + (b + factors.0 * k2) / (l2 - portable::powi(c + factors.1 * k2, 2))
         + e / (l2 - f * f)
         + pole
         + d * l2
@@ -233,7 +234,7 @@ pub(crate) fn bruner_n2(
 /// Eq. (4) with the CLT row at `celsius`, as the refractiveindex.info formula 4.
 fn bruner_form(celsius: f64) -> Model {
     let [a, b, c, d, e, f, kb, kc] = BRUNER_CLT;
-    let k2 = (celsius + 273.15).powi(2);
+    let k2 = portable::powi(celsius + 273.15, 2);
     Model::Formula {
         number: 4,
         coefficients: vec![

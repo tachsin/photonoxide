@@ -1,6 +1,7 @@
 use num_complex::Complex64;
 
 use super::*;
+use crate::portable;
 
 fn um(v: f64) -> Wavelength {
     Wavelength::um(v).unwrap()
@@ -46,8 +47,8 @@ fn the_half_maximum_is_a_root_of_sinc2_minus_a_half() {
     // Newton on sin x / x − 1/√2 from Fejer's 0.4429π lands on it
     let mut x = 0.4429 * PI;
     for _ in 0..20 {
-        let f = x.sin() / x - std::f64::consts::FRAC_1_SQRT_2;
-        let d = (x * x.cos() - x.sin()) / (x * x);
+        let f = portable::sin(x) / x - std::f64::consts::FRAC_1_SQRT_2;
+        let d = (x * portable::cos(x) - portable::sin(x)) / (x * x);
         x -= f / d;
     }
     assert!((x - HALF_MAXIMUM).abs() < 1e-15);
@@ -56,7 +57,7 @@ fn the_half_maximum_is_a_root_of_sinc2_minus_a_half() {
 #[test]
 fn sinc2_is_continuous_across_its_series() {
     for x in [9.9e-5, 1e-4, 1.01e-4] {
-        assert!((sinc2(x) - (x.sin() / x).powi(2)).abs() < 1e-15);
+        assert!((sinc2(x) - portable::powi(portable::sin(x) / x, 2)).abs() < 1e-15);
     }
     assert_eq!(sinc2(0.0), 1.0);
     assert!(sinc2(PI).abs() < 1e-30);
@@ -93,7 +94,9 @@ fn the_duty_cycle_sets_the_harmonics_amplitude() {
     // even orders vanish at 50 % and peak at 25 % (Fejer et al., after Eq. (23))
     assert!(fourier_coefficient(2, 0.5).abs() < 1e-16);
     assert!((fourier_coefficient(2, 0.25) - 1.0 / PI).abs() < 1e-15);
-    assert!((effective_d(25.0, 1, 0.39) - 25.0 * 2.0 / PI * (0.39 * PI).sin()).abs() < 1e-13);
+    assert!(
+        (effective_d(25.0, 1, 0.39) - 25.0 * 2.0 / PI * portable::sin(0.39 * PI)).abs() < 1e-13
+    );
     let g = Grating::new(4.1, 1, 0.39).unwrap();
     assert!((g.fourier_coefficient() - fourier_coefficient(1, 0.39)).abs() < 1e-16);
     assert!(Grating::new(4.1, 1, 1.0).is_err() && Grating::new(-1.0, 1, 0.5).is_err());
@@ -228,8 +231,9 @@ fn type_i_angle_tuning_meets_the_closed_form() {
         o.at(0.5, &state).unwrap(),
         e.at(0.5, &state).unwrap(),
     );
-    let s2: f64 = (no1.powi(-2) - no2.powi(-2)) / (ne2.powi(-2) - no2.powi(-2));
-    assert!((theta - s2.sqrt().asin()).abs() < 1e-12, "{theta}");
+    let s2: f64 = (portable::powi(no1, -2) - portable::powi(no2, -2))
+        / (portable::powi(ne2, -2) - portable::powi(no2, -2));
+    assert!((theta - portable::asin(s2.sqrt())).abs() < 1e-12, "{theta}");
     // critical: a finite acceptance in the tilt toward the axis, none about it
     let d = Device::new(
         p,

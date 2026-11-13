@@ -8,6 +8,7 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use super::checks::{Numbers, shapes, um};
 use super::primitives::gamma;
 use super::*;
+use crate::portable;
 use crate::units::Length;
 
 #[test]
@@ -17,7 +18,11 @@ fn the_primitives_areas_and_perimeters_are_their_closed_forms() {
     let e = Shape::ellipse(Point::um(0.0, 0.0), [um(a), um(b)], 0.4).unwrap();
     assert!((e.area() - PI * a * b).abs() < 1e-14);
     let p = Region::perimeter(&e).unwrap().to_um();
-    let quad = boundary::integrate(|t| (a * t.sin()).hypot(b * t.cos()), 0.0, TAU);
+    let quad = boundary::integrate(
+        |t| portable::hypot(a * portable::sin(t), b * portable::cos(t)),
+        0.0,
+        TAU,
+    );
     assert!((p - quad).abs() < 1e-12, "{p} {quad}");
     // a circle's: 2πr
     let circle = Shape::ellipse(Point::um(1.0, 0.0), [um(0.7), um(0.7)], 1.0).unwrap();
@@ -34,7 +39,7 @@ fn the_primitives_areas_and_perimeters_are_their_closed_forms() {
     let s1 = Shape::superellipse(Point::um(0.0, 0.0), [um(a), um(b)], 1.0, 0.3).unwrap();
     assert!((s1.area() - 2.0 * a * b).abs() < 1e-14);
     let p1 = Region::perimeter(&s1).unwrap().to_um();
-    assert!((p1 - 4.0 * a.hypot(b)).abs() < 1e-12, "{p1}");
+    assert!((p1 - 4.0 * portable::hypot(a, b)).abs() < 1e-12, "{p1}");
     // the sector, the rounded rectangle and the regular polygon: their formulas against
     // Green's theorem on their boundaries, and their perimeters against the boundaries' lengths
     for (name, shape) in shapes() {
@@ -162,7 +167,7 @@ fn the_normal_is_the_distances_gradient_and_points_at_the_boundary() {
                 (at(0.0, h) - at(0.0, -h)) / (2.0 * h),
             ];
             // off the medial axis, where the distance is smooth and its gradient a unit vector
-            if (g[0].hypot(g[1]) - 1.0).abs() > 1e-6 {
+            if (portable::hypot(g[0], g[1]) - 1.0).abs() > 1e-6 {
                 continue;
             }
             let tol = if name == "superellipse" { 1e-5 } else { 1e-7 };
@@ -679,7 +684,7 @@ fn canary_gamma_to_fifteen_digits() {
         let bound = 1e-15
             + 11.0 * u * magnitude / sum.abs()
             + y.abs() * dt / t
-            + t.ln().abs() * dy
+            + portable::ln(t).abs() * dy
             + dt
             + 3.0 * 2.0 * u
             + 3.0 * u;

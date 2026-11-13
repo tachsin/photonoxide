@@ -20,6 +20,7 @@ use super::rules::{
     COMBINATION, example_non_uniformity, k1_limit, k1_typical, over_etch, registration, rie_lag,
 };
 use super::stated::{Capability, Quantity, Source, Stated, Unit, number};
+use crate::portable;
 
 /// Which rule a check applies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -748,7 +749,7 @@ pub fn assess(design: &Physical, flow: &Flow) -> Result<Assessment> {
                 format!("the narrowest line of {} at its floor", pat.layer),
                 &pat.layer,
                 Kind::FloorWidth,
-                line_nm + 2.0 * depth_nm / sidewall.tan(),
+                line_nm + 2.0 * depth_nm / portable::tan(*sidewall),
                 Unit::Nm,
             );
             if cited_walls.is_empty() {
@@ -786,7 +787,7 @@ pub fn assess(design: &Physical, flow: &Flow) -> Result<Assessment> {
                         number(deg)
                     ),
                 );
-                let cot = |d: f64| 1.0 / d.to_radians().tan();
+                let cot = |d: f64| 1.0 / portable::tan(d.to_radians());
                 let shift = |d: f64| 2.0 * depth_nm * (cot(d) - cot(deg));
                 let bound = shift(lo).abs().max(shift(hi).abs());
                 floor.add(

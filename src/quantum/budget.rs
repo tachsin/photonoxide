@@ -19,6 +19,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::circuit::{Circuit, Netlist, PortRef, SMatrix};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -150,13 +151,13 @@ impl Budget {
 
     /// The loss, dB: −10 log₁₀ of [`Budget::transmission`].
     pub fn loss_db(&self) -> f64 {
-        -10.0 * self.transmission().log10()
+        -10.0 * portable::log10(self.transmission())
     }
 
     /// The probability that n photons, each with this budget, all arrive: its transmission to
     /// the n-th power.
     pub fn event(&self, photons: u32) -> f64 {
-        self.transmission().powi(photons as i32)
+        portable::powi(self.transmission(), photons as i32)
     }
 }
 
@@ -355,7 +356,7 @@ pub fn varnava_loss(eta_s: f64, eta_d: f64) -> f64 {
 /// 1 − η^(1/p_fail): a fusion boosted to fail with probability p_fail measures 1/p_fail photons,
 /// each kept with probability η.
 pub fn fusion_loss(eta: f64, p_fail: f64) -> f64 {
-    1.0 - eta.powf(1.0 / p_fail)
+    1.0 - portable::powf(eta, 1.0 / p_fail)
 }
 
 /// The largest fidelity between Qi et al.'s lossy squeezed state and a classical one their
@@ -363,8 +364,8 @@ pub fn fusion_loss(eta: f64, p_fail: f64) -> f64 {
 /// p_D/η_D, Θ the ramp (their Eq. 12).
 pub fn qi_fidelity(squeezing: f64, eta: f64, eta_d: f64, dark: f64) -> f64 {
     let q = dark / eta_d;
-    let x = ((1.0 - 2.0 * q) / (eta * (-2.0 * squeezing).exp() + 1.0 - eta)).ln();
-    1.0 / (0.5 * x.max(0.0)).cosh()
+    let x = portable::ln((1.0 - 2.0 * q) / (eta * portable::exp(-2.0 * squeezing) + 1.0 - eta));
+    1.0 / portable::cosh(0.5 * x.max(0.0))
 }
 
 /// The smallest total variation distance ε to which Qi et al.'s algorithm simulates a Gaussian
@@ -374,14 +375,14 @@ pub fn qi_fidelity(squeezing: f64, eta: f64, eta_d: f64, dark: f64) -> f64 {
 /// ε* above 1 means their test can't simulate it at all.
 pub fn qi_simulable_error(squeezing: f64, eta: f64, eta_d: f64, dark: f64, modes: usize) -> f64 {
     let f = qi_fidelity(squeezing, eta, eta_d, dark);
-    2.0 * (-(modes as f64) * f.ln()).max(0.0).sqrt()
+    2.0 * (-(modes as f64) * portable::ln(f)).max(0.0).sqrt()
 }
 
 /// Qi et al.'s transmission below which the sampler is simulable exactly at any size,
 /// η_∞ = q_D (1 + coth r) (their Eq. 2, the exact-sampling condition they take from their
 /// Ref. 11).
 pub fn qi_exact_transmission(squeezing: f64, eta_d: f64, dark: f64) -> f64 {
-    dark / eta_d * (1.0 + 1.0 / squeezing.tanh())
+    dark / eta_d * (1.0 + 1.0 / portable::tanh(squeezing))
 }
 
 fn invalid(reason: impl Into<String>) -> Error {

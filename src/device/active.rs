@@ -13,6 +13,7 @@ use crate::units::Wavelength;
 use crate::{Error, Result};
 
 use super::{Figure, Range, Values};
+use crate::portable;
 
 /// A component whose transmission a drive sets: ports `o1` and `o2`, parameters `phase` (rad,
 /// at the design's wavelength λ₀) and `loss` (dB, the insertion loss), reciprocal,
@@ -61,8 +62,8 @@ impl Driven {
         }
         let scale = self.wavelength_um / wavelength.to_um();
         let theta = values[0] * scale;
-        let a = 10f64.powf(-values[1] / 20.0);
-        let t = c64::from_polar(a, theta);
+        let a = portable::powf(10f64, -values[1] / 20.0);
+        let t = portable::complex::from_polar(a, theta);
         Ok([t, c64::new(0.0, scale) * t, -t * (LN_10 / 20.0)])
     }
 }
@@ -151,11 +152,11 @@ impl Balanced {
         }
         let scale = self.wavelength_um / wavelength.to_um();
         let half = 0.5 * values[0] * scale;
-        let a = 10f64.powf(-values[1] / 20.0);
-        let t = a * half.cos();
+        let a = portable::powf(10f64, -values[1] / 20.0);
+        let t = a * portable::cos(half);
         Ok([
             c64::new(t, 0.0),
-            c64::new(-0.5 * scale * a * half.sin(), 0.0),
+            c64::new(-0.5 * scale * a * portable::sin(half), 0.0),
             c64::new(-t * (LN_10 / 20.0), 0.0),
         ])
     }

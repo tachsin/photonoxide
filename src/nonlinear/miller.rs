@@ -14,6 +14,7 @@
 
 use crate::Result;
 use crate::material::Material;
+use crate::portable;
 use crate::units::Wavelength;
 
 /// χ⁽¹⁾ = n² − 1 of `material` at `wavelength`, from the real part of its index.
@@ -74,7 +75,7 @@ pub fn miller_shg(
 pub fn principal_susceptibilities(material: &Material, wavelength: Wavelength) -> Result<[f64; 3]> {
     let eps = material.principal_permittivity(wavelength)?;
     Ok(eps.map(|e| {
-        let n = e.sqrt().re;
+        let n = portable::complex::sqrt(e).re;
         n * n - 1.0
     }))
 }

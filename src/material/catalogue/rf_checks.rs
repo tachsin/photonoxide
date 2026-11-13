@@ -2,6 +2,7 @@
 //! Table I through their Eq. (3), and Lamb's Table I's ε′ against its n.
 
 use super::rf::{RfValue, rf_dielectric};
+use crate::portable;
 use crate::validation::Outcome;
 
 fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
@@ -111,7 +112,9 @@ pub(crate) fn lamb_table_1() -> Outcome {
             if v.frequency_ghz.0 != f {
                 return f64::NAN;
             }
-            let bound = |n: f64| 0.5 * 10f64.powi(-(de as i32)) + n * 10f64.powi(-(dn as i32));
+            let bound = |n: f64| {
+                0.5 * portable::powi(10f64, -(de as i32)) + n * portable::powi(10f64, -(dn as i32))
+            };
             ((n0 * n0 - e0).abs() / bound(n0)).max((n1 * n1 - e1).abs() / bound(n1))
         })
         .fold(0.0, |w: f64, d| if d.is_nan() { d } else { w.max(d) });

@@ -27,6 +27,7 @@ use super::hom::{Wavepacket, trapezoid};
 use super::matrix::Matrix;
 use super::permanent::permanent;
 use crate::circuit::Spectrum;
+use crate::portable;
 use crate::units::SPEED_OF_LIGHT;
 use crate::{Error, Result};
 
@@ -122,7 +123,7 @@ impl SpectralInput {
             phi.push(
                 raw.iter()
                     .zip(&omega)
-                    .map(|(a, &w)| a * scale * c64::from_polar(1.0, w * p.delay))
+                    .map(|(a, &w)| a * scale * portable::complex::from_polar(1.0, w * p.delay))
                     .collect::<Vec<c64>>(),
             );
         }

@@ -4,6 +4,7 @@
 use num_complex::Complex64 as c64;
 
 use super::matrix::{Matrix, hermitian_eigen};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The transfer matrix of N coupled waveguides of length `length` (µm), nearest neighbours
@@ -36,7 +37,11 @@ pub fn coupled_array(couplings: &[f64], length: f64) -> Result<Matrix> {
     let (values, v) = hermitian_eigen(&h);
     Ok(Matrix::from_fn(n, n, |i, j| {
         (0..n)
-            .map(|k| v[(i, k)] * c64::from_polar(1.0, values[k] * length) * v[(j, k)].conj())
+            .map(|k| {
+                v[(i, k)]
+                    * portable::complex::from_polar(1.0, values[k] * length)
+                    * v[(j, k)].conj()
+            })
             .sum()
     }))
 }

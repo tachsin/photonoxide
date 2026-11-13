@@ -32,6 +32,7 @@ use std::f64::consts::PI;
 
 use super::region::{Location, Region};
 use super::{Bounds, Operation, Point, Shape, boundary};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -242,7 +243,7 @@ impl Frustum {
     fn side_normal(&self) -> [f64; 2] {
         let [r0, r1] = self.radii;
         let (a, b) = (-(r1 - r0), self.length);
-        let l = a.hypot(b);
+        let l = portable::hypot(a, b);
         [a / l, b / l]
     }
 
@@ -312,7 +313,7 @@ fn segment_nearest(q: [f64; 2], a: [f64; 2], b: [f64; 2]) -> (f64, [f64; 2]) {
         0.0
     };
     let near = [a[0] + s * e[0], a[1] + s * e[1]];
-    ((q[0] - near[0]).hypot(q[1] - near[1]), near)
+    (portable::hypot(q[0] - near[0], q[1] - near[1]), near)
 }
 
 fn invalid(what: &'static str, reason: String) -> Error {
@@ -403,7 +404,7 @@ impl Body {
     ///
     /// As [`Body::ellipsoid`].
     pub fn ellipse(center: [f64; 2], semi_axes: [f64; 2], angle: f64) -> Result<Body> {
-        let (s, c) = angle.sin_cos();
+        let (s, c) = portable::sin_cos(angle);
         Body::ellipsoid(
             [center[0], center[1], 0.0],
             [semi_axes[0], semi_axes[1], f64::INFINITY],
@@ -790,7 +791,7 @@ impl Body {
             Kind::Extruded { bounds, .. } => {
                 let dx = (bounds[0] - p[0]).max(p[0] - bounds[2]).max(0.0);
                 let dy = (bounds[1] - p[1]).max(p[1] - bounds[3]).max(0.0);
-                dx.hypot(dy) > r
+                portable::hypot(dx, dy) > r
             }
             Kind::Etched { bounds, z, run, .. } => {
                 let out = (z[1] - z[0]) * run;
@@ -801,7 +802,7 @@ impl Body {
                     .max(p[1] - bounds[3] - out)
                     .max(0.0);
                 let dz = (z[0] - p[2]).max(p[2] - z[1]).max(0.0);
-                dx.hypot(dy).hypot(dz) > r
+                portable::hypot(portable::hypot(dx, dy), dz) > r
             }
             Kind::HalfSpace { .. } | Kind::Ellipsoid { .. } => false,
             Kind::Cuboid { .. } | Kind::Frustum(_) | Kind::Boolean { .. } => {
@@ -846,7 +847,7 @@ impl Body {
                 // the wall: d − (top − z) cot θ over its gradient's length, the distance to
                 // its plane through the outline's nearest point
                 let (d, n) = planar(shape, p[0], p[1]);
-                let length = run.hypot(1.0);
+                let length = portable::hypot(*run, 1.0);
                 let wall = (
                     (d - (z[1] - p[2]) * run) / length,
                     [n[0] / length, n[1] / length, run / length],
@@ -880,7 +881,7 @@ impl Body {
             Kind::Ellipsoid { .. } | Kind::Boolean { .. } => vec![self.distance_um(p)],
             Kind::Etched { shape, z, run, .. } => {
                 let (d, n) = planar(shape, p[0], p[1]);
-                let length = run.hypot(1.0);
+                let length = portable::hypot(*run, 1.0);
                 vec![
                     (
                         (d - (z[1] - p[2]) * run) / length,
@@ -936,13 +937,13 @@ fn profile_distance(s: f64, z: f64, heights: [f64; 2], run: f64) -> (f64, [f64; 
     let reach = (z1 - z0) * run;
     let inside = z >= z0 && z <= z1 && s <= (z1 - z) * run;
     let q = [s, z];
-    let length = run.hypot(1.0);
+    let length = portable::hypot(run, 1.0);
     let top = ([s.min(0.0), z1], [0.0, 1.0]);
     let bottom = ([s.min(reach), z0], [0.0, -1.0]);
     let (dw, wall) = segment_nearest(q, [0.0, z1], [reach, z0]);
     let mut best = (dw, wall, [1.0 / length, run / length]);
     for (near, n) in [top, bottom] {
-        let d = (q[0] - near[0]).hypot(q[1] - near[1]);
+        let d = portable::hypot(q[0] - near[0], q[1] - near[1]);
         if d < best.0 {
             best = (d, near, n);
         }
@@ -1014,7 +1015,7 @@ pub(crate) fn compose(op: Operation, a: (f64, [f64; 3]), b: (f64, [f64; 3])) -> 
 pub(crate) fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
     let radial = |center: &Point, x: f64, y: f64| {
         let (dx, dy) = (x - center.x.to_um(), y - center.y.to_um());
-        let r = dx.hypot(dy);
+        let r = portable::hypot(dx, dy);
         let n = if r > 0.0 {
             [dx / r, dy / r]
         } else {
@@ -1036,7 +1037,7 @@ pub(crate) fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
             let sign = [dx.signum(), dy.signum()];
             if q[0] > 0.0 || q[1] > 0.0 {
                 let v = [q[0].max(0.0), q[1].max(0.0)];
-                let d = v[0].hypot(v[1]);
+                let d = portable::hypot(v[0], v[1]);
                 (d, [sign[0] * v[0] / d, sign[1] * v[1] / d])
             } else if q[0] > q[1] {
                 (q[0], [sign[0], 0.0])
@@ -1070,10 +1071,10 @@ pub(crate) fn planar(shape: &Shape, x: f64, y: f64) -> (f64, [f64; 2]) {
                 let (ex, ey) = (bx - ax, by - ay);
                 let t = (((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
                 let nearest = [ax + t * ex, ay + t * ey];
-                let d = (x - nearest[0]).hypot(y - nearest[1]);
+                let d = portable::hypot(x - nearest[0], y - nearest[1]);
                 if d < best.0 {
                     // counterclockwise: the edge's outward normal is (e_y, −e_x)
-                    let l = ex.hypot(ey);
+                    let l = portable::hypot(ex, ey);
                     best = (d, nearest, [ey / l, -ex / l]);
                 }
             }
@@ -1106,7 +1107,10 @@ fn ellipsoid_distance(
     let q = sub(p, center);
     let u: [f64; 3] = std::array::from_fn(|i| dot(q, axes[i]));
     let finite: Vec<usize> = (0..3).filter(|&i| inverse[i] > 0.0).collect();
-    let inside = (0..3).map(|i| (u[i] * inverse[i]).powi(2)).sum::<f64>() < 1.0;
+    let inside = (0..3)
+        .map(|i| portable::powi(u[i] * inverse[i], 2))
+        .sum::<f64>()
+        < 1.0;
     // the nearest point in the ellipsoid's frame, along the finite axes; the infinite ones
     // keep the point's own coordinates
     let mut x = u;
@@ -1171,7 +1175,10 @@ fn octant_nearest(e: [f64; 3], y: [f64; 3]) -> [f64; 3] {
                 if g == 0.0 {
                     return y;
                 }
-                let r = [(e[0] / e[2]).powi(2), (e[1] / e[2]).powi(2)];
+                let r = [
+                    portable::powi(e[0] / e[2], 2),
+                    portable::powi(e[1] / e[2], 2),
+                ];
                 let n = [r[0] * z[0], r[1] * z[1]];
                 // G(s) = Σ (nᵢ/(s + rᵢ))² + (z₂/(s + 1))² − 1 decreases; bracket its root
                 let mut s0 = z[2] - 1.0;

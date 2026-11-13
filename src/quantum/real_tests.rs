@@ -8,6 +8,7 @@ use num_complex::Complex64 as c64;
 use super::*;
 use crate::circuit::components::{Coupler, Dispersion, Waveguide};
 use crate::circuit::{Circuit, Component, Netlist, SMatrix, Spectrum};
+use crate::portable;
 use crate::units::Wavelength;
 
 const OK: &str = "a valid test";
@@ -124,7 +125,7 @@ fn budgets_multiply_their_stages() {
         .expect(OK);
     assert!((b.transmission() - 0.45).abs() < 1e-15);
     assert!((b.loss_db() - 3.467_874_862_246_563).abs() < 1e-12);
-    assert!((b.event(3) - 0.45f64.powi(3)).abs() < 1e-15);
+    assert!((b.event(3) - portable::powi(0.45f64, 3)).abs() < 1e-15);
     assert!((event(&[b.clone(), b.clone()]) - 0.2025).abs() < 1e-15);
     assert!(Budget::new().with("bad", 1.1, "").is_err());
     assert!(Budget::new().with("bad", -0.1, "").is_err());
@@ -145,7 +146,7 @@ fn thresholds_follow_their_papers() {
     assert!(qi_simulable_error(0.5, 1.0, 1.0, 0.0, 10) > 1.0);
     assert!((qi_fidelity(0.3, 0.0, 1.0, 0.0) - 1.0).abs() < 1e-15);
     let eta = qi_exact_transmission(1.0, 0.8, 1e-3);
-    assert!((eta - 1e-3 / 0.8 * (1.0 + 1.0 / 1f64.tanh())).abs() < 1e-15);
+    assert!((eta - 1e-3 / 0.8 * (1.0 + 1.0 / portable::tanh(1f64))).abs() < 1e-15);
 }
 
 /// A Mach–Zehnder interferometer of two balanced couplers (0.1 and 0.3 dB of excess loss) and
@@ -203,7 +204,7 @@ fn an_interferometer_has_two_routes_from_an_input_to_an_output() {
     // loss, and its arm's 0.25 dB/mm
     for (route, mm) in found.iter().zip([1.0, 1.2]) {
         let budget = Budget::along(&circuit, route, w).expect(OK);
-        let expected = 0.25 * 10f64.powf(-(0.4 + 0.25 * mm) / 10.0);
+        let expected = 0.25 * portable::powf(10f64, -(0.4 + 0.25 * mm) / 10.0);
         let t = budget.transmission();
         assert!((t / expected - 1.0).abs() < 1e-12, "{t} against {expected}");
     }

@@ -1,10 +1,11 @@
 use super::*;
+use crate::portable;
 
 #[test]
 fn the_gaussian_stand_in_has_the_sincs_half_maximum() {
     let g = gaussian_gamma();
     let x = HALF_MAXIMUM;
-    assert!(((-2.0 * g * x * x).exp() - 0.5).abs() < 1e-15);
+    assert!((portable::exp(-2.0 * g * x * x) - 0.5).abs() < 1e-15);
 }
 
 #[test]
@@ -19,7 +20,7 @@ fn the_pumps_intensity_is_half_at_its_half_width() {
         center: 1.0,
         bandwidth: 0.01,
     };
-    assert!((p.amplitude(1.005).powi(2) - 0.5).abs() < 1e-12);
+    assert!((portable::powi(p.amplitude(1.005), 2) - 0.5).abs() < 1e-12);
 }
 
 #[test]

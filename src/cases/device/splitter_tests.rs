@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use super::*;
 use crate::circuit::Fidelity;
+use crate::portable;
 
 fn um(x: f64) -> Wavelength {
     Wavelength::um(x).unwrap()
@@ -251,7 +252,7 @@ fn survey() {
                 m.power(1, 0),
                 m.power(0, 0),
                 m.reciprocity_error(),
-                (m[(1, 0)] - expect).norm()
+                portable::complex::abs(m[(1, 0)] - expect)
             );
         }
     }
@@ -451,8 +452,8 @@ fn survey_3d() {
         format!(
             "P_o2 {a:.6} P_o3 {b:.6} sum {:.6} excess {:.5} dB imbalance {:.2e} dB R {:.2e} reciprocity {:.1e}",
             a + b,
-            -10.0 * (a + b).log10(),
-            10.0 * (a / b).log10(),
+            -10.0 * portable::log10(a + b),
+            10.0 * portable::log10(a / b),
             s.power(0, 0),
             s.reciprocity_error()
         )
@@ -637,7 +638,7 @@ fn survey_mmi_modes() {
             "guided modes, {label}: P {:.6} at {:.4} um; best {p:.6} at {l:.4} um, {:.4} dB",
             power(v.at("length"), with),
             v.at("length"),
-            -10.0 * (2.0 * p).log10()
+            -10.0 * portable::log10(2.0 * p)
         );
     }
 }

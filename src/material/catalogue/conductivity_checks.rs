@@ -7,6 +7,7 @@ use super::conductivity::{
     HO_W, HO_W_BETWEEN, JU_GOODSON_PATH_UM, POWELL_SIO2, POWELL_SIO2_BETWEEN, conductivity,
     power_law, sondheimer,
 };
+use crate::portable;
 use crate::validation::Outcome;
 
 fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
@@ -96,7 +97,7 @@ pub(crate) fn sondheimer_limits() -> Outcome {
     let thick: f64 = 100.0;
     let thin: f64 = 1e-3;
     let thick_error = (sondheimer(thick) / (1.0 - 3.0 / (8.0 * thick)) - 1.0).abs();
-    let limit = 0.75 * thin * ((1.0 / thin).ln() + 1.0 - EULER) + 0.5 * thin * thin;
+    let limit = 0.75 * thin * (portable::ln(1.0 / thin) + 1.0 - EULER) + 0.5 * thin * thin;
     let thin_error = (sondheimer(thin) / limit - 1.0).abs();
     outcome(thick_error.max(thin_error), 0.0, 1e-5)
 }
@@ -109,7 +110,7 @@ pub(crate) fn sondheimer_midpoint_error(n: usize) -> f64 {
     let integral: f64 = (0..n)
         .map(|i| {
             let u = (i as f64 + 0.5) * h;
-            (u - u * u * u) * (1.0 - (-delta / u).exp())
+            (u - u * u * u) * (1.0 - portable::exp(-delta / u))
         })
         .sum::<f64>()
         * h;
@@ -156,6 +157,6 @@ pub(crate) fn goel_thermal_zt() -> Outcome {
 
 /// The midpoint rule's order on 64 and 128 points, which the closed form makes 2.
 pub(crate) fn sondheimer_order() -> Outcome {
-    let order = (sondheimer_midpoint_error(64) / sondheimer_midpoint_error(128)).log2();
+    let order = portable::log2(sondheimer_midpoint_error(64) / sondheimer_midpoint_error(128));
     outcome(order, 2.0, 0.05)
 }

@@ -5,6 +5,7 @@ use std::f64::consts::PI;
 
 use super::body_checks::{grid_sum, lens, rotation};
 use super::*;
+use crate::portable;
 use crate::units::Length;
 
 fn um(v: f64) -> Length {
@@ -59,9 +60,9 @@ fn an_ellipsoids_nearest_point_is_on_it_and_along_its_normal() {
                 let th = PI * (i as f64 + 0.5) / 200.0;
                 let ph = 2.0 * PI * j as f64 / 400.0;
                 let u = [
-                    e[0] * th.sin() * ph.cos(),
-                    e[1] * th.sin() * ph.sin(),
-                    e[2] * th.cos(),
+                    e[0] * portable::sin(th) * portable::cos(ph),
+                    e[1] * portable::sin(th) * portable::sin(ph),
+                    e[2] * portable::cos(th),
                 ];
                 std::array::from_fn(|k| c[k] + (0..3).map(|i| u[i] * axes[i][k]).sum::<f64>())
             })
@@ -86,7 +87,12 @@ fn an_ellipsoids_nearest_point_is_on_it_and_along_its_normal() {
         }
         let nearest = sample
             .iter()
-            .map(|s| ((s[0] - p[0]).powi(2) + (s[1] - p[1]).powi(2) + (s[2] - p[2]).powi(2)).sqrt())
+            .map(|s| {
+                (portable::powi(s[0] - p[0], 2)
+                    + portable::powi(s[1] - p[1], 2)
+                    + portable::powi(s[2] - p[2], 2))
+                .sqrt()
+            })
             .fold(f64::INFINITY, f64::min);
         assert!(ds.abs() <= nearest + 1e-12, "{p:?}: {ds} against {nearest}");
         assert!(nearest - ds.abs() < 0.02, "{p:?}: {ds} against {nearest}");
@@ -99,7 +105,7 @@ fn a_boxs_distance_is_exact_and_its_fills_are_its_overlaps() {
     let b = Body::cuboid([0.0, -0.2, 0.1], [0.5, 0.3, 0.4]).unwrap();
     assert!((b.distance([0.25, 0.05, 0.25]).signed.to_um() + 0.15).abs() < 1e-15);
     let d = b.distance([0.8, 0.7, 0.1]);
-    assert!((d.signed.to_um() - 0.3f64.hypot(0.4)).abs() < 1e-15);
+    assert!((d.signed.to_um() - portable::hypot(0.3f64, 0.4)).abs() < 1e-15);
     assert!((d.normal[0] - 0.6).abs() < 1e-15 && (d.normal[1] - 0.8).abs() < 1e-15);
     // a 7 × 6 × 5 grid of cells cutting it every which way: each cell's fill its overlap
     let h = [0.11, 0.13, 0.09];
@@ -153,7 +159,7 @@ fn the_primitives_fills_sum_to_their_volumes() {
     let cases: Vec<(Body, f64)> = vec![
         (
             Body::sphere([0.013, -0.021, 0.034], 0.37).unwrap(),
-            4.0 / 3.0 * PI * 0.37f64.powi(3),
+            4.0 / 3.0 * PI * portable::powi(0.37f64, 3),
         ),
         (
             Body::ellipsoid([0.02, 0.01, -0.03], [0.41, 0.27, 0.19], axes).unwrap(),
@@ -183,7 +189,10 @@ fn oblique_cylinders_and_cones_fill_to_their_tolerance() {
     let a: [f64; 3] = [0.3, -0.2, 0.25];
     let b: [f64; 3] = [-0.25, 0.3, -0.2];
     let cyl = Body::cylinder(a, b, 0.17).unwrap();
-    let l = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
+    let l = (portable::powi(a[0] - b[0], 2)
+        + portable::powi(a[1] - b[1], 2)
+        + portable::powi(a[2] - b[2], 2))
+    .sqrt();
     let want = PI * 0.17 * 0.17 * l;
     let sum = grid_sum(&cyl, [-0.5; 3], [0.5; 3], 7);
     assert!((sum - want).abs() < 1e-7 * want, "{sum} against {want}");
@@ -216,7 +225,7 @@ fn an_extrusion_with_vertical_walls_is_its_area_times_its_height() {
 
 #[test]
 fn a_sloped_extrusion_is_its_frustum() {
-    let (h, run) = (0.3, 1.0 / 70f64.to_radians().tan());
+    let (h, run) = (0.3, 1.0 / portable::tan(70f64.to_radians()));
     // a disk: a cone's frustum, exactly
     let r = 0.2;
     let disk = Body::etched(
@@ -239,7 +248,8 @@ fn a_sloped_extrusion_is_its_frustum() {
         70f64.to_radians(),
     )
     .unwrap();
-    let want = w * d * h + 2.0 * (w + d) * run * h * h / 2.0 + PI * run * run * h.powi(3) / 3.0;
+    let want =
+        w * d * h + 2.0 * (w + d) * run * h * h / 2.0 + PI * run * run * portable::powi(h, 3) / 3.0;
     let sum = grid_sum(&rect, [-0.5; 3], [0.5; 3], 6);
     assert!((sum - want).abs() < 1e-6 * want, "{sum} against {want}");
 }
@@ -249,7 +259,10 @@ fn booleans_of_two_spheres_follow_inclusion_and_exclusion() {
     let (ra, rb, d) = (0.3, 0.22, 0.31);
     let a = Body::sphere([-0.1, 0.02, 0.01], ra).unwrap();
     let b = Body::sphere([-0.1 + d, 0.02, 0.01], rb).unwrap();
-    let (va, vb) = (4.0 / 3.0 * PI * ra.powi(3), 4.0 / 3.0 * PI * rb.powi(3));
+    let (va, vb) = (
+        4.0 / 3.0 * PI * portable::powi(ra, 3),
+        4.0 / 3.0 * PI * portable::powi(rb, 3),
+    );
     let both = lens(ra, rb, d);
     for (op, want) in [
         (Operation::Union, va + vb - both),
@@ -346,7 +359,7 @@ fn sections_are_the_planar_shapes_bodies_fill() {
     let ellipsoid = Body::ellipsoid([0.0; 3], e, axes).unwrap();
     // the section through the centre: pi abc over its half-width along z, sqrt(sum (e_i n_i)^2)
     let along_z = (0..3)
-        .map(|i| (e[i] * axes[i][2]).powi(2))
+        .map(|i| portable::powi(e[i] * axes[i][2], 2))
         .sum::<f64>()
         .sqrt();
     let v = 4.0 / 3.0 * PI * e[0] * e[1] * e[2];
@@ -442,7 +455,7 @@ fn a_graded_body_in_fdtds_smoothing_is_checked() {
     // the medium at a point: the body's graded value inside, the background outside
     let s = structure("1.5 + 0.2*x/um");
     let inside = s.at([0.1, 0.0, 0.0]).matrix();
-    assert!((inside[0][0] - 1.52f64.powi(2)).abs() < 1e-12);
+    assert!((inside[0][0] - portable::powi(1.52f64, 2)).abs() < 1e-12);
     assert_eq!(s.at([0.35, 0.0, 0.0]).matrix()[0][0], 1.0);
     // an index whose square falls to zero inside the body is refused
     let bad = Simulation::smoothed(

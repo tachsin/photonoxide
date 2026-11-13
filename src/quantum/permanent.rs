@@ -18,6 +18,7 @@
 use num_complex::Complex64 as c64;
 
 use super::Matrix;
+use crate::portable;
 use crate::{Error, Result};
 
 /// Which formula computes a permanent.
@@ -213,7 +214,7 @@ fn glynn(a: &Matrix) -> c64 {
         }
         sum.sum
     });
-    total / 2f64.powi(i32::try_from(n - 1).unwrap_or(i32::MAX))
+    total / portable::powi(2f64, i32::try_from(n - 1).unwrap_or(i32::MAX))
 }
 
 /// The defining sum, over permutations in Heap's order.
@@ -286,6 +287,6 @@ pub(crate) fn minors(b: &Matrix) -> Vec<c64> {
             s.add(prefix[l] * suffix[l + 1] * sign);
         }
     }
-    let scale = 2f64.powi(i32::try_from(rows - 1).unwrap_or(i32::MAX));
+    let scale = portable::powi(2f64, i32::try_from(rows - 1).unwrap_or(i32::MAX));
     sums.into_iter().map(|s| s.sum / scale).collect()
 }

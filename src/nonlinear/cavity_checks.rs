@@ -12,6 +12,7 @@ use crate::nonlinear::coupled::{SecondHarmonic, ThreeWave};
 use crate::nonlinear::fwm::{FourWave, Waves};
 use crate::nonlinear::opo::{Feedback, Oscillator, uniform_depletion};
 use crate::nonlinear::pairs::{JointSpectrum, gaussian_heralding, gaussian_purity};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -47,7 +48,7 @@ fn ring(near: f64, effective: f64, group: f64) -> crate::Result<AllPassRing> {
 fn couple(wave: &RingWave, coupling: f64, inside: c64, bus: c64) -> (c64, c64) {
     let r = (1.0 - coupling).sqrt();
     let k = c64::new(0.0, coupling.sqrt());
-    let back = inside * c64::from_polar(1.0, wave.detuning());
+    let back = inside * portable::complex::from_polar(1.0, wave.detuning());
     (k * bus + r * back, r * bus + k * back)
 }
 
@@ -176,7 +177,7 @@ pub(crate) fn add_drop_build_up() -> (f64, f64) {
         for j in 0..21 {
             let w = Wavelength::um(at.to_um() + width * (j as f64 - 10.0) / 10.0)?;
             let wave = ring.ring_wave(w, &values)?;
-            let a = ring.round_trip(w, &values)?.norm();
+            let a = portable::complex::abs(ring.round_trip(w, &values)?);
             let exact = ring.s_matrix(w, &values)?.power(3, 0) / (k2 * a);
             gap = gap.max((wave.wave.build_up() / exact - 1.0).abs());
             if j == 10 {
@@ -238,7 +239,7 @@ pub(crate) fn add_drop_shg(steps: usize) -> (f64, f64, f64, f64) {
             drop = (k2h * m2).norm_sqr();
             // the second half in its own z from 0: the harmonic turned by e^{iΔkL/2} and back,
             // so the mismatch's phase runs on from the first half's
-            let turn = c64::from_polar(1.0, dk * length / 2.0);
+            let turn = portable::complex::from_polar(1.0, dk * length / 2.0);
             let [e1, e2] = shg.propagate([r2f * m1, r2h * m2 * turn], length / 2.0, steps)?;
             let e2 = e2 / turn;
             let (n1, _) = couple(&f.wave, fv[1], e1, bus);
@@ -298,14 +299,19 @@ fn herald_spectrum(n: usize) -> (JointSpectrum, Vec<c64>, Vec<c64>) {
         for i in &idler {
             let (x, y) = (s - 0.65, i - 0.64);
             amplitude.push(c64::new(
-                (-0.5 * (a * x * x + b * y * y + 2.0 * c * x * y)).exp(),
+                portable::exp(-0.5 * (a * x * x + b * y * y + 2.0 * c * x * y)),
                 0.0,
             ));
         }
     }
     let filter = |grid: &[f64], centre: f64, w: f64| -> Vec<c64> {
         grid.iter()
-            .map(|nu| c64::new((-0.5 * ((nu - centre) / w).powi(2)).exp(), 0.0))
+            .map(|nu| {
+                c64::new(
+                    portable::exp(-0.5 * portable::powi((nu - centre) / w, 2)),
+                    0.0,
+                )
+            })
             .collect()
     };
     let ts = filter(&signal, 0.65, HERALD_WIDTHS[0]);
@@ -392,10 +398,10 @@ pub(crate) fn opo_threshold(singly: bool, steps: usize) -> (f64, f64) {
         idler: (!singly).then(|| Feedback::resonant(r2 * r2)),
     };
     let (l1, l2) = (1.0 - r1, 1.0 - r2);
-    let gl = (1.0 + l1 * l2 / (2.0 - l1 - l2)).acosh();
+    let gl = portable::acosh(1.0 + l1 * l2 / (2.0 - l1 - l2));
     (
         osc.threshold(steps).unwrap_or(f64::NAN),
-        (gl / OPO_LENGTH).powi(2) / gain_per_watt(),
+        portable::powi(gl / OPO_LENGTH, 2) / gain_per_watt(),
     )
 }
 
@@ -460,7 +466,7 @@ pub(crate) fn opo_uniform_gap(loss: f64) -> f64 {
 }
 
 fn opo_uniform_order() -> Outcome {
-    let order = (opo_uniform_gap(0.02) / opo_uniform_gap(0.01)).log2();
+    let order = portable::log2(opo_uniform_gap(0.02) / opo_uniform_gap(0.01));
     absolute((order * 100.0).round() / 100.0, 1.0, 0.1)
 }
 

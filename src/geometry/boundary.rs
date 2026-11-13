@@ -10,6 +10,7 @@
 //!
 //! Coordinates are µm, as `[x, y]`.
 
+use crate::portable;
 use std::f64::consts::TAU;
 
 pub(crate) type P = [f64; 2];
@@ -38,7 +39,10 @@ pub(crate) enum Piece {
 impl Conic {
     /// The point at parameter t, its radius scaled by `r` (1 on the conic).
     fn at_scaled(&self, t: f64, r: f64) -> P {
-        let (u, v) = (r * self.rx * t.cos(), r * self.ry * t.sin());
+        let (u, v) = (
+            r * self.rx * portable::cos(t),
+            r * self.ry * portable::sin(t),
+        );
         [
             self.c[0] + self.cos * u - self.sin * v,
             self.c[1] + self.sin * u + self.cos * v,
@@ -67,10 +71,11 @@ impl Conic {
         let (p1, p2) = self.coefficients(0);
         let (q1, q2) = self.coefficients(1);
         let (a, b) = (self.t0, self.t1);
-        let dy = q1 * (b.cos() - a.cos()) + q2 * (b.sin() - a.sin());
-        let cos2 = |t: f64| t / 2.0 + (2.0 * t).sin() / 4.0;
-        let sin2 = |t: f64| t / 2.0 - (2.0 * t).sin() / 4.0;
-        let sc = |t: f64| t.sin() * t.sin() / 2.0;
+        let dy =
+            q1 * (portable::cos(b) - portable::cos(a)) + q2 * (portable::sin(b) - portable::sin(a));
+        let cos2 = |t: f64| t / 2.0 + portable::sin(2.0 * t) / 4.0;
+        let sin2 = |t: f64| t / 2.0 - portable::sin(2.0 * t) / 4.0;
+        let sc = |t: f64| portable::sin(t) * portable::sin(t) / 2.0;
         self.c[0] * dy + p1 * q2 * (cos2(b) - cos2(a)) - p2 * q1 * (sin2(b) - sin2(a))
             + (p2 * q2 - p1 * q1) * (sc(b) - sc(a))
     }
@@ -78,7 +83,7 @@ impl Conic {
     /// The parameters strictly inside the arc's range where the coordinate `axis` is `v`.
     fn crossings(&self, axis: usize, v: f64, out: &mut Vec<f64>) {
         let (a, b) = self.coefficients(axis);
-        let r = a.hypot(b);
+        let r = portable::hypot(a, b);
         if r == 0.0 {
             return;
         }
@@ -86,8 +91,8 @@ impl Conic {
         if !(-1.0..=1.0).contains(&w) {
             return;
         }
-        let phi = b.atan2(a);
-        let half = w.acos();
+        let phi = portable::atan2(b, a);
+        let half = portable::acos(w);
         let (lo, hi) = (self.t0.min(self.t1), self.t0.max(self.t1));
         for root in [phi + half, phi - half] {
             let mut t = root + TAU * ((lo - root) / TAU).ceil();
@@ -193,7 +198,7 @@ impl Piece {
                 } else {
                     [1.0, 0.0]
                 };
-                ((p[0] - q[0]).hypot(p[1] - q[1]), q, n)
+                (portable::hypot(p[0] - q[0], p[1] - q[1]), q, n)
             }
             Piece::Conic(c) => conic_nearest(c, p),
         }
@@ -209,25 +214,25 @@ fn conic_nearest(c: &Conic, p: P) -> (f64, P, P) {
         if local == [0.0, 0.0] {
             c.t0
         } else {
-            local[1].atan2(local[0])
+            portable::atan2(local[1], local[0])
         }
     } else {
         let q = ellipse_nearest(c.rx, c.ry, local);
-        (q[1] / c.ry).atan2(q[0] / c.rx)
+        portable::atan2(q[1] / c.ry, q[0] / c.rx)
     };
     let (lo, hi) = (c.t0.min(c.t1), c.t0.max(c.t1));
     let t = t + TAU * ((lo - t) / TAU).ceil();
     let sign = if c.ccw() { 1.0 } else { -1.0 };
     let normal_at = |t: f64| {
         // the conic's outward normal, ∝ (cos t / rx, sin t / ry) in its frame
-        let (u, v) = (t.cos() / c.rx, t.sin() / c.ry);
-        let l = u.hypot(v);
+        let (u, v) = (portable::cos(t) / c.rx, portable::sin(t) / c.ry);
+        let l = portable::hypot(u, v);
         let (u, v) = (sign * u / l, sign * v / l);
         [c.cos * u - c.sin * v, c.sin * u + c.cos * v]
     };
     let candidate = |t: f64| {
         let q = c.at_scaled(t, 1.0);
-        ((p[0] - q[0]).hypot(p[1] - q[1]), q, normal_at(t))
+        (portable::hypot(p[0] - q[0], p[1] - q[1]), q, normal_at(t))
     };
     let mut best = candidate(c.t0);
     let end = candidate(c.t1);
@@ -265,7 +270,11 @@ pub(crate) fn ellipse_nearest(a: f64, b: f64, p: P) -> P {
                 let n0 = r0 * z0;
                 // G(s) = (n0/(s + r0))² + (z1/(s + 1))² − 1 is decreasing; bracket its root
                 let mut s0 = z1 - 1.0;
-                let mut s1 = if g < 0.0 { 0.0 } else { n0.hypot(z1) - 1.0 };
+                let mut s1 = if g < 0.0 {
+                    0.0
+                } else {
+                    portable::hypot(n0, z1) - 1.0
+                };
                 let mut s = s0;
                 for _ in 0..1100 {
                     s = 0.5 * (s0 + s1);
@@ -422,10 +431,11 @@ pub(crate) fn length(loops: &[Vec<Piece>]) -> f64 {
         .iter()
         .flatten()
         .map(|piece| match piece {
-            Piece::Line(a, b) => (b[0] - a[0]).hypot(b[1] - a[1]),
+            Piece::Line(a, b) => portable::hypot(b[0] - a[0], b[1] - a[1]),
             Piece::Conic(c) if c.rx == c.ry => c.rx * (c.t1 - c.t0).abs(),
             Piece::Conic(c) => {
-                let speed = |t: f64| (c.rx * t.sin()).hypot(c.ry * t.cos());
+                let speed =
+                    |t: f64| portable::hypot(c.rx * portable::sin(t), c.ry * portable::cos(t));
                 integrate(speed, c.t0.min(c.t1), c.t0.max(c.t1))
             }
         })
@@ -497,7 +507,7 @@ pub(crate) fn flatten(c: &Conic, budget: f64, closed: bool) -> (Vec<P>, f64) {
     let most = 1usize << 20;
     let deviation = |n: usize| -> (f64, f64) {
         let delta = phi / n as f64;
-        let (s, half) = (delta.sin(), (0.5 * delta).cos());
+        let (s, half) = (portable::sin(delta), portable::cos(0.5 * delta));
         if closed {
             let r = (phi / (n as f64 * s)).sqrt();
             return (r, (r - 1.0).max(1.0 - r * half));
@@ -509,9 +519,9 @@ pub(crate) fn flatten(c: &Conic, budget: f64, closed: bool) -> (Vec<P>, f64) {
             (-1.0 + (1.0 + m * phi / s).sqrt()) / m
         };
         // the end chords, from radius 1 to R at angle Δ: their least radius
-        let chord = (1.0 + r * r - 2.0 * r * delta.cos()).sqrt();
+        let chord = (1.0 + r * r - 2.0 * r * portable::cos(delta)).sqrt();
         let foot = r * s / chord;
-        let along = (1.0 - r * delta.cos()) / chord;
+        let along = (1.0 - r * portable::cos(delta)) / chord;
         let least_r = if along < 0.0 || along > chord {
             1.0f64.min(r)
         } else {
@@ -622,14 +632,19 @@ mod tests {
             [0.0, 0.0],
         ] {
             let q = ellipse_nearest(a, b, p);
-            assert!(((q[0] / a).powi(2) + (q[1] / b).powi(2) - 1.0).abs() < 1e-14);
+            assert!(
+                (portable::powi(q[0] / a, 2) + portable::powi(q[1] / b, 2) - 1.0).abs() < 1e-14
+            );
             // against a dense search
             let mut best = f64::INFINITY;
             for k in 0..200_000 {
                 let t = TAU * k as f64 / 200_000.0;
-                best = best.min((a * t.cos() - p[0]).hypot(b * t.sin() - p[1]));
+                best = best.min(portable::hypot(
+                    a * portable::cos(t) - p[0],
+                    b * portable::sin(t) - p[1],
+                ));
             }
-            let d = (q[0] - p[0]).hypot(q[1] - p[1]);
+            let d = portable::hypot(q[0] - p[0], q[1] - p[1]);
             assert!(d <= best + 1e-12 && d > best - 1e-9, "{p:?}: {d} {best}");
         }
     }

@@ -16,6 +16,7 @@ use num_complex::Complex64 as c64;
 
 use super::invalid;
 use crate::Result;
+use crate::portable;
 use crate::units::Frequency;
 
 /// One term of a signal Σₖ dₖ e^(−iωₖt): a frequency, its decay rate and its amplitude.
@@ -97,7 +98,7 @@ pub fn harmonic_inversion(
     let z: Vec<c64> = (0..j)
         .map(|q| {
             let phi = phi_low + (q as f64 + 0.5) * (phi_high - phi_low) / j as f64;
-            c64::new(0.0, -phi).exp()
+            portable::complex::exp(c64::new(0.0, -phi))
         })
         .collect();
     let u: [Mat<c64>; 3] =
@@ -130,10 +131,13 @@ pub fn harmonic_inversion(
     let mut found = Vec::new();
     for k in 0..rank {
         let uk = values[k];
-        if uk.norm() == 0.0 {
+        if portable::complex::abs(uk) == 0.0 {
             continue;
         }
-        let omega = c64::new(-uk.arg(), uk.norm().ln()) / tau;
+        let omega = c64::new(
+            -portable::complex::arg(uk),
+            portable::ln(portable::complex::abs(uk)),
+        ) / tau;
         let frequency = omega.re / std::f64::consts::TAU;
         if !(f_low..=f_high).contains(&frequency) {
             continue;
@@ -143,7 +147,7 @@ pub fn harmonic_inversion(
         // normalized as (Υₖ, Υₖ) = Bᵀ U⁽⁰⁾ B = 1, the inner product without conjugation
         let u0b = &u[0] * &b;
         let norm: c64 = (0..j).map(|a| b[(a, 0)] * u0b[(a, 0)]).sum();
-        let scale = norm.sqrt().inv();
+        let scale = portable::complex::sqrt(norm).inv();
         for a in 0..j {
             b[(a, 0)] *= scale;
         }
@@ -182,7 +186,9 @@ pub fn harmonic_inversion(
 /// Σₗ₌₀²ᴹ (M − |M − l| + 1) c₍ₗ₊ₚ₎ z⁻ˡ. Both are checked against the double sum.
 pub(crate) fn element(c: &[c64], m: usize, p: usize, z: c64, w: c64) -> c64 {
     let (zi, wi) = (z.inv(), w.inv());
-    if (z - w).norm() <= 1e-13 * z.norm().max(w.norm()) {
+    if portable::complex::abs(z - w)
+        <= 1e-13 * portable::complex::abs(z).max(portable::complex::abs(w))
+    {
         let mut total = c64::new(0.0, 0.0);
         let mut power = c64::new(1.0, 0.0);
         for l in 0..=2 * m {

@@ -63,10 +63,12 @@ What can differ between systems, and what photonoxide does about each:
   ulps its doc states. The rule (CONTRIBUTING.md, "The same numbers on every system") is to take
   every function but `+ − × ÷` and `sqrt` from there, and clippy forbids the system's. Today the
   solvers take it (the mode solvers, FDFD, EME, the eigensolvers, the sparse direct solver, the
-  sweeps, and the Krylov solvers with their Givens rotations), and so do the circuit's
-  closed-form S-matrices (which optimizations run on), FDTD's source waveforms, the devices'
-  closed forms and fits and the topology projections; the other areas follow in #822's phases,
-  and until then the last bits of a field computed there may differ between systems with nothing
+  sweeps, and the Krylov solvers with their Givens rotations), and so do the physics areas:
+  geometry and the cells' averaging, FDTD (its PML, media, sources and monitors), the materials,
+  the stacks, the static solvers (heat and electrostatics), the circuits, the devices and their
+  compact models, topology, fabrication, nonlinear and quantum optics. The rest (the validation
+  cases, jobs, expressions, units, the examples, the studio, native) follow in #822's phases, and
+  until then the last bits of a number computed there may differ between systems with nothing
   printed to show it.
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; `mul_add` (fused in hardware or in software,

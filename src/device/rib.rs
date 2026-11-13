@@ -15,6 +15,7 @@ use super::guide::{Profile, Strip, um};
 use super::section::{Mesh, Scheme};
 use super::waveguide::{band_parameters, guide_figures, hadley_provenance, solver_papers};
 use super::{Built, Device, Geometry, Method, Range, Stated, Values, method, parameter};
+use crate::portable;
 
 /// A rib: a strip `width` wide on top (its walls at `sidewall` degrees from the layer's plane,
 /// so wider at its foot when they slope), etched `etch_depth` into a core layer `thickness`
@@ -177,7 +178,7 @@ impl RibWaveguide {
         let run = if profile.sidewall == 90.0 {
             0.0
         } else {
-            1.0 / profile.sidewall.to_radians().tan()
+            1.0 / portable::tan(profile.sidewall.to_radians())
         };
         let width = values.at("width") + depth * run;
         let (centre, side) = slab_indices((below, core, above), t, profile.slab, wavelength)?;

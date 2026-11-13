@@ -31,6 +31,7 @@
 //! (eroded).
 
 use super::{Density, Projection};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The three realizations of one density (Wang et al. 2010, Section 5.1): its projection at the
@@ -143,7 +144,8 @@ pub fn across_edge_2d(t: f64) -> f64 {
         return 0.5;
     }
     let a = (1.0 - t * t).sqrt();
-    0.5 - (2.0 * t * a + t.asin() - t.powi(3) * (1.0 / t).acosh()) / std::f64::consts::PI
+    0.5 - (2.0 * t * a + portable::asin(t) - portable::powi(t, 3) * portable::acosh(1.0 / t))
+        / std::f64::consts::PI
 }
 
 /// d/dt of [`across_edge_2d`]: −(3/π)(√(1 − t²) − t² arcosh(1/t)), even in t.
@@ -155,7 +157,7 @@ fn across_edge_2d_slope(t: f64) -> f64 {
     let tail = if t == 0.0 {
         0.0
     } else {
-        t * t * (1.0 / t).acosh()
+        t * t * portable::acosh(1.0 / t)
     };
     -3.0 / std::f64::consts::PI * ((1.0 - t * t).sqrt() - tail)
 }

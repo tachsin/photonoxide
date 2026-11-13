@@ -4,6 +4,7 @@ use num_complex::Complex64 as c64;
 
 use super::hafnian::by_definition;
 use super::*;
+use crate::portable;
 
 fn random_symmetric(n: usize, seed: u64) -> Matrix {
     let mut rng = super::rng::Rng::new(seed, 11);
@@ -24,11 +25,14 @@ fn hafnians_match_their_definition() {
         let a = random_symmetric(n, n as u64);
         let h = hafnian(&a).unwrap();
         let d = by_definition(&a, false);
-        assert!((h - d).norm() < 1e-12 * d.norm().max(1.0), "{n}: {h} {d}");
+        assert!(
+            portable::complex::abs(h - d) < 1e-12 * portable::complex::abs(d).max(1.0),
+            "{n}: {h} {d}"
+        );
         let l = loop_hafnian(&a).unwrap();
         let dl = by_definition(&a, true);
         assert!(
-            (l - dl).norm() < 1e-12 * dl.norm().max(1.0),
+            portable::complex::abs(l - dl) < 1e-12 * portable::complex::abs(dl).max(1.0),
             "{n}: {l} {dl}"
         );
     }
@@ -36,7 +40,10 @@ fn hafnians_match_their_definition() {
     let a = random_symmetric(5, 3);
     assert_eq!(hafnian(&a).unwrap(), c64::new(0.0, 0.0));
     let (l, d) = (loop_hafnian(&a).unwrap(), by_definition(&a, true));
-    assert!((l - d).norm() < 1e-12 * d.norm(), "{l} {d}");
+    assert!(
+        portable::complex::abs(l - d) < 1e-12 * portable::complex::abs(d),
+        "{l} {d}"
+    );
 }
 
 #[test]
@@ -57,13 +64,14 @@ fn the_all_ones_hafnian_counts_perfect_matchings() {
 fn squeezed_vacuum_has_its_closed_form_statistics() {
     let r: f64 = 0.8;
     let g = Gaussian::vacuum(1).squeezed(0, r, 0.7).unwrap();
-    let t = r.tanh();
+    let t = portable::tanh(r);
     let mut total = 0.0;
     let mut mean = 0.0;
     for k in 0..12usize {
         let fact = |m: usize| (1..=m).map(|j| j as f64).product::<f64>();
-        let closed =
-            fact(2 * k) / (4f64.powi(k as i32) * fact(k).powi(2)) * t.powi(2 * k as i32) / r.cosh();
+        let closed = fact(2 * k) / (portable::powi(4f64, k as i32) * portable::powi(fact(k), 2))
+            * portable::powi(t, 2 * k as i32)
+            / portable::cosh(r);
         let p = g.probability(&[2 * k]).unwrap();
         assert!((p - closed).abs() < 1e-13, "{k}: {p} {closed}");
         let odd = g.probability(&[2 * k + 1]).unwrap();
@@ -72,13 +80,16 @@ fn squeezed_vacuum_has_its_closed_form_statistics() {
         mean += 2.0 * k as f64 * p;
     }
     assert!((total - 1.0).abs() < 1e-3);
-    assert!((g.mean_photons(0).unwrap() - r.sinh().powi(2)).abs() < 1e-14);
-    assert!((mean - r.sinh().powi(2)).abs() < 2e-2);
+    assert!((g.mean_photons(0).unwrap() - portable::powi(portable::sinh(r), 2)).abs() < 1e-14);
+    assert!((mean - portable::powi(portable::sinh(r), 2)).abs() < 2e-2);
     // clicks: dark with probability 1/cosh r
     let dark = g.click_probability(&[false]).unwrap();
     let click = g.click_probability(&[true]).unwrap();
-    assert!((dark - 1.0 / r.cosh()).abs() < 1e-14, "{dark}");
-    assert!((click - (1.0 - 1.0 / r.cosh())).abs() < 1e-14, "{click}");
+    assert!((dark - 1.0 / portable::cosh(r)).abs() < 1e-14, "{dark}");
+    assert!(
+        (click - (1.0 - 1.0 / portable::cosh(r))).abs() < 1e-14,
+        "{click}"
+    );
 }
 
 #[test]
@@ -92,7 +103,7 @@ fn coherent_states_are_poissonian_and_displaced_squeezing_has_its_variance() {
             fact *= n as f64;
         }
         let p = g.probability(&[n]).unwrap();
-        let closed = (-mu).exp() * mu.powi(n as i32) / fact;
+        let closed = portable::exp(-mu) * portable::powi(mu, n as i32) / fact;
         assert!((p - closed).abs() < 1e-14, "{n}: {p} {closed}");
     }
     // a displaced squeezed state: the distribution's mean and variance against the covariance's
@@ -117,12 +128,12 @@ fn coherent_states_are_poissonian_and_displaced_squeezing_has_its_variance() {
 fn two_mode_squeezed_vacuum_is_thermal_in_each_half() {
     let r: f64 = 0.6;
     let g = Gaussian::vacuum(2).two_mode_squeezed(0, 1, r, 0.3).unwrap();
-    let t2 = r.tanh().powi(2);
+    let t2 = portable::powi(portable::tanh(r), 2);
     for n in 0..6usize {
         for m in 0..6usize {
             let p = g.probability(&[n, m]).unwrap();
             let closed = if n == m {
-                t2.powi(n as i32) / r.cosh().powi(2)
+                portable::powi(t2, n as i32) / portable::powi(portable::cosh(r), 2)
             } else {
                 0.0
             };
@@ -130,7 +141,7 @@ fn two_mode_squeezed_vacuum_is_thermal_in_each_half() {
         }
     }
     let half = g.reduced(&[1]).unwrap();
-    let nbar = r.sinh().powi(2);
+    let nbar = portable::powi(portable::sinh(r), 2);
     let thermal = Gaussian::vacuum(1).with_thermal(0, nbar).unwrap();
     for (a, b) in half.covariance().iter().zip(thermal.covariance()) {
         assert!((a - b).abs() < 1e-14);
@@ -139,7 +150,9 @@ fn two_mode_squeezed_vacuum_is_thermal_in_each_half() {
     let both_dark = g.click_probability(&[false, false]).unwrap();
     assert!((both_dark - g.probability(&[0, 0]).unwrap()).abs() < 1e-14);
     let both = g.click_probability(&[true, true]).unwrap();
-    let summed: f64 = (1..80).map(|n| t2.powi(n) / r.cosh().powi(2)).sum();
+    let summed: f64 = (1..80)
+        .map(|n| portable::powi(t2, n) / portable::powi(portable::cosh(r), 2))
+        .sum();
     assert!((both - summed).abs() < 1e-12, "{both} {summed}");
 }
 
@@ -153,7 +166,7 @@ fn loss_mixes_in_the_vacuum() {
         .lossy(0, eta)
         .unwrap();
     let v = g.quadrature_variance(0, 0.0).unwrap();
-    assert!((v - (eta * (-2.0 * r).exp() + 1.0 - eta)).abs() < 1e-14);
+    assert!((v - (eta * portable::exp(-2.0 * r) + 1.0 - eta)).abs() < 1e-14);
 }
 
 #[test]
@@ -183,8 +196,8 @@ fn the_wigner_function_has_its_closed_forms() {
     for v in [0.3, 1.0, 2.0] {
         let wx = s.wigner(1, v, 0.0).unwrap();
         let wp = s.wigner(1, 0.0, v).unwrap();
-        assert!((wx - (-0.5 * v * v * (2.0 * r).exp()).exp() / TAU).abs() < 1e-15);
-        assert!((wp - (-0.5 * v * v * (-2.0 * r).exp()).exp() / TAU).abs() < 1e-15);
+        assert!((wx - portable::exp(-0.5 * v * v * portable::exp(2.0 * r)) / TAU).abs() < 1e-15);
+        assert!((wp - portable::exp(-0.5 * v * v * portable::exp(-2.0 * r)) / TAU).abs() < 1e-15);
     }
     // the other mode is the vacuum still
     assert!((s.wigner(0, 0.0, 0.0).unwrap() - 1.0 / TAU).abs() < 1e-15);

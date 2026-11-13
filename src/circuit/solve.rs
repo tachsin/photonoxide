@@ -26,6 +26,7 @@ use num_complex::Complex64 as c64;
 
 use super::netlist::{Netlist, NetlistError};
 use super::{Component, Fidelity, Parameter, Port, Provenance, SMatrix, Spectrum};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -402,7 +403,7 @@ impl Circuit {
             let (k, l) = (position(a)?, position(b)?);
             let (skk, skl, slk, sll) = (s[k][k], s[k][l], s[l][k], s[l][l]);
             let denominator = (one - skl) * (one - slk) - skk * sll;
-            if denominator.norm() == 0.0 {
+            if portable::complex::abs(denominator) == 0.0 {
                 return Err(Error::invalid(
                     "circuit",
                     format!("sub-network growth divides by zero at {wavelength}"),

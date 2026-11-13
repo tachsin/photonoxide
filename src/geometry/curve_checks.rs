@@ -8,6 +8,7 @@ use std::f64::consts::{PI, TAU};
 use super::checks::Numbers;
 use super::*;
 use crate::expr::{Expr, Parameters};
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -201,7 +202,7 @@ pub(crate) fn circle_error() -> f64 {
                 return f64::NAN;
             }
             worst = worst.max((d.signed.to_um() - e.signed.to_um()).abs() / RADIUS);
-            let dn = (d.normal[0] - e.normal[0]).hypot(d.normal[1] - e.normal[1]);
+            let dn = portable::hypot(d.normal[0] - e.normal[0], d.normal[1] - e.normal[1]);
             worst = worst.max(dn);
         }
     }
@@ -362,14 +363,14 @@ pub(crate) fn fill_errors() -> (f64, f64) {
 /// The slope of log(y) against log(x), by least squares.
 fn slope(points: &[(f64, f64)]) -> f64 {
     let m = points.len() as f64;
-    let (sx, sy) = points
-        .iter()
-        .fold((0.0, 0.0), |(a, b), (x, y)| (a + x.ln(), b + y.ln()));
+    let (sx, sy) = points.iter().fold((0.0, 0.0), |(a, b), (x, y)| {
+        (a + portable::ln(*x), b + portable::ln(*y))
+    });
     let (mx, my) = (sx / m, sy / m);
     let (sxy, sxx) = points.iter().fold((0.0, 0.0), |(a, b), (x, y)| {
         (
-            a + (x.ln() - mx) * (y.ln() - my),
-            b + (x.ln() - mx) * (x.ln() - mx),
+            a + (portable::ln(*x) - mx) * (portable::ln(*y) - my),
+            b + (portable::ln(*x) - mx) * (portable::ln(*x) - mx),
         )
     });
     sxy / sxx
@@ -427,13 +428,13 @@ pub(crate) fn estimate_order() -> f64 {
     };
     let mut points = Vec::new();
     for k in 0..6 {
-        let d = 0.05 / 2f64.powi(k);
+        let d = 0.05 / portable::powi(2f64, k);
         let mut worst = 0.0f64;
         for j in 0..17 {
             let a = TAU * f64::from(j) / 17.0;
             let p = Point::um(
-                CENTRE[0] + (RADIUS + d) * a.cos(),
-                CENTRE[1] + (RADIUS + d) * a.sin(),
+                CENTRE[0] + (RADIUS + d) * portable::cos(a),
+                CENTRE[1] + (RADIUS + d) * portable::sin(a),
             );
             worst = worst.max((implicit.estimate(p).to_um() - d).abs());
         }

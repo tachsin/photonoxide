@@ -27,6 +27,7 @@ use rayon::prelude::*;
 use super::{Field, Simulation, invalid, kernel};
 use crate::Result;
 use crate::fdfd::{Axis, Boundaries3d, Grid3d, PortMode3d};
+use crate::portable;
 use crate::units::Frequency;
 
 /// The transforms of E and H̃ over a box of values, at chosen frequencies.
@@ -176,7 +177,7 @@ impl Dft {
 /// e^(iωt) Δt at each of `frequencies`, into `out`.
 fn phases(out: &mut [c64], frequencies: &[Frequency], t: f64, dt: f64) {
     for (p, f) in out.iter_mut().zip(frequencies) {
-        *p = c64::new(0.0, f.angular() * t).exp() * dt;
+        *p = portable::complex::exp(c64::new(0.0, f.angular() * t)) * dt;
     }
 }
 
@@ -559,7 +560,7 @@ impl Simulation {
     pub fn leapfrog_frequency(&self, k0: f64) -> Option<Frequency> {
         let x = 0.5 * k0 * self.dt;
         if (0.0..1.0).contains(&x) {
-            Frequency::natural(2.0 / self.dt * x.asin() / std::f64::consts::TAU).ok()
+            Frequency::natural(2.0 / self.dt * portable::asin(x) / std::f64::consts::TAU).ok()
         } else {
             None
         }

@@ -10,6 +10,7 @@ use crate::material::Material;
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
 use crate::mode::slab_fd::Profile;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::Outcome;
 
@@ -213,7 +214,7 @@ pub(crate) fn slab_closed_form() -> Outcome {
 pub(crate) fn slab_order() -> Outcome {
     let (exact, coarse) = slab(true, 300.0, 10.0);
     let (_, fine) = slab(true, 300.0, 5.0);
-    let order = ((coarse - exact).abs() / (fine - exact).abs()).log2();
+    let order = portable::log2((coarse - exact).abs() / (fine - exact).abs());
     outcome(order, 2.0, 0.2)
 }
 
@@ -376,8 +377,8 @@ mod tests {
         );
         let lam = Wavelength::um(1.55).unwrap();
         let at = |f| phase_change::partly_crystalline(&a, &c, f, lam).unwrap();
-        assert!((at(0.0) - a.refractive_index(lam).unwrap()).norm() < 1e-12);
-        assert!((at(1.0) - c.refractive_index(lam).unwrap()).norm() < 1e-12);
+        assert!(portable::complex::abs(at(0.0) - a.refractive_index(lam).unwrap()) < 1e-12);
+        assert!(portable::complex::abs(at(1.0) - c.refractive_index(lam).unwrap()) < 1e-12);
         let half = at(0.5);
         assert!(half.re > at(0.0).re && half.re < at(1.0).re);
         assert!(phase_change::partly_crystalline(&a, &c, 1.5, lam).is_err());

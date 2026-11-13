@@ -43,6 +43,7 @@
 use num_complex::Complex64 as c64;
 
 use super::coupled::{SecondHarmonic, undepleted_lossy_shg};
+use crate::portable;
 use crate::{Error, Result};
 
 /// One wave in its ring: the field enhancement F, the round trip's factor a e^{iφ} and the
@@ -91,21 +92,21 @@ impl RingWave {
 
     /// The power loss α = −2 ln a/L, 1/µm: all the round trip's loss spread along the ring.
     pub fn loss(&self) -> f64 {
-        -2.0 * self.round_trip.norm().ln() / self.length
+        -2.0 * portable::ln(portable::complex::abs(self.round_trip)) / self.length
     }
 
     /// The round trip's phase φ in (−π, π]: the detuning from the nearest resonance.
     pub fn detuning(&self) -> f64 {
-        self.round_trip.arg()
+        portable::complex::arg(self.round_trip)
     }
 
     fn check(&self) -> Result<()> {
-        let a = self.round_trip.norm();
+        let a = portable::complex::abs(self.round_trip);
         if !(self.length.is_finite()
             && self.length > 0.0
             && a > 0.0
             && a <= 1.0
-            && self.enhancement.norm().is_finite())
+            && portable::complex::abs(self.enhancement).is_finite())
         {
             return Err(Error::invalid(
                 "ring",
@@ -182,16 +183,16 @@ pub fn four_wave(
     let (g, dk) = (gamma * 1e-6, mismatch * 1e-6);
     let (ap, as_, ai) = (pump.loss(), signal.loss(), idler.loss());
     let x = c64::new(-(2.0 * ap + as_ - ai) / 2.0, -dk);
-    let integral = if x.norm() * length < 1e-8 {
+    let integral = if portable::complex::abs(x) * length < 1e-8 {
         c64::new(length, 0.0)
     } else {
-        ((x * length).exp() - 1.0) / x
+        (portable::complex::exp(x * length) - 1.0) / x
     };
     let pp = pump.build_up() * power;
     Ok(idler.build_up()
         * signal.build_up()
-        * (g * pp).powi(2)
-        * (-ai * length).exp()
+        * portable::powi(g * pp, 2)
+        * portable::exp(-ai * length)
         * integral.norm_sqr())
 }
 
@@ -261,20 +262,21 @@ impl AddDropWave {
     fn ports(&self, source: c64, second: c64, x: c64) -> Ports {
         let (l, alpha) = (self.wave.length, self.wave.loss());
         let integral = |from: f64, to: f64| -> c64 {
-            if x.norm() * l < 1e-8 {
+            if portable::complex::abs(x) * l < 1e-8 {
                 c64::new(to - from, 0.0)
             } else {
-                ((x * to).exp() - (x * from).exp()) / x
+                (portable::complex::exp(x * to) - portable::complex::exp(x * from)) / x
             }
         };
-        let quarter = (-alpha * l / 4.0).exp();
+        let quarter = portable::exp(-alpha * l / 4.0);
         // generated over each half, at its end
         let g1 = source * quarter * integral(0.0, l / 2.0);
         let g2 = source * second * quarter * quarter * integral(l / 2.0, l);
         let r1 = (1.0 - self.coupling).sqrt();
         let r2 = self.through();
         let end = (r2 * quarter * g1 + g2) / (1.0 - r1 * r2 * self.wave.round_trip);
-        let mid = r1 * c64::from_polar(1.0, self.wave.detuning()) * quarter * end + g1;
+        let mid =
+            r1 * portable::complex::from_polar(1.0, self.wave.detuning()) * quarter * end + g1;
         Ports {
             through: self.coupling * end.norm_sqr(),
             drop: self.coupling_drop * mid.norm_sqr(),

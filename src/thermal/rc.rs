@@ -19,6 +19,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -162,7 +163,7 @@ impl RcModel {
         self.time_constants_s
             .iter()
             .zip(&self.residues)
-            .map(|(t, r)| r[output][input] * -(-time_s / t).exp_m1())
+            .map(|(t, r)| r[output][input] * -portable::exp_m1(-time_s / t))
             .sum()
     }
 
@@ -185,12 +186,14 @@ impl RcModel {
     /// [`Error::InvalidValue`] if the pair doesn't respond at all, or never falls that far
     /// between a thousandth of the slowest pole's frequency and a thousand times the fastest's.
     pub fn cutoff(&self, output: usize, input: usize) -> Result<f64> {
-        let dc = self.response(output, input, 0.0).norm();
+        let dc = portable::complex::abs(self.response(output, input, 0.0));
         if dc == 0.0 {
             return Err(invalid("the pair doesn't respond: no cutoff"));
         }
-        let below =
-            |f: f64| self.response(output, input, f).norm() < dc * std::f64::consts::FRAC_1_SQRT_2;
+        let below = |f: f64| {
+            portable::complex::abs(self.response(output, input, f))
+                < dc * std::f64::consts::FRAC_1_SQRT_2
+        };
         let tau = |m: fn(f64, f64) -> f64| self.time_constants_s.iter().copied().fold(f64::NAN, m);
         let two_pi = 2.0 * std::f64::consts::PI;
         let (lo, hi) = (
@@ -198,7 +201,7 @@ impl RcModel {
             1e3 / (two_pi * tau(f64::min)),
         );
         let n = 400;
-        let at = |k: usize| lo * (hi / lo).powf(k as f64 / n as f64);
+        let at = |k: usize| lo * portable::powf(hi / lo, k as f64 / n as f64);
         let k = (1..=n)
             .find(|&k| below(at(k)))
             .ok_or_else(|| invalid("the response doesn't fall by 3 dB"))?;
@@ -250,7 +253,7 @@ impl RcModel {
             if let Some(&next) = times_s.get(m + 1) {
                 let h = next - times_s[m];
                 for (k, xk) in x.iter_mut().enumerate() {
-                    let decay = (-h / self.time_constants_s[k]).exp();
+                    let decay = portable::exp(-h / self.time_constants_s[k]);
                     for (j, v) in xk.iter_mut().enumerate() {
                         let u = powers[j][m];
                         *v = u + (*v - u) * decay;
@@ -324,8 +327,8 @@ impl RcModel {
     ) -> Result<Vec<Fitted>> {
         let data = Data::new(times_s, steps, steady, fit)?;
         let (lo, hi) = (
-            data.times[0].ln() - 2.0,
-            data.times[data.times.len() - 1].ln() + 3.0,
+            portable::ln(data.times[0]) - 2.0,
+            portable::ln(data.times[data.times.len() - 1]) + 3.0,
         );
         let candidates: Vec<f64> = (0..12).map(|k| lo + (hi - lo) * k as f64 / 11.0).collect();
         let mut fits = Vec::with_capacity(fit.poles);
@@ -438,11 +441,11 @@ impl Data {
     #[allow(clippy::needless_range_loop)] // the small dense algebra reads best by index
     fn residues(&self, theta: &[f64]) -> Vec<Vec<Vec<f64>>> {
         let np = theta.len();
-        let tau: Vec<f64> = theta.iter().map(|t| t.exp()).collect();
+        let tau: Vec<f64> = theta.iter().map(|t| portable::exp(*t)).collect();
         let a: Vec<Vec<f64>> = self
             .times
             .iter()
-            .map(|&t| tau.iter().map(|&s| -(-t / s).exp_m1()).collect())
+            .map(|&t| tau.iter().map(|&s| -portable::exp_m1(-t / s)).collect())
             .collect();
         // the normal matrix, shared by every pair, with the steady row when there is one
         let n = np + usize::from(self.steady.is_some());
@@ -494,7 +497,7 @@ impl Data {
 
     /// The relative errors at every pair and time for poles `theta` and residues `r`.
     fn errors(&self, theta: &[f64], r: &[Vec<Vec<f64>>]) -> Vec<f64> {
-        let tau: Vec<f64> = theta.iter().map(|t| t.exp()).collect();
+        let tau: Vec<f64> = theta.iter().map(|t| portable::exp(*t)).collect();
         let mut e = Vec::with_capacity(self.steps.len() * self.outputs * self.times.len());
         for (j, s) in self.steps.iter().enumerate() {
             for (i, y) in s.iter().enumerate() {
@@ -502,7 +505,7 @@ impl Data {
                     let m: f64 = tau
                         .iter()
                         .zip(r)
-                        .map(|(&s, rk)| rk[i][j] * -(-t / s).exp_m1())
+                        .map(|(&s, rk)| rk[i][j] * -portable::exp_m1(-t / s))
                         .sum();
                     e.push((m - v) / self.scale[j]);
                 }
@@ -583,7 +586,7 @@ impl Data {
         let error = e.iter().fold(0.0f64, |a, v| a.max(v.abs()));
         let rms = (e.iter().map(|v| v * v).sum::<f64>() / e.len() as f64).sqrt();
         Ok(Fitted {
-            model: RcModel::new(theta.iter().map(|t| t.exp()).collect(), r)?,
+            model: RcModel::new(theta.iter().map(|t| portable::exp(*t)).collect(), r)?,
             error,
             rms,
         })

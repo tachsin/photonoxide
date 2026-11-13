@@ -22,6 +22,7 @@ use crate::circuit::{Component, Fidelity, Parameter, Port, PortMode, Provenance,
 use crate::material::Material;
 use crate::mode::Polarization;
 use crate::mode::slab::{Slab, SlabMode};
+use crate::portable;
 use crate::units::{Length, Wavelength, refractive_index};
 use crate::{Error, Result};
 
@@ -178,8 +179,8 @@ fn junction(a: &Lateral, b: &Lateral, polarization: Polarization, breaks: &[f64]
     };
     let wa = |y: f64| a.weight(y, polarization);
     let wb = |y: f64| b.weight(y, polarization);
-    let aa = integral(&|y| wa(y) * a.field(y).powi(2));
-    let bb = integral(&|y| wb(y) * b.field(y).powi(2));
+    let aa = integral(&|y| wa(y) * portable::powi(a.field(y), 2));
+    let bb = integral(&|y| wb(y) * portable::powi(b.field(y), 2));
     let cross_a = integral(&|y| wa(y) * a.field(y) * b.field(y));
     let cross_b = integral(&|y| wb(y) * a.field(y) * b.field(y));
     0.5 * (a.beta * cross_a + b.beta * cross_b) / (a.beta * aa * b.beta * bb).sqrt()
@@ -560,7 +561,7 @@ impl Mmi {
                 let w = |y: f64| m.weight(y, polarization);
                 let p: f64 = breaks
                     .windows(2)
-                    .map(|b| simpson(|y| w(y) * m.field(y).powi(2), b[0], b[1], 200))
+                    .map(|b| simpson(|y| w(y) * portable::powi(m.field(y), 2), b[0], b[1], 200))
                     .sum();
                 (m.beta * p).sqrt()
             })
@@ -668,7 +669,7 @@ mod tests {
                 );
             }
             // the field travels: |F| at the face is the input's, not an image's
-            assert!(a.field(0, 0.0, 1.0).norm() > 0.0);
+            assert!(portable::complex::abs(a.field(0, 0.0, 1.0)) > 0.0);
             assert!(a.propagation_constants().windows(2).all(|b| b[0] > b[1]));
         }
         let m = Mmi::new(MmiKind::OneByTwo, soi(), 3.0, 0.8, l).unwrap();

@@ -46,6 +46,7 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::material::{Material, Model};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// One term of a dispersive medium's susceptibility, in the e^(−iωt) convention, as
@@ -146,9 +147,9 @@ impl Dispersive {
     /// [`Dispersive::permittivity`] to second order in Δt.
     pub fn leapfrog_permittivity(&self, frequency: Frequency, dt: f64) -> c64 {
         let w = frequency.angular();
-        let z = c64::from_polar(1.0, -w * dt);
-        let tilde = 2.0 / dt * (w * dt / 2.0).sin();
-        let factor = c64::new(0.0, (w * dt / 2.0).cos() / tilde);
+        let z = portable::complex::from_polar(1.0, -w * dt);
+        let tilde = 2.0 / dt * portable::sin(w * dt / 2.0);
+        let factor = c64::new(0.0, portable::cos(w * dt / 2.0) / tilde);
         let mut eps = c64::new(self.eps_inf, 0.0);
         for p in &self.poles {
             let [alpha, xi, gamma] = p.coefficients(dt);
@@ -289,7 +290,9 @@ impl Dispersive {
                 *c += t;
             }
         }
-        roots(&poly).iter().fold(0.0f64, |m, z| m.max(z.norm()))
+        roots(&poly)
+            .iter()
+            .fold(0.0f64, |m, z| m.max(portable::complex::abs(*z)))
     }
 
     /// Whether the medium steps stably with conductivity `sigma` at time step `dt` on a grid
@@ -344,14 +347,16 @@ impl Dispersive {
                 .collect()
         };
         let data = sample(64)?;
-        let largest = data.iter().fold(0.0f64, |m, (_, e)| m.max(e.norm()));
+        let largest = data
+            .iter()
+            .fold(0.0f64, |m, (_, e)| m.max(portable::complex::abs(*e)));
         let lossy = data.iter().any(|(_, e)| e.im.abs() > 1e-9 * largest);
         // the candidates' resonances and dampings, c/µm
         let mut terms: Vec<(f64, f64)> = Vec::new();
         if lossy {
             let count = 16;
             for i in 0..count {
-                let f = 0.5 * low * (4.0 * high / low).powf(i as f64 / (count - 1) as f64);
+                let f = 0.5 * low * portable::powf(4.0 * high / low, i as f64 / (count - 1) as f64);
                 terms.extend([0.05, 0.15, 0.4].map(|d| (f, d * f)));
             }
             terms.extend([2.5, 3.2, 4.0].map(|r| (r * high, 0.0)));
@@ -412,9 +417,9 @@ impl Dispersive {
         medium.check()?;
         let (mut error, mut relative) = (0.0f64, 0.0f64);
         for (f, eps) in sample(256)? {
-            let d = (medium.permittivity(Frequency::natural(f)?) - eps).norm();
+            let d = portable::complex::abs(medium.permittivity(Frequency::natural(f)?) - eps);
             error = error.max(d);
-            relative = relative.max(d / eps.norm());
+            relative = relative.max(d / portable::complex::abs(eps));
         }
         Ok(Fit {
             medium,
@@ -464,9 +469,14 @@ pub(super) fn roots(coefficients: &[f64]) -> Vec<c64> {
     let lead = p[n];
     let p: Vec<f64> = p.iter().map(|c| c / lead).collect();
     // start on a circle of the roots' geometric mean modulus, turned off the real axis
-    let radius = p[0].abs().powf(1.0 / n as f64).max(1e-3);
+    let radius = portable::powf(p[0].abs(), 1.0 / n as f64).max(1e-3);
     let mut z: Vec<c64> = (0..n)
-        .map(|k| c64::from_polar(radius, std::f64::consts::TAU * (k as f64 + 0.25) / n as f64))
+        .map(|k| {
+            portable::complex::from_polar(
+                radius,
+                std::f64::consts::TAU * (k as f64 + 0.25) / n as f64,
+            )
+        })
         .collect();
     let eval = |x: c64| -> (c64, c64) {
         let (mut v, mut d) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
@@ -491,7 +501,8 @@ pub(super) fn roots(coefficients: &[f64]) -> Vec<c64> {
             let step = ratio / (1.0 - ratio * repulsion);
             if step.re.is_finite() && step.im.is_finite() {
                 z[k] -= step;
-                largest = largest.max(step.norm() / z[k].norm().max(1e-300));
+                largest = largest
+                    .max(portable::complex::abs(step) / portable::complex::abs(z[k]).max(1e-300));
             }
         }
         if largest < 1e-15 {
@@ -510,7 +521,7 @@ fn nonnegative_least_squares(a: &[f64], b: &[f64], rows: usize, columns: usize) 
     let scale: Vec<f64> = (0..columns)
         .map(|j| {
             let norm = (0..rows)
-                .map(|i| a[i * columns + j].powi(2))
+                .map(|i| portable::powi(a[i * columns + j], 2))
                 .sum::<f64>()
                 .sqrt();
             if norm > 0.0 { 1.0 / norm } else { 0.0 }

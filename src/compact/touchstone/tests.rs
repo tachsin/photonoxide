@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 fn parse(text: &str) -> Touchstone {
     Touchstone::parse(text, None).unwrap_or_else(|e| panic!("{e}\n{text}"))
@@ -15,11 +16,11 @@ fn fails_at(text: &str, ports: Option<usize>, line: usize) -> String {
 }
 
 fn polar(m: f64, deg: f64) -> c64 {
-    c64::from_polar(m, deg.to_radians())
+    portable::complex::from_polar(m, deg.to_radians())
 }
 
 fn close(a: c64, b: c64, tol: f64) -> bool {
-    (a - b).norm() <= tol * b.norm().max(1.0)
+    portable::complex::abs(a - b) <= tol * portable::complex::abs(b).max(1.0)
 }
 
 #[test]
@@ -575,7 +576,7 @@ fn every_variant_round_trips() {
                             .flatten()
                             .zip(t.matrices.iter().flatten().flatten())
                         {
-                            assert!((a - b).norm() <= tol, "{a} {b}: {what}");
+                            assert!(portable::complex::abs(a - b) <= tol, "{a} {b}: {what}");
                         }
                         // and reading the version 1 text without the number of ports
                         if version == Version::One {
@@ -596,7 +597,7 @@ fn printed_precision_bounds_the_round_trip_error() {
         let back =
             Touchstone::parse(&t.write(Precision::Significant(digits)).unwrap(), None).unwrap();
         // half a unit in the last printed digit, relative to each part
-        let rel = 0.5 * 10f64.powi(1 - digits as i32);
+        let rel = 0.5 * portable::powi(10f64, 1 - digits as i32);
         for (a, b) in back
             .matrices
             .iter()

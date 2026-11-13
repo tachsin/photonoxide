@@ -34,6 +34,7 @@ use super::{
 
 #[path = "tfln_line.rs"]
 mod line_field;
+use crate::portable;
 pub use line_field::LineField;
 
 /// The device's kind.
@@ -232,7 +233,7 @@ impl TflnModulator {
             + if sidewall >= 90.0 {
                 0.0
             } else {
-                (film - slab) / sidewall.to_radians().tan()
+                (film - slab) / portable::tan(sidewall.to_radians())
             };
         if !(slab < film && foot < 0.5 * gap && foot < 2.5) {
             return Err(Error::invalid(
@@ -374,7 +375,7 @@ impl TflnModulator {
             for i in 0..nx {
                 let [xc, yc] = centre(i, j);
                 let e = p.field.at(xc, yc);
-                strength.push(e[0].hypot(e[1]) as f32);
+                strength.push(portable::hypot(e[0], e[1]) as f32);
                 if let (Some(a), Some(b)) = (cell(xs, xc), cell(ys, yc)) {
                     intensity[j * nx + i] = fields.e(a, b).iter().map(|c| c.norm_sqr()).sum();
                     index[j * nx + i] = across[a * rows + b] as f32;
@@ -758,9 +759,9 @@ pub(super) fn indices(w: Wavelength) -> Result<(f64, f64)> {
 pub(super) fn confinement(h: f64, q: f64, p: f64, t: f64) -> f64 {
     let (a, b) = (1.0, q / h);
     let core = (a * a + b * b) * t / 2.0
-        + (a * a - b * b) * (2.0 * h * t).sin() / (4.0 * h)
-        + a * b * (1.0 - (2.0 * h * t).cos()) / (2.0 * h);
-    let top = a * (h * t).cos() + b * (h * t).sin();
+        + (a * a - b * b) * portable::sin(2.0 * h * t) / (4.0 * h)
+        + a * b * (1.0 - portable::cos(2.0 * h * t)) / (2.0 * h);
+    let top = a * portable::cos(h * t) + b * portable::sin(h * t);
     core / (core + 1.0 / (2.0 * q) + top * top / (2.0 * p))
 }
 
@@ -789,7 +790,7 @@ impl Section {
         let r33 = Coefficients::Film.pockels().voigt()[2][2] * 1e-12;
         // Δn_eff = (n_e/n_eff) Γ Δn_e, Δn_e = ½ n_e³ r₃₃ E, E = 2V/(πg)
         let field = 2.0 / (PI * t.gap * 1e-6);
-        let per_volt = n_e / n_eff * gamma * 0.5 * n_e.powi(3) * r33 * field;
+        let per_volt = n_e / n_eff * gamma * 0.5 * portable::powi(n_e, 3) * r33 * field;
         let vpi_l =
             100.0 * half_wave_voltage_length(per_volt, Wavelength::um(LAMBDA)?, Drive::PushPull)?;
         let (below, above) = (slab_at(LAMBDA - 0.01)?.0, slab_at(LAMBDA + 0.01)?.0);
@@ -924,7 +925,7 @@ fn layer_ratio(a: f64, b: f64, h: f64) -> f64 {
     } else {
         let (xa, xb) = (PI * a / (2.0 * h), PI * b / (2.0 * h));
         // sinh xa / sinh xb without overflow
-        (xa - xb).exp() * (-(-2.0 * xa).exp_m1()) / (-(-2.0 * xb).exp_m1())
+        portable::exp(xa - xb) * (-portable::exp_m1(-2.0 * xa)) / (-portable::exp_m1(-2.0 * xb))
     };
     elliptic_ratio(k)
 }
@@ -1021,11 +1022,11 @@ impl ClosedLine {
             .sum();
         let z = internal + c64::new(0.0, w * inductance);
         let y = c64::new(w * self.capacitance * tan, w * self.capacitance);
-        let mut gamma = (z * y).sqrt();
+        let mut gamma = portable::complex::sqrt(z * y);
         if gamma.re < 0.0 {
             gamma = -gamma;
         }
-        let mut impedance = (z / y).sqrt();
+        let mut impedance = portable::complex::sqrt(z / y);
         if impedance.re < 0.0 {
             impedance = -impedance;
         }
@@ -1089,7 +1090,7 @@ impl Line {
         let reference = m(REFERENCE)?;
         let fall = |level: f64| -> Result<f64> {
             Ok(falls_to(
-                |hz| Ok(20.0 * (m(hz)? / reference).log10()),
+                |hz| Ok(20.0 * portable::log10(m(hz)? / reference)),
                 level,
                 REFERENCE,
                 top,
@@ -1158,7 +1159,7 @@ impl Line {
                 figure(
                     "electro-optic response at the frequency, 20 log10 |m|",
                     "m_dB",
-                    20.0 * response_here.log10(),
+                    20.0 * portable::log10(response_here),
                     "dB",
                     f,
                     grid,

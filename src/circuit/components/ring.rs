@@ -16,6 +16,7 @@ use num_complex::Complex64 as c64;
 use super::waveguide::Dispersion;
 use super::{Dual, Entries, both, check, closed_form, closed_form_derivatives};
 use crate::circuit::{Component, Fidelity, Parameter, Port, Provenance, SMatrix};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -142,7 +143,7 @@ fn resonance(guide: &Dispersion, near: Wavelength, length: f64) -> Result<Wavele
 /// The single-pass amplitude a at λ for a round trip of `length` with a fixed loss of `extra`
 /// dB.
 fn single_pass(guide: &Dispersion, wavelength: Wavelength, length: f64, extra: f64) -> f64 {
-    (-guide.propagation(wavelength).im * length).exp() * 10f64.powf(-extra / 20.0)
+    portable::exp(-guide.propagation(wavelength).im * length) * portable::powf(10f64, -extra / 20.0)
 }
 
 /// Refuses a fixed loss that isn't finite and at least zero.
@@ -235,7 +236,8 @@ impl AllPassRing {
         check_length(length)?;
         finite(
             "the free spectral range",
-            wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length),
+            portable::powi(wavelength.to_um(), 2)
+                / (self.guide.group_index_at(wavelength) * length),
         )
     }
 
@@ -258,7 +260,7 @@ impl AllPassRing {
         let ra = self.ra(wavelength, values);
         finite(
             "the resonance's width",
-            (1.0 - ra) * wavelength.to_um().powi(2)
+            (1.0 - ra) * portable::powi(wavelength.to_um(), 2)
                 / (PI * self.guide.group_index_at(wavelength) * values[0] * ra.sqrt()),
         )
     }
@@ -299,8 +301,10 @@ impl AllPassRing {
     pub fn round_trip(&self, wavelength: Wavelength, values: &[f64]) -> Result<c64> {
         check_values(values, 2)?;
         let i = c64::new(0.0, 1.0);
-        Ok((i * self.guide.propagation(wavelength) * values[0]).exp()
-            * 10f64.powf(-self.round_trip_loss / 20.0))
+        Ok(
+            portable::complex::exp(i * self.guide.propagation(wavelength) * values[0])
+                * portable::powf(10f64, -self.round_trip_loss / 20.0),
+        )
     }
 
     /// The field in the ring just past the coupler for a unit field in the bus,
@@ -316,7 +320,7 @@ impl AllPassRing {
         let round = self.round_trip(wavelength, values)?;
         let r = (1.0 - values[1]).sqrt();
         let f = c64::new(0.0, values[1].sqrt()) / (1.0 - r * round);
-        finite("the field enhancement", f.norm())?;
+        finite("the field enhancement", portable::complex::abs(f))?;
         Ok(f)
     }
 
@@ -352,11 +356,11 @@ impl AllPassRing {
         Ok((
             finite(
                 "the power off resonance",
-                (r + a).powi(2) / (1.0 + r * a).powi(2),
+                portable::powi(r + a, 2) / portable::powi(1.0 + r * a, 2),
             )?,
             finite(
                 "the power on resonance",
-                (r - a).powi(2) / (1.0 - r * a).powi(2),
+                portable::powi(r - a, 2) / portable::powi(1.0 - r * a, 2),
             )?,
         ))
     }
@@ -502,7 +506,8 @@ impl AddDropRing {
         check_length(length)?;
         finite(
             "the free spectral range",
-            wavelength.to_um().powi(2) / (self.guide.group_index_at(wavelength) * length),
+            portable::powi(wavelength.to_um(), 2)
+                / (self.guide.group_index_at(wavelength) * length),
         )
     }
 
@@ -526,7 +531,7 @@ impl AddDropRing {
         let x = self.rra(wavelength, values);
         finite(
             "the resonance's width",
-            (1.0 - x) * wavelength.to_um().powi(2)
+            (1.0 - x) * portable::powi(wavelength.to_um(), 2)
                 / (PI * self.guide.group_index_at(wavelength) * values[0] * x.sqrt()),
         )
     }
@@ -573,10 +578,10 @@ impl AddDropRing {
         let x = r1 * r2 * a;
         let k = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a;
         let powers = [
-            (r2 * a + r1).powi(2) / (1.0 + x).powi(2),
-            (r2 * r2 * a * a - 2.0 * r1 * r2 * a + r1 * r1) / (1.0 - x).powi(2),
-            k / (1.0 - x).powi(2),
-            k / (1.0 + x).powi(2),
+            portable::powi(r2 * a + r1, 2) / portable::powi(1.0 + x, 2),
+            (r2 * r2 * a * a - 2.0 * r1 * r2 * a + r1 * r1) / portable::powi(1.0 - x, 2),
+            k / portable::powi(1.0 - x, 2),
+            k / portable::powi(1.0 + x, 2),
         ];
         for p in powers {
             finite("a power at the extremes", p)?;
@@ -593,8 +598,10 @@ impl AddDropRing {
     pub fn round_trip(&self, wavelength: Wavelength, values: &[f64]) -> Result<c64> {
         check_values(values, 3)?;
         let i = c64::new(0.0, 1.0);
-        Ok((i * self.guide.propagation(wavelength) * values[0]).exp()
-            * 10f64.powf(-self.round_trip_loss / 20.0))
+        Ok(
+            portable::complex::exp(i * self.guide.propagation(wavelength) * values[0])
+                * portable::powf(10f64, -self.round_trip_loss / 20.0),
+        )
     }
 
     /// The wave at λ in this ring as the resonant nonlinear processes take it

@@ -1,6 +1,7 @@
 use super::*;
 use crate::compact::checks::Ring;
 use crate::compact::fit::Symmetry;
+use crate::portable;
 
 fn um(v: f64) -> Wavelength {
     Wavelength::um(v).unwrap()
@@ -33,16 +34,18 @@ fn an_all_pass_rings_poles_are_recovered() {
             .poles
             .iter()
             .enumerate()
-            .min_by(|x, y| (x.1 - a).norm().total_cmp(&(y.1 - a).norm()))
+            .min_by(|x, y| {
+                portable::complex::abs(x.1 - a).total_cmp(&portable::complex::abs(y.1 - a))
+            })
             .unwrap();
         // to a small part of the resonance's half-width, Re a
-        assert!((b - a).norm() < 1e-8 * a.re.abs(), "{b} {a}");
-        assert!((r.residues[0][j] - c).norm() < 1e-8 * c.norm());
+        assert!(portable::complex::abs(b - a) < 1e-8 * a.re.abs(), "{b} {a}");
+        assert!(portable::complex::abs(r.residues[0][j] - c) < 1e-8 * portable::complex::abs(c));
     }
     // between the samples too
     for k in 0..=1000 {
         let w = 1.53 + 0.04 * k as f64 / 1000.0;
-        assert!((model.at(um(w)).unwrap()[(0, 0)] - ring.through(w)).norm() < 1e-8);
+        assert!(portable::complex::abs(model.at(um(w)).unwrap()[(0, 0)] - ring.through(w)) < 1e-8);
     }
     // a lossy ring is passive, and the model says so
     let p = model.passivity(2001).unwrap();
@@ -80,7 +83,7 @@ fn a_compact_model_is_a_component() {
     assert_eq!(p.error, Some(model.error().max));
     assert_eq!(p.validity, Some((1.53, 1.57)));
     let s = model.s_matrix(um(1.55), &[]).unwrap();
-    assert!((s[(0, 0)] - ring.through(1.55)).norm() < 1e-8);
+    assert!(portable::complex::abs(s[(0, 0)] - ring.through(1.55)) < 1e-8);
     // outside its band it says nothing
     let e = model.s_matrix(um(1.6), &[]).unwrap_err().to_string();
     assert!(e.contains("1.53 to 1.57"), "{e}");
@@ -142,7 +145,7 @@ fn a_measured_spectrum_interpolates_in_frequency() {
         let w = 1.5 + 0.1 * k as f64 / 50.0;
         let s = m.s_matrix(um(w), &[]).unwrap();
         assert!(
-            (s[(0, 0)] - c64::new(1.0 / w, 0.5 / w)).norm() < 1e-14,
+            portable::complex::abs(s[(0, 0)] - c64::new(1.0 / w, 0.5 / w)) < 1e-14,
             "{w}"
         );
     }
@@ -163,7 +166,7 @@ fn a_measured_spectrum_interpolates_in_frequency() {
         .unwrap();
     let read = Measured::read(&path, Convention::Engineering).unwrap();
     let s = read.s_matrix(um(1.55), &[]).unwrap();
-    assert!((s[(0, 0)] - c64::new(1.0 / 1.55, 0.5 / 1.55)).norm() < 1e-14);
+    assert!(portable::complex::abs(s[(0, 0)] - c64::new(1.0 / 1.55, 0.5 / 1.55)) < 1e-14);
     assert!(read.provenance().source.contains("detector.s1p"));
     std::fs::remove_dir_all(&dir).unwrap();
     // two samples at one wavelength

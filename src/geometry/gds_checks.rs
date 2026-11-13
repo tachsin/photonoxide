@@ -3,6 +3,7 @@
 
 use super::Gds;
 use super::gds::real8;
+use crate::portable;
 use crate::validation::{Case, Outcome, Tier};
 
 /// A number in GDSII's excess-64 form: the double's own value, exactly (its 53 bits fit the
@@ -14,15 +15,15 @@ pub(crate) fn excess64(v: f64) -> [u8; 8] {
     let sign = if v < 0.0 { 0x80u8 } else { 0 };
     let a = v.abs();
     // 16^(e − 1) <= a < 16^e
-    let mut e = (a.log2() / 4.0).floor() as i32 + 1;
-    while a >= 2f64.powi(4 * e) {
+    let mut e = (portable::log2(a) / 4.0).floor() as i32 + 1;
+    while a >= portable::powi(2f64, 4 * e) {
         e += 1;
     }
-    while a < 2f64.powi(4 * (e - 1)) {
+    while a < portable::powi(2f64, 4 * (e - 1)) {
         e -= 1;
     }
     // a / 16^e in [1/16, 1), times 2^56: a whole number below 2^56, exact
-    let fraction = (a * 2f64.powi(56 - 4 * e)) as u64;
+    let fraction = (a * portable::powi(2f64, 56 - 4 * e)) as u64;
     let b = fraction.to_be_bytes();
     [
         sign | (e + 64) as u8,

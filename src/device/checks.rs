@@ -18,6 +18,7 @@ use crate::mode::bend::SlabBend;
 use crate::mode::slab::Slab;
 use crate::mode::vector;
 use crate::parallel::map_in_order;
+use crate::portable;
 use crate::stack::Layer;
 use crate::units::{Frequency, refractive_index};
 use crate::validation::{Case, Outcome, Tier};
@@ -41,14 +42,14 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 
 /// `x` to `places` decimals: a figure shown without the last bits of a platform's arithmetic.
 fn round(x: f64, places: i32) -> f64 {
-    let s = 10f64.powi(places);
+    let s = portable::powi(10f64, places);
     (x * s).round() / s
 }
 
 /// The order of convergence from three values on grids halving: log₂ of the ratio of the
 /// successive differences.
 fn order(coarse: f64, middle: f64, fine: f64) -> f64 {
-    ((coarse - middle) / (middle - fine)).abs().log2()
+    portable::log2(((coarse - middle) / (middle - fine)).abs())
 }
 
 /// The devices' validation cases, in report order.
@@ -261,7 +262,7 @@ fn ring_closed_forms() -> Outcome {
     let (l, kappa2) = (built.values[0], built.values[1]);
     let (n_g, l0) = (strip().group_index, 1.55);
     let fsr = l0 * l0 / (n_g * l) * 1e3;
-    let a = 10f64.powf(-(2.7 * l * 1e-4 + 0.1) / 20.0);
+    let a = portable::powf(10f64, -(2.7 * l * 1e-4 + 0.1) / 20.0);
     let ra = (1.0 - kappa2).sqrt() * a;
     let q = PI * n_g * l * ra.sqrt() / (l0 * (1.0 - ra));
     let e = (f("FSR") / fsr - 1.0).abs().max((f("Q") / q - 1.0).abs());
@@ -281,7 +282,7 @@ fn coupler_closed_forms() -> Outcome {
     let c = f("C");
     let e = (f("L_x") / (PI / (2.0 * c)) - 1.0)
         .abs()
-        .max((f("cross") - crate::portable::sin(c * 9.0).powi(2)).abs());
+        .max((f("cross") - portable::powi(crate::portable::sin(c * 9.0), 2)).abs());
     Outcome {
         measured: e,
         expected: 0.0,
@@ -365,7 +366,7 @@ pub(crate) fn derivatives_mismatch() -> f64 {
         );
         let scale = (0..exact.size())
             .flat_map(|q| (0..exact.size()).map(move |p| (q, p)))
-            .map(|(q, p)| exact[(q, p)].norm())
+            .map(|(q, p)| portable::complex::abs(exact[(q, p)]))
             .fold(0.0, f64::max);
         worst = worst.max(exact.max_difference(&numeric).expect(OK) / scale);
     }
@@ -816,11 +817,11 @@ fn coupler_chrostowski() -> Outcome {
     let lx = [(275, 61), (550, 122), (1100, 244)].map(|(nx, ny)| coupler_chrostowski_on(nx, ny));
     let (coarse, fine) = (lx[1] - lx[0], lx[2] - lx[1]);
     // the observed order, in the ratio of the grids' halving
-    let order = (coarse / fine).log2();
+    let order = portable::log2(coarse / fine);
     if !(order.is_finite() && order > 0.0) {
         return outcome(f64::NAN, 37.5, 1.0);
     }
-    let extrapolated = lx[2] + fine / (2f64.powf(order) - 1.0);
+    let extrapolated = lx[2] + fine / (portable::powf(2f64, order) - 1.0);
     let first_order = lx[2] + fine;
     crate::validation::note_numerical((extrapolated - first_order).abs());
     outcome(extrapolated, 37.5, 1.0)
@@ -854,7 +855,7 @@ fn ring_q_bogaerts() -> Outcome {
     let ring = device.all_pass_ring(&values, A).expect(OK);
     // critical coupling: r = a
     let q = |l: f64| {
-        let a = 10f64.powf(-(2.7 * l * 1e-4 + 0.075) / 20.0);
+        let a = portable::powf(10f64, -(2.7 * l * 1e-4 + 0.075) / 20.0);
         ring.q_factor(l0, &[l, 1.0 - a * a]).unwrap_or(f64::NAN)
     };
     outcome(round(peak(q, 1e3, 3e4) / 1e3, 3), 10.0, 1.0)

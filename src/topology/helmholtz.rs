@@ -27,6 +27,7 @@
 use rayon::prelude::*;
 
 use super::Projection;
+use crate::portable;
 use crate::{Error, Result};
 
 /// The Helmholtz filter on a region of pixels, its edges mirrored (Lazarov & Sigmund's Eqs. 11
@@ -52,7 +53,7 @@ fn dct(n: usize) -> Vec<f64> {
         };
         for i in 0..n {
             q[k * n + i] =
-                c * (std::f64::consts::PI * k as f64 * (i as f64 + 0.5) / n as f64).cos();
+                c * portable::cos(std::f64::consts::PI * k as f64 * (i as f64 + 0.5) / n as f64);
         }
     }
     q
@@ -86,7 +87,7 @@ impl HelmholtzFilter {
             if n == 1 {
                 0.0
             } else {
-                let s = (std::f64::consts::PI * k as f64 / (2.0 * n as f64)).sin();
+                let s = portable::sin(std::f64::consts::PI * k as f64 / (2.0 * n as f64));
                 4.0 * s * s
             }
         };

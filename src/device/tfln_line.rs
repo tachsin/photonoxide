@@ -24,6 +24,7 @@ use crate::{Error, Result};
 
 use super::super::{Device, Values};
 use super::{KIND, PICTURE_PIXELS, TflnModulator, outlines};
+use crate::portable;
 
 /// The full-wave grid's smallest step, µm: the line's cross-section graded from it by 15% a cell
 /// to 20 µm, as jobs/tfln-line.yaml takes it (the middle of `line/full-wave-grid`'s 40, 20 and 10
@@ -209,10 +210,10 @@ impl TflnModulator {
                 let xl = centre - xp;
                 let e = rf.at(xl, yp);
                 field.push(strength(e) as f32);
-                across.push(e[0].norm() as f32);
+                across.push(portable::complex::abs(e[0]) as f32);
                 change.push((strength(e) - strength(lowest.at(xl, yp))) as f32);
                 let q = static_field.value(grid.x().cell_of(xl), grid.y().cell_of(yp));
-                quasi.push(q[0].hypot(q[1]) as f32);
+                quasi.push(portable::hypot(q[0], q[1]) as f32);
             }
         }
         let raster = |values: Vec<f32>| Raster {
@@ -285,7 +286,7 @@ mod tests {
                 let x = like.x0 + (i as f64 + 0.5) * (like.x1 - like.x0) / like.nx as f64;
                 let y = like.y0 + (j as f64 + 0.5) * (like.y1 - like.y0) / like.ny as f64;
                 let e = field.value(grid.x().cell_of(centre - x), grid.y().cell_of(y));
-                strength.push(e[0].hypot(e[1]) as f32);
+                strength.push(portable::hypot(e[0], e[1]) as f32);
                 across.push(e[0].abs() as f32);
             }
         }

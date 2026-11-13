@@ -56,6 +56,7 @@
 use num_complex::Complex64 as c64;
 
 use super::{Conductor, EPSILON_0, Electrostatic};
+use crate::portable;
 use crate::statics::Boundary;
 use crate::units::SPEED_OF_LIGHT;
 use crate::{Error, Result};
@@ -189,7 +190,7 @@ impl Metal {
         }
         let w = 2.0 * std::f64::consts::PI * frequency_hz;
         let kt = c64::new(1.0, -1.0) * (t / delta);
-        let cot = 1.0 / (kt / 2.0).tan();
+        let cot = 1.0 / portable::complex::tan(kt / 2.0);
         c64::new(0.0, -w * mu_0() * t) * cot / kt
     }
 
@@ -239,7 +240,7 @@ impl EdgeFit {
     /// ∫ from Δ to the reach of (J/I)², 1/m.
     fn integral(&self, delta: f64) -> f64 {
         let (k, kc, r) = (self.k, self.kc, self.reach);
-        k * k * (r / delta).ln() + 2.0 * k * kc * (r - delta)
+        k * k * portable::ln(r / delta) + 2.0 * k * kc * (r - delta)
     }
 }
 
@@ -322,7 +323,7 @@ impl QuasiTem {
             let sum: f64 = empty
                 .patches(&vfield)?
                 .iter()
-                .map(|p| (p.flux / q0).powi(2) / (p.length * 1e-6))
+                .map(|p| portable::powi(p.flux / q0, 2) / (p.length * 1e-6))
                 .sum();
             Some(sum / copies)
         };
@@ -682,11 +683,11 @@ impl QuasiTem {
         let tan = self.loss_tangent(tangents)?;
         let z = internal + c64::new(0.0, w * self.inductance());
         let y = c64::new(w * self.capacitance * tan, w * self.capacitance);
-        let mut gamma = (z * y).sqrt();
+        let mut gamma = portable::complex::sqrt(z * y);
         if gamma.re < 0.0 {
             gamma = -gamma;
         }
-        let mut impedance = (z / y).sqrt();
+        let mut impedance = portable::complex::sqrt(z / y);
         if impedance.re < 0.0 {
             impedance = -impedance;
         }
@@ -812,7 +813,7 @@ impl Periodic {
         for (line, length) in &self.sections {
             let w = line.wave(frequency_hz, metal, tangents)?;
             let gl = w.gamma * (length * 1e-6);
-            let (c, s) = (gl.cosh(), gl.sinh());
+            let (c, s) = (portable::complex::cosh(gl), portable::complex::sinh(gl));
             t = product(&t, &[[c, w.impedance * s], [s / w.impedance, c]]);
             waves.push(w);
         }
@@ -837,17 +838,23 @@ impl Periodic {
     ) -> Result<Wave> {
         let (t, waves) = self.walk(frequency_hz, metal, tangents)?;
         let half = (t[0][0] + t[1][1]) / 2.0;
-        let root = (half * half - 1.0).sqrt();
+        let root = portable::complex::sqrt(half * half - 1.0);
         let (a, b) = (half + root, half - root);
-        let lambda = if (a.norm() - b.norm()).abs() > 1e-12 * a.norm().max(b.norm()) {
-            if a.norm() > b.norm() { a } else { b }
+        let lambda = if (portable::complex::abs(a) - portable::complex::abs(b)).abs()
+            > 1e-12 * portable::complex::abs(a).max(portable::complex::abs(b))
+        {
+            if portable::complex::abs(a) > portable::complex::abs(b) {
+                a
+            } else {
+                b
+            }
         } else if a.im >= 0.0 {
             a
         } else {
             b
         };
         let period = self.period_um() * 1e-6;
-        let gamma = lambda.ln() / period;
+        let gamma = portable::complex::ln(lambda) / period;
         if !(gamma.im > 0.0 && gamma.im * period < std::f64::consts::PI * (1.0 - 1e-9)) {
             return Err(invalid(format!(
                 "at {frequency_hz:.4e} Hz the period is in a stop band: the Bloch wave doesn't \
@@ -938,10 +945,10 @@ impl Drive {
 
 /// (1 − e^u)/u, −1 at u = 0.
 fn f_of(u: c64) -> c64 {
-    if u.norm() < 1e-4 {
+    if portable::complex::abs(u) < 1e-4 {
         -(1.0 + u / 2.0 + u * u / 6.0 + u * u * u / 24.0)
     } else {
-        (1.0 - u.exp()) / u
+        (1.0 - portable::complex::exp(u)) / u
     }
 }
 
@@ -963,12 +970,12 @@ pub fn response(gamma: c64, impedance: c64, frequency_hz: f64, drive: &Drive) ->
         2.0 * std::f64::consts::PI * frequency_hz * drive.group_index * drive.length_m
             / SPEED_OF_LIGHT,
     );
-    let t = gl.tanh();
+    let t = portable::complex::tanh(gl);
     let zin = z0 * (rl + z0 * t) / (z0 + rl * t);
     let (up, um) = (gl - k, -gl - k);
     let num = (rl + z0) * f_of(up) + (rl - z0) * f_of(um);
-    let den = (rl + z0) * gl.exp() + (rl - z0) * (-gl).exp();
-    (rl + rg) / rl * (zin / (zin + rg)).norm() * (num / den).norm()
+    let den = (rl + z0) * portable::complex::exp(gl) + (rl - z0) * portable::complex::exp(-gl);
+    (rl + rg) / rl * portable::complex::abs(zin / (zin + rg)) * portable::complex::abs(num / den)
 }
 
 /// The lowest frequency between `from_hz` and `to_hz` at which `db` (a response in dB, 0 at
@@ -990,10 +997,10 @@ pub fn falls_to(
         )));
     }
     const SAMPLES: usize = 400;
-    let ratio = (to_hz / from_hz).ln();
+    let ratio = portable::ln(to_hz / from_hz);
     let mut lo = from_hz;
     for s in 1..=SAMPLES {
-        let f = from_hz * (ratio * s as f64 / SAMPLES as f64).exp();
+        let f = from_hz * portable::exp(ratio * s as f64 / SAMPLES as f64);
         if db(f)? <= level {
             let mut hi = f;
             for _ in 0..60 {

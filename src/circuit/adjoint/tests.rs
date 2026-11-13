@@ -6,6 +6,7 @@ use super::super::ideal::um;
 use super::super::{Component, Netlist, Parameter, Port, Provenance, SMatrix, objective};
 use super::checks::{self, Check, Shifter};
 use crate::Result;
+use crate::portable;
 use crate::units::Wavelength;
 
 #[test]
@@ -53,7 +54,7 @@ fn the_jacobian_is_the_finite_differences_of_s() {
             .rows()
             .iter()
             .flatten()
-            .fold(0.0f64, |m, v| m.max(v.norm()));
+            .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
         let error = exact.max_difference(&fd).unwrap() / scale;
         assert!(error < 1e-8, "{}: {error:e}", circuit.parameters()[k].name);
     }
@@ -221,9 +222,9 @@ fn a_phase_shifters_gradient_is_its_closed_form() {
     let (power, gradient) = circuit
         .gradient(&[um(1.55)], circuit.values(), |s| objective::power(s, 2, 0))
         .unwrap();
-    assert!((power - (phi / 2.0).sin().powi(2)).abs() < 1e-15);
+    assert!((power - portable::powi(portable::sin(phi / 2.0), 2)).abs() < 1e-15);
     let upper = gradient[circuit.parameter("upper.phase").unwrap()];
     let lower = gradient[circuit.parameter("lower.phase").unwrap()];
-    assert!((upper - phi.sin() / 2.0).abs() < 1e-15, "{upper}");
-    assert!((lower + phi.sin() / 2.0).abs() < 1e-15, "{lower}");
+    assert!((upper - portable::sin(phi) / 2.0).abs() < 1e-15, "{upper}");
+    assert!((lower + portable::sin(phi) / 2.0).abs() < 1e-15, "{lower}");
 }

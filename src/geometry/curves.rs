@@ -16,6 +16,7 @@ use super::trace::{Curves, Span, Trace};
 use super::transform::Transform;
 use super::{Bounds, Point};
 use crate::expr::{COORDINATES, Dim, Dual, Expr, Parameters};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -476,7 +477,7 @@ impl PartialEq for Polar {
 impl Curves for PolarSpec {
     fn at(&self, _: usize, t: f64) -> (P, P) {
         let d = self.radius.dual(&[(SLOT_T, t)], SLOT_T);
-        let (s, c) = t.sin_cos();
+        let (s, c) = portable::sin_cos(t);
         self.frame.out((
             [d.value * c, d.value * s],
             [
@@ -490,11 +491,11 @@ impl Curves for PolarSpec {
 impl Data<PolarSpec> {
     fn locate(&self, p: P) -> Location {
         let q = self.spec.frame.from.map_um(p);
-        let r = q[0].hypot(q[1]);
+        let r = portable::hypot(q[0], q[1]);
         if r == 0.0 {
             return Location::Inside;
         }
-        let mut theta = q[1].atan2(q[0]);
+        let mut theta = portable::atan2(q[1], q[0]);
         if theta < 0.0 {
             theta += TAU;
         }
@@ -573,10 +574,7 @@ impl Polar {
     fn build(spec: PolarSpec) -> Result<Polar> {
         let corner = {
             let (a, b) = (spec.at(0, 0.0).1, spec.at(0, TAU).1);
-            (a[0] * b[1] - a[1] * b[0])
-                .atan2(a[0] * b[0] + a[1] * b[1])
-                .abs()
-                > 1e-9
+            portable::atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]).abs() > 1e-9
         };
         let (u0, u1) = if spec.frame.mirrored() {
             (TAU, 0.0)
@@ -707,7 +705,7 @@ impl ClosedCurve {
         let b = super::bounds_um(&points);
         let size = (b.max.x - b.min.x).to_um().max((b.max.y - b.min.y).to_um());
         let (first, last) = (points[0], points[points.len() - 1]);
-        if (first[0] - last[0]).hypot(first[1] - last[1]) > 1e-9 * size {
+        if portable::hypot(first[0] - last[0], first[1] - last[1]) > 1e-9 * size {
             return Err(closed_error(format!(
                 "the curve ({}, {}) doesn't close: it starts at ({:.6}, {:.6}) um and ends at \
                  ({:.6}, {:.6}) um",
@@ -731,10 +729,7 @@ impl ClosedCurve {
     fn build(spec: ClosedSpec) -> Result<ClosedCurve> {
         let corner = {
             let (a, b) = (spec.at(0, 0.0).1, spec.at(0, 1.0).1);
-            (a[0] * b[1] - a[1] * b[0])
-                .atan2(a[0] * b[0] + a[1] * b[1])
-                .abs()
-                > 1e-9
+            portable::atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]).abs() > 1e-9
         };
         let span = |u0: f64, u1: f64| Span {
             curve: 0,

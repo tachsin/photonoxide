@@ -8,6 +8,7 @@ use super::array::TESTED;
 use super::array_checks as checks;
 use super::boolean_checks::{circle, rect};
 use super::*;
+use crate::portable;
 use crate::units::Length;
 
 fn um(v: f64) -> Length {
@@ -206,7 +207,7 @@ fn touching_and_overlapping_elements_are_their_union() {
     // tooth meets the spine, not to the shared edge
     let d = comb.distance(Point::um(0.0, -0.01));
     assert!(
-        (d.signed.to_um() + 0.125f64.hypot(0.01)).abs() < 1e-6,
+        (d.signed.to_um() + portable::hypot(0.125f64, 0.01)).abs() < 1e-6,
         "{:?}",
         d
     );

@@ -48,6 +48,7 @@ use std::path::Path;
 use num_complex::Complex64 as c64;
 
 use crate::circuit::{SMatrix, Spectrum};
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
 
@@ -452,15 +453,21 @@ impl Touchstone {
         let pair = |v: c64| -> Result<String> {
             let (a, b) = match self.format {
                 Format::RealImaginary => (v.re, v.im),
-                Format::MagnitudeAngle => (v.norm(), v.arg().to_degrees()),
+                Format::MagnitudeAngle => (
+                    portable::complex::abs(v),
+                    portable::complex::arg(v).to_degrees(),
+                ),
                 Format::DecibelAngle => {
-                    if v.norm() == 0.0 {
+                    if portable::complex::abs(v) == 0.0 {
                         return Err(Error::invalid(
                             "touchstone data",
                             "a zero value has no decibels: write it in RI or MA",
                         ));
                     }
-                    (20.0 * v.norm().log10(), v.arg().to_degrees())
+                    (
+                        20.0 * portable::log10(portable::complex::abs(v)),
+                        portable::complex::arg(v).to_degrees(),
+                    )
                 }
             };
             Ok(format!("{} {}", num(a), num(b)))
@@ -762,8 +769,10 @@ impl Reader<'_> {
     fn pair(format: Format, a: f64, b: f64) -> c64 {
         match format {
             Format::RealImaginary => c64::new(a, b),
-            Format::MagnitudeAngle => c64::from_polar(a, b.to_radians()),
-            Format::DecibelAngle => c64::from_polar(10f64.powf(a / 20.0), b.to_radians()),
+            Format::MagnitudeAngle => portable::complex::from_polar(a, b.to_radians()),
+            Format::DecibelAngle => {
+                portable::complex::from_polar(portable::powf(10f64, a / 20.0), b.to_radians())
+            }
         }
     }
 

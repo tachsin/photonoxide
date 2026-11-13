@@ -2,6 +2,7 @@
 //! [`crate::stack`]'s structures both read. It is [`crate::stack::Etch`] there; it lives here, under
 //! both, so that the geometry doesn't import the stack.
 
+use crate::portable;
 use crate::units::Length;
 
 /// How the edges of a shape on a layer were etched: how deep from the layer's top, and the
@@ -65,7 +66,7 @@ impl Etch {
     /// How far a wall reaches out per unit of depth, cot θ: 0 for a vertical wall (θ within
     /// 1e-12 of π/2).
     pub fn run(&self) -> f64 {
-        let (s, c) = self.sidewall.sin_cos();
+        let (s, c) = portable::sin_cos(self.sidewall);
         if c.abs() <= 1e-12 { 0.0 } else { c / s }
     }
 

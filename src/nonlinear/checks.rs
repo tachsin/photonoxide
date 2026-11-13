@@ -14,6 +14,7 @@ use crate::nonlinear::phase::{
     Device, Expansion, HALF_MAXIMUM, Index, Plane, Polarization, Process, State, Type, Uniaxial,
     Variable, Wave, effective_d, first_order_tilt, phase_matching_temperature, sinc2, undepleted,
 };
+use crate::portable;
 use crate::units::Wavelength;
 use crate::verdict::{Case, Outcome, Tier, note_numerical};
 
@@ -436,7 +437,7 @@ pub(crate) fn coupled_undepleted(steps: usize) -> (f64, f64) {
         .map_or(f64::NAN, |a| a[1].norm_sqr());
     (
         ours,
-        shg.coupling.powi(2) * p0 * p0 * undepleted(shg.mismatch, LENGTH),
+        portable::powi(shg.coupling, 2) * p0 * p0 * undepleted(shg.mismatch, LENGTH),
     )
 }
 
@@ -458,7 +459,7 @@ pub(crate) fn coupled_lossy(steps: usize) -> (f64, f64) {
 /// (ours, P₀ tanh²(2)), the harmonic's share.
 pub(crate) fn coupled_tanh(steps: usize) -> (f64, f64) {
     let coupling = coupling_from_efficiency(4500.0);
-    let p0 = (2.0 / (coupling * LENGTH)).powi(2);
+    let p0 = portable::powi(2.0 / (coupling * LENGTH), 2);
     let shg = SecondHarmonic {
         coupling,
         mismatch: 0.0,
@@ -467,7 +468,7 @@ pub(crate) fn coupled_tanh(steps: usize) -> (f64, f64) {
     let ours = shg
         .propagate([real(p0.sqrt()), real(0.0)], LENGTH, steps)
         .map_or(f64::NAN, |a| a[1].norm_sqr() / p0);
-    (ours, 2.0_f64.tanh().powi(2))
+    (ours, portable::powi(portable::tanh(2.0_f64), 2))
 }
 
 /// 1.55 and 1.31 µm summed with equal photon fluxes F, phase matched: the sum's share
@@ -482,7 +483,7 @@ pub(crate) fn coupled_sech(steps: usize) -> (f64, f64) {
     let [n1, n2] = tw.frequencies;
     let n3 = n1 + n2;
     // F so that L = 2l
-    let flux = (2.0 / (tw.coupling * LENGTH)).powi(2) * n3 / (n1 * n2);
+    let flux = portable::powi(2.0 / (tw.coupling * LENGTH), 2) * n3 / (n1 * n2);
     let start = [
         real((n1 * flux).sqrt()),
         real((n2 * flux).sqrt()),
@@ -491,7 +492,7 @@ pub(crate) fn coupled_sech(steps: usize) -> (f64, f64) {
     let ours = tw
         .propagate(start, LENGTH, steps)
         .map_or(f64::NAN, |a| a[2].norm_sqr() / (n3 * flux));
-    (ours, 2.0_f64.tanh().powi(2))
+    (ours, portable::powi(portable::tanh(2.0_f64), 2))
 }
 
 /// Parametric amplification of 1.55 µm by an undepleted 0.775 µm pump, phase matched: the
@@ -504,11 +505,14 @@ pub(crate) fn coupled_cosh(steps: usize) -> (f64, f64) {
         loss: [0.0; 3],
     };
     let [n1, n2] = tw.frequencies;
-    let pump = (2.0 / LENGTH * (n1 + n2) / (tw.coupling * (n1 * n2).sqrt())).powi(2);
+    let pump = portable::powi(
+        2.0 / LENGTH * (n1 + n2) / (tw.coupling * (n1 * n2).sqrt()),
+        2,
+    );
     let ours = tw
         .propagate([real(1e-12), real(0.0), real(pump.sqrt())], LENGTH, steps)
         .map_or(f64::NAN, |a| a[0].norm_sqr() / 1e-24);
-    (ours, 2.0_f64.cosh().powi(2))
+    (ours, portable::powi(portable::cosh(2.0_f64), 2))
 }
 
 /// Strongly depleted, mismatched mixing of 1.55 and 1.31 µm from three nonzero inputs: the
@@ -597,7 +601,7 @@ fn coupled_order_case() -> Outcome {
         let (a, b) = coupled_tanh(n);
         (a / b - 1.0).abs()
     };
-    let order = (e(125) / e(250)).log2();
+    let order = portable::log2(e(125) / e(250));
     let shown = (order * 100.0).round() / 100.0;
     Outcome {
         measured: shown,
@@ -637,7 +641,7 @@ pub(crate) fn pairs_gaussian(n: usize) -> (f64, f64) {
     };
     // ln f = −2 ln 2 (δs + δi)²/Δν² − γ (πL)² (A δs + B δi)², A = g_p − g_s, B = g_p − g_i
     let p = 2.0 * std::f64::consts::LN_2 / 1e-6;
-    let g = gaussian_gamma() * (std::f64::consts::PI * length).powi(2);
+    let g = gaussian_gamma() * portable::powi(std::f64::consts::PI * length, 2);
     let (a, b) = (gp - gs, gp - gi);
     let closed = gaussian_purity(p + g * a * a, p + g * b * b, p + g * a * b);
     (run().unwrap_or(f64::NAN), closed)

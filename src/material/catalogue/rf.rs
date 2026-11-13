@@ -697,8 +697,13 @@ mod tests {
         assert!((mean(1, &|p| p.0 * p.0) - 28.22).abs() < 5e-3);
         // a least-squares power law through each panel's tan δ rises 9 to 10 % from 91 to 147 GHz
         for (panel, rise) in [(0, 0.099), (1, 0.090)] {
-            let xs: Vec<f64> = (0..29).map(|k| lee_frequency(k).ln()).collect();
-            let ys: Vec<f64> = LEE_FIG_2[panel].iter().map(|p| p.1.ln()).collect();
+            let xs: Vec<f64> = (0..29)
+                .map(|k| crate::portable::ln(lee_frequency(k)))
+                .collect();
+            let ys: Vec<f64> = LEE_FIG_2[panel]
+                .iter()
+                .map(|p| crate::portable::ln(p.1))
+                .collect();
             let (mx, my) = (xs.iter().sum::<f64>() / 29.0, ys.iter().sum::<f64>() / 29.0);
             let slope = xs
                 .iter()
@@ -706,7 +711,7 @@ mod tests {
                 .map(|(x, y)| (x - mx) * (y - my))
                 .sum::<f64>()
                 / xs.iter().map(|x| (x - mx) * (x - mx)).sum::<f64>();
-            let fitted = (147.0f64 / 91.0).powf(slope) - 1.0;
+            let fitted = crate::portable::powf(147.0f64 / 91.0, slope) - 1.0;
             assert!((fitted - rise).abs() < 1e-3, "{panel}: {fitted}");
         }
     }

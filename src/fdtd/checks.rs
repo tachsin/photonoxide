@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::fdfd::{Boundaries3d, Solver3d};
+use crate::portable;
 use crate::units::Wavelength;
 
 pub(crate) fn grid(n: [usize; 3], h: f64) -> Grid3d {
@@ -51,7 +52,7 @@ pub(crate) fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
     for j in 0..g.ny {
         for i in 0..g.nx {
             let [x, y, _] = g.e_position(Axis::Z, (i, j, 0));
-            s.e_mut(Axis::Z)[j * g.nx + i] = (kx * x + ky * y).cos();
+            s.e_mut(Axis::Z)[j * g.nx + i] = portable::cos(kx * x + ky * y);
         }
     }
     // a point where the wave is large
@@ -71,11 +72,11 @@ pub(crate) fn dispersion(m: (usize, usize), courant: f64) -> (f64, f64) {
         num += series[n] * (series[n + 1] + series[n - 1]);
         den += 2.0 * series[n] * series[n];
     }
-    let measured = (num / den).acos();
+    let measured = portable::acos(num / den);
     let dt = s.dt();
-    let lambda = 4.0 / (g.dx * g.dx) * (kx * g.dx / 2.0).sin().powi(2)
-        + 4.0 / (g.dy * g.dy) * (ky * g.dy / 2.0).sin().powi(2);
-    let theory = 2.0 * (dt * lambda.sqrt() / 2.0).asin();
+    let lambda = 4.0 / (g.dx * g.dx) * portable::powi(portable::sin(kx * g.dx / 2.0), 2)
+        + 4.0 / (g.dy * g.dy) * portable::powi(portable::sin(ky * g.dy / 2.0), 2);
+    let theory = 2.0 * portable::asin(dt * lambda.sqrt() / 2.0);
     (measured, theory)
 }
 
@@ -341,7 +342,7 @@ pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -
     let mut amplitude: Vec<c64> = vec![c64::new(0.0, 0.0); 3 * cells];
     for _ in 0..periods * steps_per_period {
         s.step();
-        let w = c64::new(0.0, omega * s.time()).exp();
+        let w = portable::complex::exp(c64::new(0.0, omega * s.time()));
         for c in Axis::ALL {
             for (r, &v) in s.e(c).iter().enumerate() {
                 amplitude[c.index() * cells + r] += v * w;
@@ -355,7 +356,9 @@ pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -
     let mut current = vec![c64::new(0.0, 0.0); g.unknowns()];
     current[g.index(Axis::Y, at)] = c64::new(1.0, 0.0);
     let compare = |at_omega: f64| -> f64 {
-        let loss = conductivity.map_or(0.0, |sigma| sigma * (omega * dt / 2.0).cos() / at_omega);
+        let loss = conductivity.map_or(0.0, |sigma| {
+            sigma * portable::cos(omega * dt / 2.0) / at_omega
+        });
         let fdfd_eps = move |x: f64, y: f64, z: f64| c64::new(eps(x, y, z), loss);
         let lam = Wavelength::um(std::f64::consts::TAU / at_omega).unwrap();
         let fdfd = Solver3d::new(g, lam, fdfd_eps, Boundaries3d::pml(pml))
@@ -372,16 +375,18 @@ pub(crate) fn against_fdfd(steps_per_period: usize, conductivity: Option<f64>) -
             .iter()
             .enumerate()
             .filter(|(r, _)| inside(*r))
-            .fold(0.0f64, |m, (_, v)| m.max(v.norm()));
+            .fold(0.0f64, |m, (_, v)| m.max(portable::complex::abs(*v)));
         fdfd.values()
             .iter()
             .zip(&amplitude)
             .enumerate()
             .filter(|(r, _)| inside(*r))
-            .fold(0.0f64, |m, (_, (a, b))| m.max((a - b).norm()))
+            .fold(0.0f64, |m, (_, (a, b))| {
+                m.max(portable::complex::abs(a - b))
+            })
             / largest
     };
-    let tilde = 2.0 / dt * (omega * dt / 2.0).sin();
+    let tilde = 2.0 / dt * portable::sin(omega * dt / 2.0);
     (compare(tilde), compare(omega))
 }
 
@@ -394,7 +399,7 @@ pub(crate) fn dft_e(s: &mut Simulation, steps: usize, frequencies: &[f64]) -> Ve
         s.step();
         let t = s.time();
         for (f, sum) in frequencies.iter().zip(out.iter_mut()) {
-            let w = c64::new(0.0, std::f64::consts::TAU * f * t).exp() * s.dt();
+            let w = portable::complex::exp(c64::new(0.0, std::f64::consts::TAU * f * t)) * s.dt();
             for c in Axis::ALL {
                 for (r, &v) in s.e(c).iter().enumerate() {
                     sum[c.index() * cells + r] += v * w;
@@ -447,7 +452,7 @@ pub(crate) fn spectrum_against_fdfd() -> f64 {
         let frequency = Frequency::natural(*f).unwrap();
         let omega = frequency.angular();
         let tilde = s.leapfrog_wavenumber(frequency);
-        let loss = sigma * (omega * dt / 2.0).cos() / tilde;
+        let loss = sigma * portable::cos(omega * dt / 2.0) / tilde;
         let lam = Wavelength::um(std::f64::consts::TAU / tilde).unwrap();
         let solver = Solver3d::new(
             g,
@@ -471,11 +476,13 @@ pub(crate) fn spectrum_against_fdfd() -> f64 {
             .zip(from_m.values())
             .map(|(a, b)| a + b)
             .collect();
-        let largest = fdfd.iter().fold(0.0f64, |w, v| w.max(v.norm()));
+        let largest = fdfd
+            .iter()
+            .fold(0.0f64, |w, v| w.max(portable::complex::abs(*v)));
         let error = fdfd
             .iter()
             .zip(dft)
-            .fold(0.0f64, |w, (a, b)| w.max((a - b).norm()));
+            .fold(0.0f64, |w, (a, b)| w.max(portable::complex::abs(a - b)));
         worst = worst.max(error / largest);
     }
     worst
@@ -612,7 +619,7 @@ pub(crate) fn tfsf_slab(h: f64) -> f64 {
         let es = s.e(Axis::X)[front.2];
         let ei = s.incident(wave, Field::E, Axis::X, inside);
         for (q, f) in frequencies.iter().enumerate() {
-            let w = c64::new(0.0, std::f64::consts::TAU * f * t).exp();
+            let w = portable::complex::exp(c64::new(0.0, std::f64::consts::TAU * f * t));
             scattered[q] += es * w;
             incident[q] += ei * w;
         }
@@ -624,7 +631,10 @@ pub(crate) fn tfsf_slab(h: f64) -> f64 {
             let measured = (scattered[q] / incident[q]).norm_sqr();
             let n2 = eps_slab.sqrt();
             let r12 = (1.0 - n2) / (1.0 + n2);
-            let phase = c64::new(0.0, 2.0 * n2 * std::f64::consts::TAU * f * thickness).exp();
+            let phase = portable::complex::exp(c64::new(
+                0.0,
+                2.0 * n2 * std::f64::consts::TAU * f * thickness,
+            ));
             let r = r12 * (1.0 - phase) / (1.0 - r12 * r12 * phase);
             (measured - r.norm_sqr()).abs()
         })
@@ -644,7 +654,7 @@ pub(crate) fn steady_amplitude(
     let mut amplitude = vec![c64::new(0.0, 0.0); 3 * cells];
     for _ in 0..periods * steps_per_period {
         s.step();
-        let w = c64::new(0.0, omega * s.time()).exp();
+        let w = portable::complex::exp(c64::new(0.0, omega * s.time()));
         for c in Axis::ALL {
             for (r, &v) in s.e(c).iter().enumerate() {
                 amplitude[c.index() * cells + r] += v * w;
@@ -686,7 +696,7 @@ pub(crate) fn mode_source_against_fdfd() -> f64 {
         .unwrap();
     let dt = s.dt();
     let tilde = s.leapfrog_wavenumber(frequency);
-    let loss = sigma * (frequency.angular() * dt / 2.0).cos() / tilde;
+    let loss = sigma * portable::cos(frequency.angular() * dt / 2.0) / tilde;
     let solver = Solver3d::new(
         g,
         s.fdfd_wavelength(frequency).unwrap(),
@@ -711,11 +721,14 @@ pub(crate) fn mode_source_against_fdfd() -> f64 {
     let fdfd = solver
         .solve_system(&solver.mode_source(&mode, crate::fdfd::Direction::Forward))
         .unwrap();
-    let largest = fdfd.values().iter().fold(0.0f64, |m, v| m.max(v.norm()));
+    let largest = fdfd
+        .values()
+        .iter()
+        .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
     fdfd.values()
         .iter()
         .zip(&amplitude)
-        .fold(0.0f64, |m, (a, b)| m.max((a - b).norm()))
+        .fold(0.0f64, |m, (a, b)| m.max(portable::complex::abs(a - b)))
         / largest
 }
 
@@ -742,7 +755,7 @@ pub(crate) fn mode_source_open(pulse: bool) -> Vec<(f64, f64, f64)> {
     let dt = s.dt();
     let lattice = |f: f64| {
         // FDFD at the leapfrog's frequency, (2/Δt) sin(ωΔt/2)
-        let tilde = 2.0 / dt * (std::f64::consts::PI * f * dt).sin();
+        let tilde = 2.0 / dt * portable::sin(std::f64::consts::PI * f * dt);
         let lam = Wavelength::um(std::f64::consts::TAU / tilde).unwrap();
         IterativeSolver3d::new(
             g,
@@ -863,7 +876,7 @@ pub(crate) fn beam(angle: f64) -> BeamMeasured {
     .unwrap();
     s.run(32 * steps_per_period);
     let amplitude = steady_amplitude(&mut s, frequency, steps_per_period, 2);
-    let ez = |i: usize, j: usize| amplitude[g.index(Axis::Z, (i, j, 0))].norm();
+    let ez = |i: usize, j: usize| portable::complex::abs(amplitude[g.index(Axis::Z, (i, j, 0))]);
     let columns = [2.0, 5.0, 8.0, 11.0, 14.0]
         .into_iter()
         .map(|d| {
@@ -871,7 +884,7 @@ pub(crate) fn beam(angle: f64) -> BeamMeasured {
             let (mut total, mut first, mut second) = (0.0, 0.0, 0.0);
             for j in 0..g.ny {
                 let y = g.node(Axis::Y, j);
-                let p = ez(i, j).powi(2);
+                let p = portable::powi(ez(i, j), 2);
                 total += p;
                 first += p * y;
                 second += p * y * y;
@@ -942,11 +955,12 @@ pub(crate) fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f6
     let slope = |ky: f64| -> Option<f64> {
         match grid {
             Some((h, dt)) => {
-                let tilde = 2.0 / dt * (omega * dt / 2.0).sin();
-                let s = (tilde * h / 2.0).powi(2) - (ky * h / 2.0).sin().powi(2);
+                let tilde = 2.0 / dt * portable::sin(omega * dt / 2.0);
+                let s = portable::powi(tilde * h / 2.0, 2)
+                    - portable::powi(portable::sin(ky * h / 2.0), 2);
                 (s > 0.0).then(|| {
-                    let kx = 2.0 / h * s.sqrt().asin();
-                    (ky * h).sin() / (kx * h).sin()
+                    let kx = 2.0 / h * portable::asin(s.sqrt());
+                    portable::sin(ky * h) / portable::sin(kx * h)
                 })
             }
             None => {
@@ -969,7 +983,7 @@ pub(crate) fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f6
         } else {
             2.0
         };
-        let weight = (-ky * ky * waist * waist / 2.0).exp() * factor;
+        let weight = portable::exp(-ky * ky * waist * waist / 2.0) * factor;
         if let Some(v) = slope(ky) {
             weighted += weight * v * v;
         }
@@ -985,20 +999,20 @@ pub(crate) fn beam_divergence(waist: f64, wavelength: f64, grid: Option<(f64, f6
 /// dispersion. tan(angle) is the continuum's paraxial limit.
 pub(crate) fn beam_centre_slope(waist: f64, angle: f64, wavelength: f64, h: f64, dt: f64) -> f64 {
     let omega = std::f64::consts::TAU / wavelength;
-    let tilde = 2.0 / dt * (omega * dt / 2.0).sin();
+    let tilde = 2.0 / dt * portable::sin(omega * dt / 2.0);
     let points = 20_000;
     let span = (10.0 / waist).min(0.999 * tilde);
     let step = 2.0 * span / points as f64;
     let (mut weighted, mut total) = (0.0, 0.0);
     for i in 0..=points {
         let kappa = -span + i as f64 * step;
-        let phi = angle + (kappa / tilde).asin();
-        let ky = tilde * phi.sin();
-        let s = (tilde * h / 2.0).powi(2) - (ky * h / 2.0).sin().powi(2);
-        if s <= 0.0 || phi.cos() <= 0.0 {
+        let phi = angle + portable::asin(kappa / tilde);
+        let ky = tilde * portable::sin(phi);
+        let s = portable::powi(tilde * h / 2.0, 2) - portable::powi(portable::sin(ky * h / 2.0), 2);
+        if s <= 0.0 || portable::cos(phi) <= 0.0 {
             continue;
         }
-        let kx = 2.0 / h * s.sqrt().asin();
+        let kx = 2.0 / h * portable::asin(s.sqrt());
         let factor = if i == 0 || i == points {
             1.0
         } else if i % 2 == 1 {
@@ -1007,9 +1021,9 @@ pub(crate) fn beam_centre_slope(waist: f64, angle: f64, wavelength: f64, h: f64,
             2.0
         };
         // |A(k_y)|² dk_y = |a(κ)|² (dκ/dk_y) dκ
-        let jacobian = (phi - angle).cos() / phi.cos();
-        let weight = (-kappa * kappa * waist * waist / 2.0).exp() * jacobian * factor;
-        weighted += weight * (ky * h).sin() / (kx * h).sin();
+        let jacobian = portable::cos(phi - angle) / portable::cos(phi);
+        let weight = portable::exp(-kappa * kappa * waist * waist / 2.0) * jacobian * factor;
+        weighted += weight * portable::sin(ky * h) / portable::sin(kx * h);
         total += weight;
     }
     weighted / total
@@ -1061,8 +1075,9 @@ pub(crate) fn plane_wave_amplitude(h: f64) -> f64 {
     let mut dft = c64::new(0.0, 0.0);
     for _ in 0..steps {
         s.step();
-        let w = c64::new(0.0, frequency.angular() * s.time()).exp() * s.dt();
+        let w = portable::complex::exp(c64::new(0.0, frequency.angular() * s.time())) * s.dt();
         dft += s.incident(wave, Field::E, Axis::X, at) * w;
     }
-    dft.norm() / waveform.spectrum(Field::E, s.dt(), steps, frequency).norm()
+    portable::complex::abs(dft)
+        / portable::complex::abs(waveform.spectrum(Field::E, s.dt(), steps, frequency))
 }

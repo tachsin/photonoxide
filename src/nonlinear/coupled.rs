@@ -32,6 +32,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// κ (1/(√W·µm)) from a normalized efficiency η in %/(W·cm²): η = κ², and
@@ -67,7 +68,7 @@ impl SecondHarmonic {
         let (k, dk, [a1, a2]) = (self.coupling, self.mismatch, self.loss);
         let i = c64::new(0.0, 1.0);
         let f = |z: f64, a: &[c64; 2]| {
-            let e = c64::from_polar(1.0, dk * z);
+            let e = portable::complex::from_polar(1.0, dk * z);
             [
                 -i * k * a[0].conj() * a[1] * e - 0.5 * a1 * a[0],
                 -i * k * a[0] * a[0] * e.conj() - 0.5 * a2 * a[1],
@@ -111,7 +112,7 @@ impl ThreeWave {
         let (k, dk, [a1, a2, a3]) = (self.coupling, self.mismatch, self.loss);
         let i = c64::new(0.0, 1.0);
         let f = |z: f64, a: &[c64; 3]| {
-            let e = c64::from_polar(1.0, dk * z);
+            let e = portable::complex::from_polar(1.0, dk * z);
             [
                 -i * k * (n1 / n3) * a[1].conj() * a[2] * e - 0.5 * a1 * a[0],
                 -i * k * (n2 / n3) * a[0].conj() * a[2] * e - 0.5 * a2 * a[1],
@@ -167,12 +168,12 @@ fn rk4<const N: usize>(
 pub fn undepleted_lossy_shg(shg: &SecondHarmonic, p0: f64, length: f64) -> f64 {
     let [a1, a2] = shg.loss;
     let g = c64::new(-a1 + a2 / 2.0, -shg.mismatch);
-    let integral = if g.norm() * length < 1e-8 {
+    let integral = if portable::complex::abs(g) * length < 1e-8 {
         c64::new(length, 0.0)
     } else {
-        ((g * length).exp() - 1.0) / g
+        (portable::complex::exp(g * length) - 1.0) / g
     };
-    shg.coupling * shg.coupling * p0 * p0 * (-a2 * length).exp() * integral.norm_sqr()
+    shg.coupling * shg.coupling * p0 * p0 * portable::exp(-a2 * length) * integral.norm_sqr()
 }
 
 #[cfg(test)]

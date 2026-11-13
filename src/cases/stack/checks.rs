@@ -10,6 +10,7 @@ use crate::geometry::{Point, Shape};
 use crate::material::{Material, Model, Provenance};
 use crate::mode::Polarization;
 use crate::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -165,7 +166,7 @@ pub(crate) fn vertical_bits() -> f64 {
                     cs.cell(i as isize, j as isize),
                     reference.cell(i as isize, j as isize),
                 );
-                worst = worst.max((a.xx - b.xx).norm());
+                worst = worst.max(portable::complex::abs(a.xx - b.xx));
             }
         }
         worst = worst.max((fundamental(&cs, lam) - n0).abs());
@@ -202,7 +203,7 @@ pub(crate) fn sloped_fill() -> f64 {
     };
     let (film, w) = (0.22, 0.5);
     for angle in [60.0f64, 75.0, 85.0] {
-        let cot = 1.0 / angle.to_radians().tan();
+        let cot = 1.0 / portable::tan(angle.to_radians());
         // its top face w wide, widening by cot θ per µm down
         let s = guide(
             one_layer(1.444, 3.476, 1.444, film),
@@ -233,7 +234,7 @@ pub(crate) fn wide_rib() -> (f64, f64) {
     let widths = [8.0, 16.0];
     let n = widths.map(|w| rib_te(w, 0.5, 0.05, w / 2.0 + 3.0, 4.0, 1.0));
     // n(W) = n∞ − C/W²: from two widths
-    let r = (widths[1] / widths[0]).powi(2);
+    let r = portable::powi(widths[1] / widths[0], 2);
     let limit = (r * n[1] - n[0]) / (r - 1.0);
     (limit, exact)
 }
@@ -281,7 +282,7 @@ pub(crate) fn hadley_table() -> f64 {
 /// The rib's (0.5 µm slab) order of convergence by Hadley's equations from 100 to 25 nm.
 pub(crate) fn rib_order() -> f64 {
     let n = [0.1, 0.05, 0.025].map(|h| rib_te(3.0, 0.5, h, 5.0, 4.0, 1.0));
-    ((n[0] - n[1]) / (n[1] - n[2])).abs().log2()
+    portable::log2(((n[0] - n[1]) / (n[1] - n[2])).abs())
 }
 
 /// The exact HE₁₁ effective index of a round rod of index `n1` and radius `a` µm in `n2` at
@@ -294,7 +295,7 @@ pub(crate) fn he11(n1: f64, n2: f64, a: f64, wavelength: Wavelength) -> f64 {
         (0..k)
             .map(|i| {
                 let t = (i as f64 + 0.5) / k as f64 * std::f64::consts::PI;
-                (n * t - x * t.sin()).cos()
+                portable::cos(n * t - x * portable::sin(t))
             })
             .sum::<f64>()
             / k as f64
@@ -304,7 +305,7 @@ pub(crate) fn he11(n1: f64, n2: f64, a: f64, wavelength: Wavelength) -> f64 {
         (0..k)
             .map(|i| {
                 let t = (i as f64 + 0.5) / k as f64 * top;
-                (-x * t.cosh()).exp() * (n * t).cosh()
+                portable::exp(-x * portable::cosh(t)) * portable::cosh(n * t)
             })
             .sum::<f64>()
             * top
@@ -354,14 +355,14 @@ pub(crate) fn rod(h: f64) -> (f64, f64) {
         for j in 0..n {
             let (x0, y0) = (x[i], x[j]);
             // the disc's share of the cell, from 64 × 64 samples where its edge crosses it
-            let r = (0.5 * (x[i] + x[i + 1])).hypot(0.5 * (x[j] + x[j + 1]));
+            let r = portable::hypot(0.5 * (x[i] + x[i + 1]), 0.5 * (x[j] + x[j + 1]));
             let f = if (r - a).abs() < h {
                 let k = 64;
                 let inside = (0..k * k)
                     .filter(|s| {
                         let px = x0 + ((s % k) as f64 + 0.5) / k as f64 * (x[i + 1] - x0);
                         let py = y0 + ((s / k) as f64 + 0.5) / k as f64 * (x[j + 1] - y0);
-                        px.hypot(py) < a
+                        portable::hypot(px, py) < a
                     })
                     .count();
                 inside as f64 / (k * k) as f64

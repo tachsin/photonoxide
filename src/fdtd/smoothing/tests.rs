@@ -3,6 +3,7 @@ use super::super::{Field, Source, Waveform};
 use super::checks::*;
 use super::*;
 use crate::geometry::{Point, Polygon, Shape};
+use crate::portable;
 use crate::units::{Frequency, Length};
 
 fn smoothing(average: Average, coupling: Coupling) -> Smoothing {
@@ -61,7 +62,11 @@ fn the_share_a_plane_cuts_off_a_cell_is_exact() {
 #[test]
 fn smoothing_isotropic_media_is_farjadpours_eq_1() {
     // ε̃⁻¹ = P⟨ε⁻¹⟩ + (1 − P)⟨ε⟩⁻¹ across an oblique plane
-    let n = [0.4f64.cos() * 0.8, 0.4f64.sin() * 0.8, 0.6];
+    let n = [
+        portable::cos(0.4f64) * 0.8,
+        portable::sin(0.4f64) * 0.8,
+        0.6,
+    ];
     let body = Body::half_space([0.013, -0.02, 0.0], n).unwrap();
     let s = Structure::new(Permittivity::isotropic(1.0).unwrap())
         .with(body, Permittivity::isotropic(12.0).unwrap());
@@ -93,7 +98,7 @@ fn an_etched_bodys_sloped_wall_smooths_as_its_plane_does() {
     // a 10 µm square's mesa 220 nm tall, its walls at 80 degrees: a cell on a wall, away from
     // the faces and the corners, sees the wall's plane exactly
     let angle = 80f64.to_radians();
-    let run = 1.0 / angle.tan();
+    let run = 1.0 / portable::tan(angle);
     let square = Shape::rect(Point::um(0.0, 0.0), Length::um(10.0), Length::um(10.0)).unwrap();
     let mesa = Body::etched(square, [0.0, 0.22], angle).unwrap();
     let si = Permittivity::isotropic(12.08).unwrap();
@@ -268,7 +273,10 @@ fn an_anisotropic_slabs_reflection_matrix_is_the_exact_one() {
     // axes of its transverse tensor, second order
     let eps = tilted_crystal();
     let exact = slab_exact(eps);
-    assert!(exact.iter().all(|r| r[1].norm() > 0.03), "{exact:?}");
+    assert!(
+        exact.iter().all(|r| portable::complex::abs(r[1]) > 0.03),
+        "{exact:?}"
+    );
     let (coarse, fine) = (
         slab_error(1.0 / 40.0, eps, Smoothing::default()),
         slab_error(1.0 / 80.0, eps, Smoothing::default()),
@@ -470,7 +478,8 @@ fn harmonic_inversion_finds_a_sums_frequencies_and_decays() {
     let signal: Vec<f64> = (0..300)
         .map(|n| {
             let t = n as f64 * dt;
-            2.0 * (1.3 * t + 0.4).cos() * (-0.01 * t).exp() + 0.5 * (2.9 * t).sin()
+            2.0 * portable::cos(1.3 * t + 0.4) * portable::exp(-0.01 * t)
+                + 0.5 * portable::sin(2.9 * t)
         })
         .collect();
     let mut found = harmonics(&[signal], dt);
@@ -574,7 +583,10 @@ fn the_triplets_are_the_nodes_at_interfaces_along_the_grid() {
         let nodes = slab_reflection(1.0 / 40.0, eps, Coupling::Nodes);
         let triplets = slab_reflection(1.0 / 40.0, eps, Coupling::Triplets);
         for (a, b) in nodes.iter().zip(&triplets) {
-            assert!((a[0] - b[0]).norm() < 1e-12 && (a[1] - b[1]).norm() < 1e-12);
+            assert!(
+                portable::complex::abs(a[0] - b[0]) < 1e-12
+                    && portable::complex::abs(a[1] - b[1]) < 1e-12
+            );
         }
     }
     // and in a uniform anisotropic medium they are Werner and Cary's interpolation: plane
@@ -618,7 +630,10 @@ fn the_diagonal_is_the_nodes_at_interfaces_along_the_grid_and_couples_nothing() 
     let nodes = slab_reflection(1.0 / 40.0, eps, Coupling::Nodes);
     let diagonal = slab_reflection(1.0 / 40.0, eps, Coupling::Diagonal);
     for (a, b) in nodes.iter().zip(&diagonal) {
-        assert!((a[0] - b[0]).norm() < 1e-12 && (a[1] - b[1]).norm() < 1e-12);
+        assert!(
+            portable::complex::abs(a[0] - b[0]) < 1e-12
+                && portable::complex::abs(a[1] - b[1]) < 1e-12
+        );
     }
     // at the oblique layers no tensor is kept, and the diagonal is each value's own entry of
     // the nodes' ε̃⁻¹

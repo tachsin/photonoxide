@@ -24,6 +24,7 @@ use num_complex::Complex64 as c64;
 
 use super::matrix::{Matrix, qr};
 use super::rng::Rng;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A Haar-random n × n unitary, drawn with `seed`: the Q of the QR factorization of a matrix of
@@ -63,8 +64,8 @@ pub struct Cell {
 impl Cell {
     /// The cell's 2 × 2 matrix.
     pub fn block(&self) -> [[c64; 2]; 2] {
-        let e = c64::from_polar(1.0, self.phi);
-        let (s, c) = self.theta.sin_cos();
+        let e = portable::complex::from_polar(1.0, self.phi);
+        let (s, c) = portable::sin_cos(self.theta);
         [[e * c, c64::new(-s, 0.0)], [e * s, c64::new(c, 0.0)]]
     }
 }
@@ -108,7 +109,7 @@ impl Mesh {
             arrangement: Arrangement::Reck,
             modes: n,
             cells,
-            phases: (0..n).map(|i| u[(i, i)].arg()).collect(),
+            phases: (0..n).map(|i| portable::complex::arg(u[(i, i)])).collect(),
         })
     }
 
@@ -140,7 +141,9 @@ impl Mesh {
         }
         // left_k … left_1 U right_1⁻¹ … right_r⁻¹ = D, so U = left_1⁻¹ … left_k⁻¹ D right_r … right_1;
         // each left⁻¹ next to D moves through it: T⁻¹(θ, φ) D = D′ T(θ, φ′)
-        let mut d: Vec<c64> = (0..n).map(|i| u[(i, i)] / u[(i, i)].norm()).collect();
+        let mut d: Vec<c64> = (0..n)
+            .map(|i| u[(i, i)] / portable::complex::abs(u[(i, i)]))
+            .collect();
         let mut moved: Vec<Cell> = Vec::with_capacity(left.len());
         for cell in left.iter().rev() {
             let (m, k) = (cell.mode, cell.mode + 1);
@@ -148,9 +151,9 @@ impl Mesh {
             moved.push(Cell {
                 mode: m,
                 theta: cell.theta,
-                phi: (-dm / dn).arg(),
+                phi: portable::complex::arg(-dm / dn),
             });
-            d[m] = -c64::from_polar(1.0, -cell.phi) * dn;
+            d[m] = -portable::complex::from_polar(1.0, -cell.phi) * dn;
             d[k] = dn;
         }
         // U = D T′_1 … T′_k right_r … right_1: light meets right_1 … right_r, then T′_k (moved
@@ -161,7 +164,7 @@ impl Mesh {
             arrangement: Arrangement::Clements,
             modes: n,
             cells,
-            phases: d.iter().map(|z| z.arg()).collect(),
+            phases: d.iter().map(|z| portable::complex::arg(*z)).collect(),
         })
     }
 
@@ -205,7 +208,7 @@ impl Mesh {
     /// Clements et al.'s model of unbalanced loss (their Section 5).
     pub fn lossy(&self, db: f64) -> Matrix {
         let n = self.modes;
-        let amplitude = 10f64.powf(-db / 20.0);
+        let amplitude = portable::powf(10f64, -db / 20.0);
         let mut m = Matrix::identity(n);
         for cell in &self.cells {
             let t = cell.block();
@@ -217,7 +220,7 @@ impl Mesh {
             }
         }
         Matrix::from_fn(n, n, |i, j| {
-            c64::from_polar(1.0, self.phases[i]) * m[(i, j)]
+            portable::complex::from_polar(1.0, self.phases[i]) * m[(i, j)]
         })
     }
 }
@@ -254,9 +257,9 @@ fn null_from_right(u: &Matrix, row: usize, col: usize) -> Cell {
     let (x, y) = (u[(row, col)], u[(row, col + 1)]);
     Cell {
         mode: col,
-        theta: x.norm().atan2(y.norm()),
-        phi: if x.norm() > 0.0 && y.norm() > 0.0 {
-            x.arg() - y.arg()
+        theta: portable::atan2(portable::complex::abs(x), portable::complex::abs(y)),
+        phi: if portable::complex::abs(x) > 0.0 && portable::complex::abs(y) > 0.0 {
+            portable::complex::arg(x) - portable::complex::arg(y)
         } else {
             0.0
         },
@@ -269,9 +272,9 @@ fn null_from_left(u: &Matrix, row: usize, col: usize) -> Cell {
     let (x, y) = (u[(row, col)], u[(row + 1, col)]);
     Cell {
         mode: row,
-        theta: y.norm().atan2(x.norm()),
-        phi: if x.norm() > 0.0 && y.norm() > 0.0 {
-            y.arg() - x.arg() + PI
+        theta: portable::atan2(portable::complex::abs(y), portable::complex::abs(x)),
+        phi: if portable::complex::abs(x) > 0.0 && portable::complex::abs(y) > 0.0 {
+            portable::complex::arg(y) - portable::complex::arg(x) + PI
         } else {
             0.0
         },

@@ -9,6 +9,7 @@ use crate::fdtd::checks::{grid, noise};
 use crate::fdtd::{
     Boundaries, Cpml, Current, Device, Dipole, Field, FluxPlane, Simulation, Source, Waveform,
 };
+use crate::portable;
 use crate::units::Frequency;
 
 /// The largest difference of `a` from `b`, relative to the largest of `b`.
@@ -370,7 +371,7 @@ pub(crate) fn roden_gedney(device: &Device) -> [f64; 2] {
             .iter()
             .zip(reference)
             .fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
-        20.0 * (worst / largest).log10()
+        20.0 * portable::log10(worst / largest)
     };
     let m = 4.0;
     let optimal = Cpml::sigma_optimal(m, EPS, MM);

@@ -31,6 +31,7 @@ use i_overlay::float::overlay::{FloatOverlay, OverlayOptions};
 use super::boundary::{self, Conic, P};
 use super::primitives::{point, um};
 use super::region::{Contour, Polygons, Tolerance};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -139,7 +140,7 @@ pub(crate) fn perimeter(v: &[P]) -> f64 {
     (0..n)
         .map(|i| {
             let (a, b) = (v[i], v[(i + 1) % n]);
-            (b[0] - a[0]).hypot(b[1] - a[1])
+            portable::hypot(b[0] - a[0], b[1] - a[1])
         })
         .sum()
 }
@@ -206,7 +207,7 @@ fn despiked(mut ring: Ring, scale: f64) -> Ring {
         let drop = (0..n).find(|&i| {
             let (a, b, c) = (ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n]);
             let (e1, e2) = (sub(b, a), sub(c, b));
-            let (l1, l2) = (e1[0].hypot(e1[1]), e2[0].hypot(e2[1]));
+            let (l1, l2) = (portable::hypot(e1[0], e1[1]), portable::hypot(e2[0], e2[1]));
             l1 <= near || (dot(e1, e2) < 0.0 && cross(e1, e2).abs() <= 1e-9 * l1 * l2)
         });
         match drop {
@@ -286,7 +287,7 @@ fn dot(a: P, b: P) -> f64 {
 }
 
 fn unit(a: P) -> Option<P> {
-    let l = a[0].hypot(a[1]);
+    let l = portable::hypot(a[0], a[1]);
     (l > 0.0 && l.is_finite()).then(|| [a[0] / l, a[1] / l])
 }
 
@@ -314,13 +315,13 @@ fn join_piece(v: P, u1: P, u2: P, r: f64, join: Join, budget: f64) -> Option<Rin
 /// The outer side of a join: from v + r u1 to v + r u2, both to the bit as the edges' offsets
 /// have them, through the arc's vertices, the miter's point or a cut miter's two corners.
 fn join_chain(v: P, u1: P, u2: P, r: f64, join: Join, budget: f64) -> Option<Ring> {
-    let phi = cross(u1, u2).atan2(dot(u1, u2));
+    let phi = portable::atan2(cross(u1, u2), dot(u1, u2));
     if phi == 0.0 || !phi.is_finite() {
         return None;
     }
     let mut chain = match join {
         Join::Round => {
-            let t0 = u1[1].atan2(u1[0]);
+            let t0 = portable::atan2(u1[1], u1[0]);
             let arc = Conic {
                 c: v,
                 rx: r,
@@ -345,14 +346,14 @@ fn join_chain(v: P, u1: P, u2: P, r: f64, join: Join, budget: f64) -> Option<Rin
                 let s = phi.signum();
                 [-s * u1[1], s * u1[0]]
             });
-            let reach = r / half.cos();
+            let reach = r / portable::cos(half);
             if reach.is_finite() && reach <= limit * r {
                 vec![add(v, m, reach)]
             } else {
                 // cut perpendicular to the bisector at limit r: along each offset side from its
                 // foot, t = (L − r cos(φ/2)) / sin(φ/2)
                 let l = limit * r;
-                let t = (l - r * half.cos()) / half.sin();
+                let t = (l - r * portable::cos(half)) / portable::sin(half);
                 let w1 = unit(add(m, u1, -dot(m, u1)))?;
                 let w2 = unit(add(m, u2, -dot(m, u2)))?;
                 let (f1, f2) = (add(v, u1, r), add(v, u2, r));
@@ -410,7 +411,7 @@ fn ring_pieces(ring: &[P], r: f64, s: f64, join: Join, budget: f64, out: &mut Ve
     let turn: Vec<f64> = (0..m)
         .map(|k| {
             let (d1, d2) = (edges[(k + m - 1) % m].direction(), edges[k].direction());
-            cross(d1, d2).atan2(dot(d1, d2))
+            portable::atan2(cross(d1, d2), dot(d1, d2))
         })
         .collect();
     // a corner that turns away from the side the offset moves to (left, when growing) joins

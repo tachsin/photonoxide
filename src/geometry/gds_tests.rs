@@ -3,6 +3,7 @@
 use super::gds::real8;
 use super::gds_checks::{Writer, excess64, known_numbers, layout};
 use super::*;
+use crate::portable;
 
 /// A one-cell library on a 1 nm database unit, `draw` writing its elements.
 fn one_cell(draw: impl FnOnce(&mut Writer)) -> Gds {
@@ -97,7 +98,7 @@ fn boundaries_boxes_and_texts() {
 /// The number of segments a half circle of radius `h` database units is drawn with, as the
 /// reader chooses: chords straying by at most half a unit.
 fn segments(h: f64) -> f64 {
-    (std::f64::consts::PI / (2.0 * (1.0 - 0.5 / h).acos())).ceil()
+    (std::f64::consts::PI / (2.0 * portable::acos(1.0 - 0.5 / h))).ceil()
 }
 
 #[test]
@@ -117,7 +118,7 @@ fn paths_of_every_end() {
     close(area_on(&gds, [4, 0]), w * (l + 0.4));
     // round: two half circles of m chords each, their vertices on the circle
     let m = segments(250.0);
-    let round = w * l + m * h * h * (std::f64::consts::PI / m).sin();
+    let round = w * l + m * h * h * portable::sin(std::f64::consts::PI / m);
     close(area_on(&gds, [1, 0]), round);
     let disk = std::f64::consts::PI * h * h;
     // within half a database unit of the circle all round
@@ -194,7 +195,11 @@ fn references_reflect_magnify_turn_then_move() {
     // 30°, unmagnified: the vertex (2, 0) at 2 (cos 30°, sin 30°)
     let turned = placed(|w| w.sref("t", false, 1.0, 30.0, [0, 0]));
     let c = 30f64.to_radians();
-    has(&vertices(&turned), 0, [2.0 * c.cos(), 2.0 * c.sin()]);
+    has(
+        &vertices(&turned),
+        0,
+        [2.0 * portable::cos(c), 2.0 * portable::sin(c)],
+    );
 }
 
 #[test]

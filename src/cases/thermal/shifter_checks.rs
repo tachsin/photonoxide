@@ -16,6 +16,7 @@ use crate::geometry::{Point, Shape};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
 use crate::mode::vector::{Boundaries, Boundary as Wall, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -44,7 +45,7 @@ pub(crate) fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 }
 
 fn order(coarse: f64, fine: f64) -> f64 {
-    (coarse / fine).abs().log2()
+    portable::log2((coarse / fine).abs())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -168,8 +169,10 @@ fn line_source(r: f64) -> f64 {
     let guide = Guide::new("strip", &section, ([-1.25, 1.25], [-0.75, 0.97]), &optics).expect(OK);
     let exact = {
         let image = 2.0 * plane - source_y;
-        let t =
-            |x: f64, y: f64| (x.hypot(y - image) / x.hypot(y - source_y)).ln() / (2.0 * PI * K_OX);
+        let t = |x: f64, y: f64| {
+            portable::ln(portable::hypot(x, y - image) / portable::hypot(x, y - source_y))
+                / (2.0 * PI * K_OX)
+        };
         guide
             .cells
             .iter()

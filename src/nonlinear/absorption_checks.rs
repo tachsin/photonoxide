@@ -9,6 +9,7 @@ use crate::nonlinear::pulse::{
     gaussian_carriers, loss_per_m, two_photon_phase, two_photon_power,
 };
 use crate::nonlinear::xpm::{TwoPulses, gaussian_phase};
+use crate::portable;
 use crate::validation::{Case, Outcome, Tier};
 
 fn relative(measured: f64, expected: f64, tolerance: f64) -> Outcome {
@@ -68,7 +69,7 @@ pub(crate) fn tpa_peak(steps: usize) -> ((f64, f64), (f64, f64)) {
         let j = start.field.len() / 2;
         Ok((
             end.field[j].norm_sqr(),
-            (end.field[j] / start.field[j]).arg(),
+            portable::complex::arg(end.field[j] / start.field[j]),
         ))
     };
     let (p, phi) = run().unwrap_or((f64::NAN, f64::NAN));
@@ -98,7 +99,7 @@ fn tpa_order() -> Outcome {
         let ((p, e), _) = tpa_peak(s);
         (p / e - 1.0).abs()
     };
-    let order = (error(200) / error(400)).log2();
+    let order = portable::log2(error(200) / error(400));
     absolute((order * 100.0).round() / 100.0, 2.0, 0.1)
 }
 
@@ -154,7 +155,7 @@ pub(crate) fn cw_closed_form(carriers: &FreeCarriers, gamma: f64) -> (f64, f64) 
     let p0 = CW_POWER;
     let z = |p: f64| {
         1.0 / (a * p) - 1.0 / (a * p0)
-            + kappa / (a * a) * (p * (a + kappa * p0) / (p0 * (a + kappa * p))).ln()
+            + kappa / (a * a) * portable::ln(p * (a + kappa * p0) / (p0 * (a + kappa * p)))
     };
     let (mut lo, mut hi) = (1e-6 * p0, p0);
     for _ in 0..200 {
@@ -166,9 +167,9 @@ pub(crate) fn cw_closed_form(carriers: &FreeCarriers, gamma: f64) -> (f64, f64) 
         }
     }
     let p = 0.5 * (lo + hi);
-    let phase = gamma / a * (p0 * (a + kappa * p) / (p * (a + kappa * p0))).ln()
+    let phase = gamma / a * portable::ln(p0 * (a + kappa * p) / (p * (a + kappa * p0)))
         + carriers.index_ratio * k0 * carriers.index * c / kappa
-            * ((a + kappa * p0) / (a + kappa * p)).ln();
+            * portable::ln((a + kappa * p0) / (a + kappa * p));
     (p, phase)
 }
 
@@ -183,7 +184,7 @@ pub(crate) fn cw_carriers(steps: usize) -> ((f64, f64), (f64, f64)) {
         let last = end.field.len() - 1;
         Ok((
             end.field[last].norm_sqr(),
-            (end.field[last] / start.field[last]).arg(),
+            portable::complex::arg(end.field[last] / start.field[last]),
         ))
     };
     (
@@ -236,7 +237,9 @@ pub(crate) fn xpm_walk_off_on(steps: usize, points: usize, window: f64) -> f64 {
             }
             let phi = gaussian_phase(40.0, [p1, p2], t0, 0.0, d, 2.0, length, t);
             let ratio = end.field[j] / a.field[j];
-            worst = worst.max((ratio - c64::from_polar(1.0, phi)).norm());
+            worst = worst.max(portable::complex::abs(
+                ratio - portable::complex::from_polar(1.0, phi),
+            ));
         }
         Ok(worst)
     };
@@ -250,7 +253,7 @@ fn xpm_case() -> Outcome {
 }
 
 fn xpm_order() -> Outcome {
-    let order = (xpm_walk_off(1000) / xpm_walk_off(2000)).log2();
+    let order = portable::log2(xpm_walk_off(1000) / xpm_walk_off(2000));
     absolute((order * 100.0).round() / 100.0, 2.0, 0.1)
 }
 

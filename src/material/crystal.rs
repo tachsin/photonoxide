@@ -28,6 +28,7 @@ use num_complex::Complex64;
 use serde::Serialize;
 use toml::Value;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// One of a crystal's principal axes.
@@ -163,10 +164,10 @@ impl Orientation {
                 psi_deg,
             } => {
                 let rz = |deg: f64| {
-                    let (s, c) = deg.to_radians().sin_cos();
+                    let (s, c) = portable::sin_cos(deg.to_radians());
                     [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]]
                 };
-                let (s, c) = theta_deg.to_radians().sin_cos();
+                let (s, c) = portable::sin_cos(theta_deg.to_radians());
                 let rx = [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]];
                 product(product(rz(phi_deg), rx), rz(psi_deg))
             }

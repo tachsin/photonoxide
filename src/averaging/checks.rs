@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 
 use super::{Averaging, Plane};
 use crate::geometry::{Bounds, Point, Polygon, Shape};
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -133,7 +134,7 @@ pub(crate) fn aligned_difference() -> f64 {
         let point = plane.at(c.x.to_um(), c.y.to_um());
         for along in 0..3 {
             for a in [Averaging::Mean, Averaging::Diagonal, Averaging::Tensor] {
-                worst = worst.max((s.component(along, a) - point).norm());
+                worst = worst.max(portable::complex::abs(s.component(along, a) - point));
             }
         }
     }

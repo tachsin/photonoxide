@@ -2,6 +2,7 @@
 
 use super::checks::{grid, noise, periodic};
 use super::*;
+use crate::portable;
 use crate::units::Wavelength;
 
 #[test]
@@ -21,7 +22,7 @@ fn the_leapfrogs_permittivity_is_the_mediums_to_second_order_in_the_step() {
         let exact = medium.permittivity(frequency);
         let errors: Vec<f64> = [0.02, 0.01, 0.005]
             .into_iter()
-            .map(|dt| (medium.leapfrog_permittivity(frequency, dt) - exact).norm())
+            .map(|dt| portable::complex::abs(medium.leapfrog_permittivity(frequency, dt) - exact))
             .collect();
         assert!(
             (errors[0] / errors[1] - 4.0).abs() < 0.1 && (errors[1] / errors[2] - 4.0).abs() < 0.03,
@@ -155,7 +156,10 @@ fn a_sellmeier_formula_is_a_sum_of_lorentz_terms_exactly() {
         let wavelength = Wavelength::um(lam).unwrap();
         let exact = silica.permittivity(wavelength).unwrap();
         let got = medium.permittivity(Frequency::natural(1.0 / lam).unwrap());
-        assert!((got - exact).norm() < 1e-13, "{lam}: {got} {exact}");
+        assert!(
+            portable::complex::abs(got - exact) < 1e-13,
+            "{lam}: {got} {exact}"
+        );
     }
     assert!(Dispersive::from_model(&crate::material::Model::Cauchy(vec![1.5, 0.01])).is_err());
 }
@@ -178,11 +182,11 @@ fn catalogue_fits_are_passive_and_within_their_stated_error_and_refuse_beyond_th
     // the stated error is the largest over the band
     for i in 0..=40 {
         let lam = 1.3 + 0.3 * i as f64 / 40.0;
-        let d = (fit
-            .medium
-            .permittivity(Frequency::natural(1.0 / lam).unwrap())
-            - silicon.permittivity(Wavelength::um(lam).unwrap()).unwrap())
-        .norm();
+        let d = portable::complex::abs(
+            fit.medium
+                .permittivity(Frequency::natural(1.0 / lam).unwrap())
+                - silicon.permittivity(Wavelength::um(lam).unwrap()).unwrap(),
+        );
         assert!(d <= fit.error * (1.0 + 1e-9), "{lam}: {d} {}", fit.error);
     }
     // Li's table starts at 1.2 µm

@@ -2,6 +2,7 @@ use std::f64::consts::TAU;
 
 use super::*;
 use crate::compact::checks::*;
+use crate::portable;
 
 /// Every pole of a model is stable.
 fn stable(model: &Rational) -> bool {
@@ -25,8 +26,8 @@ fn the_papers_response_is_recovered_in_one_relocation() {
     for a in &model.poles {
         assert!(a.im == 0.0 || model.poles.contains(&a.conj()));
     }
-    assert!((model.constant[0] - 0.2).norm() < 1e-9);
-    assert!((model.proportional[0] - 2e-5).norm() < 1e-14);
+    assert!(portable::complex::abs(model.constant[0] - 0.2) < 1e-9);
+    assert!(portable::complex::abs(model.proportional[0] - 2e-5) < 1e-14);
 }
 
 // Section 4.3 and Table 4: real starting poles fail at first, and iterating recovers
@@ -108,7 +109,7 @@ fn a_known_delay_is_taken_out_exactly() {
         .collect();
     let f: Vec<c64> = s
         .iter()
-        .map(|&z| (r / (z - a) + d) * (-z * tau).exp())
+        .map(|&z| (r / (z - a) + d) * portable::complex::exp(-z * tau))
         .collect();
     let fixed = vector_fit(
         &s,
@@ -123,11 +124,14 @@ fn a_known_delay_is_taken_out_exactly() {
     let near = fixed
         .poles
         .iter()
-        .map(|p| (p - a).norm())
+        .map(|p| portable::complex::abs(p - a))
         .fold(f64::INFINITY, f64::min);
-    assert!(near < 1e-12 * a.norm(), "{near}");
+    assert!(near < 1e-12 * portable::complex::abs(a), "{near}");
     // the phase slope of a pure delay is the delay
-    let pure: Vec<c64> = s.iter().map(|&z| (-z * tau).exp() * 0.7).collect();
+    let pure: Vec<c64> = s
+        .iter()
+        .map(|&z| portable::complex::exp(-z * tau) * 0.7)
+        .collect();
     assert!((estimate_delay(&s, &pure) - tau).abs() < 1e-9 * tau);
 }
 
@@ -139,9 +143,9 @@ fn the_starting_poles_follow_the_papers_recipe() {
     assert_eq!(start.len(), 20);
     // β from |Im s| at 1 Hz to 100 kHz, α = β/100 (here capped at half the spacing, which is
     // larger than β/100 over this band)
-    assert!((start[0] - c64::new(-TAU / 100.0, TAU)).norm() < 1e-9);
+    assert!(portable::complex::abs(start[0] - c64::new(-TAU / 100.0, TAU)) < 1e-9);
     assert_eq!(start[1], start[0].conj());
-    assert!((start[18] - c64::new(-TAU * 1e3, TAU * 1e5)).norm() < 1e-6);
+    assert!(portable::complex::abs(start[18] - c64::new(-TAU * 1e3, TAU * 1e5)) < 1e-6);
     // far from zero frequency the real parts are half the spacing at most
     let s: Vec<c64> = (0..100)
         .map(|k| c64::new(0.0, -(4.0 + 0.001 * k as f64)))

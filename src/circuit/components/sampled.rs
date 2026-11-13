@@ -5,6 +5,7 @@ use std::f64::consts::{PI, TAU};
 use num_complex::Complex64 as c64;
 
 use crate::circuit::{Component, Parameter, Port, Provenance, SMatrix, Spectrum};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -79,15 +80,15 @@ impl Sampled {
 /// Interpolates between `a` (at t = 0) and `b` (at t = 1): the magnitude linearly, the phase
 /// along the shorter way round.
 fn interpolate(a: c64, b: c64, t: f64) -> c64 {
-    let (ma, pa) = a.to_polar();
-    let (mb, pb) = b.to_polar();
+    let (ma, pa) = portable::complex::to_polar(a);
+    let (mb, pb) = portable::complex::to_polar(b);
     let mut turn = (pb - pa) % TAU;
     if turn > PI {
         turn -= TAU;
     } else if turn < -PI {
         turn += TAU;
     }
-    c64::from_polar(ma + t * (mb - ma), pa + t * turn)
+    portable::complex::from_polar(ma + t * (mb - ma), pa + t * turn)
 }
 
 impl Component for Sampled {

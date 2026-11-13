@@ -42,6 +42,7 @@ use std::sync::OnceLock;
 pub use crate::etch::Etch;
 use crate::geometry::{Body, Index, Point, Region, Shape};
 use crate::material::{self, Graded, Material};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -726,7 +727,7 @@ impl Structure {
                 continue;
             }
             let reach = (top - z) * run;
-            let half = 0.5 * size[0].hypot(size[1]) * (1.0 + run);
+            let half = 0.5 * portable::hypot(size[0], size[1]) * (1.0 + run);
             if beyond(shape, centre, reach + half) {
                 continue;
             }
@@ -745,7 +746,7 @@ impl Structure {
             return Fill::Uniform(here);
         };
         let layer = &self.stack.layers[i];
-        let norm = g[0].hypot(g[1]);
+        let norm = portable::hypot(g[0], g[1]);
         Fill::Wall {
             inside: &layer.material,
             outside: &layer.background,

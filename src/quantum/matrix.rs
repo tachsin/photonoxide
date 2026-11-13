@@ -8,6 +8,7 @@ use std::ops::{Index, IndexMut};
 use num_complex::Complex64 as c64;
 
 use crate::circuit::SMatrix;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A dense complex matrix: `a[(i, j)]` is row i, column j.
@@ -133,7 +134,7 @@ impl Matrix {
         self.values
             .iter()
             .zip(&other.values)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max)
     }
 
@@ -147,7 +148,7 @@ impl Matrix {
                     .map(|k| self[(k, i)].conj() * self[(k, j)])
                     .sum();
                 let one = if i == j { 1.0 } else { 0.0 };
-                worst = worst.max((dot - one).norm());
+                worst = worst.max(portable::complex::abs(dot - one));
             }
         }
         worst
@@ -204,7 +205,7 @@ pub(crate) fn hermitian_eigen(h: &Matrix) -> (Vec<f64>, Matrix) {
         }
         for p in 0..n {
             for q in p + 1..n {
-                let g = a[(p, q)].norm();
+                let g = portable::complex::abs(a[(p, q)]);
                 if g == 0.0 {
                     continue;
                 }
@@ -250,9 +251,11 @@ fn lu(a: &Matrix) -> (Matrix, f64, bool) {
     let mut sign = 1.0;
     for k in 0..n {
         let p = (k..n)
-            .max_by(|&i, &j| m[(i, k)].norm().total_cmp(&m[(j, k)].norm()))
+            .max_by(|&i, &j| {
+                portable::complex::abs(m[(i, k)]).total_cmp(&portable::complex::abs(m[(j, k)]))
+            })
             .unwrap_or(k);
-        if m[(p, k)].norm() == 0.0 {
+        if portable::complex::abs(m[(p, k)]) == 0.0 {
             return (m, sign, false);
         }
         if p != k {
@@ -292,8 +295,10 @@ pub(crate) fn inverse(a: &Matrix) -> Option<Matrix> {
     let mut m = a.clone();
     let mut inv = Matrix::identity(n);
     for k in 0..n {
-        let p = (k..n).max_by(|&i, &j| m[(i, k)].norm().total_cmp(&m[(j, k)].norm()))?;
-        if m[(p, k)].norm() == 0.0 {
+        let p = (k..n).max_by(|&i, &j| {
+            portable::complex::abs(m[(i, k)]).total_cmp(&portable::complex::abs(m[(j, k)]))
+        })?;
+        if portable::complex::abs(m[(p, k)]) == 0.0 {
             return None;
         }
         for j in 0..n {
@@ -313,7 +318,7 @@ pub(crate) fn inverse(a: &Matrix) -> Option<Matrix> {
                 continue;
             }
             let f = m[(i, k)];
-            if f.norm() == 0.0 {
+            if portable::complex::abs(f) == 0.0 {
                 continue;
             }
             for j in 0..n {
@@ -342,10 +347,10 @@ pub(crate) fn det_one_minus(b: &Matrix) -> Vec<c64> {
             continue;
         }
         let x0 = h[(k + 1, k)];
-        let phase = if x0.norm() == 0.0 {
+        let phase = if portable::complex::abs(x0) == 0.0 {
             c64::new(1.0, 0.0)
         } else {
-            x0 / x0.norm()
+            x0 / portable::complex::abs(x0)
         };
         // v = x + e^{i arg x0} ‖x‖ e₁, H ← (I − 2vv†/v†v) H (I − 2vv†/v†v)
         let mut v: Vec<c64> = (k + 1..n).map(|i| h[(i, k)]).collect();

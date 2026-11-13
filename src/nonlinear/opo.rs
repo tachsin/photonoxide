@@ -27,6 +27,7 @@
 use num_complex::Complex64 as c64;
 
 use super::coupled::ThreeWave;
+use crate::portable;
 use crate::{Error, Result};
 
 /// What the cavity does to one resonant wave each round trip.
@@ -52,7 +53,7 @@ impl Feedback {
     }
 
     fn factor(&self) -> c64 {
-        c64::from_polar(self.returned.sqrt(), self.phase)
+        portable::complex::from_polar(self.returned.sqrt(), self.phase)
     }
 
     fn check(&self) -> Result<()> {
@@ -158,8 +159,9 @@ impl Oscillator {
         // the eigenvalues of a 2 × 2 matrix
         let tr = m[0][0] + m[1][1];
         let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
-        let root = (tr * tr - 4.0 * det).sqrt();
-        let radius = ((tr + root) * 0.5).norm().max(((tr - root) * 0.5).norm());
+        let root = portable::complex::sqrt(tr * tr - 4.0 * det);
+        let radius = portable::complex::abs((tr + root) * 0.5)
+            .max(portable::complex::abs((tr - root) * 0.5));
         if !radius.is_finite() {
             return Err(Error::invalid(
                 "parametric oscillator",
@@ -280,13 +282,13 @@ pub fn uniform_depletion(times_threshold: f64) -> f64 {
     let (mut lo, mut hi) = (1e-9, std::f64::consts::PI * (1.0 - 1e-12));
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
-        if mid / mid.sin() < target {
+        if mid / portable::sin(mid) < target {
             lo = mid;
         } else {
             hi = mid;
         }
     }
-    (0.5 * (lo + hi)).sin().powi(2)
+    portable::powi(portable::sin(0.5 * (lo + hi)), 2)
 }
 
 #[cfg(test)]

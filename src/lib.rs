@@ -71,7 +71,6 @@
 #![warn(missing_docs)]
 #![warn(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod averaging;
 pub mod backend;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
@@ -79,68 +78,52 @@ pub mod bench;
 #[cfg(test)]
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod canary_tests;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod circuit;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod compact;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod convergence;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod dense;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod device;
 mod eigen;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod electro;
 pub mod eme;
 pub mod error;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod etch;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod export;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod expr;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fabrication;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod facade;
 pub mod farm;
 pub mod fdfd;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fdtd;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod generator;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod geometry;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod job;
 #[cfg(test)]
 mod layering;
 mod lstsq;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod material;
 pub mod mode;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod nonlinear;
 pub mod parallel;
 pub mod portable;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod quantum;
 pub mod raster;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod run;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod shifter;
 mod sparse;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod stack;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod statics;
 mod stop;
 pub mod sweep;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod thermal;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod topology;
 mod traffic;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`

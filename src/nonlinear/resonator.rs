@@ -44,6 +44,7 @@ use num_complex::Complex64 as c64;
 
 use super::fft::Fft;
 use super::pulse::{C_M_PER_PS, Dispersion};
+use crate::portable;
 use crate::{Error, Result};
 
 /// A Kerr resonator in the dimensionless Lugiato–Lefever equation.
@@ -162,7 +163,7 @@ impl Resonator {
         apply(&fft, &mut psi, &half);
         for s in 0..steps {
             for v in psi.iter_mut() {
-                *v *= c64::new(0.0, v.norm_sqr() * h).exp();
+                *v *= portable::complex::exp(c64::new(0.0, v.norm_sqr() * h));
             }
             apply(&fft, &mut psi, if s + 1 == steps { &half } else { &full });
         }
@@ -214,7 +215,7 @@ impl Resonator {
         let factors = self
             .dispersion
             .iter()
-            .map(|d| (c64::new(-1.0, -(self.detuning + d)) * h).exp())
+            .map(|d| portable::complex::exp(c64::new(-1.0, -(self.detuning + d)) * h))
             .collect::<Vec<c64>>();
         let l0 = c64::new(-1.0, -(self.detuning + self.dispersion[0]));
         let source = (factors[0] - 1.0) / l0 * self.drive;
@@ -298,19 +299,19 @@ fn real_cubic_roots(b: f64, c: f64, d: f64) -> Vec<f64> {
     let shift = b / 3.0;
     let p = c - b * b / 3.0;
     let q = 2.0 * b * b * b / 27.0 - b * c / 3.0 + d;
-    let disc = (q / 2.0).powi(2) + (p / 3.0).powi(3);
+    let disc = portable::powi(q / 2.0, 2) + portable::powi(p / 3.0, 3);
     if disc > 0.0 {
         let s = disc.sqrt();
-        vec![(-q / 2.0 + s).cbrt() + (-q / 2.0 - s).cbrt() - shift]
+        vec![portable::cbrt(-q / 2.0 + s) + portable::cbrt(-q / 2.0 - s) - shift]
     } else {
         let r = (-p / 3.0).sqrt();
         let phi = if r == 0.0 {
             0.0
         } else {
-            (-q / (2.0 * r * r * r)).clamp(-1.0, 1.0).acos()
+            portable::acos((-q / (2.0 * r * r * r)).clamp(-1.0, 1.0))
         };
         (0..3)
-            .map(|k| 2.0 * r * ((phi + 2.0 * PI * k as f64) / 3.0).cos() - shift)
+            .map(|k| 2.0 * r * portable::cos((phi + 2.0 * PI * k as f64) / 3.0) - shift)
             .collect()
     }
 }
@@ -328,7 +329,7 @@ pub fn bistable_range(detuning: f64) -> Option<(f64, f64)> {
 
 /// The drive f whose homogeneous state has the power X: f² = X(1 + (X − ζ₀)²).
 pub fn drive_for(detuning: f64, power: f64) -> f64 {
-    (power * (1.0 + (power - detuning).powi(2))).sqrt()
+    (power * (1.0 + portable::powi(power - detuning, 2))).sqrt()
 }
 
 /// λ = −1 + Re(1 − ζ)^½ with Lugiato and Lefever's Eq. (4) for a mode of detuning `a`.
@@ -384,12 +385,13 @@ impl Resonator {
         let n = self.points();
         let phase = c64::new(
             soliton.cos_phase,
-            (1.0 - soliton.cos_phase.powi(2)).max(0.0).sqrt(),
+            (1.0 - portable::powi(soliton.cos_phase, 2)).max(0.0).sqrt(),
         );
         (0..n)
             .map(|j| {
                 let phi = 2.0 * PI * (j as f64 - (n / 2) as f64) / n as f64;
-                soliton.background + phase * (soliton.amplitude / (phi / soliton.width).cosh())
+                soliton.background
+                    + phase * (soliton.amplitude / portable::cosh(phi / soliton.width))
             })
             .collect()
     }
@@ -484,7 +486,7 @@ impl Ring {
 
     /// f = (θγLP_in/α³)^½.
     pub fn normalized_drive(&self) -> f64 {
-        (self.coupling * self.gamma * self.length * self.pump / self.loss.powi(3)).sqrt()
+        (self.coupling * self.gamma * self.length * self.pump / portable::powi(self.loss, 3)).sqrt()
     }
 
     /// The power (W) of |ψ|² = 1: α/(γL).
@@ -519,7 +521,8 @@ impl Ring {
 
     /// d₂ = L|β₂|Ω₁²/(2α) (the δ_μ = d₂μ² of β₂ alone), with β₂ < 0 for anomalous dispersion.
     pub fn d2(&self) -> f64 {
-        -self.length * self.dispersion.beta(2) * self.line_spacing().powi(2) / (2.0 * self.loss)
+        -self.length * self.dispersion.beta(2) * portable::powi(self.line_spacing(), 2)
+            / (2.0 * self.loss)
     }
 
     /// The time (ps) of an angle φ around the ring: t_R φ/2π.
@@ -537,7 +540,7 @@ impl Ring {
     /// critical coupling (θ = α, F = π/α) it is 1.989 (|β₂|/(γFP_in))^½: Herr et al.'s Eq. (2),
     /// whose prefactor is ≈ 2.
     pub fn minimum_soliton_width(&self) -> f64 {
-        let fwhm = 2.0 * (2f64.sqrt()).acosh();
+        let fwhm = 2.0 * portable::acosh(2f64.sqrt());
         fwhm * (2.0 / PI)
             * self.loss
             * (self.dispersion.beta(2).abs() / (self.coupling * self.gamma * self.pump)).sqrt()

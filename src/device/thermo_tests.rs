@@ -7,6 +7,7 @@ use crate::thermal::shifter_checks::{Heater, NPP, TIN, jacques, jacques_grading}
 use crate::units::Wavelength;
 
 use super::{Device, Measurement, Spec, ThermoShifter, Values};
+use crate::portable;
 
 /// The metal device at one of the phase's TiN variants.
 fn tin(heater: Heater) -> Values {
@@ -62,8 +63,8 @@ fn the_phase_follows_the_power_and_its_derivative_is_exact() {
     assert!((s[(1, 0)].re + 1.0).abs() < 1e-12 && s[(1, 0)].im.abs() < 1e-12);
     // 2 dB/cm over 320 µm
     let lambda = Wavelength::um(1.55).unwrap();
-    let t = b.s_matrix(lambda).unwrap()[(1, 0)].norm();
-    assert!((t - 10f64.powf(-2.0 * 0.032 / 20.0)).abs() < 1e-14);
+    let t = portable::complex::abs(b.s_matrix(lambda).unwrap()[(1, 0)]);
+    assert!((t - portable::powf(10f64, -2.0 * 0.032 / 20.0)).abs() < 1e-14);
     // dS/dP through the component's derivatives and the device's against a difference
     let ds = b.component.derivatives(lambda, &b.values).unwrap().unwrap();
     let k = d
@@ -83,7 +84,7 @@ fn the_phase_follows_the_power_and_its_derivative_is_exact() {
     };
     let numeric = (at(10.0 + h) - at(10.0 - h)) / (2.0 * h);
     assert!(
-        (exact - numeric).norm() < 1e-9 * exact.norm(),
+        portable::complex::abs(exact - numeric) < 1e-9 * portable::complex::abs(exact),
         "{exact} {numeric}"
     );
 }
@@ -127,7 +128,7 @@ fn the_tin_heater_is_driven_by_a_voltage_through_its_films_resistance() {
     let s = |v: f64| at(v).s_matrix(lambda).unwrap()[(1, 0)];
     let numeric = (s(2.0 + h) - s(2.0 - h)) / (2.0 * h);
     assert!(
-        (exact - numeric).norm() < 1e-8 * exact.norm(),
+        portable::complex::abs(exact - numeric) < 1e-8 * portable::complex::abs(exact),
         "{exact} {numeric}"
     );
     // power's derivative is none under a voltage
@@ -284,7 +285,7 @@ fn fixed_talbot_inverts_a_step_into_a_pole() {
     let a = 3.0e5;
     for t in [1e-7, 1e-6, 5e-6, 2e-5] {
         let f = talbot(|s: c64| 1.0 / (s * (s + a)), t);
-        let exact = (1.0 - (-a * t).exp()) / a;
+        let exact = (1.0 - portable::exp(-a * t)) / a;
         assert!((f / exact - 1.0).abs() < 1e-8, "{t}: {f} {exact}");
     }
 }
@@ -389,8 +390,8 @@ fn the_in_guide_heaters_measured_loss_is_its_components() {
     assert_eq!(b.figure("P_pi").unwrap().value, 24.77);
     assert_eq!(b.values[1], 0.23);
     assert_eq!(b.figures.iter().filter(|f| f.symbol == "IL").count(), 1);
-    let t = b.s_matrix(Wavelength::um(1.55).unwrap()).unwrap()[(1, 0)].norm();
-    assert!((t - 10f64.powf(-0.23 / 20.0)).abs() < 1e-15);
+    let t = portable::complex::abs(b.s_matrix(Wavelength::um(1.55).unwrap()).unwrap()[(1, 0)]);
+    assert!((t - portable::powf(10f64, -0.23 / 20.0)).abs() < 1e-15);
     // the measured loss moves with neither the loss nor the length
     for name in ["loss", "length"] {
         let k = d.parameters().iter().position(|p| p.name == name).unwrap();

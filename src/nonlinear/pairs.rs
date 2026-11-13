@@ -27,6 +27,7 @@
 use num_complex::Complex64 as c64;
 
 use super::phase::{Device, HALF_MAXIMUM};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The γ of the Gaussian stand-in for sinc(x), exp(−γx²): its square has the FWHM of sinc²(x),
@@ -58,7 +59,7 @@ impl Pump {
     /// α(ν) = exp(−2 ln 2 (ν − ν₀)²/Δν²): |α|² is ½ at ν₀ ± Δν/2.
     pub fn amplitude(&self, nu: f64) -> f64 {
         let d = (nu - self.center) / self.bandwidth;
-        (-2.0 * std::f64::consts::LN_2 * d * d).exp()
+        portable::exp(-2.0 * std::f64::consts::LN_2 * d * d)
     }
 }
 
@@ -148,10 +149,10 @@ pub fn joint_spectrum(
                     if x.abs() < 1e-4 {
                         1.0 - x * x / 6.0
                     } else {
-                        x.sin() / x
+                        portable::sin(x) / x
                     }
                 }
-                Matching::Gaussian => (-gamma * x * x).exp(),
+                Matching::Gaussian => portable::exp(-gamma * x * x),
             };
             amplitude.push(c64::new(pump.amplitude(s + i) * m, 0.0));
         }

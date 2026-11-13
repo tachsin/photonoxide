@@ -6,6 +6,7 @@ use std::f64::consts::FRAC_PI_2;
 
 use super::primitives::{Ellipse, RegularPolygon, RoundedRect, Sector, Superellipse};
 use super::{Point, Polygon, Shape};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -21,7 +22,7 @@ pub(crate) fn sin_cos(angle: f64) -> (f64, f64) {
             _ => (-1.0, 0.0),
         }
     } else {
-        angle.sin_cos()
+        portable::sin_cos(angle)
     }
 }
 
@@ -152,7 +153,7 @@ impl Transform {
             self.m[0][0] * c + self.m[0][1] * s,
             self.m[1][0] * c + self.m[1][1] * s,
         ];
-        v[1].atan2(v[0])
+        portable::atan2(v[1], v[0])
     }
 
     fn length(&self, l: Length) -> Length {

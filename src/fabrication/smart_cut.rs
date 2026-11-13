@@ -31,6 +31,7 @@
 use crate::{Error, Result};
 
 use super::oxidation::{self, Ambient};
+use crate::portable;
 
 /// A row of PSTAR's table, as printed: the proton's energy (MeV), its CSDA range and its
 /// projected range (g/cm²).
@@ -177,8 +178,10 @@ fn at(rows: &[Row], column: fn(&Row) -> f64, mev: f64) -> Option<f64> {
     if mev == b.0 {
         return Some(column(b));
     }
-    let t = (mev.ln() - a.0.ln()) / (b.0.ln() - a.0.ln());
-    Some((column(a).ln() + t * (column(b).ln() - column(a).ln())).exp())
+    let t = (portable::ln(mev) - portable::ln(a.0)) / (portable::ln(b.0) - portable::ln(a.0));
+    Some(portable::exp(
+        portable::ln(column(a)) + t * (portable::ln(column(b)) - portable::ln(column(a))),
+    ))
 }
 
 /// The energy, MeV, at which a column of `rows` is `value`, as [`at`] reads the table; `None`
@@ -188,8 +191,11 @@ fn energy_at(rows: &[Row], column: fn(&Row) -> f64, value: f64) -> Option<f64> {
         .windows(2)
         .position(|w| column(&w[0]) <= value && value <= column(&w[1]))?;
     let (a, b) = (&rows[k], &rows[k + 1]);
-    let t = (value.ln() - column(a).ln()) / (column(b).ln() - column(a).ln());
-    Some((a.0.ln() + t * (b.0.ln() - a.0.ln())).exp())
+    let t = (portable::ln(value) - portable::ln(column(a)))
+        / (portable::ln(column(b)) - portable::ln(column(a)));
+    Some(portable::exp(
+        portable::ln(a.0) + t * (portable::ln(b.0) - portable::ln(a.0)),
+    ))
 }
 
 fn csda(r: &Row) -> f64 {

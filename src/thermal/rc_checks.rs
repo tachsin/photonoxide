@@ -8,6 +8,7 @@ use super::{
     Boundary, Drive, Features, Fitted, Foster, Grid, Guide, Heat, Optics, PhaseShifter, RcFit,
     RcModel, Scheme, Section, Side, StepResponses, Stepping, Tensor,
 };
+use crate::portable;
 use crate::validation::{Case, Tier};
 
 /// The known model of `thermal-rc/known-sum`: three poles, 2 × 2, each residue matrix
@@ -103,7 +104,7 @@ fn ucut() -> RcModel {
 
 /// When a step response gets 1 − 1/e of the way to its steady value, seconds, to 1 ns.
 fn one_over_e(m: &RcModel) -> f64 {
-    let end = m.steady()[0][0] * (1.0 - (-1.0f64).exp());
+    let end = m.steady()[0][0] * (1.0 - portable::exp(-1.0f64));
     let (mut a, mut b) = (
         0.0,
         m.time_constants_s().iter().fold(0.0, |x: f64, t| x.max(*t)) * 10.0,
@@ -253,7 +254,10 @@ pub(crate) fn cases() -> Vec<Case> {
             source: r"D. Coenen et al., doi:10.1109/TCPMT.2022.3195699, Section III.A: 'a drive frequency of 200 kHz corresponds with a response of -30 dB' (Fig. 13, the circuit's, the coupling's included); 2 dB for the reading",
             run: || {
                 let m = ucut();
-                let db = 20.0 * (m.response(0, 0, 2e5).norm() / m.steady()[0][0]).log10();
+                let db = 20.0
+                    * portable::log10(
+                        portable::complex::abs(m.response(0, 0, 2e5)) / m.steady()[0][0],
+                    );
                 outcome(db, -30.0, 2.0)
             },
         },

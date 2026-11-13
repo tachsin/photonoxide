@@ -6,6 +6,7 @@
 //! order, so its answers are the same bits on any number of threads.
 
 use super::{Bounds, Point, Shape};
+use crate::portable;
 
 /// The most boxes a leaf holds.
 const LEAF: usize = 4;
@@ -208,7 +209,7 @@ impl Index {
         let gap = |n: &Node| {
             let dx = (n.lo[0] - q[0]).max(q[0] - n.hi[0]).max(0.0);
             let dy = (n.lo[1] - q[1]).max(q[1] - n.hi[1]).max(0.0);
-            dx.hypot(dy)
+            portable::hypot(dx, dy)
         };
         let mut heap = BinaryHeap::new();
         heap.push(Reverse(Near(gap(&self.nodes[0]), 0)));

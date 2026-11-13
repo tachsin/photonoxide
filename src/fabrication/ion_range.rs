@@ -40,6 +40,7 @@
 //! Neither route knows the silicon's crystal: both are for an amorphous target, as de Souza et
 //! al.'s measurements were made in silicon amorphized to 280 nm (p. 47).
 
+use crate::portable;
 use crate::{Error, Result};
 
 fn invalid(message: String) -> Error {
@@ -199,8 +200,8 @@ fn nodes(grid: &[f64], at: f64, how: Interpolation) -> Vec<usize> {
         Interpolation::Curves if n < 3 => vec![i, i + 1],
         Interpolation::Curves => {
             // the third point: the nearer in the logarithm of the next ones out, on either side
-            let below = (i > 0).then(|| (at / grid[i - 1]).ln().abs());
-            let above = (i + 2 < n).then(|| (grid[i + 2] / at).ln().abs());
+            let below = (i > 0).then(|| portable::ln(at / grid[i - 1]).abs());
+            let above = (i + 2 < n).then(|| portable::ln(grid[i + 2] / at).abs());
             match (below, above) {
                 (Some(b), Some(a)) if b <= a => vec![i - 1, i, i + 1],
                 (Some(_), None) => vec![i - 1, i, i + 1],
@@ -281,16 +282,19 @@ pub fn smith(pair: &Pair, energy: f64, how: Interpolation) -> Result<Range> {
                 }
                 let es: Vec<f64> = e.iter().map(|&k| SMITH_ENERGIES[k]).collect();
                 by_ion.push(lagrange(
-                    &es.iter().map(|x| x.ln()).collect::<Vec<_>>(),
-                    &ys.iter().map(|y| y.ln()).collect::<Vec<_>>(),
-                    energy.ln(),
+                    &es.iter().map(|x| portable::ln(*x)).collect::<Vec<_>>(),
+                    &ys.iter().map(|y| portable::ln(*y)).collect::<Vec<_>>(),
+                    portable::ln(energy),
                 ));
             }
-            let zs: Vec<f64> = i1.iter().map(|&a| SMITH_IONS[a].ln()).collect();
-            by_substrate.push(lagrange(&zs, &by_ion, pair.z1.ln()));
+            let zs: Vec<f64> = i1.iter().map(|&a| portable::ln(SMITH_IONS[a])).collect();
+            by_substrate.push(lagrange(&zs, &by_ion, portable::ln(pair.z1)));
         }
-        let zs: Vec<f64> = i2.iter().map(|&b| SMITH_SUBSTRATES[b].ln()).collect();
-        let mg_per_cm2 = lagrange(&zs, &by_substrate, pair.z2.ln()).exp();
+        let zs: Vec<f64> = i2
+            .iter()
+            .map(|&b| portable::ln(SMITH_SUBSTRATES[b]))
+            .collect();
+        let mg_per_cm2 = portable::exp(lagrange(&zs, &by_substrate, portable::ln(pair.z2)));
         // mg/cm² to g/cm², over g/cm³, cm to nm
         *value = mg_per_cm2 * 1e-3 / pair.density * 1e7;
     }
@@ -316,15 +320,15 @@ const U_KEV: f64 = 931_494.102_42;
 /// al.'s Eqs. 10-43 to 10-46 (pp. 10-17 and 10-18).
 pub fn nuclear_stopping(pair: &Pair, energy: f64) -> f64 {
     let Pair { z1, m1, z2, m2, .. } = *pair;
-    let screen = z1.powf(0.23) + z2.powf(0.23);
+    let screen = portable::powf(z1, 0.23) + portable::powf(z2, 0.23);
     // Eq. 10-44, E in keV
     let eps = 32.53 * m2 * energy / (z1 * z2 * (m1 + m2) * screen);
     // Eqs. 10-45 and 10-46
     let reduced = if eps <= 30.0 {
-        (1.0 + 1.1383 * eps).ln()
-            / (2.0 * (eps + 0.01321 * eps.powf(0.21226) + 0.19593 * eps.sqrt()))
+        portable::ln(1.0 + 1.1383 * eps)
+            / (2.0 * (eps + 0.01321 * portable::powf(eps, 0.21226) + 0.19593 * eps.sqrt()))
     } else {
-        eps.ln() / (2.0 * eps)
+        portable::ln(eps) / (2.0 * eps)
     };
     // Eq. 10-43
     8.462e-15 * z1 * z2 * m1 * reduced / ((m1 + m2) * screen)
@@ -336,10 +340,13 @@ pub fn nuclear_stopping(pair: &Pair, energy: f64) -> f64 {
 /// for oxygen below about 3.2 MeV.
 pub fn electronic_stopping(pair: &Pair, energy: f64) -> f64 {
     let Pair { z1, m1, z2, .. } = *pair;
-    let z = (z1.powf(2.0 / 3.0) + z2.powf(2.0 / 3.0)).powf(1.5);
+    let z = portable::powf(
+        portable::powf(z1, 2.0 / 3.0) + portable::powf(z2, 2.0 / 3.0),
+        1.5,
+    );
     let v_over_v0 = (2.0 * energy / (m1 * U_KEV)).sqrt() / ALPHA;
     // eV·Å² to eV·cm²
-    z1.powf(1.0 / 6.0) * 8.0 * std::f64::consts::PI * E2_EV_A * BOHR_A * z1 * z2 / z
+    portable::powf(z1, 1.0 / 6.0) * 8.0 * std::f64::consts::PI * E2_EV_A * BOHR_A * z1 * z2 / z
         * v_over_v0
         * 1e-16
 }
@@ -366,7 +373,7 @@ pub(crate) fn pral_moments(
 ) -> (f64, f64) {
     // y = (x̄, ⟨x²⟩ + ⟨z²⟩, ⟨z²⟩), u = ln(E/keV); E dy/dE, energies in eV in the ratio E/S_t
     let rate = |u: f64, y: [f64; 3]| -> [f64; 3] {
-        let e = u.exp();
+        let e = portable::exp(u);
         let (sn, se) = (nuclear(e), electronic(e));
         let st = atoms * (sn + se); // eV/cm
         let e_ev = e * 1e3;
@@ -379,7 +386,7 @@ pub(crate) fn pral_moments(
             (x2 - z2) * ratio,
         ]
     };
-    let (u0, u1) = (start.ln(), energy.ln());
+    let (u0, u1) = (portable::ln(start), portable::ln(energy));
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let n = (((u1 - u0) * STEPS_PER_E_FOLD).ceil() as usize).max(1);
     #[allow(clippy::cast_precision_loss)]
@@ -521,14 +528,14 @@ mod tests {
         // nuclear stopping alone, S = A E^(1−B): x̄ = s/(1 + μ/2B) and ⟨x²⟩ = s²/(1 + μ/B)
         // (Ziegler et al., Eqs. 10-14 and 10-15), s = E^B/(N A B) the path length
         let (mu, atoms, b, a) = (1.7555, 5e22, 0.5, 3e-15);
-        let s_of = |e: f64| (e * 1e3).powf(b) / (atoms * a * b);
+        let s_of = |e: f64| portable::powf(e * 1e3, b) / (atoms * a * b);
         let e = 150.0;
         let (x, x2) = pral_moments(
             e,
             mu,
             atoms,
             1e-10 * e,
-            |e| a * (e * 1e3).powf(1.0 - b),
+            |e| a * portable::powf(e * 1e3, 1.0 - b),
             |_| 0.0,
         );
         let s = s_of(e);

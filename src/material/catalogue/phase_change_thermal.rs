@@ -9,6 +9,7 @@
 use super::phase_change::{
     self, GUREVICH_CP_298, KAITO_TABLE_1, NJOROGE_DENSITY, njoroge_xrd_density, sb2s3_density,
 };
+use crate::portable;
 use crate::verdict::Outcome;
 
 fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
@@ -95,8 +96,8 @@ fn debye_integral(u: f64) -> f64 {
         if x < 1e-6 {
             x * x
         } else {
-            let e = (-x).exp();
-            x.powi(4) * e / ((1.0 - e) * (1.0 - e))
+            let e = portable::exp(-x);
+            portable::powi(x, 4) * e / ((1.0 - e) * (1.0 - e))
         }
     };
     let n = 4000;
@@ -118,13 +119,13 @@ fn debye_integral(u: f64) -> f64 {
 
 /// The paper's Eq. (2), D(θ) = 3R(T/θ)³ ∫₀^{θ/T} x⁴eˣ(eˣ − 1)⁻² dx (R at high T).
 fn debye(theta: f64, t: f64) -> f64 {
-    3.0 * R * (t / theta).powi(3) * debye_integral(theta / t)
+    3.0 * R * portable::powi(t / theta, 3) * debye_integral(theta / t)
 }
 
 /// The paper's Eq. (3), E(θ_E) = 3R x²eˣ(eˣ − 1)⁻², x = θ_E/T.
 fn einstein(theta: f64, t: f64) -> f64 {
     let x = theta / t;
-    let e = (-x).exp();
+    let e = portable::exp(-x);
     3.0 * R * x * x * e / ((1.0 - e) * (1.0 - e))
 }
 

@@ -9,6 +9,7 @@ use std::f64::consts::PI;
 use super::boolean_checks::{circle, deviation, rect};
 use super::*;
 use crate::material;
+use crate::portable;
 use crate::stack::{Layer, LayerStack, Structure};
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
@@ -87,7 +88,7 @@ pub(crate) fn lattice_error() -> f64 {
             .sites()
             .iter()
             .filter(|t| t.index != s.index)
-            .map(|t| (t.at.x - s.at.x).to_um().hypot((t.at.y - s.at.y).to_um()))
+            .map(|t| portable::hypot((t.at.x - s.at.x).to_um(), (t.at.y - s.at.y).to_um()))
             .collect();
         d.sort_by(f64::total_cmp);
         for k in 0..6 {
@@ -111,8 +112,8 @@ pub(crate) fn lattice_error() -> f64 {
         let r = r0 + j as f64 * dr;
         let theta = start + 2.0 * PI * i as f64 / counts[j as usize] as f64;
         worst = worst
-            .max((s.at.x.to_um() - r * theta.cos()).abs() / dr)
-            .max((s.at.y.to_um() - r * theta.sin()).abs() / dr);
+            .max((s.at.x.to_um() - r * portable::cos(theta)).abs() / dr)
+            .max((s.at.y.to_um() - r * portable::sin(theta)).abs() / dr);
     }
     worst
 }
@@ -471,7 +472,7 @@ pub(crate) fn order() -> f64 {
     for nm in [1.0, 0.1, 0.01, 0.001] {
         let p = slab.polygons(Tolerance::unsnapped(Length::nm(nm)).expect("a tolerance"));
         let (d, n) = deviation(&slab, &p);
-        points.push(((n as f64).ln(), d.ln()));
+        points.push((portable::ln(n as f64), portable::ln(d)));
     }
     let m = points.len() as f64;
     let (sx, sy) = points

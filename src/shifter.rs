@@ -35,6 +35,7 @@ use crate::statics::spread;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
+use crate::portable;
 use crate::thermal::{Assembled, Field, Grid, Heat, History, Section, Stepping};
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -565,7 +566,7 @@ impl PhaseShifter {
                 ))
             })
         };
-        let e = at(1.0 - (-1.0f64).exp())?;
+        let e = at(1.0 - portable::exp(-1.0f64))?;
         let (a, b) = (at(0.1)?, at(0.9)?);
         Ok(Timing {
             one_over_e_s: e,

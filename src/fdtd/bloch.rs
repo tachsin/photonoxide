@@ -23,6 +23,7 @@
 //!   (2/Δ)², and Δt counts it so.
 
 use super::*;
+use crate::portable;
 
 /// Σ wᵢ/Δᵢ² over the axes, wᵢ = 1 along an axis the field varies along and sin²(kΔᵢ/2) along
 /// one cell long and Bloch-periodic: the curl-curl's largest eigenvalue is 4 Σ wᵢ/Δᵢ², and
@@ -33,10 +34,9 @@ pub(super) fn curl_bound(grid: &Grid3d, boundaries: &Boundaries) -> f64 {
         .filter_map(|a| {
             let h = grid.step(a);
             match boundaries.edges(a) {
-                Edges::Bloch { k } if grid.n(a) == 1 => {
-                    (k != 0.0).then(|| (k * h / 2.0).sin().powi(2) * h.powi(-2))
-                }
-                _ => Some(h.powi(-2)),
+                Edges::Bloch { k } if grid.n(a) == 1 => (k != 0.0)
+                    .then(|| portable::powi(portable::sin(k * h / 2.0), 2) * portable::powi(h, -2)),
+                _ => Some(portable::powi(h, -2)),
             }
         })
         .sum()
@@ -67,7 +67,7 @@ impl Bloch {
         }
         let phase = Axis::ALL.map(|a| {
             let period = s.grid.n(a) as f64 * s.grid.step(a);
-            c64::from_polar(1.0, k[a.index()] * period)
+            portable::complex::from_polar(1.0, k[a.index()] * period)
         });
         Some(Bloch {
             twin: s.clone(),

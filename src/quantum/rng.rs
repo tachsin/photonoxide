@@ -2,6 +2,7 @@
 //! S. Vigna, ACM Trans. Math. Softw. 47, 36 (2021), doi:10.1145/3460772). The same seed gives
 //! the same numbers on every system, which is all a sampler with an explicit seed needs.
 
+use crate::portable;
 use std::f64::consts::TAU;
 
 /// One step of SplitMix64: the seed's next state and its output.
@@ -59,7 +60,7 @@ impl Rng {
     pub(crate) fn normal(&mut self) -> f64 {
         let u = 1.0 - self.uniform(); // (0, 1]
         let v = self.uniform();
-        (-2.0 * u.ln()).sqrt() * (TAU * v).cos()
+        (-2.0 * portable::ln(u)).sqrt() * portable::cos(TAU * v)
     }
 
     /// An index drawn with probability proportional to `weights` (all ≥ 0, not all 0).

@@ -4,6 +4,7 @@
 use super::*;
 use crate::electro::{Axis, Boundary, Conductor, Grid, Section, Tensor};
 use crate::geometry::{Point, Shape};
+use crate::portable;
 use crate::units::Length;
 
 fn rect(x: [f64; 2], y: [f64; 2]) -> Shape {
@@ -71,7 +72,7 @@ fn a_mirrored_half_is_the_whole_lines_even_mode() {
     let fw = FullWave::new(0, 4.1e7).unwrap().with_count(4);
     let half = fw.clone().mirrored().solve(&cpw(false), 50e9, 1.6).unwrap();
     let whole = fw.solve(&cpw(true), 50e9, 1.6).unwrap();
-    let rel = |a: c64, b: c64| (a - b).norm() / b.norm();
+    let rel = |a: c64, b: c64| portable::complex::abs(a - b) / portable::complex::abs(b);
     assert!(rel(half.gamma, whole.gamma) < 1e-8, "{half:?} {whole:?}");
     assert!(
         rel(half.impedance, whole.impedance) < 1e-6,
@@ -113,9 +114,9 @@ fn a_tem_line_in_one_dielectric_travels_at_its_speed() {
     };
     let (air, fill) = (line(1.0, 4.1e7), line(4.0, 4.1e7));
     let ratio = fill.gamma / air.gamma;
-    assert!((ratio - 2.0).norm() < 1e-6, "{ratio}");
+    assert!(portable::complex::abs(ratio - 2.0) < 1e-6, "{ratio}");
     let ratio = fill.impedance / air.impedance;
-    assert!((ratio - 0.5).norm() < 1e-6, "{ratio}");
+    assert!(portable::complex::abs(ratio - 0.5) < 1e-6, "{ratio}");
     // the internal inductance raises the index above √ε, less as the metal conducts better
     let excess = |sigma: f64| line(4.0, sigma).index() - 2.0;
     let (a, b) = (excess(1e6), excess(1e8));

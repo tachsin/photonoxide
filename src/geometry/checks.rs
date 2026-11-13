@@ -4,6 +4,7 @@
 use std::f64::consts::{PI, TAU};
 
 use super::*;
+use crate::portable;
 use crate::units::Length;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -108,7 +109,11 @@ pub(crate) fn area_error() -> f64 {
         }
     }
     let (a, b) = (1.2, 0.5);
-    let quad = boundary::integrate(|t| (a * t.sin()).hypot(b * t.cos()), 0.0, TAU);
+    let quad = boundary::integrate(
+        |t| portable::hypot(a * portable::sin(t), b * portable::cos(t)),
+        0.0,
+        TAU,
+    );
     let origin = Point::um(0.0, 0.0);
     let perimeter = |s: &Shape| Region::perimeter(s).map_or(f64::NAN, |p| p.to_um());
     if let (Ok(e), Ok(s2), Ok(s1)) = (
@@ -121,7 +126,7 @@ pub(crate) fn area_error() -> f64 {
         rel(s2.area(), PI * a * b);
         rel(perimeter(&s2), quad);
         rel(s1.area(), 2.0 * a * b);
-        rel(perimeter(&s1), 4.0 * a.hypot(b));
+        rel(perimeter(&s1), 4.0 * portable::hypot(a, b));
     } else {
         worst = f64::NAN;
     }

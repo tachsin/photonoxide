@@ -12,6 +12,7 @@ use super::{
 };
 use crate::fdfd::checks::{Probe, two_ports};
 use crate::fdfd::{Boundaries, Direction, Grid, Polarization, Solver2d};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -259,7 +260,7 @@ fn points() -> impl Iterator<Item = f64> {
 fn projection_c(p: &Projection, z: c64) -> c64 {
     let (b, e) = (p.beta(), p.eta());
     let denominator = crate::portable::tanh(b * e) + crate::portable::tanh(b * (1.0 - e));
-    (crate::portable::tanh(b * e) + (b * (z - e)).tanh()) / denominator
+    (crate::portable::tanh(b * e) + portable::complex::tanh(b * (z - e))) / denominator
 }
 
 /// The largest difference between the analytic derivative and the complex step's, relative to
@@ -420,7 +421,7 @@ pub(crate) fn chain() -> Chain {
         x0: -(pml as f64) * h,
         y0: -1.5 - pml as f64 * h,
     };
-    let (core, clad) = (3.476f64.powi(2), 1.444f64.powi(2));
+    let (core, clad) = (portable::powi(3.476f64, 2), portable::powi(1.444f64, 2));
     let cells: Vec<c64> = (0..grid.ny)
         .flat_map(|j| (0..grid.nx).map(move |_| j))
         .map(|j| c64::new(if grid.y(j).abs() < 0.11 { core } else { clad }, 0.0))
@@ -439,7 +440,7 @@ pub(crate) fn chain() -> Chain {
     let rho = (0..100)
         .map(|p| {
             let (i, j) = ((p % 10) as f64, (p / 10) as f64);
-            0.5 + 0.3 * (0.7 * i).sin() * (0.45 * j + 0.3).cos()
+            0.5 + 0.3 * portable::sin(0.7 * i) * portable::cos(0.45 * j + 0.3)
         })
         .collect();
     Chain {
@@ -813,7 +814,7 @@ pub(crate) fn ruler_shapes() -> Vec<(&'static str, f64, f64)> {
         (
             "ring",
             Box::new(move |x, y| {
-                let r = ((x - c).powi(2) + (y - c).powi(2)).sqrt();
+                let r = (portable::powi(x - c, 2) + portable::powi(y - c, 2)).sqrt();
                 (40.0..55.0).contains(&r)
             }),
             15.0,
@@ -859,7 +860,7 @@ pub(crate) fn constraint_problem() -> (crate::topology::LengthConstraints, Vec<f
     let rho = (0..ni * nj)
         .map(|p| {
             let (i, j) = ((p % ni) as f64, (p / ni) as f64);
-            (0.5 + 0.45 * (0.9 * i).sin() * (0.7 * j + 0.4).cos()).clamp(0.0, 1.0)
+            (0.5 + 0.45 * portable::sin(0.9 * i) * portable::cos(0.7 * j + 0.4)).clamp(0.0, 1.0)
         })
         .collect();
     (constraints, rho)
@@ -997,8 +998,8 @@ pub(crate) fn testbed_spectrum_at(hex: &str, scale: usize) -> (f64, f64) {
             },
         ];
         let s = solver.s_matrix(&ports).expect("an S-matrix");
-        worst_r = worst_r.max(20.0 * s[0][0].norm().log10());
-        worst_t = worst_t.min(20.0 * s[1][0].norm().log10());
+        worst_r = worst_r.max(20.0 * portable::log10(portable::complex::abs(s[0][0])));
+        worst_t = worst_t.min(20.0 * portable::log10(portable::complex::abs(s[1][0])));
     }
     (worst_r, worst_t)
 }
@@ -1042,7 +1043,7 @@ pub(crate) fn helmholtz_residual() -> f64 {
         let [ni, nj, nk] = shape;
         let n = ni * nj * nk;
         let rho: Vec<f64> = (0..n)
-            .map(|p| 0.5 + 0.4 * ((0.37 * p as f64).sin() * (0.011 * p as f64).cos()))
+            .map(|p| 0.5 + 0.4 * (portable::sin(0.37 * p as f64) * portable::cos(0.011 * p as f64)))
             .collect();
         let t = f.apply(&rho).expect("filtered");
         let r = f.length_um() / h;
@@ -1092,7 +1093,7 @@ pub(crate) fn helmholtz_edge(h_nm: f64, eta: f64) -> (f64, f64) {
         }
     }
     let r = f.length_um() * 1e3;
-    ((x - edge) * h_nm, r * (1.0 / (2.0 * eta)).ln())
+    ((x - edge) * h_nm, r * portable::ln(1.0 / (2.0 * eta)))
 }
 
 /// The double filter's gradient against fourth-order differences of F = Σ wᵢ ρ̂ᵢ (fixed varied
@@ -1113,9 +1114,13 @@ pub(crate) fn double_filter_error(delta: f64, eta: f64) -> f64 {
     .expect("a pipeline");
     let n = ni * nj;
     let rho: Vec<f64> = (0..n)
-        .map(|p| 0.5 + 0.35 * (0.3 * (p % ni) as f64).sin() * (0.23 * (p / ni) as f64 + 0.2).cos())
+        .map(|p| {
+            0.5 + 0.35
+                * portable::sin(0.3 * (p % ni) as f64)
+                * portable::cos(0.23 * (p / ni) as f64 + 0.2)
+        })
         .collect();
-    let w: Vec<f64> = (0..n).map(|p| (0.71 * p as f64).sin()).collect();
+    let w: Vec<f64> = (0..n).map(|p| portable::sin(0.71 * p as f64)).collect();
     let f = |r: &[f64]| -> f64 {
         d.physical(r)
             .expect("physical")
@@ -1195,7 +1200,7 @@ fn area_shapes_case() -> Outcome {
 /// 5 (r² − ρ²)^{3/2} / (2π r⁵) at distance ρ.
 fn ssp_kernel(rho: f64, r: f64) -> f64 {
     let h2 = (r * r - rho * rho).max(0.0);
-    5.0 * h2 * h2.sqrt() / (2.0 * std::f64::consts::PI * r.powi(5))
+    5.0 * h2 * h2.sqrt() / (2.0 * std::f64::consts::PI * portable::powi(r, 5))
 }
 
 /// ∫ₐᵇ k(ρ) ρ θ(ρ) dρ by Simpson's rule on ρ = a + (b − a) u², which takes the square root that
@@ -1223,7 +1228,7 @@ fn ssp_plane_fill(d: f64, r: f64) -> f64 {
     if d < 0.0 {
         return 1.0 - ssp_plane_fill(-d, r);
     }
-    ssp_ring_integral(d, r, r, |rho| 2.0 * (d / rho).min(1.0).acos())
+    ssp_ring_integral(d, r, r, |rho| 2.0 * portable::acos((d / rho).min(1.0)))
 }
 
 /// The kernel's share of a disc of radius `a` seen from a point `x` from its centre, radius `r`,
@@ -1245,7 +1250,7 @@ fn ssp_disc_fill(x: f64, a: f64, r: f64) -> f64 {
         } else if c <= -1.0 {
             0.0
         } else {
-            2.0 * pi - 2.0 * c.acos()
+            2.0 * pi - 2.0 * portable::acos(c)
         }
     };
     inner + ssp_ring_integral(split, r, r, arc)
@@ -1263,7 +1268,7 @@ pub(crate) fn ssp_plane_error() -> f64 {
         worst = worst.max((fill(t) - ssp_plane_fill(t, 1.0)).abs());
     }
     let (nx, ny, h) = (40usize, 30usize, 0.01);
-    let (c, s) = (0.3f64.cos(), 0.3f64.sin());
+    let (c, s) = (portable::cos(0.3f64), portable::sin(0.3f64));
     let slope = 2.0; // per µm: the ramp crosses ½ over 0.25 µm
     let at = |p: usize| {
         let (x, y) = ((p % nx) as f64 * h, (p / nx) as f64 * h);
@@ -1322,9 +1327,13 @@ pub(crate) fn ssp_gradient_error(beta: f64, delta: f64) -> f64 {
             crate::topology::SmoothedProjection::new(beta, 0.5).expect("a projection"),
         );
     let rho: Vec<f64> = (0..n)
-        .map(|p| 0.5 + 0.35 * (0.3 * (p % ni) as f64).sin() * (0.23 * (p / ni) as f64 + 0.2).cos())
+        .map(|p| {
+            0.5 + 0.35
+                * portable::sin(0.3 * (p % ni) as f64)
+                * portable::cos(0.23 * (p / ni) as f64 + 0.2)
+        })
         .collect();
-    let w: Vec<f64> = (0..n).map(|p| (0.71 * p as f64).sin()).collect();
+    let w: Vec<f64> = (0..n).map(|p| portable::sin(0.71 * p as f64)).collect();
     let f = |r: &[f64]| -> f64 {
         d.physical(r)
             .expect("physical")
@@ -1396,7 +1405,7 @@ fn half_plane_area(a: f64, b: f64, c: f64) -> f64 {
 pub(crate) fn level_set_plane_error() -> f64 {
     let (nx, ny) = (20usize, 15usize);
     let l = crate::topology::LevelSet::new([nx, ny], 1.0, [1.0, 2.0]).expect("a level set");
-    let (c, s) = (0.3f64.cos(), 0.3f64.sin());
+    let (c, s) = (portable::cos(0.3f64), portable::sin(0.3f64));
     let phi_at = |x: f64, y: f64| (x - 9.3) * c + (y - 7.1) * s;
     let phi: Vec<f64> = (0..l.nodes())
         .map(|k| {
@@ -1426,7 +1435,7 @@ pub(crate) fn level_set_circle_error(h_nm: f64) -> f64 {
     let phi: Vec<f64> = (0..l.nodes())
         .map(|k| {
             let [x, y] = l.node_um(k);
-            r - ((x - centre).powi(2) + (y - centre).powi(2)).sqrt()
+            r - (portable::powi(x - centre, 2) + portable::powi(y - centre, 2)).sqrt()
         })
         .collect();
     let d_area = l
@@ -1442,12 +1451,13 @@ pub(crate) fn level_set_circle_error(h_nm: f64) -> f64 {
 /// against fourth-order differences `delta` wide at four nodes (a corner, an edge, two inside).
 pub(crate) fn level_set_probes(delta: f64) -> Vec<Probe> {
     let c = chain();
-    let (clad, core) = (1.444f64.powi(2), 3.476f64.powi(2));
+    let (clad, core) = (portable::powi(1.444f64, 2), portable::powi(3.476f64, 2));
     let l = crate::topology::LevelSet::new([10, 10], 0.02, [clad, core]).expect("a level set");
     let phi: Vec<f64> = (0..l.nodes())
         .map(|k| {
             let [x, y] = l.node_um(k);
-            0.06 - ((x - 0.07).powi(2) + (y - 0.04).powi(2)).sqrt() + 0.02 * (13.0 * x).sin()
+            0.06 - (portable::powi(x - 0.07, 2) + portable::powi(y - 0.04, 2)).sqrt()
+                + 0.02 * portable::sin(13.0 * x)
         })
         .collect();
     let lam = Wavelength::um(LAMBDA_UM).expect("a wavelength");
@@ -1524,7 +1534,7 @@ fn level_set_plane_case() -> Outcome {
 fn level_set_circle_case() -> Outcome {
     zero(
         level_set_circle_error(5.0).abs(),
-        0.5 * (5.0f64 / 500.0).powi(2),
+        0.5 * portable::powi(5.0f64 / 500.0, 2),
     )
 }
 
@@ -1566,7 +1576,7 @@ pub(crate) fn penalty_gap_switch(d_over_h: f64) -> f64 {
     switch_point(0.5, 1.5, |ratio| {
         let period = ratio * d;
         let phi: Vec<f64> = (0..l.nodes())
-            .map(|k| (std::f64::consts::PI * (l.node_um(k)[0] - x0) / period).cos())
+            .map(|k| portable::cos(std::f64::consts::PI * (l.node_um(k)[0] - x0) / period))
             .collect();
         p.terms(&l, &phi).expect("terms")[0] > 0.0
     })
@@ -1587,7 +1597,7 @@ pub(crate) fn penalty_curvature_switch(d_over_h: f64) -> f64 {
         let phi: Vec<f64> = (0..l.nodes())
             .map(|k| {
                 let [x, y] = l.node_um(k);
-                (a * a - (x - c).powi(2) - (y - c).powi(2)) / d
+                (a * a - portable::powi(x - c, 2) - portable::powi(y - c, 2)) / d
             })
             .collect();
         p.terms(&l, &phi).expect("terms")[1] > 0.0
@@ -1603,7 +1613,8 @@ pub(crate) fn penalty_gradient_error(delta: f64) -> f64 {
     let phi: Vec<f64> = (0..l.nodes())
         .map(|k| {
             let [x, y] = l.node_um(k);
-            0.03 * (31.0 * x).sin() * (23.0 * y + 0.4).cos() + 0.01 * (57.0 * (x + y)).sin()
+            0.03 * portable::sin(31.0 * x) * portable::cos(23.0 * y + 0.4)
+                + 0.01 * portable::sin(57.0 * (x + y))
         })
         .collect();
     let (value, g) = p.evaluate(&l, &phi).expect("evaluated");
@@ -1628,7 +1639,7 @@ pub(crate) fn penalty_gradient_error(delta: f64) -> f64 {
 fn penalty_gap_case() -> Outcome {
     zero(
         (penalty_gap_switch(40.0) - 1.0).abs(),
-        (1.0f64 / 40.0).powi(2),
+        portable::powi(1.0f64 / 40.0, 2),
     )
 }
 
@@ -1778,7 +1789,7 @@ pub(crate) const LITHO_PIXELS: [usize; 3] = [0, 5, 55];
 /// blur's transpose, against fourth-order differences `delta` wide at three pixels.
 pub(crate) fn litho_probes(delta: f64) -> Vec<Probe> {
     let c = chain();
-    let (clad, core) = (1.444f64.powi(2), 3.476f64.powi(2));
+    let (clad, core) = (portable::powi(1.444f64, 2), portable::powi(3.476f64, 2));
     let litho = crate::topology::Lithography::new([10, 10, 1], 0.02, 0.03, 0.5, Edge::Renormalized)
         .expect("a proxy");
     let lam = Wavelength::um(LAMBDA_UM).expect("a wavelength");

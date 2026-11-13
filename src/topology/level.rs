@@ -11,6 +11,7 @@
 //! C. M. Lalau-Keraly, S. Bhargava, O. D. Miller, E. Yablonovitch, "Adjoint shape optimization
 //! applied to electromagnetic design", Opt. Express 21, 21693 (2013), doi:10.1364/OE.21.021693.
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// A level set on `cells` cells of `pixel_um`, the two permittivities it interpolates.
@@ -261,7 +262,7 @@ impl Dual {
             *dk = (x.v * self.d[k] - self.v * x.d[k]) / r2;
         }
         Dual {
-            v: self.v.atan2(x.v),
+            v: portable::atan2(self.v, x.v),
             d,
         }
     }

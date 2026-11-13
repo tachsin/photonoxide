@@ -23,6 +23,7 @@ use crate::circuit::{Component, Netlist};
 use crate::nonlinear::coupled::{SecondHarmonic, ThreeWave};
 use crate::nonlinear::fwm::{FourWave, signal_gain};
 use crate::nonlinear::pairs::{JointSpectrum, Pump, gaussian_purity};
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::validation::{Case, Outcome, Tier, note_numerical};
 
@@ -301,7 +302,7 @@ fn gvm_grid(n: usize) -> Vec<f64> {
 
 /// The source's pump amplitude at ν_s + ν_i.
 fn gvm_pump(nu: f64) -> c64 {
-    c64::new((-2.0 * std::f64::consts::LN_2 * nu * nu).exp(), 0.0)
+    c64::new(portable::exp(-2.0 * std::f64::consts::LN_2 * nu * nu), 0.0)
 }
 
 /// The source's phase mismatch ΔkL/2.
@@ -325,7 +326,7 @@ fn gvm_spectrum(n: usize, slices: usize) -> JointSpectrum {
             let sum: c64 = (0..slices)
                 .map(|k| {
                     let t = (k as f64 + 0.5) / slices as f64 - 0.5;
-                    c64::from_polar(1.0 / slices as f64, 2.0 * x * t)
+                    portable::complex::from_polar(1.0 / slices as f64, 2.0 * x * t)
                 })
                 .sum();
             amplitude.push(pump(s + i) * sum);
@@ -363,7 +364,7 @@ fn broadband_low_gain() -> Outcome {
         let single = Broadband::exponential(&js, g).expect(OK).squeezing()[0];
         ((sliced - single) / single).abs()
     };
-    let order = (gap(0.02) / gap(0.01)).log2();
+    let order = portable::log2(gap(0.02) / gap(0.01));
     outcome(order, 2.0, 0.1)
 }
 
@@ -372,7 +373,7 @@ fn one_by_one(coupling: f64, x: f64, slices: usize) -> Broadband {
         .map(|k| {
             let t = (k as f64 + 0.5) / slices as f64 - 0.5;
             Matrix::from_fn(1, 1, |_, _| {
-                c64::from_polar(coupling / slices as f64, 2.0 * x * t)
+                portable::complex::from_polar(coupling / slices as f64, 2.0 * x * t)
             })
         })
         .collect();
@@ -382,13 +383,17 @@ fn one_by_one(coupling: f64, x: f64, slices: usize) -> Broadband {
 fn broadband_single_mode() -> Outcome {
     let b = one_by_one(2.0, 0.0, 10);
     let m = b.map();
-    let (a, bb) = (m[(0, 0)].norm(), m[(0, 1)].norm());
+    let (a, bb) = (
+        portable::complex::abs(m[(0, 0)]),
+        portable::complex::abs(m[(0, 1)]),
+    );
     let r = 2.0_f64;
     let worst = [
         (b.squeezing()[0] - r).abs() / r,
-        (a - r.cosh()).abs() / r.cosh(),
-        (bb / a - r.tanh()).abs() / r.tanh(),
-        (b.mean_photons() - r.sinh().powi(2)).abs() / r.sinh().powi(2),
+        (a - portable::cosh(r)).abs() / portable::cosh(r),
+        (bb / a - portable::tanh(r)).abs() / portable::tanh(r),
+        (b.mean_photons() - portable::powi(portable::sinh(r), 2)).abs()
+            / portable::powi(portable::sinh(r), 2),
     ]
     .into_iter()
     .fold(0.0, f64::max);
@@ -398,11 +403,11 @@ fn broadband_single_mode() -> Outcome {
 /// The phase-mismatched amplifier's |B| in closed form, κL = 3, ΔkL/2 = 1.
 fn mismatched_closed_form() -> f64 {
     let gl = (9.0_f64 - 1.0).sqrt();
-    3.0 * gl.sinh() / gl
+    3.0 * portable::sinh(gl) / gl
 }
 
 fn mismatched(slices: usize) -> f64 {
-    one_by_one(3.0, 1.0, slices).map()[(0, 1)].norm()
+    portable::complex::abs(one_by_one(3.0, 1.0, slices).map()[(0, 1)])
 }
 
 fn broadband_mismatched() -> Outcome {
@@ -419,14 +424,18 @@ fn broadband_mismatched_order() -> Outcome {
         .iter()
         .map(|&n| (mismatched(n) - exact).abs())
         .collect();
-    let order = 0.5 * ((e[0] / e[1]).log2() + (e[1] / e[2]).log2());
+    let order = 0.5 * (portable::log2(e[0] / e[1]) + portable::log2(e[1] / e[2]));
     outcome(order, 2.0, 0.1)
 }
 
 fn broadband_photons() -> Outcome {
     let b = gvm(48, 40, 3.0);
     let trace = b.mean_photons();
-    let sum: f64 = b.squeezing().iter().map(|r| r.sinh().powi(2)).sum();
+    let sum: f64 = b
+        .squeezing()
+        .iter()
+        .map(|r| portable::powi(portable::sinh(*r), 2))
+        .sum();
     let k = b.squeezing().len();
     let g = b.gaussian(k).expect(OK);
     let gaussian: f64 = (0..k).map(|m| g.mean_photons(m).expect(OK)).sum();
@@ -441,7 +450,7 @@ fn hafnian_ones() -> Outcome {
         double_factorial *= (2 * n - 1) as f64;
         let ones = Matrix::from_fn(2 * n, 2 * n, |_, _| c64::new(1.0, 0.0));
         let h = hafnian(&ones).expect(OK);
-        e = e.max((h - double_factorial).norm() / double_factorial);
+        e = e.max(portable::complex::abs(h - double_factorial) / double_factorial);
     }
     worst(e, HAFNIAN_ONES)
 }
@@ -456,13 +465,16 @@ fn hafnian_definition() -> Outcome {
         for loops in [false, true] {
             let fast = if loops { loop_hafnian(&a) } else { hafnian(&a) }.expect(OK);
             let exact = by_definition(&a, loops);
-            e = e.max((fast - exact).norm() / exact.norm());
+            e = e.max(portable::complex::abs(fast - exact) / portable::complex::abs(exact));
         }
     }
     for n in (3..=11).step_by(2) {
         let a = random_symmetric(n, 100 + n as u64);
         let exact = by_definition(&a, true);
-        e = e.max((loop_hafnian(&a).expect(OK) - exact).norm() / exact.norm());
+        e = e.max(
+            portable::complex::abs(loop_hafnian(&a).expect(OK) - exact)
+                / portable::complex::abs(exact),
+        );
     }
     worst(e, 1e-12)
 }
@@ -491,7 +503,7 @@ fn hafnian_threads() -> Outcome {
     };
     let (one, seven) = (run(1), run(7));
     let e = (0..3)
-        .map(|k| (one[k] - seven[k]).norm())
+        .map(|k| portable::complex::abs(one[k] - seven[k]))
         .fold(0.0, f64::max);
     worst(e, 0.0)
 }
@@ -499,13 +511,14 @@ fn hafnian_threads() -> Outcome {
 fn squeezed_vacuum() -> Outcome {
     let r: f64 = 0.8;
     let g = Gaussian::vacuum(1).squeezed(0, r, 0.7).expect(OK);
-    let t = r.tanh();
+    let t = portable::tanh(r);
     let mut e: f64 = 0.0;
     let (mut mean, mut closed_mean) = (0.0, 0.0);
     for k in 0..=15usize {
-        let closed = factorial(2 * k) / (4f64.powi(k as i32) * factorial(k).powi(2))
-            * t.powi(2 * k as i32)
-            / r.cosh();
+        let closed = factorial(2 * k)
+            / (portable::powi(4f64, k as i32) * portable::powi(factorial(k), 2))
+            * portable::powi(t, 2 * k as i32)
+            / portable::cosh(r);
         let p = g.probability(&[2 * k]).expect(OK);
         e = e.max((p - closed).abs());
         if k < 15 {
@@ -516,8 +529,8 @@ fn squeezed_vacuum() -> Outcome {
     }
     // the distribution's mean to 30 photons against the closed form's, and the covariance's
     e = e.max((mean - closed_mean).abs());
-    e = e.max((g.mean_photons(0).expect(OK) - r.sinh().powi(2)).abs());
-    e = e.max((g.click_probability(&[false]).expect(OK) - 1.0 / r.cosh()).abs());
+    e = e.max((g.mean_photons(0).expect(OK) - portable::powi(portable::sinh(r), 2)).abs());
+    e = e.max((g.click_probability(&[false]).expect(OK) - 1.0 / portable::cosh(r)).abs());
     worst(e, 1e-12)
 }
 
@@ -526,12 +539,12 @@ fn two_mode_thermal() -> Outcome {
     let g = Gaussian::vacuum(2)
         .two_mode_squeezed(0, 1, r, 0.3)
         .expect(OK);
-    let t2 = r.tanh().powi(2);
+    let t2 = portable::powi(portable::tanh(r), 2);
     let mut e: f64 = 0.0;
     for n in 0..=7usize {
         for m in 0..=7usize {
             let closed = if n == m {
-                t2.powi(n as i32) / r.cosh().powi(2)
+                portable::powi(t2, n as i32) / portable::powi(portable::cosh(r), 2)
             } else {
                 0.0
             };
@@ -540,13 +553,15 @@ fn two_mode_thermal() -> Outcome {
     }
     let half = g.reduced(&[1]).expect(OK);
     let thermal = Gaussian::vacuum(1)
-        .with_thermal(0, r.sinh().powi(2))
+        .with_thermal(0, portable::powi(portable::sinh(r), 2))
         .expect(OK);
     for (a, b) in half.covariance().iter().zip(thermal.covariance()) {
         e = e.max((a - b).abs());
     }
     let both = g.click_probability(&[true, true]).expect(OK);
-    let summed: f64 = (1..=30).map(|n| t2.powi(n) / r.cosh().powi(2)).sum();
+    let summed: f64 = (1..=30)
+        .map(|n| portable::powi(t2, n) / portable::powi(portable::cosh(r), 2))
+        .sum();
     e = e.max((both - summed).abs());
     worst(e, 1e-13)
 }
@@ -567,9 +582,9 @@ fn squeezed_loss() -> Outcome {
     let out = input.through(&t).expect(OK);
     let eta = t.matrix()[(1, 0)].norm_sqr();
     let (low, high) = out.quadrature_extremes(1).expect(OK);
-    let e = (low - (eta * (-2.0 * r).exp() + 1.0 - eta))
+    let e = (low - (eta * portable::exp(-2.0 * r) + 1.0 - eta))
         .abs()
-        .max((high - (eta * (2.0 * r).exp() + 1.0 - eta)).abs());
+        .max((high - (eta * portable::exp(2.0 * r) + 1.0 - eta)).abs());
     worst(e, 1e-13)
 }
 
@@ -580,7 +595,7 @@ fn displaced_states() -> Outcome {
     let mut e: f64 = 0.0;
     for n in 0..=15usize {
         let p = g.probability(&[n]).expect(OK);
-        e = e.max((p - (-mu).exp() * mu.powi(n as i32) / factorial(n)).abs());
+        e = e.max((p - portable::exp(-mu) * portable::powi(mu, n as i32) / factorial(n)).abs());
     }
     let g = Gaussian::vacuum(1)
         .squeezed(0, 0.3, 1.1)
@@ -623,7 +638,7 @@ fn clicks_coherent() -> Outcome {
     let dark: Vec<f64> = (0..4)
         .map(|j| {
             let b: c64 = (0..4).map(|k| t[(j, k)] * alpha[k]).sum();
-            (-b.norm_sqr()).exp()
+            portable::exp(-b.norm_sqr())
         })
         .collect();
     let (mut e, mut total): (f64, f64) = (0.0, 0.0);
@@ -671,12 +686,14 @@ fn clicks_displaced() -> Outcome {
 fn source_pairs() -> Outcome {
     let k = 4usize;
     let s = Source::new(&[1.0; 4], 0.5).expect(OK);
-    let t = s.squeezing()[0].tanh().powi(2);
+    let t = portable::powi(portable::tanh(s.squeezing()[0]), 2);
     let p = s.pairs(10);
     let mut e: f64 = 0.0;
     for (n, &pn) in p.iter().enumerate() {
         let binomial = factorial(n + k - 1) / (factorial(n) * factorial(k - 1));
-        e = e.max((pn - binomial * t.powi(n as i32) * (1.0 - t).powi(k as i32)).abs());
+        e = e.max(
+            (pn - binomial * portable::powi(t, n as i32) * portable::powi(1.0 - t, k as i32)).abs(),
+        );
     }
     e = e.max((s.mean_pairs() - 0.5).abs());
     e = e.max((s.unheralded_g2() - (1.0 + 1.0 / k as f64)).abs());
@@ -695,7 +712,7 @@ fn gaussian_spectrum(m: [f64; 3], half: f64, n: usize) -> JointSpectrum {
         .flat_map(|&s| {
             axis.iter().map(move |&i| {
                 c64::new(
-                    (-0.5 * (a * s * s + 2.0 * c * s * i + b * i * i)).exp(),
+                    portable::exp(-0.5 * (a * s * s + 2.0 * c * s * i + b * i * i)),
                     0.0,
                 )
             })
@@ -753,7 +770,7 @@ fn heralding_coupler() -> Outcome {
     let ports: Vec<&str> = lossy.ports().iter().map(|p| p.name.as_str()).collect();
     let at = |name: &str| ports.iter().position(|p| *p == name).expect(OK);
     let idler = s[(at("o4"), at("o2"))].norm_sqr();
-    let e = (a.signal + b.signal - 10f64.powf(-0.05))
+    let e = (a.signal + b.signal - portable::powf(10f64, -0.05))
         .abs()
         .max((a.idler - idler).abs());
     worst(e, 1e-14)
@@ -951,11 +968,14 @@ fn squeezer_four_wave() -> Outcome {
     let (gamma, power, mismatch, length): (f64, f64, f64, f64) = (1.0, 2.0, -3.0, 1.0);
     let fwm = FourWave { gamma, mismatch };
     let run = |steps: usize| {
-        four_wave(&fwm, c64::new(power.sqrt(), 0.0), length, steps)
-            .expect(OK)
-            .r()
-            .cosh()
-            .powi(2)
+        portable::powi(
+            portable::cosh(
+                four_wave(&fwm, c64::new(power.sqrt(), 0.0), length, steps)
+                    .expect(OK)
+                    .r(),
+            ),
+            2,
+        )
     };
     let (g2000, g1000) = (run(2000), run(1000));
     let g = signal_gain(gamma, power, mismatch, length);
@@ -965,7 +985,7 @@ fn squeezer_four_wave() -> Outcome {
 
 fn squeezer_rk4_order() -> Outcome {
     let r: Vec<f64> = [80usize, 160, 320].iter().map(|&n| opa(n).r()).collect();
-    let order = ((r[0] - r[1]) / (r[1] - r[2])).abs().log2();
+    let order = portable::log2(((r[0] - r[1]) / (r[1] - r[2])).abs());
     outcome((order * 100.0).round() / 100.0, 4.0, 0.2)
 }
 
@@ -974,7 +994,7 @@ fn squeezer_rk4_order() -> Outcome {
 // ---------------------------------------------------------------------------------------------
 
 fn db(x: f64) -> f64 {
-    10.0 * x.log10()
+    10.0 * portable::log10(x)
 }
 
 fn vaidya_number_difference() -> Outcome {
@@ -1014,8 +1034,8 @@ fn bound(eta: f64) -> f64 {
 }
 
 fn vaidya_outcoupling() -> Outcome {
-    let a = bound(10f64.powf(-0.15));
-    let b = bound(10f64.powf(-0.05));
+    let a = bound(portable::powf(10f64, -0.15));
+    let b = bound(portable::powf(10f64, -0.05));
     let (ea, eb) = ((a - 5.0).abs(), (b - 10.0).abs());
     if ea >= eb {
         outcome(a, 5.0, 0.5)
@@ -1027,13 +1047,13 @@ fn vaidya_outcoupling() -> Outcome {
 /// Nehra et al.'s loss model solved for η and r from their measured squeezing and
 /// anti-squeezing: (r in dB, 1 − η).
 pub(crate) fn nehra_solved() -> (f64, f64) {
-    let minus = 10f64.powf(-0.42);
-    let plus = 10f64.powf(0.97);
+    let minus = portable::powf(10f64, -0.42);
+    let plus = portable::powf(10f64, 0.97);
     // η(1/x − 1) = minus − 1, η(x − 1) = plus − 1, x = e^{2r}: x = (plus − 1)/(1 − minus)
     let x = (plus - 1.0) / (1.0 - minus);
     let eta = (plus - 1.0) / (x - 1.0);
     // through the Gaussian state: squeeze, lose, read both quadratures back
-    let r = 0.5 * x.ln();
+    let r = 0.5 * portable::ln(x);
     let g = Gaussian::vacuum(1)
         .squeezed(0, r, 0.0)
         .expect(OK)
@@ -1211,7 +1231,10 @@ mod tests {
             let (i0, p0) = PAESANI_PUMP[k];
             let (i1, p1) = PAESANI_PUMP[k + 1];
             let intensity = (i0 + t * (i1 - i0)).max(0.0);
-            c64::from_polar(intensity.powf(power), sign * (p0 + t * (p1 - p0)))
+            portable::complex::from_polar(
+                portable::powf(intensity, power),
+                sign * (p0 + t * (p1 - p0)),
+            )
         }
     }
 
@@ -1237,7 +1260,7 @@ mod tests {
             let (i0, i1) = (PAESANI_PUMP[k].0.max(0.0), PAESANI_PUMP[k + 1].0.max(0.0));
             let intensity = i0 + t * (i1 - i0);
             let amplitude = match reading {
-                Reading::Jacobian => (intensity * (1e3 / nu / 1550.0).powi(2)).sqrt(),
+                Reading::Jacobian => (intensity * portable::powi(1e3 / nu / 1550.0, 2)).sqrt(),
                 Reading::Floor => (intensity - 0.005).max(0.0).sqrt(),
                 Reading::Amplitude => i0.sqrt() + t * (i1.sqrt() - i0.sqrt()),
             };
@@ -1407,16 +1430,16 @@ mod tests {
             let k = |pulse: f64, points: usize| ring_schmidt(pulse, ratio, 20.0, points);
             // the pulse (ps) on a log scale
             let g = 0.5 * (5f64.sqrt() - 1.0);
-            let (mut a, mut b) = (0.05f64.ln(), 50f64.ln());
+            let (mut a, mut b) = (portable::ln(0.05f64), portable::ln(50f64));
             for _ in 0..30 {
                 let (c, d) = (b - g * (b - a), a + g * (b - a));
-                if k(c.exp(), 401) < k(d.exp(), 401) {
+                if k(portable::exp(c), 401) < k(portable::exp(d), 401) {
                     b = d;
                 } else {
                     a = c;
                 }
             }
-            let best = (0.5 * (a + b)).exp();
+            let best = portable::exp(0.5 * (a + b));
             let (fine, coarse) = (1.0 / k(best, 801), 1.0 / k(best, 401));
             eprintln!(
                 "ratio {ratio}: line {read:.4}, best pulse {best:.3} ps, purity {fine:.5} (K {:.5}; grid {:.1e}, off {:+.5}); a broad pump {:.5}",
