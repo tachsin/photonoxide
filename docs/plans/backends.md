@@ -165,6 +165,11 @@ exports and CUDA imports (`VK_KHR_external_memory_win32`, `_fd` on Linux;
 (Vulkan has f64 there), as a backend of its own once there is an AMD GPU to measure it on; the
 stencil's kernel is the part both share.
 
+**Status (#802).** (a) is in, measured on the catalogue's four families in [the backends'
+write-up](../methods/backends.md#measured-the-multigrid-without-its-finest-matrix-337). Left:
+the 128³ guide, which doesn't fit in the 4060's 8 GB with Galerkin's coarse operators, and the
+stencil's kernel itself, three passes at about 110 GB/s where one fused pass would read less.
+
 ## Rules for backends
 
 - **Checked before offered.** A backend is registered only after its smoke test: a small
