@@ -22,8 +22,35 @@ ignored = ["faer"]
 name = "photonoxide"
 path = "src/main.rs"
 
+[features]
+default = ["window"]
+# the studio's window: Tauri, and on Linux GTK and WebKitGTK. Without it the same program keeps
+# every headless command (run --headless, worker, new, schema, export, example, validate, bench,
+# libraries, references) and links no window library: the Docker image's build (docs/docker.md,
+# `cargo build -p photonoxide-studio --no-default-features`)
+window = [
+    "dep:tauri",
+    "dep:tauri-build",
+    "dep:tauri-plugin-dialog",
+    "dep:tauri-plugin-opener",
+    "dep:tauri-plugin-process",
+    "dep:tauri-plugin-updater",
+    "dep:tauri-plugin-window-state",
+    # the nightly channel, the setup and the libraries' installs
+    "dep:dirs",
+    "dep:minisign-verify",
+    "dep:reqwest",
+    "dep:rustls",
+    "dep:semver",
+    "dep:sha2",
+    "dep:tar",
+    "dep:mslnk",
+    "dep:rfd",
+    "dep:winreg",
+]
+
 [build-dependencies]
-tauri-build = { version = "2.6", features = [] }
+tauri-build = { version = "2.6", features = [], optional = true }
 
 [dependencies]
 # without faer's `npy` default: nothing here reads .npy files, and it brought pest, whose newer
@@ -40,42 +67,47 @@ photonoxide = { path = "../.." }
 # external libraries found at run time, for the benchmark's backends (bench --backends)
 photonoxide-native = { path = "../../native" }
 # the nightly channel: GitHub's API and main's tarball, over rustls with ring, as the updater does
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider", "system-proxy"] }
-rustls = { version = "0.23", default-features = false, features = ["ring"] }
-semver = "1"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider", "system-proxy"], optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring"], optional = true }
+semver = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # the builder's YAML jobs, read as the library reads them (photonoxide::run::Format)
 serde-saphyr = "2.0"
-tar = "0.4"
-tauri = { version = "2.11", features = [] }
-tauri-plugin-dialog = "2.7"
-tauri-plugin-opener = "2.7.0"
-tauri-plugin-process = "2.4.0"
-tauri-plugin-updater = "2.13.1"
-tauri-plugin-window-state = "2.5.0"
+tar = { version = "0.4", optional = true }
+tauri = { version = "2.11", features = [], optional = true }
+tauri-plugin-dialog = { version = "2.7", optional = true }
+tauri-plugin-opener = { version = "2.7.0", optional = true }
+tauri-plugin-process = { version = "2.4.0", optional = true }
+tauri-plugin-updater = { version = "2.13.1", optional = true }
+tauri-plugin-window-state = { version = "2.5.0", optional = true }
 toml = "1"
 # where the setup puts things: the user's local and roaming app data, and their Desktop, which
 # may be moved (to OneDrive, say), as Windows' known folders say (setup.rs, which builds on every
 # system and says elsewhere that it is for Windows)
-dirs = "7"
+dirs = { version = "7", optional = true }
 # a release installed by a copy that isn't installed (channels/release.rs), checked as Tauri's
 # updater checks an update: its minisign signature against the release key (pure Rust), the
 # signature and the key in base64
-minisign-verify = "0.3"
+minisign-verify = { version = "0.3", optional = true }
 base64 = "0.23"
 # micromamba checked against its release's SHA-256 before it runs (libraries/environment.rs); pure
 # Rust, without the asm feature
-sha2 = "0.10"
+sha2 = { version = "0.10", optional = true }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
 # the CPU's vendor and model, for the libraries suggested for it (libraries/hardware.rs)
 raw-cpuid = "11"
 
+[target.'cfg(unix)'.dependencies]
+# SIGTERM and SIGINT stop a run as the window closing does (signals.rs): `docker stop`, a
+# scheduler's time limit, Ctrl-C
+signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
+
 [target."cfg(windows)".dependencies]
 # the setup's shortcuts, written as .lnk files (pure Rust; setup.rs)
-mslnk = "0.1.8"
+mslnk = { version = "0.1.8", optional = true }
 # what the setup says when it can't open its window: a message box (the dialog plugin's, as is)
-rfd = { version = "0.17", default-features = false }
+rfd = { version = "0.17", default-features = false, optional = true }
 # the setup's entry in Apps & Features, and the WebView2 runtime's version (setup.rs)
-winreg = "0.56"
+winreg = { version = "0.56", optional = true }

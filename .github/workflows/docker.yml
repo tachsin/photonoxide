@@ -1,0 +1,197 @@
+name: Docker
+
+# The program without its window (the studio's `window` feature off) and its Docker image
+# (docker/Dockerfile, docs/docker.md), checked on the pull requests that can change them and
+# weekly (#805, D1, D5 and D6):
+#
+# - Headless: the program built without the window on the runner, as the Linux packages are
+#   built: no GTK or WebKit crate in its tree and no such library linked (ldd), the studio's
+#   tests on that build, and two built-in jobs run, for the image to match;
+# - Image: the image builds; it runs as a user of its own with a read-only root; `example
+#   --list` and `new --list` run with nothing mounted; `--cpus 2` gives its solvers 2 threads;
+#   `docker stop` mid-run ends the run with exit 4 and a whole record; and the same built-in jobs
+#   give the native run's results, to the bit (docker/check.sh);
+# - Apptainer: the same jobs from the image's archive, as a cluster runs them, to the same bits;
+# - Slurm: a controller and three compute nodes in containers (docker/slurm): a batch job, a job
+#   array over a sweep's parts, a farm over the allocation's nodes (its record the one-process
+#   run's, to the bit), the time limit, and a node killed mid-farm. Containers on one machine
+#   share its cores, memory and network: this checks correctness, signals and the scheduler,
+#   never speed.
+#
+# CI's own workflow (ci.yml) builds and tests the program with its window, as before; this one
+# owns the build without it. Publishing the image is docker-publish.yml's, on a release.
+
+on:
+  pull_request:
+    paths:
+      - "docker/**"
+      - ".dockerignore"
+      - "studio/src-tauri/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/docker.yml"
+  schedule:
+    # Mondays, an hour after the Weekly workflow starts
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: photonoxide:check
+
+jobs:
+  headless:
+    name: Headless build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: headless
+      - name: No window crate in the tree
+        run: |
+          set -euo pipefail
+          crates=$(cargo tree -e normal -p photonoxide-studio --no-default-features --prefix none --format '{p}' | cut -d' ' -f1 | sort -u)
+          if grep -i -E 'tauri|webkit|gtk|wry' <<<"$crates"; then
+            echo "::error::the build without the window still depends on the crates above"
+            exit 1
+          fi
+          echo "$(wc -l <<<"$crates") crates, none of the window's"
+      # CI's studio job lints the build with the window; this one, the build without it
+      - run: cargo clippy --locked -p photonoxide-studio --no-default-features --all-targets -- -D warnings
+      - run: cargo build --locked --release -p photonoxide-studio --no-default-features
+      - name: No window library linked
+        run: |
+          set -euo pipefail
+          ldd target/release/photonoxide
+          if ldd target/release/photonoxide | grep -i -E 'gtk|webkit|soup|gdk|glib|cairo|pango'; then
+            echo "::error::the build without the window links the libraries above"
+            exit 1
+          fi
+      # the studio's tests, those of every headless command, on the build without the window
+      # (the signals' tests among them); release, to share the build above
+      - run: cargo test --locked --release -p photonoxide-studio --no-default-features
+      - name: The built-in jobs, run natively
+        run: bash docker/check.sh native target/release/photonoxide native-runs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-runs
+          path: native-runs
+          retention-days: 3
+
+  image:
+    name: Image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      # the checks' and the cluster's scripts, by the shellcheck GitHub's runners ship
+      - run: shellcheck -x --severity=warning docker/*.sh docker/slurm/*.sh docker/slurm/scripts/*.sh
+      - id: rust
+        name: The pinned Rust
+        run: echo "version=$(sed -n 's/^channel *= *"\([^"]*\)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            RUST_VERSION=${{ steps.rust.outputs.version }}
+            PHOTONOXIDE_COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=docker-check
+          cache-to: type=gha,scope=docker-check,mode=max
+      - name: Size
+        run: docker image ls "$IMAGE"
+      - name: The image's checks
+        run: bash docker/check.sh image "$IMAGE" image-runs
+      - name: The image, saved for the other jobs
+        run: docker save "$IMAGE" -o image.tar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image
+          path: image.tar
+          retention-days: 3
+          compression-level: 1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-runs
+          path: image-runs
+          retention-days: 3
+
+  same-bits:
+    name: Same bits as native
+    needs: [headless, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-runs
+          path: native-runs
+      - uses: actions/download-artifact@v8
+        with:
+          name: image-runs
+          path: image-runs
+      - run: bash docker/check.sh compare native-runs image-runs
+
+  apptainer:
+    name: Apptainer
+    needs: [headless, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APPTAINER_VERSION: "1.5.5"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: image
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-runs
+          path: native-runs
+      - name: Install Apptainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "v$APPTAINER_VERSION" --repo apptainer/apptainer \
+            --pattern "apptainer_${APPTAINER_VERSION}_amd64.deb" --dir "$RUNNER_TEMP"
+          sudo apt-get update
+          sudo apt-get install -y "$RUNNER_TEMP/apptainer_${APPTAINER_VERSION}_amd64.deb"
+          # Ubuntu 24.04 keeps unprivileged user namespaces from programs without an AppArmor
+          # profile of their own; a cluster's Apptainer is set up by its administrators
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          apptainer --version
+      - name: The built-in jobs, from the image's archive
+        run: bash docker/check.sh apptainer "docker-archive:$PWD/image.tar" apptainer-runs
+      - run: bash docker/check.sh compare native-runs apptainer-runs
+
+  slurm:
+    name: Slurm in Docker
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: image
+      - run: docker load -i image.tar
+      - name: The cluster's checks
+        run: bash docker/slurm/test.sh "$IMAGE"
+      - if: failure()
+        name: The cluster's logs
+        run: docker compose -f docker/slurm/compose.yaml -p photonoxide-slurm logs --no-color | tail -n 400

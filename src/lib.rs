@@ -71,6 +71,8 @@
 pub mod averaging;
 pub mod backend;
 pub mod bench;
+#[cfg(test)]
+mod canary_tests;
 pub mod circuit;
 pub mod compact;
 pub mod convergence;

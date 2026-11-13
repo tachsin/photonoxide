@@ -97,30 +97,38 @@ just release-marks                                     # the release PR's marks:
 just site-check                                        # after a release and a deploy: tachsin.gr's overview, roadmap and Python reference against the latest release
 ```
 
-CI runs in tiers (issue #315). **Tier 1**, every PR and push to main: on Linux, lint, MSRV, and the
-unit tests, validation cases and examples (not the 3D devices) of the areas a change touches and
-of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
+CI runs in tiers (issue #315). **Tier 1**, every PR, in few jobs on Linux: Lint (with MSRV, the
+Windows and macOS compile check and the studio's lint), one job of the unit tests and one of the
+validation cases and examples (.github/run-pool.sh runs them side by side) of the areas a change
+touches and of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
 in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
-or test-read file gets its line in the map. A PR that changes the library (`src/`, the root
+or test-read file gets its line in the map. A change to CI's own files alone runs actionlint, the
+shards' check (.github/check-shards.sh) and a smoke run, not the suite. Every push to main runs
+everything (not the 3D devices) in shards, holding up no PR. A PR that changes the library (`src/`, the root
 `Cargo.toml`) also runs the Semver job, cargo-semver-checks against the PR's base on main, so a
 PR answers for its own breaks only; the release PR is checked against the latest release on
-crates.io. A PR runs on Linux alone unless it changes a file that differs by system (`OS_FILES` in
-the map: native/, the studio's Rust code and setup, the toolchain, build scripts, CI's own files);
-every push to main runs the unit tests and the studio on Windows and macOS too. The studio's fast
-tier skips its slow physics tests (.github/studio-slow-tests.txt; nothing is `#[ignore]`d) when
-a PR changes only what it reads as text (README, roadmap, changelog, Academy, methods pages, web
-view); its Rust code, a job or circuit file, or a library area it uses runs every test, as main
-does. A draft PR runs nothing: mark it ready for review when its local checks pass, and CI runs.
+crates.io. A PR runs on Linux alone (no Windows or macOS runner but for the release PR and
+`full-ci`; a job compiles the library for both from Linux), nor does the merge queue or a push to
+main: Windows and macOS run in the Weekly workflow (its CI run, canaries and Systems comparison). No CI job runs the studio's tests or photonoxide-native's: CI lints and
+builds them. Run the studio's yourself before a push (`just studio-check`, its fast tier, which the
+pre-push hook runs when a push changes what the studio reads; `just studio-slow`, the physics
+solves of .github/studio-slow-tests.txt, when a push changes the studio's Rust code, a job or
+circuit, a lesson or a library area the studio uses), and native's with `just native-tests` (the
+Libraries workflow by hand: `gh workflow run Libraries`). Draft until done: open the PR as a draft (it runs no CI), develop with the local checks (`just`,
+the pre-push hook), and mark it ready for review once, when it is done: CI runs then, once. Don't
+push again and again to a ready PR, and don't merge main into it by hand: the merge queue checks
+it merged onto the latest main ("CI passed") before it lands.
 **Tier 2**, the release PR, a PR labelled `full-ci`, and
 a change that can alter the dependencies or the features (`Cargo.lock`'s packages, the root
 `Cargo.toml`'s dependency, feature, patch or workspace tables: `.github/dependencies.sh`; other
-edits of the two are Tier 1): every test on Linux, Windows and macOS (and on
-one thread), every example on the three systems, the 3D devices, the whole validation report. The
+edits of the two are Tier 1): every test (and on one thread), every example, the 3D devices, the
+whole validation report, on Linux, Windows and macOS for the release PR and `full-ci`, on Linux
+for a dependency change (on the three in the Weekly run). The
 shards ([.github/shards.sh](.github/shards.sh)) split a run's tests, cases and examples among its
 jobs by measured times, each in exactly one job (the "What changed" job fails otherwise). **Tier
 3**, the Weekly workflow on Mondays when code changed that week: Tier 2, every Python wheel, the
-Systems comparison and the Libraries workflow's installs (those every week); a failure opens the
+Systems comparison (the Libraries workflow's installs run by hand only); a failure opens the
 issue "Weekly run failed". Run the full suite here after every merge or rebase
 (`.github/full-suite.sh`; `git config core.hooksPath .github/hooks` runs it in the background).
 The same hooks run CI's Lint steps (`.github/lints.sh`: fmt, the clippies, docs) before every push

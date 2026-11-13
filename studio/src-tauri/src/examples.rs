@@ -447,6 +447,7 @@ fn links(md: &str) -> Vec<String> {
 }
 
 /// A job file shipped with the program, from jobs/.
+#[cfg(any(test, feature = "window"))]
 #[derive(Serialize, Clone)]
 pub struct JobExample {
     /// Its file name, e.g. `"strip-modes.yaml"`.
@@ -455,6 +456,7 @@ pub struct JobExample {
 }
 
 /// The repository's jobs/, built in.
+#[cfg(any(test, feature = "window"))]
 pub fn jobs() -> Vec<JobExample> {
     [
         (
@@ -622,6 +624,7 @@ pub fn jobs() -> Vec<JobExample> {
 /// The built-in components' job files, jobs/components/: each device of the library as its page
 /// builds it at its defaults (#668), in the library's order. They aren't templates: the Design
 /// page lists them, and each opens on its device's page.
+#[cfg(any(test, feature = "window"))]
 pub fn components() -> Vec<JobExample> {
     macro_rules! components {
         ($($id:literal),* $(,)?) => {
@@ -741,7 +744,7 @@ mod tests {
             "jobs/components/ holds the YAML files only"
         );
         for j in jobs().into_iter().chain(components()) {
-            let job = crate::studio::parse_job(&j.text).unwrap();
+            let job = crate::job_text::parse_job(&j.text).unwrap();
             photonoxide::job::check(&job).unwrap_or_else(|e| panic!("{}: {e}", j.file));
         }
     }
@@ -770,7 +773,7 @@ mod tests {
     /// The events of the built-in job `file`'s run.
     fn run_of(file: &str) -> Vec<Event> {
         let text = jobs().into_iter().find(|j| j.file == file).unwrap().text;
-        let job = crate::studio::parse_job(&text).unwrap();
+        let job = crate::job_text::parse_job(&text).unwrap();
         let mut run = Run::in_memory();
         photonoxide::job::execute(&job, &mut run, &Stop::new(None)).unwrap();
         run.lines()

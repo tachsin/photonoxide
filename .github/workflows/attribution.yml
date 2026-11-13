@@ -6,6 +6,11 @@ name: Attribution
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+  # the merge queue: the commits of the queue's merge commit against the main it was made on (a
+  # squash merge's commit carries the pull request's title and description), so the check can be
+  # required there too
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -19,8 +24,8 @@ jobs:
         with:
           fetch-depth: 0
       - env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           BODY: ${{ github.event.pull_request.body }}
         run: |
           # Trailer-shaped lines only, so prose that mentions them (like this PR's) passes.
