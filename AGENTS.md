@@ -100,7 +100,9 @@ just site-check                                        # after a release and a d
 CI runs in tiers (issue #315). **Tier 1**, every PR, in few jobs on Linux: Lint (with MSRV, the
 Windows and macOS compile check and the studio's lint), one job of the unit tests and one of the
 validation cases and examples (.github/run-pool.sh runs them side by side) of the areas a change
-touches and of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them; a file
+touches and of the areas that use them, as the area map [.github/areas.sh](.github/areas.sh) has them,
+while those cases and examples take at most 20 minutes one after the other (.github/case-times.txt;
+a wider change runs them in shards by itself, no label needed); a file
 in no area (the library's root, units, geometry, the manifests) runs everything, and files nothing
 reads (most Markdown, the site, the other workflows) run only the docs' links. A new area, module
 or test-read file gets its line in the map. A change to CI's own files alone runs actionlint, the

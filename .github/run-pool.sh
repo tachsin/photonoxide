@@ -7,15 +7,20 @@
 #
 # Each case group is one task (its cases in one run of the report's test binary, as a shard job
 # runs them: rows only but in the entry with head: true); each example is a task of its own. At
-# most POOL tasks run at once (default: the runner's cores), and at most HEAVY (default 2) of the 3D
-# groups (fdfd3d, eme/3d...), the largest in memory. Each task's output is printed whole when it ends,
-# with its time; the script fails when any task failed, after all have run.
+# most POOL tasks run at once (default 2: the cases already keep the runner's cores busy, so more
+# side by side gain nothing and only add to the memory; on #826's run, four at a time, each took
+# 3.3 to 3.6 times as long as alone), and at most HEAVY (default 2) of the 3D groups (fdfd3d,
+# eme/3d...), the largest in memory. CI gives this job only a pull request's few cases and
+# examples (ci.yml's POOLED_LIMIT); more go to the shards. Each task's start is printed when it
+# starts and its output whole when it ends, with its time; the script fails when any task failed,
+# after all have run. When the job is stopped (its time limit, a cancel: exit 143), the tasks then
+# running are named, with their minutes so far, here and in the job's summary.
 #
 #   RELEASE='[...]' BUILD=$RUNNER_TEMP/build bash .github/run-pool.sh
 set -uo pipefail
 
 : "${RELEASE:?the release entries, as JSON}" "${BUILD:?the folder of the built binaries}"
-pool=${POOL:-$(nproc 2> /dev/null || echo 2)}
+pool=${POOL:-2}
 heavy_max=${HEAVY:-2}
 logs=$(mktemp -d)
 
@@ -60,8 +65,26 @@ run_task() {
   return "$status"
 }
 
-declare -A pid_task=() heavy_pids=()
+declare -A pid_task=() heavy_pids=() started_at=()
 failed=()
+summary=${GITHUB_STEP_SUMMARY:-/dev/null}
+{
+  echo "| Task | Minutes | Result |"
+  echo "|---|---|---|"
+} >> "$summary"
+# stopped (exit 143: the job's time limit or a cancel): what was running, and for how long
+stopped() {
+  local pid i kind name
+  echo "::error::stopped (signal) with ${#pid_task[@]} tasks running and ${#pending[@]} not started:"
+  for pid in "${!pid_task[@]}"; do
+    i=${pid_task[$pid]}
+    IFS=$'\t' read -r kind name _ <<< "${tasks[$i]}"
+    echo "::error::  still running after $(((SECONDS - started_at[$pid]) / 60)) min: $kind $name"
+    echo "| $kind $name | $(((SECONDS - started_at[$pid]) / 60)) so far | stopped |" >> "$summary"
+  done
+  exit 143
+}
+trap stopped TERM INT
 # finish: wait for one task, print its output, note a failure
 finish() {
   local done_pid status i kind name
@@ -79,6 +102,8 @@ finish() {
     failed+=("$kind $name")
     echo "::error::$kind $name failed (exit $status): its output is in the group above"
   fi
+  echo "| $kind $name | $(((SECONDS - started_at[$done_pid]) / 60)) | $([ "$status" = 0 ] && echo passed || echo "failed (exit $status)") |" >> "$summary"
+  unset "started_at[$done_pid]"
 }
 heavy() { case "$1" in *3d*) return 0 ;; *) return 1 ;; esac; }
 
@@ -103,6 +128,8 @@ while [ "${#pending[@]}" -gt 0 ]; do
   IFS=$'\t' read -r kind name cases head <<< "${tasks[$i]}"
   run_task "$kind" "$name" "$cases" "$head" > "$logs/$i.log" 2>&1 &
   pid_task[$!]=$i
+  started_at[$!]=$SECONDS
+  echo "started: $kind $name ($(( ${#tasks[@]} - ${#pending[@]} )) of ${#tasks[@]})"
   if [ "$kind" = cases ] && heavy "$name"; then heavy_pids[$!]=1; fi
 done
 while [ "${#pid_task[@]}" -gt 0 ]; do finish; done

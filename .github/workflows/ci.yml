@@ -43,7 +43,11 @@ name: CI
 # would only add its upload and download).
 #
 # A draft pull request runs nothing: its jobs are skipped (a skipped job counts as passed, and
-# main has no required check) until it is marked ready for review, which runs CI.
+# main has no required check) until it is marked ready for review, which runs CI. Marking it ready
+# or reopening it always runs CI, whatever the event's copy of the pull request says; and a run
+# for an event of the draft (a push to it, which GitHub can deliver after the pull request was
+# marked ready, its payload still saying draft) has a concurrency group of its own, so that it
+# never stops the run that marking it ready started (it ran #802's ready run down on 13 November).
 on:
   push:
     branches: [main]
@@ -75,7 +79,7 @@ on:
 # A merge group's run has a group of its own (its ref is the group's), which nothing stops but the
 # queue itself.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || ((github.event_name == 'push' || github.event_name == 'merge_group') && github.ref) || github.run_id }}
+  group: ci-${{ github.workflow }}-${{ (github.event.pull_request.draft == true && github.event.action != 'ready_for_review' && github.event.action != 'reopened' && format('draft-{0}', github.run_id)) || github.event.pull_request.number || ((github.event_name == 'push' || github.event_name == 'merge_group') && github.ref) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
@@ -94,8 +98,9 @@ env:
 jobs:
   changes:
     name: What changed
-    # a draft runs nothing; every other job needs this one, but Docs, which has the same condition
-    if: github.event.pull_request.draft != true
+    # a draft runs nothing (but when it is marked ready, or reopened); every other job needs this
+    # one, but Docs, which has the same condition
+    if: github.event.pull_request.draft != true || github.event.action == 'ready_for_review' || github.event.action == 'reopened'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -127,6 +132,9 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           TIER: ${{ inputs.tier }}
+          # a pull request's cases and examples in one job up to this many minutes of them
+          # (measured, one after the other), in shards beyond
+          POOLED_LIMIT: 20
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -218,6 +226,17 @@ jobs:
           POOLED=$([ "$mode" = pooled ] && echo true || echo false) \
             bash .github/shards.sh "$tier" < "$RUNNER_TEMP/areas.txt" > "$RUNNER_TEMP/shards.txt"
           shard() { sed -n "s/^$1=//p" "$RUNNER_TEMP/shards.txt"; }
+          # one job of cases and examples only while they are few: their measured times one after
+          # the other (shards.sh's minutes, .github/case-times.txt) at most POOLED_LIMIT minutes.
+          # The cases already keep a runner's cores busy, so side by side they gain little (on
+          # #826's run each took 3.3 to 3.6 times as long as alone, four at a time); more goes to
+          # the shards, a job a group, as with full-ci, so that no label is needed
+          minutes=$(shard minutes)
+          if [ "$mode" = pooled ] && [ "${minutes:-0}" -gt "$POOLED_LIMIT" ]; then
+            echo "the cases and examples take $minutes minutes one after the other, over $POOLED_LIMIT: in shards"
+            mode=sharded
+            bash .github/shards.sh "$tier" < "$RUNNER_TEMP/areas.txt" > "$RUNNER_TEMP/shards.txt"
+          fi
           release=$(shard release) build_cases=$(shard build_cases) build_examples=$(shard build_examples)
           # a change to CI's own files alone: a smoke run of the cases and examples' job (the
           # material cases, which take a second, with the report's head and list of cases, and
@@ -233,6 +252,7 @@ jobs:
           {
             echo "tier=$tier"
             echo "mode=$mode"
+            echo "minutes=$minutes"
             echo "ci=$ci"
             echo "code=$code"
             echo "tests=$tests"
@@ -245,7 +265,7 @@ jobs:
             echo "library=$library"
           } | tee -a "$GITHUB_OUTPUT"
           {
-            echo "### Tier $tier, $mode"
+            echo "### Tier $tier, $mode ($minutes minutes of cases and examples, one after the other)"
             echo
             echo '```'
             cat "$RUNNER_TEMP/areas.txt"
@@ -254,7 +274,7 @@ jobs:
 
   docs:
     name: Docs
-    if: github.event.pull_request.draft != true
+    if: github.event.pull_request.draft != true || github.event.action == 'ready_for_review' || github.event.action == 'reopened'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -613,7 +633,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.mode == 'pooled' && needs.changes.outputs.release != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # at most 20 minutes of cases and examples (POOLED_LIMIT), and the build
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
@@ -818,7 +839,7 @@ jobs:
   result:
     name: CI passed
     needs: [changes, docs, lint, test, build, release, checks, ci-files, release-os, semver, changelog]
-    if: ${{ always() && github.event.pull_request.draft != true }}
+    if: ${{ always() && (github.event.pull_request.draft != true || github.event.action == 'ready_for_review' || github.event.action == 'reopened') }}
     runs-on: ubuntu-24.04
     steps:
       - env:
