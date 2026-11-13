@@ -25,7 +25,7 @@ J. Abate, P. P. Valkó, "Multi‐precision Laplace transform inversion", Numeric
 
 - Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [1068](methods/devices.md?plain=1#L1068)
 - Validation cases: [`device/thermo-analytic-time-in-guide`](validation.md?plain=1#L658)
-- Code: [src/cases/device/thermo_checks.rs:590](../src/cases/device/thermo_checks.rs#L590), [src/device/thermo.rs:989](../src/device/thermo.rs#L989), [src/device/thermo_closed.rs:545](../src/device/thermo_closed.rs#L545)
+- Code: [src/cases/device/thermo_checks.rs:590](../src/cases/device/thermo_checks.rs#L590), [src/device/thermo.rs:989](../src/device/thermo.rs#L989), [src/device/thermo_closed.rs:546](../src/device/thermo_closed.rs#L546)
 
 #### Abedin and Ito 1996
 
@@ -156,14 +156,14 @@ V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversio
 
 P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling", SIAM J. Matrix Anal. Appl. 23, 15 (2001). [doi:10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
 
-- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:38](../native/tests/mumps.rs#L38), [src/bench/export.rs:5](../src/bench/export.rs#L5)
+- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:40](../native/tests/mumps.rs#L40), [src/bench/export.rs:5](../src/bench/export.rs#L5)
 - Other documents: [docs/baselines.md:6](baselines.md?plain=1#L6), [docs/plans/performance.md:595](plans/performance.md?plain=1#L595)
 
 #### Amestoy et al. 2015
 
 P. Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, "Improving Multifrontal Methods by Means of Block Low-Rank Representations", SIAM J. Sci. Comput. 37, A1451 (2015). [doi:10.1137/120903476](https://doi.org/10.1137/120903476)
 
-- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:295](../native/tests/mumps.rs#L295)
+- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:297](../native/tests/mumps.rs#L297)
 - Other documents: [docs/baselines.md:405](baselines.md?plain=1#L405), [docs/plans/performance.md:596](plans/performance.md?plain=1#L596)
 
 #### Amestoy et al. 2019
@@ -1525,7 +1525,7 @@ G. Ghione, C. Naldi, "Analytical formulas for coplanar lines in hybrid and monol
 
 - Methods pages: [devices.md:58](methods/devices.md?plain=1#L58), [static.md:18](methods/static.md?plain=1#L18), [travelling-wave.md:12](methods/travelling-wave.md?plain=1#L12)
 - Validation cases: [`static/coplanar-wen`](validation.md?plain=1#L526), [`line/ghione-naldi-thick`](validation.md?plain=1#L567), [`device/tfln-analytic-line`](validation.md?plain=1#L739)
-- Code: [crosscode/src/cpw.rs:6](../crosscode/src/cpw.rs#L6), [crosscode/tests/openems.rs:239](../crosscode/tests/openems.rs#L239), [src/cases/device/tfln_checks.rs:306](../src/cases/device/tfln_checks.rs#L306), [src/cases/electro/line_checks.rs:937](../src/cases/electro/line_checks.rs#L937), [src/cases/statics/checks.rs:1002](../src/cases/statics/checks.rs#L1002), [src/device/tfln.rs:1201](../src/device/tfln.rs#L1201)
+- Code: [crosscode/src/cpw.rs:6](../crosscode/src/cpw.rs#L6), [crosscode/tests/openems.rs:241](../crosscode/tests/openems.rs#L241), [src/cases/device/tfln_checks.rs:306](../src/cases/device/tfln_checks.rs#L306), [src/cases/electro/line_checks.rs:937](../src/cases/electro/line_checks.rs#L937), [src/cases/statics/checks.rs:1002](../src/cases/statics/checks.rs#L1002), [src/device/tfln.rs:1201](../src/device/tfln.rs#L1201)
 - Other documents: [ROADMAP.md:811](../ROADMAP.md?plain=1#L811), [docs/validation-openems.md:9](validation-openems.md?plain=1#L9)
 
 #### Ghysels and Vanroose 2014
@@ -1912,7 +1912,7 @@ N. Heurtel, A. Fyrillas, G. D. Gliniasty, R. Le Bihan, S. Malherbe, M. Pailhas, 
 
 N. J. Higham, "Accuracy and Stability of Numerical Algorithms: Second Edition", Society for Industrial and Applied Mathematics (2002). [doi:10.1137/1.9780898718027](https://doi.org/10.1137/1.9780898718027)
 
-- Code: [src/canary_tests.rs:204](../src/canary_tests.rs#L204), [363](../src/canary_tests.rs#L363), [src/nonlinear/fft.rs:125](../src/nonlinear/fft.rs#L125), [src/validation/gpu.rs:33](../src/validation/gpu.rs#L33), [tests/canary.rs:428](../tests/canary.rs#L428)
+- Code: [src/canary_tests.rs:204](../src/canary_tests.rs#L204), [363](../src/canary_tests.rs#L363), [src/nonlinear/fft.rs:125](../src/nonlinear/fft.rs#L125), [src/validation/gpu.rs:33](../src/validation/gpu.rs#L33), [tests/canary.rs:614](../tests/canary.rs#L614)
 
 #### Higham and Mary 2022
 
