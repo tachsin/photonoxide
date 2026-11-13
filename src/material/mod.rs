@@ -33,6 +33,7 @@ mod graded;
 pub(crate) mod graded_checks;
 mod refractiveindex;
 
+use crate::portable;
 use crate::{Error, Result};
 pub use crystal::{CrystalAxis, Orientation};
 pub use graded::{Graded, GradedKind};
@@ -378,7 +379,7 @@ impl Model {
             } => {
                 let e = PHOTON_EV_UM / lam;
                 let e_sq = e * e;
-                let ln = |hi: f64, lo: f64| ((hi * hi - e_sq) / (lo * lo - e_sq)).ln();
+                let ln = |hi: f64, lo: f64| portable::ln((hi * hi - e_sq) / (lo * lo - e_sq));
                 let eps =
                     1.0 + a / PI * ln(*e1, *e0) + eps2 / PI * ln(*e2, *e1) + g3 / (e3 * e3 - e_sq);
                 Complex64::new(eps, 0.0)
@@ -391,8 +392,9 @@ impl Model {
                 let eta = PI * ed / (2.0 * e0 * e0_sq * (e0_sq - g_sq));
                 let m1 = eta / (2.0 * PI) * (ef_sq * ef_sq - g_sq * g_sq);
                 let m3 = eta / PI * (ef_sq - g_sq);
-                let chi =
-                    m1 + m3 * e_sq + eta / PI * e_sq * e_sq * ((ef_sq - e_sq) / (g_sq - e_sq)).ln();
+                let chi = m1
+                    + m3 * e_sq
+                    + eta / PI * e_sq * e_sq * portable::ln((ef_sq - e_sq) / (g_sq - e_sq));
                 Complex64::new(1.0 + chi, 0.0)
             }
             Model::WithExtinction { .. } => {
@@ -644,8 +646,9 @@ impl Material {
     /// couples E's components.
     pub fn diagonal_permittivity(&self, wavelength: Wavelength) -> Result<[Complex64; 3]> {
         let t = self.tensor(wavelength)?;
-        let scale = (0..3).fold(0.0f64, |m, i| m.max(t[i][i].norm()));
-        let coupled = (0..3).any(|i| (0..3).any(|j| i != j && t[i][j].norm() > 1e-12 * scale));
+        let scale = (0..3).fold(0.0f64, |m, i| m.max(portable::complex::abs(t[i][i])));
+        let coupled = (0..3)
+            .any(|i| (0..3).any(|j| i != j && portable::complex::abs(t[i][j]) > 1e-12 * scale));
         if coupled {
             return Err(Error::invalid(
                 "material",

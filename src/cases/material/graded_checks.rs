@@ -11,6 +11,7 @@
 use super::Graded;
 use crate::Result;
 use crate::expr::{Expr, Parameters};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -163,7 +164,11 @@ pub(crate) fn fdtd_solved(h: f64) -> Result<Vec<f64>> {
     .into_iter()
     .filter(|r| {
         r.error < 1e-6
-            && r.amplitude.norm() > 1e-6 * tail.iter().fold(0.0f64, |m, v| m.max(v.norm()))
+            && portable::complex::abs(r.amplitude)
+                > 1e-6
+                    * tail
+                        .iter()
+                        .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)))
     })
     .map(|r| r.frequency)
     .collect();
@@ -198,7 +203,7 @@ fn error(e: f64, tolerance: f64) -> Outcome {
 }
 
 fn order(coarse: f64, fine: f64) -> Outcome {
-    let o = ((coarse / fine).log2() * 100.0).round() / 100.0;
+    let o = (portable::log2(coarse / fine) * 100.0).round() / 100.0;
     Outcome {
         measured: o,
         expected: 2.0,

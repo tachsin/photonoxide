@@ -233,7 +233,7 @@ mod tests {
         assert!((n - 1.6).abs() < 1e-15);
         assert!((g.permittivity_at([0.0, 0.0, 0.0]) - 2.56).abs() < 1e-14);
         let far = g.index_at([2.0, 0.0, 0.0]);
-        assert!((far - (1.5 + 0.1 * (-1f64).exp())).abs() < 1e-15);
+        assert!((far - (1.5 + 0.1 * crate::portable::exp(-1f64))).abs() < 1e-15);
     }
 
     #[test]

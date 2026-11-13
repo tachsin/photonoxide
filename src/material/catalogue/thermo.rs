@@ -21,6 +21,7 @@
 use super::models::{self, check_range};
 use crate::Result;
 use crate::material::{self, Material, Model, Provenance, Table};
+use crate::portable;
 use crate::units::Wavelength;
 
 // ---------------------------------------------------------------------------------------------
@@ -82,7 +83,7 @@ pub(crate) fn li_eq22(lam: f64, t: f64) -> (f64, f64) {
         &LI_EXPANSION_HIGH
     };
     let (dl, ddl) = cubic(expansion, t);
-    let l = (-3.0 * dl).exp();
+    let l = portable::exp(-3.0 * dl);
     let a = LI_A[0] + t * (LI_A[1] + t * LI_A[2]);
     let da = LI_A[1] + 2.0 * t * LI_A[2];
     let l2 = lam * lam;
@@ -129,7 +130,7 @@ pub(crate) fn between_rows(rows: &[(f64, f64)], t: f64) -> f64 {
         .position(|w| t <= w[1].0)
         .unwrap_or(rows.len() - 2);
     let ((t0, y0), (t1, y1)) = (rows[k], rows[k + 1]);
-    y0 * (t / t0).powf((y1 / y0).ln() / (t1 / t0).ln())
+    y0 * portable::powf(t / t0, portable::ln(y1 / y0) / portable::ln(t1 / t0))
 }
 
 /// The integral over T from `a` to `b` (a ≤ b) of [`between_rows`], segment by segment in
@@ -146,11 +147,11 @@ pub(crate) fn between_rows_integral(rows: &[(f64, f64)], a: f64, b: f64) -> f64 
             if lo >= hi {
                 return 0.0;
             }
-            let m1 = (y1 / y0).ln() / (t1 / t0).ln() + 1.0;
+            let m1 = portable::ln(y1 / y0) / portable::ln(t1 / t0) + 1.0;
             if m1.abs() < 1e-12 {
-                y0 * t0 * (hi / lo).ln()
+                y0 * t0 * portable::ln(hi / lo)
             } else {
-                y0 * t0 * ((hi / t0).powf(m1) - (lo / t0).powf(m1)) / m1
+                y0 * t0 * (portable::powf(hi / t0, m1) - portable::powf(lo / t0, m1)) / m1
             }
         })
         .sum()

@@ -6,6 +6,7 @@ use super::{CrystalAxis, Orientation};
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
 use crate::mode::vector::{Boundaries, Boundary, CrossSection, Permittivity, modes};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 fn c(x: f64) -> Complex64 {
@@ -44,7 +45,11 @@ pub(crate) fn eulers() -> Vec<Orientation> {
 /// principal 2 × 2 minors, the determinant), which are the principal values' when, and only
 /// when, its eigenvalues are n_x², n_y², n_z²; and the largest asymmetry.
 pub(crate) fn turned_tensor_error() -> f64 {
-    let p = [c(1.74f64.powi(2)), c(1.75f64.powi(2)), c(1.84f64.powi(2))];
+    let p = [
+        c(portable::powi(1.74f64, 2)),
+        c(portable::powi(1.75f64, 2)),
+        c(portable::powi(1.84f64, 2)),
+    ];
     let trace = p[0] + p[1] + p[2];
     let minors = p[0] * p[1] + p[1] * p[2] + p[2] * p[0];
     let det = p[0] * p[1] * p[2];
@@ -59,12 +64,12 @@ pub(crate) fn turned_tensor_error() -> f64 {
             - t[0][1] * (t[1][0] * t[2][2] - t[1][2] * t[2][0])
             + t[0][2] * (t[1][0] * t[2][1] - t[1][1] * t[2][0]);
         worst = worst
-            .max((tr - trace).norm() / trace.norm())
-            .max((mi - minors).norm() / minors.norm())
-            .max((de - det).norm() / det.norm());
+            .max(portable::complex::abs(tr - trace) / portable::complex::abs(trace))
+            .max(portable::complex::abs(mi - minors) / portable::complex::abs(minors))
+            .max(portable::complex::abs(de - det) / portable::complex::abs(det));
         for (i, row) in t.iter().enumerate() {
             for (j, e) in row.iter().enumerate() {
-                worst = worst.max((e - t[j][i]).norm());
+                worst = worst.max(portable::complex::abs(e - t[j][i]));
             }
         }
     }
@@ -85,7 +90,7 @@ pub(crate) fn uniaxial_tm(up: f64, along: f64, clad: f64, d: f64, lam: f64) -> f
     let f = |u: f64| {
         let kappa = 2.0 * u / d;
         let gamma = (beta2(u) - clad * k0 * k0).max(0.0).sqrt();
-        kappa / along * u.tan() - gamma / clad
+        kappa / along * portable::tan(u) - gamma / clad
     };
     let (mut lo, mut hi) = (1e-12, std::f64::consts::FRAC_PI_2 - 1e-12);
     for _ in 0..200 {

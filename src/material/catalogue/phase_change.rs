@@ -24,6 +24,7 @@ use super::{
 };
 use crate::Result;
 use crate::material::{Curve, LorentzPole, Material, Model, Provenance, SellmeierTerm, Table};
+use crate::portable;
 use crate::units::{Frequency, Wavelength};
 
 /// The wavelengths (µm) the fits to Delaney's data cover: every state but crystalline Sb₂Se₃.
@@ -265,7 +266,7 @@ pub fn partly_crystalline(
         amorphous.permittivity(wavelength)?,
         crystalline.permittivity(wavelength)?,
     );
-    Ok(((1.0 - fraction) * a + fraction * c).sqrt())
+    Ok(portable::complex::sqrt((1.0 - fraction) * a + fraction * c))
 }
 
 /// Delaney et al.'s figure of merit (their Eq. (1)): the phase a waveguide's change of
@@ -401,7 +402,7 @@ pub(crate) const NJOROGE_DENSITY: [f64; 3] = [5870.0, 6270.0, 6390.0];
 pub(crate) fn njoroge_xrd_density(a: f64) -> f64 {
     let per_te = 4.0 / 4.74;
     let mass = per_te * (2.0 * GE + 2.04 * SB + 4.74 * TE) * 1e-3;
-    mass / (AVOGADRO * (a * 1e-10).powi(3))
+    mass / (AVOGADRO * portable::powi(a * 1e-10, 3))
 }
 
 const DELANEY_LOCATION: &str = "the data set's 3_ellipsometry (the paper's Fig. 3)";

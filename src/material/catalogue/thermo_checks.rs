@@ -4,6 +4,7 @@
 use super::checks::{FREY_TABLE_2_T, LEVITON_TABLE_4_T};
 use super::{Conditions, entry, thermo};
 use crate::material::Material;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::Outcome;
 
@@ -115,7 +116,7 @@ pub(crate) fn li_dndt_order() -> Outcome {
         let d = (thermo::li_eq22(lam, t + h).0 - thermo::li_eq22(lam, t - h).0) / (2.0 * h);
         (d - exact).abs()
     };
-    outcome((error(1.0) / error(0.5)).log2(), 2.0, 0.05)
+    outcome(portable::log2(error(1.0) / error(0.5)), 2.0, 0.05)
 }
 
 /// Frey et al.'s Table 4: measured dn/dT of silicon (per K) at their Table 2's wavelengths (µm)

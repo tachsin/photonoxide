@@ -4,6 +4,7 @@
 
 use super::models;
 use crate::material::Material;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::Outcome;
 
@@ -298,7 +299,7 @@ pub(crate) fn gehrsitz_n_inf() -> Outcome {
 pub(crate) fn gehrsitz_gap() -> Outcome {
     let errors = [(298.0, 1.321079), (185.0, 1.416284), (103.0, 1.475453)]
         .iter()
-        .map(|&(t, expected)| (models::gap_gaas(t).powi(2) - expected).abs());
+        .map(|&(t, expected)| (portable::powi(models::gap_gaas(t), 2) - expected).abs());
     deviation(largest(errors), 2e-6)
 }
 
@@ -406,9 +407,9 @@ pub(crate) fn shoji_miller() -> Outcome {
     .into_iter()
     .map(|(lam, d, delta)| {
         models::zelmon("e", e, "").map_or(f64::NAN, |m| {
-            let chi = |l: f64| n(&m, l).powi(2) - 1.0;
+            let chi = |l: f64| portable::powi(n(&m, l), 2) - 1.0;
             // pm/V over 10^-13 m/V: a factor of 10
-            let computed = 10.0 * d / (chi(lam / 2.0) * chi(lam).powi(2));
+            let computed = 10.0 * d / (chi(lam / 2.0) * portable::powi(chi(lam), 2));
             (computed / delta - 1.0).abs()
         })
     });
@@ -447,7 +448,7 @@ pub(crate) fn suzuki_tada_voltages() -> Outcome {
     .into_iter()
     .map(|(lam, n0, r, kv): (f64, f64, f64, f64)| {
         // µm over pm/V: 1e-6/1e-12 V, in kV
-        let v = lam / (2.0 * n0.powi(3) * r) * 1e3;
+        let v = lam / (2.0 * portable::powi(n0, 3) * r) * 1e3;
         (v / kv - 1.0).abs()
     });
     deviation(largest(errors), 0.015)
@@ -470,7 +471,7 @@ pub(crate) fn suzuki_tada_faust_henry() -> Outcome {
             .map_or(f64::NAN, |c| c.value)
     };
     let c = constant(r"C_{41}");
-    let d_eo = r.map_or(f64::NAN, |r| -3.29_f64.powi(4) * r / 4.0);
+    let d_eo = r.map_or(f64::NAN, |r| -portable::powi(3.29_f64, 4) * r / 4.0);
     let d_e = d_eo / (1.0 + c);
     let errors = [
         (d_eo, constant(r"d_{41}^{EO}")),

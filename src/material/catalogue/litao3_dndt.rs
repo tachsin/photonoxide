@@ -5,6 +5,7 @@
 //! 200 °C (Opt. Mater. Express 1, 458 (2011), doi:10.1364/OME.1.000458, Table 1), with the case
 //! that checks the latter's table against their own fit (Eq. (1), Table 2).
 
+use crate::portable;
 use crate::verdict::Outcome;
 
 /// A linear fit's a₀ and a₁.
@@ -136,7 +137,7 @@ pub(crate) fn moutzouris_index(axis: usize, lam: f64, celsius: f64) -> f64 {
     let l2 = lam * lam;
     (a1 + b1 * f
         + a2 * l2
-        + (a3 + b2 * f) / (l2 - (b3 * f).powi(2))
+        + (a3 + b2 * f) / (l2 - portable::powi(b3 * f, 2))
         + a4 / (l2 * l2)
         + a5 / (l2 * l2 * l2))
         .sqrt()
@@ -157,7 +158,9 @@ pub(crate) fn moutzouris_slopes() -> (f64, f64) {
             .zip(&ns)
             .map(|(t, n)| (t - mean_t) * (n - mean_n))
             .sum::<f64>()
-            / ts.iter().map(|t| (t - mean_t).powi(2)).sum::<f64>()
+            / ts.iter()
+                .map(|t| portable::powi(t - mean_t, 2))
+                .sum::<f64>()
     };
     (slope(0), slope(1))
 }

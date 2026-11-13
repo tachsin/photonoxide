@@ -25,6 +25,7 @@ use serde::Serialize;
 use super::references::references;
 use super::{CoefficientTable, Parameter, Reference, Source};
 use crate::Result;
+use crate::portable;
 
 /// A material's thermal conductivity: its models, the default first, and their papers.
 #[derive(Clone, Debug, Serialize)]
@@ -183,8 +184,8 @@ pub(crate) fn power_law(rows: &[(f64, f64)], t: f64) -> f64 {
         .position(|w| t <= w[1].0)
         .unwrap_or(rows.len() - 2);
     let ((t0, k0), (t1, k1)) = (rows[k], rows[k + 1]);
-    let m = (k1 / k0).ln() / (t1 / t0).ln();
-    100.0 * k0 * (t / t0).powf(m)
+    let m = portable::ln(k1 / k0) / portable::ln(t1 / t0);
+    100.0 * k0 * portable::powf(t / t0, m)
 }
 
 /// Silicon's recommended values from Ho, Powell & Liley's table at whole hundreds of kelvin
@@ -451,7 +452,7 @@ pub(crate) fn e1(x: f64) -> f64 {
                 break;
             }
         }
-        -EULER - x.ln() + sum
+        -EULER - portable::ln(x) + sum
     } else {
         // E₁ = e^{−x} / (x + 1 − 1² / (x + 3 − 2² / (x + 5 − …)))
         let tiny = 1e-300;
@@ -470,7 +471,7 @@ pub(crate) fn e1(x: f64) -> f64 {
                 break;
             }
         }
-        h * (-x).exp()
+        h * portable::exp(-x)
     }
 }
 
@@ -478,7 +479,7 @@ pub(crate) fn e1(x: f64) -> f64 {
 pub(crate) fn exponential_integrals(x: f64, n: usize) -> Vec<f64> {
     let mut e = vec![e1(x)];
     for k in 1..n {
-        let next = ((-x).exp() - x * e[k - 1]) / k as f64;
+        let next = (portable::exp(-x) - x * e[k - 1]) / k as f64;
         e.push(next);
     }
     e
