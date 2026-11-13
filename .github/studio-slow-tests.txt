@@ -1,18 +1,17 @@
 # The studio's slow tests: the physics solves among `cargo test -p photonoxide-studio`, each over
 # a minute on CI's Linux runner (69 to 564 s in the runs of 12 November 2026; the other tests
-# of the studio take seconds). CI's "What changed" job (.github/areas.sh) skips them in the studio's
-# fast tier, which a pull request runs when it changes only what the studio reads as text (the
-# README, the roadmap, the changelog, the Academy, the methods pages, the web view); they run
-# whenever the studio's Rust code (studio/src-tauri), a job or circuit file, or a library area the
-# studio uses changes, on every push to main, on the release pull request, with the `full-ci`
-# label and in the Weekly run. Nothing marks them #[ignore]: `cargo test -p photonoxide-studio`
-# runs them all, here and on your own machine.
+# of the studio take seconds). CI runs none of the studio's tests: they run on your workstation
+# (CONTRIBUTING.md). `just studio-check` (.github/studio-tests.sh fast, which the pre-push hook
+# runs when a push changes what the studio reads) skips these by exact name (`--exact --skip
+# NAME`); `just studio-slow` runs these alone, before a push that changes the studio's Rust code
+# (studio/src-tauri), a job or circuit file, or a library area the studio uses. Nothing marks
+# them #[ignore]: `cargo test -p photonoxide-studio` runs them all.
 #
-# One test a line: its full name, as `cargo test -- --list` prints it (CI skips it by exact name,
-# `--exact --skip NAME`), then the globs of the files that make it run in the fast tier too (the
-# Academy's lessons evaluate their charts, so a lesson's change runs that test). A test renamed
-# without its line here only runs in the fast tier again, slower, never less; the studio job warns
-# of a name here that no test has.
+# One test a line: its full name, as `cargo test -- --list` prints it, then the globs of the files
+# whose change calls for it too (the Academy's lessons evaluate their charts, so a lesson's change
+# calls for that test: the pre-push hook says so). A test renamed without its line here runs in
+# the fast tier again, slower, never less; `just studio-check` warns of a name here that no test
+# has.
 academy::tests::everything_a_lesson_names_exists academy/* docs/methods/* docs/validation.md
 charts::crossing::tests::the_expansion_agrees_with_fdfd
 charts::crossing::tests::the_taper_agrees_with_fdfd

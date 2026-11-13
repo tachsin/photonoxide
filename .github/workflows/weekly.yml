@@ -2,9 +2,9 @@ name: Weekly
 
 # Tier 3 (issue #315), Mondays: when code changed in the past seven days, everything the CI
 # workflow runs on the release pull request (Tier 2), every Python wheel, and the Systems
-# comparison (the 3D devices and the validation report on Windows and macOS); and every week, the
-# Libraries workflow's installs on clean machines, since a package index can move when nothing
-# here does. A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
+# comparison (the 3D devices and the validation report on Windows and macOS). The Libraries
+# workflow's installs (photonoxide-native against real libraries) run by hand only
+# (`gh workflow run Libraries`; CONTRIBUTING.md). A failure opens or updates one issue, "Weekly run failed", naming the week's commits;
 # the next run that passes closes it. Run it by hand (Run workflow) to run it all at once.
 #
 # The Rust toolchain is pinned (rust-toolchain.toml; CONTRIBUTING.md, "How to bump Rust"), so a new
@@ -80,10 +80,6 @@ jobs:
     if: needs.changed.outputs.code == 'true'
     uses: ./.github/workflows/systems.yml
 
-  libraries:
-    name: Libraries
-    uses: ./.github/workflows/libraries.yml
-
   # the floating stable, against the pin: rust-toolchain.toml would make every cargo in the
   # checkout use its version, so RUSTUP_TOOLCHAIN overrides it for the whole job
   rust-ahead:
@@ -107,7 +103,7 @@ jobs:
 
   issue:
     name: Report
-    needs: [changed, ci, python, systems, libraries, rust-ahead]
+    needs: [changed, ci, python, systems, rust-ahead]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:

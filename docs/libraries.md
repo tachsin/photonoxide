@@ -4,7 +4,7 @@ photonoxide needs none of these: its own solvers are built in, and the default b
 
 This page is written by `photonoxide libraries --write docs/libraries.md` from the guides in the program; a test fails when it is out of date.
 
-**Checked** means the command was run on a clean machine, one of GitHub's runners, and photonoxide then found the library: the Libraries workflow (`.github/workflows/libraries.yml`) does that again every week and on every change to the guides, and fails when a method stops working. What it can't check is said with each method: the runners have no GPU, so NVIDIA's libraries are found and loaded there but their backends' smoke tests don't run; winget's installers are several gigabytes and ask for elevation, so only the index is checked for the packages; and there is no Intel Mac among the runners.
+**Checked** means the command was run on a clean machine, one of GitHub's runners, and photonoxide then found the library: the Libraries workflow (`.github/workflows/libraries.yml`) does that again when run (by hand, before each release and after a change to how a library is found), and fails when a method stops working. What it can't check is said with each method: the runners have no GPU, so NVIDIA's libraries are found and loaded there but their backends' smoke tests don't run; winget's installers are several gigabytes and ask for elevation, so only the index is checked for the packages; and there is no Intel Mac among the runners.
 
 [![Intel oneMKL: PARDISO, BLAS](https://img.shields.io/badge/Intel_oneMKL-PARDISO%2C_BLAS-555)](#onemkl)
 [![MUMPS: direct](https://img.shields.io/badge/MUMPS-direct-555)](#mumps)
@@ -252,7 +252,7 @@ A supernodal sparse LU with partial pivoting (Demmel, Eisenstat, Gilbert, Li, Li
 
 ### MUMPS
 
-A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-31 (conda-forge's mumps-seq was 5.8.2), and 5.9.1 is checked built from mumps-solver.org's source on Ubuntu 24.04 every week. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.
+A multifrontal sparse direct solver (Amestoy, Duff, L'Excellent, Koster 2001; Amestoy, Buttari, L'Excellent, Mary 2019), its sequential build, and its block low-rank factorization (Amestoy et al. 2015) as a backend of its own, lossy to a tolerance and refined. MUMPS asks that work using it cite it. photonoxide knows the structure of releases 5.4.1 to 5.9.1 and refuses others; no package manager had 5.9 yet on 2026-10-31 (conda-forge's mumps-seq was 5.8.2), and 5.9.1 is checked built from mumps-solver.org's source on Ubuntu 24.04 by the same workflow. From 5.9, MUMPS isn't used while MUMPS_CONFIG_FILE is set: its file's settings would replace photonoxide's.
 
 - **Licence:** [CeCILL-C](https://cecill.info/licences/Licence_CeCILL-C_V1-en.html). You accept it by installing.
 - **The vendor's download:** <https://mumps-solver.org/>
