@@ -19,6 +19,7 @@ use std::collections::BinaryHeap;
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// The matching and the scaling of [`matching`].
@@ -63,17 +64,20 @@ pub(crate) fn matching(n: usize, columns: &[Vec<(usize, c64)>]) -> Result<Matchi
     let mut costs: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
     let mut largest = vec![0.0f64; n];
     for (j, column) in columns.iter().enumerate() {
-        let a = column.iter().map(|(_, v)| v.norm()).fold(0.0, f64::max);
+        let a = column
+            .iter()
+            .map(|(_, v)| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         if a == 0.0 || !a.is_finite() {
             return Err(singular(format!("column {j} has no finite nonzero")));
         }
         largest[j] = a;
-        let log_a = a.ln();
+        let log_a = portable::ln(a);
         costs.push(
             column
                 .iter()
-                .filter(|(_, v)| v.norm() > 0.0)
-                .map(|&(i, v)| (i, log_a - v.norm().ln()))
+                .filter(|(_, v)| portable::complex::abs(*v) > 0.0)
+                .map(|&(i, v)| (i, log_a - portable::ln(portable::complex::abs(v))))
                 .collect(),
         );
     }
@@ -210,11 +214,13 @@ pub(crate) fn matching(n: usize, columns: &[Vec<(usize, c64)>]) -> Result<Matchi
         }
         touched.clear();
     }
-    let power = |x: f64| 2f64.powi(x.log2().round() as i32);
+    let power = |x: f64| portable::powi(2f64, portable::log2(x).round() as i32);
     Ok(Matching {
         rows: row_of,
-        row_scale: u.iter().map(|&x| power(x.exp())).collect(),
-        column_scale: (0..n).map(|j| power(v[j].exp() / largest[j])).collect(),
+        row_scale: u.iter().map(|&x| power(portable::exp(x))).collect(),
+        column_scale: (0..n)
+            .map(|j| power(portable::exp(v[j]) / largest[j]))
+            .collect(),
     })
 }
 
@@ -300,8 +306,8 @@ mod tests {
                         assert!((0.5..=2.0).contains(&s), "diagonal ({i}, {j}): {s}");
                     }
                 }
-                assert!(m.row_scale[j].log2().fract() == 0.0);
-                assert!(m.column_scale[j].log2().fract() == 0.0);
+                assert!(portable::log2(m.row_scale[j]).fract() == 0.0);
+                assert!(portable::log2(m.column_scale[j]).fract() == 0.0);
             }
         }
     }
