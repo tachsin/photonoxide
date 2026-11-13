@@ -1,5 +1,6 @@
 use super::*;
 use crate::geometry::Shape;
+use crate::portable;
 use crate::stack::LayerStack;
 
 fn strip() -> Structure {
@@ -93,12 +94,16 @@ fn the_iterative_solver_from_a_structure_is_the_direct_ones_system() {
         },
     )
     .unwrap();
-    let largest = want.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = want
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = want
         .values()
         .iter()
         .zip(got.values())
-        .map(|(w, v)| (w - v).norm())
+        .map(|(w, v)| portable::complex::abs(w - v))
         .fold(0.0, f64::max);
     assert!(worst < 1e-9 * largest, "{worst:e} of {largest:e}");
 }
@@ -168,7 +173,7 @@ fn a_strip_in_pieces_is_the_strip_whole_in_every_slice() {
             let worst = want
                 .iter()
                 .zip(&got)
-                .map(|(w, v)| (w - v).norm())
+                .map(|(w, v)| portable::complex::abs(w - v))
                 .fold(0.0, f64::max);
             assert!(worst < 1e-12, "{a:?}, {} pieces: {worst:e}", pieces.len());
         }

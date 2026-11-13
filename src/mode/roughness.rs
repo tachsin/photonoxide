@@ -69,6 +69,7 @@ use num_complex::Complex64 as c64;
 use super::Polarization;
 use super::slab::Slab;
 use super::vector::{Boundary, CrossSection, VectorMode};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -187,7 +188,7 @@ pub fn slab_loss(
     let beta = n * k0;
     let t = thickness.to_um();
     let (_, q, _) = mode.wavenumbers();
-    let e2 = |x: f64| mode.field(Length::um(x)).0.powi(2);
+    let e2 = |x: f64| portable::powi(mode.field(Length::um(x)).0, 2);
     // ∫ E² dx: the core in panels, each cladding to 50 decay lengths
     let tail = 50.0 / q;
     let norm = integrate(-tail, 0.0, 40, &e2)
@@ -201,12 +202,13 @@ pub fn slab_loss(
     let delta = core * core - cladding * cladding;
     // per angle: r |E|²/(2η), |E|² = (ωμ₀/4)² |I|² 2/(πkr), ⟨|I|²⟩ per length = (ωε₀ Δε E)² R̃
     let per_angle = |theta: f64| {
-        let current = (k0 * delta * wall).powi(2) * roughness.spectrum(beta - k * theta.cos());
-        (k0 / 4.0).powi(2) * current * 2.0 / (PI * k) / (2.0 * eta)
+        let current = portable::powi(k0 * delta * wall, 2)
+            * roughness.spectrum(beta - k * portable::cos(theta));
+        portable::powi(k0 / 4.0, 2) * current * 2.0 / (PI * k) / (2.0 * eta)
     };
     let radiated = 2.0 * integrate(0.0, 2.0 * PI, 64, &per_angle);
     let s = integrate(0.0, PI, 64, &|theta: f64| {
-        roughness.spectrum(beta - k * theta.cos())
+        roughness.spectrum(beta - k * portable::cos(theta))
     });
     Ok(SlabLoss {
         alpha: radiated / power,
@@ -238,7 +240,10 @@ impl PayneLacey {
     /// φ²(d) and Eq. 8's S, per µm.
     pub fn eq1(&self, field_at_wall: f64, core: f64, cladding: f64, wavelength: Wavelength) -> f64 {
         let k0 = wavelength.wavenumber();
-        field_at_wall * (core * core - cladding * cladding).powi(2) * k0.powi(3) * self.eq8
+        field_at_wall
+            * portable::powi(core * core - cladding * cladding, 2)
+            * portable::powi(k0, 3)
+            * self.eq8
             / (4.0 * PI * core)
     }
 }
@@ -267,7 +272,7 @@ pub fn payne_lacey(
     let u = d * (n1 * n1 * k0 * k0 - beta * beta).sqrt();
     let w = d * (beta * beta - n2 * n2 * k0 * k0).sqrt();
     let v = k0 * d * (n1 * n1 - n2 * n2).sqrt();
-    let b = (w / v).powi(2);
+    let b = portable::powi(w / v, 2);
     let eq9 = 2.0 * v * (1.0 - b) / (d * (v + 1.0 / b.sqrt()));
     let (sigma, lc) = (roughness.sigma, roughness.correlation);
     // Eq. 8
@@ -279,9 +284,9 @@ pub fn payne_lacey(
     let x = w * lc / d;
     let gamma = n2 * v / (n1 * w * delta.sqrt());
     let g = u * u * v * v / (1.0 + w);
-    let root = ((1.0 + x * x).powi(2) + 2.0 * x * x * gamma * gamma).sqrt();
+    let root = (portable::powi(1.0 + x * x, 2) + 2.0 * x * x * gamma * gamma).sqrt();
     let fe = x * (root + 1.0 - x * x).sqrt() / root;
-    let eq10 = sigma * sigma / (2f64.sqrt() * k0 * d.powi(4) * n1) * g * fe;
+    let eq10 = sigma * sigma / (2f64.sqrt() * k0 * portable::powi(d, 4) * n1) * g * fe;
     Ok(PayneLacey {
         eq10,
         eq9,
@@ -346,7 +351,7 @@ pub fn sidewall_loss(
     let fields = mode.fields_sided(cs, true)?;
     let sums = wall_sums(cs, &core, &fields, CORNER_CELLS)?;
     let mirrored_rows = f64::from(u8::from(core.south_mirror) + u8::from(core.north_mirror));
-    let rows = 2f64.powf(mirrored_rows);
+    let rows = portable::powf(2f64, mirrored_rows);
     let columns = if core.west_mirror { 2.0 } else { 1.0 };
     let power = fields.power() * rows * columns;
     if !(power.is_finite() && power > 0.0) {
@@ -434,7 +439,7 @@ pub fn corner_exponent(core: f64, cladding: f64) -> f64 {
         return 1.0;
     }
     // t = τπ/4 in (π/6, π/4): the left side is −∞ at π/6, ε_core − ε_clad > 0 at π/4
-    let f = |t: f64| core * t.tan() + cladding * (3.0 * t).tan();
+    let f = |t: f64| core * portable::tan(t) + cladding * portable::tan(3.0 * t);
     let (mut a, mut b) = (PI / 6.0 + 1e-15, PI / 4.0);
     for _ in 0..200 {
         let m = 0.5 * (a + b);
@@ -501,8 +506,8 @@ pub(crate) fn wall_sums(
         let r = (centre - at).abs();
         let d = (y[core.rows.0 + if step > 0 { first } else { first + 1 }] - at).abs();
         for c in 0..2 {
-            let a = e[c].norm_sqr() * r.powf(2.0 - 2.0 * tau);
-            sums[c] += a * d.powf(p) / p;
+            let a = e[c].norm_sqr() * portable::powf(r, 2.0 - 2.0 * tau);
+            sums[c] += a * portable::powf(d, p) / p;
         }
     }
     Ok(sums)
@@ -650,23 +655,27 @@ impl Shape {
             let sinc = if half.abs() < 1e-8 {
                 1.0 - half * half / 6.0
             } else {
-                half.sin() / half
+                portable::sin(half) / half
             };
             0.5 * a * sinc / (2.0 * p + d)
         };
         match self {
             Shape::Square => {
                 let half = 0.5 * k * a;
-                let sinc = if half < 1e-8 { 1.0 } else { half.sin() / half };
+                let sinc = if half < 1e-8 {
+                    1.0
+                } else {
+                    portable::sin(half) / half
+                };
                 a * sinc * sinc
             }
             Shape::Cosine => {
                 let p = PI / a;
-                (2.0 / a) * (2.0 * p * pole(p)).powi(2)
+                (2.0 / a) * portable::powi(2.0 * p * pole(p), 2)
             }
             Shape::Sine => {
                 let q = 2.0 * PI / a;
-                (2.0 / a) * (2.0 * q * pole(q)).powi(2)
+                (2.0 / a) * portable::powi(2.0 * q * pole(q), 2)
             }
         }
     }
@@ -702,7 +711,8 @@ impl Radiation {
     /// iωμ₀ e^(ikr)/(4πr) J⊥, so r²|E|²/(2η) = (ωμ₀)² |J⊥|² n_clad/(32π² Z₀); J = ωε₀ Δε v, and
     /// ωμ₀ ωε₀ = k₀².
     pub(crate) fn prefactor(&self, delta_eps: f64, field: f64) -> f64 {
-        self.k0.powi(4) * delta_eps * delta_eps * self.cladding * field / (32.0 * PI * PI)
+        portable::powi(self.k0, 4) * delta_eps * delta_eps * self.cladding * field
+            / (32.0 * PI * PI)
     }
 
     /// The far-field |a|² of a unit current along `j` (axes: the wall's normal, out of the core;
@@ -723,7 +733,7 @@ impl Radiation {
             let along = dot(r, j);
             return dot(j, j) - along * along;
         };
-        let t = r[1].hypot(r[2]);
+        let t = portable::hypot(r[1], r[2]);
         // s: normal to the plane of the wall's normal and r
         let s = if t > 0.0 {
             [0.0, -r[2] / t, r[1] / t]
@@ -733,7 +743,7 @@ impl Radiation {
         let k1 = self.cladding * self.k0;
         let k1z = k1 * r[0].abs();
         let k2z = (self.eps_core * self.k0 * self.k0 - k1 * k1 * t * t).sqrt();
-        let phase = c64::from_polar(1.0, k2z * b);
+        let phase = portable::complex::from_polar(1.0, k2z * b);
         let e = phase * phase;
         // the slab's generalized coefficients from its single interface's R
         let slab = |r12: f64| {
@@ -788,7 +798,7 @@ impl Radiation {
                     let (p0, p1) = (quarter as f64 * PI / 2.0, (quarter + 1) as f64 * PI / 2.0);
                     for (&tp, &wtp) in xp.iter().zip(&wp) {
                         let (psi, dpsi) = smooth(p0, p1, tp, wtp);
-                        let r = [s * psi.cos(), u, s * psi.sin()];
+                        let r = [s * portable::cos(psi), u, s * portable::sin(psi)];
                         let spectrum = 2.0 * self.roughness.spectrum(self.beta - k1 * r[2]);
                         total += du * dpsi * self.far(j, r) * f * spectrum;
                     }
@@ -815,7 +825,7 @@ pub(crate) fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
     let mut nodes = vec![0.0; n];
     let mut weights = vec![0.0; n];
     for i in 0..n.div_ceil(2) {
-        let mut x = (PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
+        let mut x = portable::cos(PI * (i as f64 + 0.75) / (n as f64 + 0.5));
         let mut dp = 0.0;
         for _ in 0..100 {
             // P_n(x) and P_n'(x) by the recurrence

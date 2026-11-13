@@ -41,6 +41,7 @@
 //! Amestoy et al.'s τ_g, or for [`INNER_ITERATIONS`]; its last iterate is the correction either
 //! way, and the next step's η says whether it helped.
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 
 /// GMRES's stopping test inside each step: the preconditioned residual reduced by this, as
@@ -110,7 +111,9 @@ pub(crate) struct System<'a> {
 }
 
 fn norm_inf(v: &[c64]) -> f64 {
-    v.iter().map(|z| z.norm()).fold(0.0, f64::max)
+    v.iter()
+        .map(|z| portable::complex::abs(*z))
+        .fold(0.0, f64::max)
 }
 
 fn norm2(v: &[c64]) -> f64 {
@@ -184,15 +187,15 @@ pub(crate) fn refine_observed(
 
 /// The plane rotation that zeroes b against a: (c, s) with c real, [c s; −s̄ c] [a; b] = [ρ; 0].
 fn rotation(a: c64, b: c64) -> (f64, c64) {
-    let size = a.norm().hypot(b.norm());
+    let size = portable::hypot(portable::complex::abs(a), portable::complex::abs(b));
     if size == 0.0 {
         return (1.0, c64::new(0.0, 0.0));
     }
-    if a.norm() == 0.0 {
-        return (0.0, b.conj() / b.norm());
+    if portable::complex::abs(a) == 0.0 {
+        return (0.0, b.conj() / portable::complex::abs(b));
     }
-    let phase = a / a.norm();
-    (a.norm() / size, phase * b.conj() / size)
+    let phase = a / portable::complex::abs(a);
+    (portable::complex::abs(a) / size, phase * b.conj() / size)
 }
 
 /// GMRES on M⁻¹ A d = M⁻¹ `r` from d = 0: the correction and its iterations.
@@ -238,7 +241,7 @@ fn gmres(system: &System<'_>, r: &[c64]) -> (Vec<c64>, usize) {
         h.push(column);
         done = j + 1;
         let breakdown = next == 0.0 || !next.is_finite();
-        if breakdown || g[j + 1].norm() <= INNER_TOLERANCE * beta {
+        if breakdown || portable::complex::abs(g[j + 1]) <= INNER_TOLERANCE * beta {
             break;
         }
         basis.push(w.iter().map(|v| v / next).collect());

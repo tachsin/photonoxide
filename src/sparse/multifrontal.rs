@@ -46,6 +46,7 @@ use super::{adjacency, nested_dissection};
 use crate::{Error, Result};
 
 use crate::dense::{DenseKernels, Product, Scalar};
+use crate::portable;
 
 fn failed(what: &str, why: impl std::fmt::Display) -> Error {
     Error::invalid("the multifrontal LU", format!("{what}: {why}"))
@@ -158,7 +159,7 @@ impl Analysis {
         let scale: Vec<f64> = (0..n)
             .map(|i| {
                 let s = (matching.row_scale[i] * matching.column_scale[i]).sqrt();
-                2f64.powi(s.log2().round() as i32)
+                portable::powi(2f64, portable::log2(s).round() as i32)
             })
             .collect();
         matching.row_scale.clone_from(&scale);
@@ -445,7 +446,7 @@ fn factorize_in<T: Scalar>(
         for (i, &v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
             let value = v * (m.row_scale[i] * m.column_scale[j]);
             let (r, c) = (analysis.step[new_row[i]], analysis.step[j]);
-            norm[c] += value.norm();
+            norm[c] += portable::complex::abs(value);
             if r >= c {
                 by_column[c].push((r, T::from_c64(value)));
             } else if !analysis.symmetric {
@@ -1261,7 +1262,7 @@ mod tests {
                     for i in 0..p {
                         let sum: c64 = (0..k).map(|t| f0[(k + i, t)] * f0[(t, k + j)]).sum();
                         let want = f0[(k + i, k + j)] - sum;
-                        worst = worst.max((f[(k + i, k + j)] - want).norm());
+                        worst = worst.max(portable::complex::abs(f[(k + i, k + j)] - want));
                     }
                 }
                 assert!(worst < 1e-12, "k {k}, p {p}, {par:?}: {worst}");

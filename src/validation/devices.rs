@@ -963,8 +963,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 5e-3,
                 Measured,
                 "as device/compact-waveguide-3d",
-            )
-            .varying(),
+            ),
         ),
         (
             "device/compact-mmi-2x2-2d",

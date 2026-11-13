@@ -73,7 +73,6 @@
 
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod averaging;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod backend;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod bench;
@@ -90,11 +89,9 @@ pub mod convergence;
 mod dense;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod device;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod eigen;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod electro;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod eme;
 pub mod error;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
@@ -108,7 +105,6 @@ pub mod fabrication;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod facade;
 pub mod farm;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fdfd;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod fdtd;
@@ -123,7 +119,6 @@ mod layering;
 mod lstsq;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod material;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod mode;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod nonlinear;
@@ -136,14 +131,12 @@ pub mod raster;
 pub mod run;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod shifter;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod sparse;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod stack;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 mod statics;
 mod stop;
-#[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod sweep;
 #[allow(clippy::disallowed_methods)] // until #822 converts it to `portable`
 pub mod thermal;

@@ -2,6 +2,7 @@ use super::checks::*;
 use super::*;
 use crate::fdfd::{Edges, Polarization};
 use crate::mode::Polarization as Kind;
+use crate::portable;
 
 fn film_error(kind: Kind, h: f64, angle: f64) -> f64 {
     let ((r, _), (exact, _)) = film_ratios(&film_run(kind, h, angle, (PML, 1e-8)));
@@ -16,7 +17,10 @@ fn a_film_reflects_as_the_transfer_matrices_say_at_second_order() {
             .iter()
             .map(|&h| film_error(kind, h, 30f64.to_radians()))
             .collect();
-        let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+        let orders: Vec<f64> = errors
+            .windows(2)
+            .map(|e| portable::log2(e[0] / e[1]))
+            .collect();
         // measured: TE 2.8e-3, 7.3e-4, 1.9e-4; TM 1.9e-3, 4.9e-4, 1.2e-4
         assert!(errors[2] < 3e-4, "{kind:?}: errors {errors:?}");
         assert!(
@@ -104,19 +108,25 @@ fn the_wave_leaves_the_source_with_the_phase_of_e_to_the_minus_i_omega_t() {
     let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
     source[grid.index(Axis::X, (0, 0, 80))] = c64::new(1.0, 0.0);
     let field = solver.solve(&source).unwrap();
-    let kd = 2.0 / h * (2.0 * std::f64::consts::PI / 1.55 * 1.444 * h / 2.0).asin();
+    let kd = 2.0 / h * portable::asin(2.0 * std::f64::consts::PI / 1.55 * 1.444 * h / 2.0);
     let step = |k: usize| field.e(Axis::X, (0, 0, k + 1)) / field.e(Axis::X, (0, 0, k));
     let up = step(100);
     let down = step(55);
-    assert!((up - c64::from_polar(1.0, kd * h)).norm() < 1e-6, "{up}");
     assert!(
-        (down - c64::from_polar(1.0, -kd * h)).norm() < 1e-6,
+        portable::complex::abs(up - portable::complex::from_polar(1.0, kd * h)) < 1e-6,
+        "{up}"
+    );
+    assert!(
+        portable::complex::abs(down - portable::complex::from_polar(1.0, -kd * h)) < 1e-6,
         "{down}"
     );
     assert!(field.flux(Axis::Z, 100) > 0.0 && field.flux(Axis::Z, 55) < 0.0);
     // nothing along the current's normal: E_y and E_z are zero
     let other = (0..grid.nz)
-        .map(|k| field.e(Axis::Y, (0, 0, k)).norm() + field.e(Axis::Z, (0, 0, k)).norm())
+        .map(|k| {
+            portable::complex::abs(field.e(Axis::Y, (0, 0, k)))
+                + portable::complex::abs(field.e(Axis::Z, (0, 0, k)))
+        })
         .fold(0.0, f64::max);
     assert!(other < 1e-12, "{other}");
 }
@@ -149,14 +159,14 @@ fn each_component_sees_its_own_average_and_walls_hold_no_field() {
     };
     let solver = Solver3d::new(grid, lam, eps, walls).unwrap();
     let at = (2, 2, 2);
-    assert!((solver.permittivity(Axis::X, at) - 1.5).norm() < 1e-12);
-    assert!((solver.permittivity(Axis::Y, at) - 1.0).norm() < 1e-12);
+    assert!(portable::complex::abs(solver.permittivity(Axis::X, at) - 1.5) < 1e-12);
+    assert!(portable::complex::abs(solver.permittivity(Axis::Y, at) - 1.0) < 1e-12);
     let mid = (2, 2, 2);
     let eps_mid = |x: f64, _: f64, _: f64| c64::new(if x < 0.2 { 1.0 } else { 3.0 }, 0.0);
     let solver_mid = Solver3d::new(grid, lam, eps_mid, walls).unwrap();
-    assert!((solver_mid.permittivity(Axis::Y, mid) - 2.0).norm() < 1e-12);
-    assert!((solver_mid.permittivity(Axis::Z, mid) - 2.0).norm() < 1e-12);
-    assert!((solver_mid.permittivity(Axis::X, mid) - 3.0).norm() < 1e-12);
+    assert!(portable::complex::abs(solver_mid.permittivity(Axis::Y, mid) - 2.0) < 1e-12);
+    assert!(portable::complex::abs(solver_mid.permittivity(Axis::Z, mid) - 2.0) < 1e-12);
+    assert!(portable::complex::abs(solver_mid.permittivity(Axis::X, mid) - 3.0) < 1e-12);
     // a current everywhere, walls included: the field tangential to a wall stays zero there
     let field = solver
         .solve(&vec![c64::new(1.0, 0.0); grid.unknowns()])
@@ -169,7 +179,12 @@ fn each_component_sees_its_own_average_and_walls_hold_no_field() {
             assert_eq!(field.values()[r], c64::new(0.0, 0.0), "{c:?} {i} {j} {k}");
         }
     }
-    assert!(field.values().iter().any(|v| v.norm() > 0.0));
+    assert!(
+        field
+            .values()
+            .iter()
+            .any(|v| portable::complex::abs(*v) > 0.0)
+    );
     assert!(solver.solve(&[c64::new(1.0, 0.0)]).is_err());
     assert!(solver.solve_magnetic(&[c64::new(1.0, 0.0)]).is_err());
 
@@ -239,7 +254,7 @@ fn a_reused_analysis_gives_the_same_field() {
         .values()
         .iter()
         .zip(b.values())
-        .map(|(x, y)| (x - y).norm())
+        .map(|(x, y)| portable::complex::abs(x - y))
         .fold(0.0, f64::max);
     assert!(d < 1e-12, "{d}");
     assert!(a.minus(&b).is_ok());
@@ -465,12 +480,15 @@ fn the_transformed_system_has_the_same_solution() {
         lu.solve(&lattice.transformed_rhs(&eps, &b, s))
     };
     let plain = solve(0.0);
-    let largest = plain.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = plain
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     for s in [-1.0, 1.0] {
         let d = solve(s)
             .iter()
             .zip(&plain)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         // measured 7e-15 (s = -1) and 1.1e-14 (s = +1)
         assert!(d < 1e-12 * largest, "s {s}: {d} of {largest}");
@@ -503,7 +521,11 @@ fn qmr_converges_to_the_direct_solvers_field() {
         .unwrap()
         .solve(&source)
         .unwrap();
-    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = direct
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     for formulation in [Formulation::CurlCurl, Formulation::ShinFan] {
         let solver =
             IterativeSolver3d::new(grid, lam, cube, Boundaries3d::pml(3), formulation).unwrap();
@@ -517,7 +539,7 @@ fn qmr_converges_to_the_direct_solvers_field() {
             .values()
             .iter()
             .zip(direct.values())
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         assert!(d < 1e-8 * largest, "{formulation:?}: {d} of {largest}");
         assert_eq!(field.grid(), grid);
@@ -572,7 +594,7 @@ fn shin_and_fans_plateau_study() {
     // uniform along z: per wavevector the gradients' share of E_x, |s_x|²/(|s_x|² + |s_y|²),
     // and all of it for the constant field, (N² + 1)/2 of N² in all
     let n = 50;
-    let s = |k: usize| (std::f64::consts::PI * k as f64 / n as f64).sin().powi(2);
+    let s = |k: usize| portable::powi(portable::sin(std::f64::consts::PI * k as f64 / n as f64), 2);
     let share: f64 = (0..n)
         .flat_map(|i| (0..n).map(move |j| (i, j)))
         .map(|(i, j)| {
@@ -1175,7 +1197,8 @@ fn a_strips_s_matrix_by_qmr() {
         ];
         let setup = t.elapsed();
         let beta = ports[0].mode.beta();
-        let expected = (c64::new(0.0, 1.0) * beta * (right - left) as f64 * h).exp();
+        let expected =
+            portable::complex::exp(c64::new(0.0, 1.0) * beta * (right - left) as f64 * h);
         let t = std::time::Instant::now();
         let stopping = Stopping {
             tolerance,
@@ -1199,10 +1222,10 @@ fn a_strips_s_matrix_by_qmr() {
         let t = std::time::Instant::now();
         let s = solver.s_matrix(&ports, stopping).unwrap();
         let error = [
-            s[0][0].norm(),
-            s[1][1].norm(),
-            (s[1][0] - expected).norm(),
-            (s[0][1] - expected).norm(),
+            portable::complex::abs(s[0][0]),
+            portable::complex::abs(s[1][1]),
+            portable::complex::abs(s[1][0] - expected),
+            portable::complex::abs(s[0][1] - expected),
         ]
         .into_iter()
         .fold(0.0, f64::max);
@@ -1366,7 +1389,7 @@ fn symmetrizable() {
                             unpaired += 1;
                             continue;
                         };
-                        if d[j].is_none() && aji.norm() > 0.0 {
+                        if d[j].is_none() && portable::complex::abs(aji) > 0.0 {
                             d[j] = Some(d[i].unwrap() * aij / aji);
                             stack.push(j);
                         }
@@ -1379,13 +1402,18 @@ fn symmetrizable() {
                 .filter_map(|(&(r, c), &arc)| {
                     let acr = *a.get(&(c, r))?;
                     let (left, right) = (d[r]? * arc, d[c]? * acr);
-                    Some((left - right).norm() / left.norm().max(right.norm()).max(1e-300))
+                    Some(
+                        portable::complex::abs(left - right)
+                            / portable::complex::abs(left)
+                                .max(portable::complex::abs(right))
+                                .max(1e-300),
+                    )
                 })
                 .fold(0.0, f64::max);
             let spread = d
                 .iter()
                 .flatten()
-                .map(|z| z.norm())
+                .map(|z| portable::complex::abs(*z))
                 .fold((f64::MAX, 0.0f64), |m, v| (m.0.min(v), m.1.max(v)));
             println!(
                 "SYM {label}, {operator}: largest mismatch {worst:.1e}, entries without a twin {unpaired}, |d| from {:.3e} to {:.3e}",
@@ -1770,7 +1798,10 @@ fn the_adjoint_of_a_modes_amplitude_is_the_mode_sent_backwards() {
     let back = solver
         .solve_system(&solver.mode_source(&ahead, Direction::Backward))
         .unwrap();
-    let largest = back.values().iter().fold(0.0f64, |m, v| m.max(v.norm()));
+    let largest = back
+        .values()
+        .iter()
+        .fold(0.0f64, |m, v| m.max(portable::complex::abs(*v)));
     let expected = grid.dx * grid.dy * grid.dz / c64::new(0.0, 4.0 * ahead.k0());
     for k in [8usize, 10, 12, 14] {
         for (c, at) in [
@@ -1780,10 +1811,11 @@ fn the_adjoint_of_a_modes_amplitude_is_the_mode_sent_backwards() {
             (Axis::X, (11, 6, k)),
         ] {
             let r = grid.index(c, at);
-            if back.values()[r].norm() > 1e-3 * largest {
+            if portable::complex::abs(back.values()[r]) > 1e-3 * largest {
                 let ratio = lambda.values()[r] / back.values()[r];
                 assert!(
-                    (ratio - expected).norm() < 1e-9 * expected.norm(),
+                    portable::complex::abs(ratio - expected)
+                        < 1e-9 * portable::complex::abs(expected),
                     "{c:?} {at:?}: {ratio} against {expected}"
                 );
             }
@@ -1836,12 +1868,16 @@ fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_i
         // the fields the same solution
         let (ia, ib) = (how_a.iterations as f64, how_b.iterations as f64);
         assert!((ia - ib).abs() <= 0.05 * ia, "{name}: {ia} and {ib}");
-        let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let largest = a
+            .values()
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         let d = a
             .values()
             .iter()
             .zip(b.values())
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         assert!(d < 1e-8 * largest, "{name}: {d} of {largest}");
         // the S-matrix's solves go the same way: a system given whole
@@ -1852,7 +1888,7 @@ fn qmr_without_the_matrix_takes_the_iterations_and_gives_the_field_of_qmr_with_i
             .values()
             .iter()
             .zip(e.values())
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         assert!(d < 1e-8 * largest * 2.0, "{name}: {d}");
     }
@@ -1996,7 +2032,7 @@ fn qmr_without_the_matrix_gives_the_s_matrix_of_qmr_with_it() {
             .port_modes(Axis::X, plane, 4)
             .unwrap()
             .into_iter()
-            .filter(|m| m.beta().im.abs() < 1e-9 * m.beta().norm())
+            .filter(|m| m.beta().im.abs() < 1e-9 * portable::complex::abs(m.beta()))
             .collect()
     };
     let ports: Vec<Port3d> = (propagating(8).into_iter().map(|mode| Port3d {
@@ -2025,7 +2061,7 @@ fn qmr_without_the_matrix_gives_the_s_matrix_of_qmr_with_it() {
         p.iter()
             .flatten()
             .zip(q.iter().flatten())
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max)
     };
     let (with, without) = (off(&a, &direct), off(&b, &direct));
@@ -2090,12 +2126,16 @@ fn auto_takes_the_3d_backend_this_machines_records_say() {
     let mut source = vec![c64::new(0.0, 0.0); grid.unknowns()];
     source[grid.index(Axis::Z, (4, 4, 4))] = c64::new(1.0, 0.0);
     let (a, b) = (own.solve(&source).unwrap(), chosen.solve(&source).unwrap());
-    let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = a
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let off = a
         .values()
         .iter()
         .zip(b.values())
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     assert!(off < 1e-10 * largest, "{off} of {largest}");
 }

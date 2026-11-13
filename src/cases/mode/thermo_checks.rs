@@ -15,6 +15,7 @@ use crate::mode::hadley;
 use crate::mode::slab::{Slab, SlabMode};
 use crate::mode::thermo::{index_change, index_change_resolved, permittivity_change};
 use crate::mode::vector::{self, Boundaries, Boundary, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -54,7 +55,7 @@ fn outcome(measured: f64, expected: f64, tolerance: f64) -> Outcome {
 
 /// The order p of errors that fall from `coarse` to `fine` as the step halves.
 fn order(coarse: f64, fine: f64) -> f64 {
-    (coarse / fine).abs().log2()
+    portable::log2((coarse / fine).abs())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -78,13 +79,13 @@ fn slab_te_change(mode: &SlabMode, below: f64, core: f64, above: f64) -> f64 {
     let (h, q, p) = mode.wavenumbers();
     let t = SLAB_T;
     let (a, b) = (1.0, q / h);
-    let top = a * (h * t).cos() + b * (h * t).sin();
+    let top = a * portable::cos(h * t) + b * portable::sin(h * t);
     let i_below = a * a / (2.0 * q);
     let i_above = top * top / (2.0 * p);
-    let s = (2.0 * h * t).sin() / (4.0 * h);
+    let s = portable::sin(2.0 * h * t) / (4.0 * h);
     let i_core = a * a * (t / 2.0 + s)
         + b * b * (t / 2.0 - s)
-        + a * b * (1.0 - (2.0 * h * t).cos()) / (2.0 * h);
+        + a * b * (1.0 - portable::cos(2.0 * h * t)) / (2.0 * h);
     (below * i_below + core * i_core + above * i_above)
         / (2.0 * mode.effective_index() * (i_below + i_core + i_above))
 }

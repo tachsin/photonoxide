@@ -4,6 +4,7 @@ use faer::sparse::{SparseColMat, SparseColMatRef, Triplet};
 use num_complex::Complex64 as c64;
 
 use super::{INNER_ITERATIONS, Refinement, STEPS, System, refine};
+use crate::portable;
 use crate::sparse::{Analysis, Multifrontal};
 
 /// A shifted 7-point Laplacian on an n³ grid, complex symmetric, with its unknowns' positions:
@@ -65,7 +66,7 @@ fn mixed(
     let mut entries = vec![0usize; n];
     for j in 0..n {
         for (i, v) in a.row_idx_of_col(j).zip(a.val_of_col(j)) {
-            rows[i] += v.norm();
+            rows[i] += portable::complex::abs(*v);
             entries[i] += 1;
         }
     }

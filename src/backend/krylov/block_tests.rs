@@ -1,5 +1,6 @@
 use super::*;
 use crate::backend::krylov::{Sparse, qmr, qmr_symmetric};
+use crate::portable;
 
 fn stop(tolerance: f64, max_iterations: usize) -> Stopping {
     Stopping {
@@ -64,10 +65,13 @@ fn relative_residual(a: &Sparse, b: &[c64], x: &[c64]) -> f64 {
 }
 
 fn largest_difference(x: &[c64], y: &[c64]) -> f64 {
-    let largest = y.iter().map(|z| z.norm()).fold(0.0, f64::max);
+    let largest = y
+        .iter()
+        .map(|z| portable::complex::abs(*z))
+        .fold(0.0, f64::max);
     x.iter()
         .zip(y)
-        .map(|(p, q)| (p - q).norm())
+        .map(|(p, q)| portable::complex::abs(p - q))
         .fold(0.0, f64::max)
         / largest
 }
@@ -355,6 +359,6 @@ fn a_null_vector_of_a_wide_block() {
     assert!((norm(&g) - 1.0).abs() < 1e-14);
     for row in &rows {
         let r: c64 = row.iter().zip(&g).map(|(p, q)| p * q).sum();
-        assert!(r.norm() < 1e-14, "{r}");
+        assert!(portable::complex::abs(r) < 1e-14, "{r}");
     }
 }

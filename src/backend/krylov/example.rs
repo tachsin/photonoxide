@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 
 use super::super::{Operator, Sparse, Stopping};
 use super::block_qmr_left;
+use crate::portable;
 
 /// R. W. Freund, M. Malhotra, Linear Algebra Appl. 254, 119 (1997),
 /// doi:10.1016/S0024-3795(96)00529-0, Example 7.1 as their Eq. 7.4 reads in our copy:
@@ -16,7 +17,7 @@ pub(crate) fn matrix() -> Sparse {
     const P: usize = 15;
     let (h, beta, gamma) = (1.0 / 16.0, 25.0, 1.0);
     let index = |i: usize, j: usize, k: usize| (i * P + j) * P + k;
-    let a = |x: f64, y: f64| (x * y).exp();
+    let a = |x: f64, y: f64| portable::exp(x * y);
     let mut entries = Vec::new();
     for i in 0..P {
         for j in 0..P {

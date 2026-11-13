@@ -510,13 +510,17 @@ mod tests {
         let data = roughness(2.0, 50.0, 3.5, 220.0).unwrap();
         let walls = Roughness::exponential(Length::nm(2.0), Length::nm(50.0)).unwrap();
         let w = Wavelength::um(WAVELENGTH).unwrap();
-        for (exact, closed) in data.series[0]
+        // each thickness as the chart makes it, in nm: Length::um(x) of its axis's µm value
+        // can be another bit, and the library's loss follows it
+        for ((exact, closed), nm) in data.series[0]
             .points
             .iter()
             .zip(&data.series[1].points)
+            .zip(log_span(40.0, 1000.0, 160))
             .step_by(23)
         {
-            let t = Length::um(exact[0]);
+            assert_eq!(exact[0], nm * 1e-3);
+            let t = Length::nm(nm);
             let e = slab_loss(3.5, CLADDING, t, w, &walls).unwrap();
             assert_eq!(exact[1], e.db_per_cm());
             let ratio = closed[1] / exact[1];

@@ -167,6 +167,7 @@ pub(crate) fn slab_butt_coupling(h: f64) -> (f64, f64) {
 mod tests {
     use super::*;
     use crate::mode::vector::{self, CrossSection};
+    use crate::portable;
     use crate::units::Wavelength;
 
     fn lam() -> Wavelength {
@@ -190,7 +191,10 @@ mod tests {
                 (got / ratio - 1.0).abs() < 2e-3,
                 "cell {i}: {got} vs {ratio}"
             );
-            assert!(e[0].norm() < 1e-6 * e[1].norm() && h[1].norm() < 1e-6 * h[0].norm());
+            assert!(
+                portable::complex::abs(e[0]) < 1e-6 * portable::complex::abs(e[1])
+                    && portable::complex::abs(h[1]) < 1e-6 * portable::complex::abs(h[0])
+            );
         }
         assert!(f.power() > 0.0);
     }

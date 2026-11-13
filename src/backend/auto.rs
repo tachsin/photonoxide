@@ -29,6 +29,7 @@ use std::cell::RefCell;
 use std::sync::{Arc, OnceLock, RwLock};
 
 use super::{Form, OWN};
+use crate::portable;
 
 /// How much faster than photonoxide's own a backend must be measured to be chosen: a tenth.
 pub const MARGIN: f64 = 0.10;
@@ -126,9 +127,9 @@ fn date(unix_seconds: u64) -> String {
 fn growth(family: &str, from: usize, to: usize) -> f64 {
     let (a, b) = (from.max(2) as f64, to.max(2) as f64);
     if family.contains("3d") {
-        (b / a).powf(4.0 / 3.0)
+        portable::powf(b / a, 4.0 / 3.0)
     } else {
-        (b * b.log2()) / (a * a.log2())
+        (b * portable::log2(b)) / (a * portable::log2(a))
     }
 }
 
@@ -177,9 +178,7 @@ pub fn choose(
             .min_by(f64::total_cmp)
     };
     let distance = |unknowns: usize| -> f64 {
-        (unknowns.max(1) as f64 / problem.unknowns.max(1) as f64)
-            .ln()
-            .abs()
+        portable::ln(unknowns.max(1) as f64 / problem.unknowns.max(1) as f64).abs()
     };
     // each other backend: its record nearest the problem's size that photonoxide's own also
     // has, and how much faster it was there
@@ -212,7 +211,7 @@ pub fn choose(
             .iter()
             .filter(|r| {
                 r.backend == name
-                    && distance(r.unknowns) <= REACH.ln()
+                    && distance(r.unknowns) <= portable::ln(REACH)
                     && own_at(r.unknowns).is_some()
             })
             .min_by(|a, b| {

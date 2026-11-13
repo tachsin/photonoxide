@@ -22,6 +22,7 @@ use num_complex::Complex64 as c64;
 use crate::eigen::contour::{self, Quadrature};
 
 pub(crate) mod checks;
+use crate::portable;
 use crate::{Error, Result};
 
 /// A region of effective indices: the inside of an ellipse with its axes along the real and
@@ -128,7 +129,7 @@ impl Region {
     /// ((Re(n − c))/a)² + ((Im(n − c))/b)²: below 1 inside.
     fn measure(&self, n: c64) -> f64 {
         let d = n - self.centre;
-        (d.re / self.real).powi(2) + (d.im / self.imaginary).powi(2)
+        portable::powi(d.re / self.real, 2) + portable::powi(d.im / self.imaginary, 2)
     }
 
     /// Whether `n` (an effective index) is inside.
@@ -142,8 +143,8 @@ impl Region {
         let (c, a, b) = (self.centre, self.real, self.imaginary);
         let symmetric = c.im == 0.0 && points.is_multiple_of(2);
         Quadrature::trapezoid(points, symmetric, |t| {
-            let n = c + c64::new(a * t.cos(), b * t.sin());
-            let dn = c64::new(-a * t.sin(), b * t.cos());
+            let n = c + c64::new(a * portable::cos(t), b * portable::sin(t));
+            let dn = c64::new(-a * portable::sin(t), b * portable::cos(t));
             (k2 * n * n, 2.0 * k2 * n * dn)
         })
     }
@@ -211,7 +212,7 @@ pub(crate) fn search(
         b: None,
         positions: Some(positions),
     };
-    let inside = |beta2: c64| region.contains(beta2.sqrt() / k);
+    let inside = |beta2: c64| region.contains(portable::complex::sqrt(beta2) / k);
     let Some(mut found) = contour::solve_until(
         &pencil,
         &quadrature,
@@ -228,7 +229,7 @@ pub(crate) fn search(
     };
     // highest Re n_eff first: the order of Re β (both roots principal)
     let mut order: Vec<usize> = (0..found.pairs.len()).collect();
-    let key = |i: usize| found.pairs[i].value.sqrt();
+    let key = |i: usize| portable::complex::sqrt(found.pairs[i].value);
     order.sort_by(|&a, &b| {
         key(b)
             .re
@@ -270,12 +271,12 @@ mod tests {
         let q = r.quadrature(k2, 64).unwrap();
         let inside = k2 * c64::new(2.1, 0.03).powi(2);
         let outside = k2 * c64::new(2.6, 0.0).powi(2);
-        assert!((q.filter(inside) - 1.0).norm() < 1e-12);
-        assert!(q.filter(outside).norm() < 1e-12);
+        assert!(portable::complex::abs(q.filter(inside) - 1.0) < 1e-12);
+        assert!(portable::complex::abs(q.filter(outside)) < 1e-12);
         // a flat ellipse converges more slowly: its boundary passes nearer the points inside
         let flat = Region::ellipse(c64::new(2.0, 0.02), 0.4, 0.1).unwrap();
         let q = flat.quadrature(k2, 64).unwrap();
-        assert!((q.filter(inside) - 1.0).norm() < 1e-6);
+        assert!(portable::complex::abs(q.filter(inside) - 1.0) < 1e-6);
     }
 
     #[test]

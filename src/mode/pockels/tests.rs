@@ -1,6 +1,7 @@
 use super::*;
 use crate::material::CrystalAxis;
 use crate::material::catalogue::entry;
+use crate::portable;
 
 /// Lithium niobate's bulk clamped tensor, in the crystal's axes.
 fn linbo3() -> Pockels {
@@ -104,8 +105,8 @@ fn a_field_along_c_gives_the_textbook_index_change() {
     let e = 1e6;
     let d = r.permittivity_change(eps, [0.0, 0.0, e]);
     // Δε = 2nΔn with Δn = -n³rE/2
-    assert!((d[2][2].re - (-ne.powi(4) * 31.2e-12 * e)).abs() < 1e-15);
-    assert!((d[0][0].re - (-no.powi(4) * 9.10e-12 * e)).abs() < 1e-15);
+    assert!((d[2][2].re - (-portable::powi(ne, 4) * 31.2e-12 * e)).abs() < 1e-15);
+    assert!((d[0][0].re - (-portable::powi(no, 4) * 9.10e-12 * e)).abs() < 1e-15);
     assert_eq!(d[0][1], c64::new(0.0, 0.0));
 }
 

@@ -2,6 +2,7 @@ use super::port_checks::*;
 use super::*;
 use crate::fdfd::{Edges, Polarization, Side, Stopping};
 use crate::mode::Polarization as Kind;
+use crate::portable;
 
 const WALL: Edges = Edges::Pml { low: 0, high: 0 };
 
@@ -20,7 +21,10 @@ fn a_slabs_port_modes_converge_to_the_exact_slab_at_second_order() {
             })
             .collect();
         // measured: TE 9.57e-4, 2.39e-4, 5.97e-5; TM 2.46e-3, 6.13e-4, 1.53e-4, as the 2D ports
-        let orders: Vec<f64> = errors.windows(2).map(|e| (e[0] / e[1]).log2()).collect();
+        let orders: Vec<f64> = errors
+            .windows(2)
+            .map(|e| portable::log2(e[0] / e[1]))
+            .collect();
         assert!(errors[2] < 2e-4, "{kind:?}: {errors:?}");
         assert!(
             orders.iter().all(|&p| (p - 2.0).abs() < 0.05),
@@ -85,8 +89,11 @@ fn a_port_mode_solves_every_row_of_the_3d_system_along_a_straight_guide() {
         }
         lattice.row_into(&eps, 0.0, r, &mut row);
         let applied: c64 = row.iter().map(|&(s, a)| a * field[s]).sum();
-        let scale: f64 = row.iter().map(|&(s, a)| (a * field[s]).norm()).sum();
-        worst = worst.max(applied.norm());
+        let scale: f64 = row
+            .iter()
+            .map(|&(s, a)| portable::complex::abs(a * field[s]))
+            .sum();
+        worst = worst.max(portable::complex::abs(applied));
         largest = largest.max(scale);
     }
     assert!(worst < 1e-13 * largest, "{worst} of {largest}");
@@ -100,12 +107,12 @@ fn a_real_mode_normalized_by_its_lorentz_form_carries_unit_power() {
         .unwrap();
     for mode in modes
         .iter()
-        .filter(|m| m.beta().im.abs() < 1e-9 * m.beta().norm())
+        .filter(|m| m.beta().im.abs() < 1e-9 * portable::complex::abs(m.beta()))
     {
         assert!((mode.power() - 1.0).abs() < 1e-12, "{}", mode.power());
         // the tangential field real, and the normal one, half a step on (e^(i beta dx / 2)),
         // imaginary
-        let half = (c64::new(0.0, -0.025) * mode.beta()).exp();
+        let half = portable::complex::exp(c64::new(0.0, -0.025) * mode.beta());
         let (mut largest, mut wrong): (f64, f64) = (0.0, 0.0);
         for v in 0..12 {
             for u in 0..16 {
@@ -116,7 +123,7 @@ fn a_real_mode_normalized_by_its_lorentz_form_carries_unit_power() {
                     } else {
                         e.im
                     };
-                    largest = largest.max(e.norm());
+                    largest = largest.max(portable::complex::abs(e));
                     wrong = wrong.max(part.abs());
                 }
             }
@@ -142,7 +149,8 @@ fn the_projection_separates_a_mode_going_each_way() {
                 let same = std::ptr::eq(mode, other);
                 let want = if same { want } else { (0.0, 0.0) };
                 assert!(
-                    (a - want.0).norm() < 1e-12 && (b - want.1).norm() < 1e-12,
+                    portable::complex::abs(a - want.0) < 1e-12
+                        && portable::complex::abs(b - want.1) < 1e-12,
                     "mode {m} {direction:?}: {a} {b}"
                 );
             }
@@ -163,11 +171,14 @@ fn a_straight_strip_carries_its_mode_whole() {
 fn s_is_symmetric_through_a_width_step() {
     // Lorentz reciprocity, kept by the scheme with the unconjugated form: measured 2e-15
     let s = width_step();
-    let asymmetry = (s[1][0] - s[0][1]).norm() / s[1][0].norm();
+    let asymmetry = portable::complex::abs(s[1][0] - s[0][1]) / portable::complex::abs(s[1][0]);
     assert!(asymmetry < 1e-12, "{asymmetry}");
     // the step reflects a little and transmits most
-    assert!(s[0][0].norm() > 1e-3 && s[0][0].norm() < 0.1, "{s:?}");
-    assert!(s[1][0].norm() > 0.9, "{s:?}");
+    assert!(
+        portable::complex::abs(s[0][0]) > 1e-3 && portable::complex::abs(s[0][0]) < 0.1,
+        "{s:?}"
+    );
+    assert!(portable::complex::abs(s[1][0]) > 0.9, "{s:?}");
 }
 
 #[test]
@@ -223,7 +234,7 @@ fn a_backward_wave_is_forward_by_its_power() {
             .port_modes(Axis::X, plane, 8)
             .unwrap()
             .into_iter()
-            .filter(|m| m.beta().im.abs() < 1e-9 * m.beta().norm())
+            .filter(|m| m.beta().im.abs() < 1e-9 * portable::complex::abs(m.beta()))
             .collect()
     };
     let (left, right) = (propagating(8), propagating(25));
@@ -358,8 +369,14 @@ fn a_port_normal_to_y_or_z_is_a_port_normal_to_x_turned() {
     let (nx, sx) = along(Axis::X);
     for axis in [Axis::Y, Axis::Z] {
         let (n, s) = along(axis);
-        assert!((n - nx).norm() < 1e-12, "{axis:?}: {n} against {nx}");
-        assert!((s - sx).norm() < 1e-12, "{axis:?}: {s} against {sx}");
+        assert!(
+            portable::complex::abs(n - nx) < 1e-12,
+            "{axis:?}: {n} against {nx}"
+        );
+        assert!(
+            portable::complex::abs(s - sx) < 1e-12,
+            "{axis:?}: {s} against {sx}"
+        );
     }
 }
 
@@ -428,7 +445,7 @@ fn qmr_gives_the_direct_solvers_s_matrix() {
             .unwrap();
         for q in 0..2 {
             for p in 0..2 {
-                let d = (s[q][p] - exact[q][p]).norm();
+                let d = portable::complex::abs(s[q][p] - exact[q][p]);
                 // measured 6e-12 to 6e-11
                 assert!(d < 1e-9, "{formulation:?} S{}{}: {d}", q + 1, p + 1);
             }

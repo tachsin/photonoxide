@@ -62,10 +62,12 @@ What can differ between systems, and what photonoxide does about each:
   square and multiply, Kahan's complex square root), the same bits everywhere, each within the
   ulps its doc states. The rule (CONTRIBUTING.md, "The same numbers on every system") is to take
   every function but `+ − × ÷` and `sqrt` from there, and clippy forbids the system's. Today the
-  circuit's closed-form S-matrices (which optimizations run on), FDTD's source waveforms, the
-  devices' closed forms and fits and the topology projections take it; the other areas follow in
-  #822's phases, and until then the last bits of a mode's index or a field may differ between
-  systems with nothing printed to show it.
+  solvers take it (the mode solvers, FDFD, EME, the eigensolvers, the sparse direct solver, the
+  sweeps, and the Krylov solvers with their Givens rotations), and so do the circuit's
+  closed-form S-matrices (which optimizations run on), FDTD's source waveforms, the devices'
+  closed forms and fits and the topology projections; the other areas follow in #822's phases,
+  and until then the last bits of a field computed there may differ between systems with nothing
+  printed to show it.
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; `mul_add` (fused in hardware or in software,
   whichever the build has) is forbidden. faer's dense kernels pick their SIMD instructions at run

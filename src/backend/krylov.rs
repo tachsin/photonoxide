@@ -24,6 +24,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 mod block;
@@ -207,7 +208,7 @@ impl Sparse {
                         continue;
                     }
                     let aji = entry(j, i)?;
-                    if aji.norm() == 0.0 || aij.norm() == 0.0 {
+                    if portable::complex::abs(aji) == 0.0 || portable::complex::abs(aij) == 0.0 {
                         return None;
                     }
                     d[j] = Some(d[i]? * aij / aji);
@@ -216,16 +217,20 @@ impl Sparse {
             }
         }
         let d: Vec<c64> = d.into_iter().collect::<Option<_>>()?;
-        let largest = d.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let largest = d
+            .iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max);
         let d: Vec<c64> = d.iter().map(|z| z / largest).collect();
-        let s: Vec<c64> = d.iter().map(|z| z.sqrt()).collect();
+        let s: Vec<c64> = d.iter().map(|z| portable::complex::sqrt(*z)).collect();
         let mut rows = Vec::with_capacity(n);
         for i in 0..n {
             let mut row = Vec::with_capacity(self.starts[i + 1] - self.starts[i]);
             for (j, aij) in self.row(i) {
                 let aji = entry(j, i)?;
-                if (d[i] * aij - d[j] * aji).norm()
-                    > 1e-12 * (d[i] * aij).norm().max((d[j] * aji).norm())
+                if portable::complex::abs(d[i] * aij - d[j] * aji)
+                    > 1e-12
+                        * portable::complex::abs(d[i] * aij).max(portable::complex::abs(d[j] * aji))
                 {
                     return None;
                 }
@@ -576,8 +581,8 @@ pub(crate) fn gmres_preconditioned(
             rotations.push((c, s));
             h.truncate(j + 1);
             columns.push(h);
-            history.push(g[j + 1].norm() / rho0);
-            if g[j + 1].norm() <= target || next == 0.0 {
+            history.push(portable::complex::abs(g[j + 1]) / rho0);
+            if portable::complex::abs(g[j + 1]) <= target || next == 0.0 {
                 break;
             }
             v.push(w.iter().map(|z| z / next).collect());
@@ -1135,9 +1140,9 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping, symmetric: bool) ->
     let (mut v_next, mut w_next, mut p) = (vec![zero; n], vec![zero; left_size], vec![zero; n]);
     let mut sums = Sums::default();
     for iteration in 1..=stopping.max_iterations {
-        if d.norm() < 1e-14 {
+        if portable::complex::abs(d) < 1e-14 {
             // the iterate so far is good: its caller restarts from it
-            return Ok(Run::Broken(x, history, d.norm()));
+            return Ok(Run::Broken(x, history, portable::complex::abs(d)));
         }
         // Algorithm 2.1, a regular step (Eq. 2.7) with blocks of one vector: the coefficient of
         // v_{n-1} is w_{n-1}^T A v_n / d_{n-1} = xi_n d_n / d_{n-1}, and of w_{n-1}, rho_n d_n /
@@ -1171,8 +1176,8 @@ fn qmr_run(a: &impl Operator, b: &[c64], stopping: Stopping, symmetric: bool) ->
         }
         // the new rotation zeroes rho_{n+1} under mu (Eq. 4.5)
         let nu = c64::new(rho_next, 0.0);
-        let (c, s) = if mu.norm() > 0.0 {
-            let c = mu.norm() / (mu.norm_sqr() + rho_next * rho_next).sqrt();
+        let (c, s) = if portable::complex::abs(mu) > 0.0 {
+            let c = portable::complex::abs(mu) / (mu.norm_sqr() + rho_next * rho_next).sqrt();
             (c, (c * nu / mu).conj())
         } else {
             (0.0, c64::new(1.0, 0.0))
@@ -1419,7 +1424,7 @@ impl Ilu0 {
             for kk in starts[i]..diagonal[i] {
                 let k = columns[kk];
                 let pivot = values[diagonal[k]];
-                if pivot.norm() == 0.0 {
+                if portable::complex::abs(pivot) == 0.0 {
                     return Err(Error::invalid("ilu", format!("a zero pivot at row {k}")));
                 }
                 let factor = values[kk] / pivot;
@@ -1825,7 +1830,8 @@ mod tests {
         let (s, b_matrix) = a.symmetrized().expect("A is similar to a symmetric matrix");
         let ratio = s[0] * s[0] / scale(0);
         for (r, sr) in s.iter().enumerate() {
-            let off = (sr * sr / scale(r) - ratio).norm() / ratio.norm();
+            let off =
+                portable::complex::abs(sr * sr / scale(r) - ratio) / portable::complex::abs(ratio);
             assert!(off < 1e-12, "{r}: {off}");
         }
         let b: Vec<c64> = (0..n).map(|r| c64::new(1.0, (r % 4) as f64)).collect();
@@ -1944,7 +1950,12 @@ mod tests {
     fn qmr_solves_a_non_hermitian_system_as_lu_does() {
         let a = tridiagonal(200);
         let b: Vec<c64> = (0..200)
-            .map(|k| c64::new((k as f64 * 0.37).sin(), (k as f64 * 0.11).cos()))
+            .map(|k| {
+                c64::new(
+                    portable::sin(k as f64 * 0.37),
+                    portable::cos(k as f64 * 0.11),
+                )
+            })
             .collect();
         let stopping = Stopping {
             tolerance: 1e-12,
@@ -1955,9 +1966,12 @@ mod tests {
         let error = x
             .iter()
             .zip(&exact)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max)
-            / exact.iter().map(|q| q.norm()).fold(0.0, f64::max);
+            / exact
+                .iter()
+                .map(|q| portable::complex::abs(*q))
+                .fold(0.0, f64::max);
         assert!(how.residual <= 1e-12, "{how:?}");
         assert!(error < 1e-10, "{error}");
         // the history is one value per iteration, and the updated residual the true one
@@ -1978,13 +1992,13 @@ mod tests {
                     (
                         r,
                         c,
-                        c64::new((r as f64 * 0.1).sin(), (c as f64 * 0.3).cos()),
+                        c64::new(portable::sin(r as f64 * 0.1), portable::cos(c as f64 * 0.3)),
                     )
                 })
             }),
         );
         let v: Vec<c64> = (0..n)
-            .map(|k| c64::new((k as f64).sqrt(), -(k as f64 * 0.7).sin()))
+            .map(|k| c64::new((k as f64).sqrt(), -portable::sin(k as f64 * 0.7)))
             .collect();
         let sequential: Vec<c64> = (0..n)
             .map(|r| {
@@ -2011,7 +2025,7 @@ mod tests {
             let ilu = Ilu0::new(&a).unwrap().with_sweeps(sweeps);
             let (left, right) = (dot(&u, &ilu.solve(&v)), dot(&ilu.solve_transpose(&u), &v));
             assert!(
-                (left - right).norm() < 1e-12 * left.norm(),
+                portable::complex::abs(left - right) < 1e-12 * portable::complex::abs(left),
                 "{sweeps}: {left} {right}"
             );
         }
@@ -2032,14 +2046,14 @@ mod tests {
         let a = tridiagonal(300);
         let ilu = Ilu0::new(&a).unwrap();
         let b: Vec<c64> = (0..300)
-            .map(|k| c64::new((k as f64 * 0.3).cos(), (k as f64 * 0.7).sin()))
+            .map(|k| c64::new(portable::cos(k as f64 * 0.3), portable::sin(k as f64 * 0.7)))
             .collect();
         let exact = dense_solve(&a, &b);
         let x = ilu.solve(&b);
         let worst = x
             .iter()
             .zip(&exact)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         assert!(worst < 1e-13, "{worst}");
         // and its transpose: Aᵀ x = b
@@ -2048,7 +2062,7 @@ mod tests {
         let worst = back
             .iter()
             .zip(&b)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max);
         assert!(worst < 1e-13, "{worst}");
     }
@@ -2097,6 +2111,6 @@ mod tests {
         assert!(qmr(&a, &[c64::new(1.0, 0.0); 100], few).is_err());
         // a zero right-hand side is solved by zero
         let (x, how) = qmr(&a, &[c64::new(0.0, 0.0); 100], Stopping::default()).unwrap();
-        assert!(x.iter().all(|v| v.norm() == 0.0) && how.iterations == 0);
+        assert!(x.iter().all(|v| portable::complex::abs(*v) == 0.0) && how.iterations == 0);
     }
 }

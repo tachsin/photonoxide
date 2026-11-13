@@ -1,5 +1,6 @@
 use super::*;
 use crate::mode::vector::{self, Boundaries, Permittivity};
+use crate::portable;
 
 fn lam(um: f64) -> Wavelength {
     Wavelength::um(um).unwrap()
@@ -11,7 +12,11 @@ fn gauss_legendre_integrates_polynomials_exactly() {
         let (x, w) = gauss_legendre(n);
         // ∫ x^m over [−1, 1] for every m up to 2n − 1
         for m in 0..2 * n {
-            let sum: f64 = x.iter().zip(&w).map(|(&x, &w)| w * x.powi(m as i32)).sum();
+            let sum: f64 = x
+                .iter()
+                .zip(&w)
+                .map(|(&x, &w)| w * portable::powi(x, m as i32))
+                .sum();
             let exact = if m % 2 == 1 {
                 0.0
             } else {
@@ -34,8 +39,8 @@ fn the_shapes_array_factors_are_their_transforms() {
     for shape in [Shape::Square, Shape::Cosine, Shape::Sine] {
         let profile = |x: f64| match shape {
             Shape::Square => 1.0 / a.sqrt(),
-            Shape::Cosine => (2.0 / a).sqrt() * (PI * x / a).cos(),
-            Shape::Sine => (2.0 / a).sqrt() * (2.0 * PI * x / a).sin(),
+            Shape::Cosine => (2.0 / a).sqrt() * portable::cos(PI * x / a),
+            Shape::Sine => (2.0 / a).sqrt() * portable::sin(2.0 * PI * x / a),
         };
         for k in [
             0.0,
@@ -46,8 +51,8 @@ fn the_shapes_array_factors_are_their_transforms() {
             2.0 * PI / a + 1e-9,
             77.0,
         ] {
-            let re = integrate(-a / 2.0, a / 2.0, 8, &|x| profile(x) * (k * x).cos());
-            let im = integrate(-a / 2.0, a / 2.0, 8, &|x| profile(x) * (k * x).sin());
+            let re = integrate(-a / 2.0, a / 2.0, 8, &|x| profile(x) * portable::cos(k * x));
+            let im = integrate(-a / 2.0, a / 2.0, 8, &|x| profile(x) * portable::sin(k * x));
             let numeric = re * re + im * im;
             let ours = shape.power(a, k);
             assert!(
@@ -60,9 +65,13 @@ fn the_shapes_array_factors_are_their_transforms() {
         let u = k * a / 2.0;
         let printed = match shape {
             Shape::Square => continue,
-            Shape::Cosine => 8.0 * a * PI * PI * u.cos().powi(2) / (PI * PI - 4.0 * u * u).powi(2),
+            Shape::Cosine => {
+                8.0 * a * PI * PI * portable::powi(portable::cos(u), 2)
+                    / portable::powi(PI * PI - 4.0 * u * u, 2)
+            }
             Shape::Sine => {
-                32.0 * a * PI * PI * u.sin().powi(2) / (4.0 * PI * PI - 4.0 * u * u).powi(2)
+                32.0 * a * PI * PI * portable::powi(portable::sin(u), 2)
+                    / portable::powi(4.0 * PI * PI - 4.0 * u * u, 2)
             }
         };
         assert!((shape.power(a, k) - printed).abs() < 1e-13 * printed);
@@ -256,7 +265,10 @@ fn the_corners_exponent_solves_its_equation() {
     let (e1, e2) = (3.5f64 * 3.5, 1.45f64 * 1.45);
     let tau = corner_exponent(e1, e2);
     let t = tau * PI / 4.0;
-    assert!((e1 * t.tan() + e2 * (3.0 * t).tan()).abs() < 1e-9, "{tau}");
+    assert!(
+        (e1 * portable::tan(t) + e2 * portable::tan(3.0 * t)).abs() < 1e-9,
+        "{tau}"
+    );
     assert!(tau > 2.0 / 3.0 && tau < 1.0);
 }
 
@@ -329,7 +341,7 @@ fn the_silicon_grid_case_holds() {
     let c = s.check(0.05).unwrap();
     eprintln!("{:?} {:?} {}", s.values, c.limit, c.reason);
     let v = &s.values;
-    let order = ((v[1] - v[0]) / (v[2] - v[1])).log2();
+    let order = portable::log2((v[1] - v[0]) / (v[2] - v[1]));
     assert!(
         (order - crate::mode::roughness_checks::corner_order()).abs() < 0.1,
         "{order}"
@@ -379,9 +391,10 @@ fn alpha_with(cs: &CrossSection, mode: &VectorMode, r: &Roughness, printed: bool
     let core = Core::of(cs).unwrap();
     let fields = mode.fields_sided(cs, true).unwrap();
     let sums = wall_sums(cs, &core, &fields, CORNER_CELLS).unwrap();
-    let rows = 2f64.powf(f64::from(
-        u8::from(core.south_mirror) + u8::from(core.north_mirror),
-    ));
+    let rows = portable::powf(
+        2f64,
+        f64::from(u8::from(core.south_mirror) + u8::from(core.north_mirror)),
+    );
     let columns = if core.west_mirror { 2.0 } else { 1.0 };
     let power = fields.power() * rows * columns;
     let sums = sums.map(|s| s * rows / power);

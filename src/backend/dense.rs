@@ -88,6 +88,7 @@ pub(crate) fn capabilities(own: Capabilities, kernels: &dyn DenseKernels) -> Cap
 mod tests {
     use super::*;
     use crate::backend::{Choice, Form, Matrix, direct};
+    use crate::portable;
     use num_complex::Complex64 as c64;
 
     /// The kernels written from the trait's words alone, one entry at a time: what a library's
@@ -175,7 +176,10 @@ mod tests {
             let mut rows: Vec<usize> = (0..n).collect();
             for j in 0..n {
                 let best = (j..n)
-                    .max_by(|&x, &y| a.0[(x, j)].norm().total_cmp(&a.0[(y, j)].norm()))
+                    .max_by(|&x, &y| {
+                        portable::complex::abs(a.0[(x, j)])
+                            .total_cmp(&portable::complex::abs(a.0[(y, j)]))
+                    })
                     .unwrap();
                 if best != j {
                     for c in 0..n {
@@ -252,10 +256,13 @@ mod tests {
     }
 
     fn difference(a: &[c64], b: &[c64]) -> f64 {
-        let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+        let scale = b
+            .iter()
+            .map(|x| portable::complex::abs(*x))
+            .fold(0.0, f64::max);
         a.iter()
             .zip(b)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max)
             / scale
     }

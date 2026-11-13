@@ -38,6 +38,7 @@ use faer::Mat;
 use num_complex::Complex64 as c64;
 
 use super::{CHUNK, Convergence, Operator, Preconditioner, Stopping, combine, dot_conj, norm};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The recycled space U, C with 𝒜 U = C and Cᴴ C = I, in the right-preconditioned variable
@@ -342,11 +343,11 @@ pub(crate) fn gcro_dr(
                 rotations.push((c, s));
                 h.truncate(j + 1);
                 columns.push(h);
-                history.push(g[j + 1].norm() / rho0);
+                history.push(portable::complex::abs(g[j + 1]) / rho0);
                 if next > 0.0 {
                     v.push(w.iter().map(|z| z / next).collect());
                 }
-                if g[j + 1].norm() <= target || next == 0.0 {
+                if portable::complex::abs(g[j + 1]) <= target || next == 0.0 {
                     break;
                 }
             }
@@ -368,7 +369,7 @@ pub(crate) fn gcro_dr(
                 *w -= bj[i] * yj;
             }
         }
-        if steps == 0 && d.iter().all(|z| z.norm() == 0.0) {
+        if steps == 0 && d.iter().all(|z| portable::complex::abs(*z) == 0.0) {
             stalled += 1;
             if stalled > 1 {
                 break;
@@ -498,7 +499,7 @@ fn deflate(
         if beta[i] == zero {
             f64::INFINITY
         } else {
-            (alpha[i] / beta[i]).norm()
+            portable::complex::abs(alpha[i] / beta[i])
         }
     };
     let mut order: Vec<usize> = (0..size)

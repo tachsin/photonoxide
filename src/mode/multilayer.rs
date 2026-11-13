@@ -40,6 +40,7 @@ use std::f64::consts::PI;
 use num_complex::Complex64 as c64;
 
 use super::Polarization;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
@@ -161,7 +162,7 @@ impl Multilayer {
     /// α in a bounding medium of index n: decaying away from the stack, or outgoing for a
     /// leaky wave below its index.
     fn alpha_outside(n: c64, beta: c64) -> c64 {
-        let a = (n * n - beta * beta).sqrt();
+        let a = portable::complex::sqrt(n * n - beta * beta);
         if beta.re < n.re {
             // a leaky wave into this medium: the outgoing root
             if a.re < 0.0 { -a } else { a }
@@ -185,12 +186,12 @@ impl Multilayer {
         let i = c64::new(0.0, 1.0);
         let mut m = [[one, c64::new(0.0, 0.0)], [c64::new(0.0, 0.0), one]];
         for &(n, d) in &self.films {
-            let alpha = (n * n - beta * beta).sqrt();
+            let alpha = portable::complex::sqrt(n * n - beta * beta);
             let gamma = Self::gamma(polarization, n, alpha);
             let phi = alpha * k * d;
-            let (c, s) = (phi.cos(), phi.sin());
+            let (c, s) = (portable::complex::cos(phi), portable::complex::sin(phi));
             // sin Φ / γ, finite as α → 0 (a film at the mode's index)
-            let s_over_gamma = if gamma.norm() < 1e-300 {
+            let s_over_gamma = if portable::complex::abs(gamma) < 1e-300 {
                 match polarization {
                     Polarization::Te => one * k * d,
                     Polarization::Tm => n * n * k * d,
@@ -249,7 +250,7 @@ impl Multilayer {
             ));
         }
         let k = 2.0 * PI / wavelength.to_um();
-        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let beta = c64::new(self.cover.re * portable::sin(angle), 0.0);
         let (m, gc, gs) = self.matrix(polarization, k, beta);
         let chi = gc * m[0][0] + gc * gs * m[0][1] + m[1][0] + gs * m[1][1];
         let r = (gc * m[0][0] + gc * gs * m[0][1] - m[1][0] - gs * m[1][1]) / chi;
@@ -282,7 +283,7 @@ impl Multilayer {
         // the checks of the angle and the cover
         self.reflection(polarization, wavelength, angle)?;
         let k = 2.0 * PI / wavelength.to_um();
-        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let beta = c64::new(self.cover.re * portable::sin(angle), 0.0);
         let zero = c64::new(0.0, 0.0);
         let one = c64::new(1.0, 0.0);
         let i = c64::new(0.0, 1.0);
@@ -303,8 +304,8 @@ impl Multilayer {
         // each film's matrix and its derivatives in its thickness and its index
         let mut films = Vec::with_capacity(self.films.len());
         for &(n, d) in &self.films {
-            let alpha = (n * n - beta * beta).sqrt();
-            if alpha.norm() < 1e-300 {
+            let alpha = portable::complex::sqrt(n * n - beta * beta);
+            if portable::complex::abs(alpha) < 1e-300 {
                 return Err(Error::invalid(
                     "reflection",
                     format!(
@@ -414,7 +415,7 @@ impl Multilayer {
         angle: f64,
     ) -> Result<Absorption> {
         let fields = self.interface_fields(polarization, wavelength, angle)?;
-        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let beta = c64::new(self.cover.re * portable::sin(angle), 0.0);
         let gc = Self::gamma(
             polarization,
             self.cover,
@@ -443,7 +444,7 @@ impl Multilayer {
     ) -> Result<Vec<(c64, c64)>> {
         let reflection = self.reflection(polarization, wavelength, angle)?;
         let k = 2.0 * PI / wavelength.to_um();
-        let beta = c64::new(self.cover.re * angle.sin(), 0.0);
+        let beta = c64::new(self.cover.re * portable::sin(angle), 0.0);
         let gs = Self::gamma(
             polarization,
             self.substrate,
@@ -469,11 +470,11 @@ impl Multilayer {
         (u, v): (c64, c64),
     ) -> (c64, c64) {
         let i = c64::new(0.0, 1.0);
-        let alpha = (n * n - beta * beta).sqrt();
+        let alpha = portable::complex::sqrt(n * n - beta * beta);
         let gamma = Self::gamma(polarization, n, alpha);
         let phi = alpha * k * d;
-        let (c, s) = (phi.cos(), phi.sin());
-        let s_over_gamma = if gamma.norm() < 1e-300 {
+        let (c, s) = (portable::complex::cos(phi), portable::complex::sin(phi));
+        let s_over_gamma = if portable::complex::abs(gamma) < 1e-300 {
             match polarization {
                 Polarization::Te => c64::new(k * d, 0.0),
                 Polarization::Tm => n * n * k * d,
@@ -587,7 +588,7 @@ impl Multilayer {
             (x0, f0) = (x1, f1);
             x1 = x2;
             f1 = f(x1);
-            if (x1 - x0).norm() < 1e-14 * x1.norm() {
+            if portable::complex::abs(x1 - x0) < 1e-14 * portable::complex::abs(x1) {
                 return Ok(self.mode(polarization, k, x1));
             }
         }
@@ -618,7 +619,7 @@ impl Multilayer {
         let size: Vec<Vec<f64>> = (0..n)
             .map(|i| {
                 (0..n)
-                    .map(|j| self.chi(polarization, k, at(i, j)).norm())
+                    .map(|j| portable::complex::abs(self.chi(polarization, k, at(i, j))))
                     .collect()
             })
             .collect();
@@ -645,7 +646,9 @@ impl Multilayer {
                     && b.re <= region.re_max
                     && b.im >= region.im_min - 1e-12
                     && b.im <= region.im_max;
-                let new = found.iter().all(|m| (m.effective_index - b).norm() > 1e-9);
+                let new = found
+                    .iter()
+                    .all(|m| portable::complex::abs(m.effective_index - b) > 1e-9);
                 if inside && new {
                     found.push(mode);
                 }
@@ -679,29 +682,32 @@ impl MultilayerMode {
         let total: f64 = s.films.iter().map(|&(_, d)| d).sum();
         let a_s = Multilayer::alpha_outside(s.substrate, beta);
         if x >= total {
-            return (i * k * a_s * (x - total)).exp();
+            return portable::complex::exp(i * k * a_s * (x - total));
         }
         // (U, V) at the substrate's interface, carried back film by film (Eq. 9)
         let (mut u, mut v) = (c64::new(1.0, 0.0), Multilayer::gamma(pol, s.substrate, a_s));
         let mut right = total;
         for &(n, d) in s.films.iter().rev() {
             let left = right - d;
-            let alpha = (n * n - beta * beta).sqrt();
+            let alpha = portable::complex::sqrt(n * n - beta * beta);
             let gamma = Multilayer::gamma(pol, n, alpha);
             let at = |t: f64| {
                 let phi = alpha * k * (t - right);
-                u * phi.cos() + i / gamma * v * phi.sin()
+                u * portable::complex::cos(phi) + i / gamma * v * portable::complex::sin(phi)
             };
             if x >= left {
                 return at(x);
             }
             let phi = -alpha * k * d;
-            let (u0, v0) = (at(left), i * gamma * u * phi.sin() + v * phi.cos());
+            let (u0, v0) = (
+                at(left),
+                i * gamma * u * portable::complex::sin(phi) + v * portable::complex::cos(phi),
+            );
             (u, v) = (u0, v0);
             right = left;
         }
         let a_c = Multilayer::alpha_outside(s.cover, beta);
-        u * (-i * k * a_c * x).exp()
+        u * portable::complex::exp(-i * k * a_c * x)
     }
 
     /// The share of the mode's power in the cover, each film, and the substrate, summing to 1:
@@ -711,7 +717,7 @@ impl MultilayerMode {
         let beta = self.effective_index;
         let w = |n: c64| match self.polarization {
             Polarization::Te => 1.0,
-            Polarization::Tm => 1.0 / (n * n).norm(),
+            Polarization::Tm => 1.0 / portable::complex::abs(n * n),
         };
         // the tails: |U|² decays as e^(−2k Im α |x|)
         let a_c = Multilayer::alpha_outside(s.cover, beta);
@@ -859,12 +865,16 @@ mod tests {
             for m in stack.bound_modes(pol, w).unwrap() {
                 for x in [0.0, 0.5, 1.0, 1.5, 2.0] {
                     let (a, b) = (m.field(Length::um(x - 1e-9)), m.field(Length::um(x + 1e-9)));
-                    assert!((a - b).norm() < 1e-6 * a.norm().max(1.0), "{pol:?} at {x}");
+                    assert!(
+                        portable::complex::abs(a - b) < 1e-6 * portable::complex::abs(a).max(1.0),
+                        "{pol:?} at {x}"
+                    );
                 }
-                assert!(m.field(Length::um(-3.0)).norm() < 1e-3);
+                assert!(portable::complex::abs(m.field(Length::um(-3.0))) < 1e-3);
                 assert!(
-                    m.field(Length::um(9.0)).norm()
-                        < 1e-2 * m.field(Length::um(2.0)).norm().max(1e-300) + 1e-2
+                    portable::complex::abs(m.field(Length::um(9.0)))
+                        < 1e-2 * portable::complex::abs(m.field(Length::um(2.0))).max(1e-300)
+                            + 1e-2
                 );
             }
         }
@@ -901,19 +911,27 @@ mod tests {
         let lam = Wavelength::um(0.6328).unwrap();
         for deg in [0.0, 20.0, 45.0, 70.0_f64] {
             let t1 = deg.to_radians();
-            let t2 = (n1 * t1.sin() / n2).asin();
-            let (c1, c2) = (t1.cos(), t2.cos());
+            let t2 = portable::asin(n1 * portable::sin(t1) / n2);
+            let (c1, c2) = (portable::cos(t1), portable::cos(t2));
             let rs = (n1 * c1 - n2 * c2) / (n1 * c1 + n2 * c2);
             let rp = (n2 * c1 - n1 * c2) / (n2 * c1 + n1 * c2);
             let te = stack.reflection(Polarization::Te, lam, t1).unwrap();
             let tm = stack.reflection(Polarization::Tm, lam, t1).unwrap();
-            assert!((te.r - rs).norm() < 1e-12, "{deg}: {} vs {rs}", te.r);
-            assert!((tm.r - rp).norm() < 1e-12, "{deg}: {} vs {rp}", tm.r);
+            assert!(
+                portable::complex::abs(te.r - rs) < 1e-12,
+                "{deg}: {} vs {rs}",
+                te.r
+            );
+            assert!(
+                portable::complex::abs(tm.r - rp) < 1e-12,
+                "{deg}: {} vs {rp}",
+                tm.r
+            );
             assert!((te.reflectance + te.transmittance - 1.0).abs() < 1e-12);
             assert!((tm.reflectance + tm.transmittance - 1.0).abs() < 1e-12);
         }
         // nothing reflected at Brewster's angle for TM
-        let brewster = (n2 / n1).atan();
+        let brewster = portable::atan(n2 / n1);
         let tm = stack.reflection(Polarization::Tm, lam, brewster).unwrap();
         assert!(tm.reflectance < 1e-24, "{}", tm.reflectance);
     }
@@ -964,8 +982,8 @@ mod tests {
                 films.push((c64::new(nl, 0.0), Length::um(0.55 / (4.0 * nl))));
             }
             let stack = Multilayer::new(c64::new(n0, 0.0), &films, c64::new(ns, 0.0)).unwrap();
-            let q = ns / n0 * (nh / nl).powi(2 * pairs);
-            let expected = ((1.0 - q) / (1.0 + q)).powi(2);
+            let q = ns / n0 * portable::powi(nh / nl, 2 * pairs);
+            let expected = portable::powi((1.0 - q) / (1.0 + q), 2);
             for pol in [Polarization::Te, Polarization::Tm] {
                 let got = stack.reflection(pol, lam, 0.0).unwrap().reflectance;
                 assert!(
@@ -1061,8 +1079,8 @@ mod tests {
             .reflection_derivatives(Polarization::Te, Wavelength::um(lam).unwrap(), 0.0)
             .unwrap();
         // the closed form: Y = (n_H/n_L)^20 n_s, R = ((1 − Y)/(1 + Y))²
-        let y = (1.8f64 / 1.4).powi(20) * 1.8;
-        let closed = ((1.0 - y) / (1.0 + y)).powi(2);
+        let y = portable::powi(1.8f64 / 1.4, 20) * 1.8;
+        let closed = portable::powi((1.0 - y) / (1.0 + y), 2);
         assert!((d.reflection.reflectance - closed).abs() < 1e-14);
         for (dr, dt) in &d.by_thickness {
             assert!(dr.abs() < 1e-12 && dt.abs() < 1e-12, "{dr} {dt}");

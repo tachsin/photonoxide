@@ -4,6 +4,7 @@ use num_complex::Complex64 as c64;
 use super::aaa::jacobi_for_tests;
 use super::checks;
 use super::*;
+use crate::portable;
 use rayon::prelude::*;
 
 fn re(v: f64) -> c64 {
@@ -14,7 +15,7 @@ fn re(v: f64) -> c64 {
 fn jacobi_matches_the_svd() {
     let a = Mat::<c64>::from_fn(7, 4, |i, j| {
         c64::new(
-            (i as f64 + 1.0).sin() * (j as f64 + 2.0),
+            portable::sin(i as f64 + 1.0) * (j as f64 + 2.0),
             (i * j) as f64 / 7.0 - 0.3,
         )
     });
@@ -44,7 +45,7 @@ fn jacobi_matches_the_svd() {
 #[test]
 fn aaa_interpolates_at_its_support_points() {
     let x: Vec<f64> = (0..40).map(|k| f64::from(k) / 39.0).collect();
-    let f: Vec<c64> = x.iter().map(|&x| re((3.0 * x).exp())).collect();
+    let f: Vec<c64> = x.iter().map(|&x| re(portable::exp(3.0 * x))).collect();
     let r = Rational::aaa(&x, &f, DEFAULT_TOLERANCE).unwrap();
     for (&z, k) in r.support().iter().zip(0..) {
         let i = x.iter().position(|&v| v == z).unwrap();
@@ -54,7 +55,7 @@ fn aaa_interpolates_at_its_support_points() {
     let worst = (0..1000)
         .map(|k| {
             let x = (f64::from(k) + 0.5) / 1000.0;
-            (r.eval(x) - re((3.0 * x).exp())).norm()
+            portable::complex::abs(r.eval(x) - re(portable::exp(3.0 * x)))
         })
         .fold(0.0, f64::max);
     assert!(worst < 1e-11, "{worst}");
@@ -128,7 +129,7 @@ fn a_sweep_of_a_rational_function_stops_at_the_floor() {
 #[test]
 fn a_sweep_stops_unconverged_at_its_limit() {
     let sweep = Sweep::run(
-        |x| Ok(c64::from_polar(1.0, 40.0 * x)),
+        |x| Ok(portable::complex::from_polar(1.0, 40.0 * x)),
         -1.0,
         1.0,
         &Options::new(1e-10).with_max_samples(8),
@@ -171,7 +172,7 @@ fn noisy_seeded(x: f64, eta: f64, seed: u64) -> c64 {
         splitmix(x.to_bits() ^ splitmix(seed))
     };
     let unit = (bits >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0;
-    re((2.0 + 0.3 * (1.5 * x).sin() + 0.1 * x * x) * (1.0 + eta * unit))
+    re((2.0 + 0.3 * portable::sin(1.5 * x) + 0.1 * x * x) * (1.0 + eta * unit))
 }
 
 /// SplitMix64's output function (Steele, Lea and Flood, OOPSLA 2014): 64 bits mixed into 64.
@@ -256,7 +257,7 @@ fn noisy_sweep_of(
     .unwrap();
     let truth = (0..=2000)
         .map(|k| -1.0 + 0.001 * f64::from(k))
-        .map(|x| (sweep.eval(x) - noisy(x, 0.0)).norm())
+        .map(|x| portable::complex::abs(sweep.eval(x) - noisy(x, 0.0)))
         .fold(0.0, f64::max)
         / sweep.scale;
     (sweep, truth)
@@ -376,7 +377,7 @@ fn the_stopping_rule_on_noiseless_sweeps_study() {
             watched += 1;
             let truth = (0..=20000)
                 .map(|k| -1.0 + 2.0 * f64::from(k) / 20000.0)
-                .map(|x| (with.eval(x) - f(x)).norm())
+                .map(|x| portable::complex::abs(with.eval(x) - f(x)))
                 .fold(0.0, f64::max)
                 / with.scale;
             worst = worst.max(truth / with.relative_error());
@@ -528,7 +529,7 @@ fn a_zero_function_is_converged_at_once() {
 fn a_sweep_of_a_ring_needs_far_fewer_solves_than_a_uniform_cubic_grid() {
     // docs/methods/sweep.md's ring: 36 samples where a piecewise cubic needs 2660
     let ring = |x: f64| {
-        let e = c64::from_polar(0.97, 0.7 + 12.0 * x);
+        let e = portable::complex::from_polar(0.97, 0.7 + 12.0 * x);
         (0.95 - e) / (1.0 - 0.95 * e)
     };
     let sweep = Sweep::run(|x| Ok(ring(x)), -1.0, 1.0, &Options::new(1e-4)).unwrap();
@@ -645,7 +646,7 @@ fn a_shift_almost_on_an_eigenvalue_is_moved_off_it() {
     let a = Shifted::new(n, &entries, c64::new(0.0, 0.0)).unwrap();
     for (p, h) in pairs.iter().zip(held) {
         assert!((p.value.re - h).abs() <= 1e-9 * h, "{} {h}", p.value);
-        assert!(a.residual(p.value, &p.vector) <= 1e-9 * p.value.norm());
+        assert!(a.residual(p.value, &p.vector) <= 1e-9 * portable::complex::abs(p.value));
     }
     assert_eq!(pairs.len(), 3);
     assert!(record.restarts < 60, "{}", record.restarts);
@@ -840,12 +841,18 @@ fn a_set_with_shared_poles_is_exact_and_finds_them() {
     let set = RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE).expect("set-valued AAA");
     assert_eq!(set.functions(), 3);
     assert!(set.len() <= 7, "{} support points", set.len());
-    let scale = f.iter().flatten().map(|v| v.norm()).fold(0.0, f64::max);
+    let scale = f
+        .iter()
+        .flatten()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = (0..=2000)
         .map(|k| -1.0 + k as f64 / 1000.0)
         .map(|t| {
             let (r, e) = (set.eval(t), shared_poles(t));
-            (0..3).map(|k| (r[k] - e[k]).norm()).fold(0.0, f64::max)
+            (0..3)
+                .map(|k| portable::complex::abs(r[k] - e[k]))
+                .fold(0.0, f64::max)
         })
         .fold(0.0, f64::max);
     assert!(worst <= 1e-10 * scale, "{worst:e} of {scale:e}");
@@ -853,7 +860,7 @@ fn a_set_with_shared_poles_is_exact_and_finds_them() {
         let near = set
             .poles()
             .iter()
-            .map(|q| (q - p).norm())
+            .map(|q| portable::complex::abs(q - p))
             .fold(f64::INFINITY, f64::min);
         assert!(near <= 1e-8, "pole {p}: {near:e}");
     }
@@ -868,7 +875,7 @@ fn equal_values_make_equal_functions() {
         .iter()
         .map(|&t| {
             let a = c64::new(1.0, 0.0) / c64::new(t - 0.4, 0.05);
-            vec![a, c64::new((3.0 * t).cos(), 0.0), a]
+            vec![a, c64::new(portable::cos(3.0 * t), 0.0), a]
         })
         .collect();
     let set = RationalSet::aaa(&x, &f, DEFAULT_TOLERANCE).expect("set-valued AAA");
@@ -886,7 +893,7 @@ fn a_set_sweep_bounds_each_responses_error() {
         vec![
             c64::new(0.01, 0.0) / c64::new(l - 1.53, 0.01),
             0.3 * c64::new(0.004, 0.0) / c64::new(l - 1.571, 0.004),
-            (i * 40.0 * l).exp(),
+            portable::complex::exp(i * 40.0 * l),
         ]
     };
     let sweep = SweepSet::run(|l| Ok(f(l)), 1.5, 1.6, &Options::new(1e-9)).expect("a sweep");
@@ -896,7 +903,7 @@ fn a_set_sweep_bounds_each_responses_error() {
     for k in 0..3 {
         let truth = (0..=4000)
             .map(|j| 1.5 + 0.1 * j as f64 / 4000.0)
-            .map(|l| (sweep.eval(l)[k] - f(l)[k]).norm())
+            .map(|l| portable::complex::abs(sweep.eval(l)[k] - f(l)[k]))
             .fold(0.0, f64::max);
         assert!(
             truth <= sweep.errors[k],

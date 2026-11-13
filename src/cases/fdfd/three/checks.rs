@@ -7,6 +7,7 @@ use super::{Axis, Boundaries3d, Field3d, Grid3d, Solver3d};
 use crate::fdfd::{Boundaries, Edges, Grid, Polarization, Solver2d};
 use crate::mode::Polarization as Kind;
 use crate::mode::multilayer::Multilayer;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 /// The PMLs' thickness in the film and PML runs, cells.
@@ -22,14 +23,17 @@ const AZIMUTH: f64 = 30.0;
 fn sheet(grid: &Grid3d, (kx, ky): (f64, f64), kind: Kind, k: usize) -> Vec<c64> {
     // the grid's own transverse wavenumbers, (2/h) sin(kh/2)
     let (tx, ty) = (
-        2.0 / grid.dx * (kx * grid.dx / 2.0).sin(),
-        2.0 / grid.dy * (ky * grid.dy / 2.0).sin(),
+        2.0 / grid.dx * portable::sin(kx * grid.dx / 2.0),
+        2.0 / grid.dy * portable::sin(ky * grid.dy / 2.0),
     );
-    let norm = tx.hypot(ty);
+    let norm = portable::hypot(tx, ty);
     let (ux, uy) = if norm > 0.0 {
         (tx / norm, ty / norm)
     } else {
-        (AZIMUTH.to_radians().cos(), AZIMUTH.to_radians().sin())
+        (
+            portable::cos(AZIMUTH.to_radians()),
+            portable::sin(AZIMUTH.to_radians()),
+        )
     };
     let (ax, ay) = match kind {
         Kind::Te => (-uy, ux),
@@ -41,7 +45,7 @@ fn sheet(grid: &Grid3d, (kx, ky): (f64, f64), kind: Kind, k: usize) -> Vec<c64> 
             for (component, a) in [(Axis::X, ax), (Axis::Y, ay)] {
                 let [x, y, _] = grid.e_position(component, (i, j, k));
                 source[grid.index(component, (i, j, k))] =
-                    a * c64::from_polar(1.0, kx * x + ky * y);
+                    a * portable::complex::from_polar(1.0, kx * x + ky * y);
             }
         }
     }
@@ -87,10 +91,10 @@ pub(crate) fn film_run(kind: Kind, h: f64, angle: f64, pml: (usize, f64)) -> Fil
         y0: 0.0,
         z0: -(below as f64) * h,
     };
-    let kt = k0 * cover * angle.sin();
+    let kt = k0 * cover * portable::sin(angle);
     let (kx, ky) = (
-        kt * AZIMUTH.to_radians().cos(),
-        kt * AZIMUTH.to_radians().sin(),
+        kt * portable::cos(AZIMUTH.to_radians()),
+        kt * portable::sin(AZIMUTH.to_radians()),
     );
     let boundaries = Boundaries3d {
         x: Edges::Bloch { k: kx },
@@ -201,8 +205,8 @@ pub(crate) fn pml_reflection_on(kind: Kind, real_stretch: f64, (h, cells): (f64,
     let k0 = 2.0 * std::f64::consts::PI / 1.55;
     let kt = k0 * 1.444 * 0.3;
     let (kx, ky) = (
-        kt * AZIMUTH.to_radians().cos(),
-        kt * AZIMUTH.to_radians().sin(),
+        kt * portable::cos(AZIMUTH.to_radians()),
+        kt * portable::sin(AZIMUTH.to_radians()),
     );
     let boundaries = Boundaries3d {
         x: Edges::Bloch { k: kx },
@@ -225,19 +229,19 @@ pub(crate) fn pml_reflection_on(kind: Kind, real_stretch: f64, (h, cells): (f64,
     let field = solver.solve(&sheet(&grid, (kx, ky), kind, 100)).unwrap();
     // between the source and the bottom PML the field is the downgoing wave and whatever the
     // PML sends back: separate them by the grid's own wavenumber along z
-    let t = |k: f64| (2.0 / h * (k * h / 2.0).sin()).powi(2);
-    let kz = ((k0 * 1.444).powi(2) - t(kx) - t(ky)).sqrt();
-    let kd = 2.0 * (kz * h / 2.0).asin() / h;
+    let t = |k: f64| portable::powi(2.0 / h * portable::sin(k * h / 2.0), 2);
+    let kz = (portable::powi(k0 * 1.444, 2) - t(kx) - t(ky)).sqrt();
+    let kd = 2.0 * portable::asin(kz * h / 2.0) / h;
     let (k1, k2) = (40, 60);
     let (u1, u2) = (field.e(Axis::X, (0, 0, k1)), field.e(Axis::X, (0, 0, k2)));
     let z = |k: usize| grid.node(Axis::Z, k);
-    let wave = |sign: f64, k: usize| c64::from_polar(1.0, sign * kd * z(k));
+    let wave = |sign: f64, k: usize| portable::complex::from_polar(1.0, sign * kd * z(k));
     // u = a e^{-i kd z} + b e^{+i kd z}
     let (e1m, e1p, e2m, e2p) = (wave(-1.0, k1), wave(1.0, k1), wave(-1.0, k2), wave(1.0, k2));
     let det = e1m * e2p - e1p * e2m;
     let a = (u1 * e2p - e1p * u2) / det;
     let b = (e1m * u2 - u1 * e2m) / det;
-    (b / a).norm()
+    portable::complex::abs(b / a)
 }
 
 /// A structure invariant along z (a silicon rod, 0.4 × 0.3 µm, in lossy oxide) in a cell
@@ -264,10 +268,10 @@ pub(crate) fn two_d_difference(polarization: Polarization) -> f64 {
     let rod = |x: f64, y: f64| {
         let inside = (0.25..0.65).contains(&x) && (0.2..0.5).contains(&y);
         if inside {
-            c64::new(3.476f64.powi(2), 0.0)
+            c64::new(portable::powi(3.476f64, 2), 0.0)
         } else {
             // the loss keeps a periodic problem without PMLs away from resonance
-            c64::new(1.444f64.powi(2), 0.3)
+            c64::new(portable::powi(1.444f64, 2), 0.3)
         }
     };
     let boundaries = Boundaries {
@@ -331,8 +335,8 @@ pub(crate) fn two_d_difference(polarization: Polarization) -> f64 {
     let mut largest: f64 = 0.0;
     for j in 0..ny {
         for i in 0..nx {
-            worst = worst.max((deep(i, j) - flat.at(i, j)).norm());
-            largest = largest.max(flat.at(i, j).norm());
+            worst = worst.max(portable::complex::abs(deep(i, j) - flat.at(i, j)));
+            largest = largest.max(portable::complex::abs(flat.at(i, j)));
         }
     }
     worst / largest
@@ -433,12 +437,16 @@ pub(crate) fn qmr_against_direct(formulation: super::Formulation) -> (f64, usize
         .unwrap()
         .solve(&source, stopping)
         .unwrap();
-    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = direct
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = direct
         .values()
         .iter()
         .zip(iterative.values())
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     (worst / largest, how.iterations)
 }
@@ -478,12 +486,16 @@ pub(crate) fn ldlt_against_lu() -> (f64, bool) {
         symmetric.solve(&source).unwrap(),
         lu.solve(&source).unwrap(),
     );
-    let largest = a.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = a
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = a
         .values()
         .iter()
         .zip(b.values())
-        .map(|(x, y)| (x - y).norm())
+        .map(|(x, y)| portable::complex::abs(x - y))
         .fold(0.0, f64::max);
     (
         worst / largest,
@@ -536,12 +548,16 @@ pub(crate) fn ilu_against_direct() -> (f64, usize, usize) {
     let plain = IterativeSolver3d::new(grid, lam, strip, boundaries, Formulation::ShinFan).unwrap();
     let (_, without) = plain.solve(&source, stopping).unwrap();
     let (field, with) = plain.with_ilu().unwrap().solve(&source, stopping).unwrap();
-    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = direct
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = direct
         .values()
         .iter()
         .zip(field.values())
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     (worst / largest, with.iterations, without.iterations)
 }
@@ -601,12 +617,16 @@ pub(crate) fn multigrid_of_against_direct(
             .unwrap()
             .solve(&source, stopping)
             .unwrap();
-    let largest = direct.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let largest = direct
+        .values()
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let worst = direct
         .values()
         .iter()
         .zip(field.values())
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max);
     (worst / largest, how.iterations)
 }

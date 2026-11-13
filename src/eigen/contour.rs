@@ -41,6 +41,7 @@ use faer::{Mat, c64};
 use rayon::prelude::*;
 
 use super::Pair;
+use crate::portable;
 use crate::sparse::{Analysis, Multifrontal};
 use crate::{Error, Result};
 
@@ -550,7 +551,7 @@ pub(crate) fn solve_until(
     let scale = quadrature
         .nodes
         .iter()
-        .map(|z| z.norm())
+        .map(|z| portable::complex::abs(*z))
         .fold(0.0, f64::max);
 
     let cap = n.min(4096);
@@ -704,7 +705,7 @@ pub(crate) fn hankel(
     let omega: Vec<c64> = (0..points)
         .map(|j| {
             let theta = std::f64::consts::TAU * j as f64 / points as f64;
-            centre + radius * c64::from_polar(1.0, theta)
+            centre + radius * portable::complex::from_polar(1.0, theta)
         })
         .collect();
     let shifts = Shifts {
@@ -748,7 +749,7 @@ pub(crate) fn hankel(
 #[cfg(test)]
 pub(crate) fn circle(c: c64, r: f64) -> impl Fn(f64) -> (c64, c64) {
     move |t: f64| {
-        let e = c64::from_polar(1.0, t);
+        let e = portable::complex::from_polar(1.0, t);
         (c + r * e, c64::new(0.0, r) * e)
     }
 }
@@ -787,7 +788,7 @@ pub(crate) fn sakurai_sugiura_error(points: usize, draw: u64) -> f64 {
         Ok(values) => values
             .iter()
             .zip([0.0, 0.01, 0.02, 0.03])
-            .map(|(l, e)| (l - e).norm())
+            .map(|(l, e)| portable::complex::abs(l - e))
             .fold(0.0, f64::max),
         Err(_) => f64::NAN,
     }

@@ -26,6 +26,7 @@ use faer::sparse::Triplet;
 use num_complex::Complex64 as c64;
 
 use super::{Direction, Edges, graded};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -319,7 +320,7 @@ impl Lattice {
                 let period = n as f64 * self.grid.step(axis);
                 Some((
                     to.rem_euclid(n) as usize,
-                    c64::from_polar(1.0, turns * k * period),
+                    portable::complex::from_polar(1.0, turns * k * period),
                 ))
             }
             Edges::Pml { .. } => None,

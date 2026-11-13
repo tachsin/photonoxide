@@ -15,6 +15,7 @@
 use faer::c64;
 
 use crate::mode::vector::{self, CrossSection, VectorMode};
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
 
@@ -112,7 +113,7 @@ pub fn loss_db_per_cm(n_eff: c64, wavelength: Wavelength) -> f64 {
 /// `n_eff` at `wavelength`, 1 − e^(−2 k₀ Im(n_eff) L): a travelling-wave detector's absorption,
 /// all of the mode's loss counted as absorbed where the loss is its absorbing film's.
 pub fn absorbed_fraction(n_eff: c64, wavelength: Wavelength, length: crate::units::Length) -> f64 {
-    -(-2.0 * wavelength.wavenumber() * n_eff.im * length.to_um()).exp_m1()
+    -portable::exp_m1(-2.0 * wavelength.wavenumber() * n_eff.im * length.to_um())
 }
 
 /// The radiation loss of a quarter turn, in dB, of a bend of `radius` whose mode has effective
@@ -251,7 +252,7 @@ mod tests {
         let wavelengths: Vec<Wavelength> = [1.5, 1.55, 1.6].iter().map(|&l| lam(l)).collect();
         let n: Vec<f64> = wavelengths
             .iter()
-            .map(|w| 2.0 - 0.01 * w.to_um().powi(2))
+            .map(|w| 2.0 - 0.01 * portable::powi(w.to_um(), 2))
             .collect();
         let d = dispersion(&wavelengths, &n).unwrap();
         let expected = 2.0 * 0.01 * 1.55 / SPEED_OF_LIGHT * 1e12;

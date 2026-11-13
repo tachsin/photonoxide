@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 fn re(n: f64) -> c64 {
     c64::new(n, 0.0)
@@ -40,7 +41,7 @@ fn a_slices_modes_are_orthonormal_with_and_without_a_pml() {
                 for j in 0..modes.len() {
                     let e = if i == j { 1.0 } else { 0.0 };
                     assert!(
-                        (o[(i, j)] - e).norm() < 1e-10,
+                        portable::complex::abs(o[(i, j)] - e) < 1e-10,
                         "{pol:?} {i} {j}: {}",
                         o[(i, j)]
                     );
@@ -63,7 +64,7 @@ fn a_pmls_modes_lose_power_and_the_guided_mode_stays() {
         .unwrap()
         .modes(Polarization::Te, lam())[0]
         .effective_index();
-    assert!((modes[0].effective_index() - exact).norm() < 1e-12);
+    assert!(portable::complex::abs(modes[0].effective_index() - exact) < 1e-12);
     assert!(modes[1..].iter().all(|m| m.effective_index().im > 0.0));
 }
 
@@ -86,7 +87,7 @@ fn the_field_is_normalized_and_continuous() {
             })
             .sum::<c64>()
             * (w / steps as f64);
-        assert!((sum - 1.0).norm() < 1e-6, "{pol:?}: {sum}");
+        assert!(portable::complex::abs(sum - 1.0) < 1e-6, "{pol:?}: {sum}");
         // U is continuous at the core's edges
         for x in [1.39, 1.61] {
             let (a, b) = (m.field(x - 1e-9), m.field(x + 1e-9));
@@ -94,7 +95,10 @@ fn the_field_is_normalized_and_continuous() {
                 Polarization::Te => (a.0, b.0),
                 Polarization::Tm => (a.1, b.1),
             };
-            assert!((ua - ub).norm() < 1e-6 * ua.norm(), "{pol:?} at {x}");
+            assert!(
+                portable::complex::abs(ua - ub) < 1e-6 * portable::complex::abs(ua),
+                "{pol:?} at {x}"
+            );
         }
     }
 }
@@ -135,9 +139,9 @@ fn a_straight_guide_only_advances_its_modes() {
         ])
         .unwrap();
     let n = s.first[0];
-    let expected = (c64::new(0.0, lam().wavenumber() * 2.0) * n).exp();
-    assert!((s.s21[0][0] - expected).norm() < 1e-13);
-    assert!(s.s11[0][0].norm() < 1e-15);
+    let expected = portable::complex::exp(c64::new(0.0, lam().wavenumber() * 2.0) * n);
+    assert!(portable::complex::abs(s.s21[0][0] - expected) < 1e-13);
+    assert!(portable::complex::abs(s.s11[0][0]) < 1e-15);
 }
 
 #[test]
@@ -211,7 +215,7 @@ fn sharp_taper(steps: usize) -> [Piece<'static>; 3] {
         Piece::Section(Section::new(slab3(0.22), Length::ZERO)),
         Piece::Taper(
             Taper::new(Length::um(1.0), steps, |z| {
-                Ok(slab3(0.22 + 0.38 * z.to_um().powi(8)))
+                Ok(slab3(0.22 + 0.38 * portable::powi(z.to_um(), 8)))
             })
             .unwrap(),
         ),
@@ -232,7 +236,7 @@ fn adaptive_steps_give_the_cascade_of_their_own_sections() {
     for w in a.edges[0].windows(2) {
         let z = 0.5 * (w[0] + w[1]);
         sections.push(Section::new(
-            slab3(0.22 + 0.38 * z.powi(8)),
+            slab3(0.22 + 0.38 * portable::powi(z, 8)),
             Length::um(w[1] - w[0]),
         ));
     }
@@ -243,7 +247,7 @@ fn adaptive_steps_give_the_cascade_of_their_own_sections() {
         (s.s21[0][0], a.scattering.s21[0][0]),
         (s.s22[1][0], a.scattering.s22[1][0]),
     ] {
-        assert!((x - y).norm() < 1e-13, "{x} vs {y}");
+        assert!(portable::complex::abs(x - y) < 1e-13, "{x} vs {y}");
     }
 }
 

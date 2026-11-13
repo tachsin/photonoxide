@@ -5,6 +5,7 @@
 use faer::c64;
 
 use super::{Pair, Shifted, dot, norm};
+use crate::portable;
 use crate::{Error, Result};
 
 /// As [`super::nearest`], by the growing restarts; with the most basis vectors held at once.
@@ -59,7 +60,9 @@ pub(crate) fn nearest_growing(
         let theta = eig.S();
         let y = eig.U();
         let mut order: Vec<usize> = (0..steps).collect();
-        order.sort_by(|&a, &b| theta[b].norm().total_cmp(&theta[a].norm()));
+        order.sort_by(|&a, &b| {
+            portable::complex::abs(theta[b]).total_cmp(&portable::complex::abs(theta[a]))
+        });
         let mut pairs = Vec::with_capacity(count);
         let mut all = true;
         for &k in order.iter().take(count) {
@@ -73,7 +76,7 @@ pub(crate) fn nearest_growing(
             }
             let xn = norm(&x);
             let x: Vec<c64> = x.iter().map(|z| z / xn).collect();
-            if op.residual(value, &x) > tolerance * value.norm().max(1.0) {
+            if op.residual(value, &x) > tolerance * portable::complex::abs(value).max(1.0) {
                 all = false;
             }
             pairs.push(Pair { value, vector: x });

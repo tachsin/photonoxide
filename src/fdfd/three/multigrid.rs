@@ -31,6 +31,7 @@ use crate::backend::iterative::CycleShape;
 use crate::backend::{Columns, DirectSolver, Factorization, Form};
 use crate::fdfd::Edges;
 use crate::fdfd::krylov::{BlockIlu0, Operator, Preconditioner, Sparse};
+use crate::portable;
 use crate::{Error, Result};
 
 /// How the multigrid preconditioner is built and cycled.
@@ -413,7 +414,8 @@ impl Line {
         let mut ends = vec![self.ends[0]];
         let mut m = 0;
         while m < n {
-            if m + 2 <= n && (x[self.ends[m + 2]] - x[self.ends[m]]).norm() <= target {
+            if m + 2 <= n && portable::complex::abs(x[self.ends[m + 2]] - x[self.ends[m]]) <= target
+            {
                 m += 2;
             } else {
                 m += 1;
@@ -607,9 +609,10 @@ fn prolongation(
             Axis::ALL.map(|axis| {
                 let a = axis.index();
                 let phase = match fine.boundaries.edges(axis) {
-                    Edges::Bloch { k } => {
-                        Some(c64::from_polar(1.0, k * gf.n(axis) as f64 * gf.step(axis)))
-                    }
+                    Edges::Bloch { k } => Some(portable::complex::from_polar(
+                        1.0,
+                        k * gf.n(axis) as f64 * gf.step(axis),
+                    )),
                     Edges::Pml { .. } => None,
                 };
                 let along = axis == component;
@@ -1144,7 +1147,7 @@ impl Hierarchy {
                 let inverse: Vec<c64> = shares
                     .iter()
                     .map(|v| {
-                        if v.norm() > 0.0 {
+                        if portable::complex::abs(*v) > 0.0 {
                             1.0 / v
                         } else {
                             c64::new(1.0, 0.0)

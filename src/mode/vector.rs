@@ -35,6 +35,7 @@
 
 use faer::c64;
 
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -81,7 +82,10 @@ impl Permittivity {
     /// [`Error::InvalidValue`] when an element coupling z to x or y exceeds 1e-12 of the
     /// tensor's largest element, or an element isn't finite.
     pub fn from_tensor(t: [[c64; 3]; 3]) -> Result<Permittivity> {
-        let scale = t.iter().flatten().fold(0.0f64, |m, e| m.max(e.norm()));
+        let scale = t
+            .iter()
+            .flatten()
+            .fold(0.0f64, |m, e| m.max(portable::complex::abs(*e)));
         if !t
             .iter()
             .flatten()
@@ -94,7 +98,7 @@ impl Permittivity {
         }
         let coupling = [t[0][2], t[1][2], t[2][0], t[2][1]]
             .iter()
-            .fold(0.0f64, |m, e| m.max(e.norm()));
+            .fold(0.0f64, |m, e| m.max(portable::complex::abs(*e)));
         if coupling > 1e-12 * scale {
             return Err(Error::invalid(
                 "permittivity",
@@ -302,7 +306,7 @@ impl CrossSection {
         let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
         let off_diagonal = |i: usize, j: usize| {
             let e = self.cells[i * ny + j];
-            e.xy.norm() > 0.0 || e.yx.norm() > 0.0
+            portable::complex::abs(e.xy) > 0.0 || portable::complex::abs(e.yx) > 0.0
         };
         let edges = [
             ("west", boundaries.west, (0..ny).any(|j| off_diagonal(0, j))),
@@ -399,11 +403,11 @@ impl CrossSection {
                 let mut im = 0.0;
                 if low > 0.0 && x < start + low {
                     let u = start + low - x;
-                    im -= strength * u.powi(3) / (3.0 * low * low);
+                    im -= strength * portable::powi(u, 3) / (3.0 * low * low);
                 }
                 if high > 0.0 && x > end - high {
                     let u = x - (end - high);
-                    im += strength * u.powi(3) / (3.0 * high * high);
+                    im += strength * portable::powi(u, 3) / (3.0 * high * high);
                 }
                 c64::new(x, im)
             })
@@ -495,12 +499,15 @@ impl CrossSection {
             (0..=n).map(|i| a + (b - a) * i as f64 / n as f64).collect()
         };
         let (xs, y) = (line(x0, x1, nx), line(y0, y1, ny));
-        let u: Vec<f64> = xs.iter().map(|&x| radius * (x / radius).ln_1p()).collect();
+        let u: Vec<f64> = xs
+            .iter()
+            .map(|&x| radius * portable::ln_1p(x / radius))
+            .collect();
         let mut cells = Vec::with_capacity(nx * ny);
         for i in 0..nx {
             let x = 0.5 * (xs[i] + xs[i + 1]);
             let f = (u[i] + u[i + 1]) / radius;
-            let f = f.exp();
+            let f = portable::exp(f);
             for j in 0..ny {
                 let e = cell(
                     [x, 0.5 * (y[j] + y[j + 1])],
@@ -986,7 +993,7 @@ impl VectorMode {
     /// The effective index n_eff = β/k of the forward-travelling mode (Re β ≥ 0, the principal
     /// root of β²); in a passive structure its imaginary part is ≥ 0, the mode decaying along z.
     pub fn effective_index(&self) -> c64 {
-        self.beta2.sqrt() / self.k
+        portable::complex::sqrt(self.beta2) / self.k
     }
 
     /// H_x at node (i, j), normalized so the largest transverse component is 1.
@@ -1053,7 +1060,7 @@ impl VectorMode {
         }
         let (nx, ny) = (self.x.len(), self.y.len());
         let (cx, cy) = (nx - 1, ny - 1);
-        let beta = self.beta2.sqrt();
+        let beta = portable::complex::sqrt(self.beta2);
         let i = c64::new(0.0, 1.0);
         let at = |v: &[c64], a: usize, b: usize| v[a * ny + b];
         let xc: Vec<f64> = (0..cx).map(|a| 0.5 * (self.x[a] + self.x[a + 1])).collect();
@@ -1198,7 +1205,7 @@ impl VectorMode {
                 bb += (other.hx[n].norm_sqr() + other.hy[n].norm_sqr()) * w;
             }
         }
-        Some(ab.norm() / (aa * bb).sqrt())
+        Some(portable::complex::abs(ab) / (aa * bb).sqrt())
     }
 }
 
@@ -1415,7 +1422,7 @@ impl VectorMode {
             .map(|(a, x)| (a - self.beta2 * x).norm_sqr())
             .sum();
         let size: f64 = h.iter().map(|x| x.norm_sqr()).sum();
-        Ok(off.sqrt() / (self.beta2.norm() * size.sqrt()))
+        Ok(off.sqrt() / (portable::complex::abs(self.beta2) * size.sqrt()))
     }
 
     /// The mode with eigenvalue β² whose field, over `unknowns`, is `vector`.
@@ -1441,7 +1448,7 @@ impl VectorMode {
         let peak = vector
             .iter()
             .copied()
-            .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+            .max_by(|a, b| portable::complex::abs(*a).total_cmp(&portable::complex::abs(*b)))
             .unwrap_or(c64::new(1.0, 0.0));
         VectorMode {
             beta2,
@@ -1559,7 +1566,7 @@ pub(crate) fn flat_slab(
         layers[layers.len() - 1].0
     };
     CrossSection::uniform((0.0, 4.0 * h, 4), (y0, y1, ny), |_, y| {
-        Permittivity::isotropic(c64::new(index(y).powi(2), 0.0))
+        Permittivity::isotropic(c64::new(portable::powi(index(y), 2), 0.0))
     })
     .and_then(|cs| {
         cs.with_boundaries(Boundaries {
@@ -1630,9 +1637,10 @@ pub(crate) fn chilwell_leaky(h: f64, near: &[c64]) -> Vec<c64> {
             modes(&cs, w, 3, Some(target.re))
                 .ok()
                 .and_then(|m| {
-                    m.iter()
-                        .map(VectorMode::effective_index)
-                        .min_by(|a, b| (a - target).norm().total_cmp(&(b - target).norm()))
+                    m.iter().map(VectorMode::effective_index).min_by(|a, b| {
+                        portable::complex::abs(a - target)
+                            .total_cmp(&portable::complex::abs(b - target))
+                    })
                 })
                 .unwrap_or(c64::new(f64::NAN, f64::NAN))
         })
@@ -1671,7 +1679,7 @@ pub(crate) fn bent_slab(
     let (core, clad, t) = (2.845, 1.444, 0.5);
     let w = Wavelength::from_um_unchecked(1.55);
     let (x0, x1) = ((-0.75f64).max(-0.9 * radius), 6.0);
-    let pml = radius * (x1 / radius).ln_1p() - radius * (2.5 / radius).ln_1p();
+    let pml = radius * portable::ln_1p(x1 / radius) - radius * portable::ln_1p(2.5 / radius);
     let wall = match polarization {
         Polarization::Te => Boundary::ElectricWall,
         Polarization::Tm => Boundary::MagneticWall,
@@ -1793,9 +1801,10 @@ pub(crate) fn slab_limit_error(
     .expect("a valid grid");
     let hy = width / ny as f64;
     let yterm = 4.0 / (hy * hy)
-        * (std::f64::consts::PI / (2.0 * (ny as f64 + 2.0)))
-            .sin()
-            .powi(2);
+        * portable::powi(
+            portable::sin(std::f64::consts::PI / (2.0 * (ny as f64 + 2.0))),
+            2,
+        );
     let found = modes(&cs, wavelength, 2, None).expect("the slab's modes converge");
     let m = found
         .iter()
@@ -1862,11 +1871,11 @@ mod tests {
         let eps = 2.25;
         let cs = CrossSection::uniform((0.0, lx, nx), (0.0, ly, ny), |_, _| iso(eps)).unwrap();
         let lam = Wavelength::um(1.0).unwrap();
-        let k2 = lam.wavenumber().powi(2);
+        let k2 = portable::powi(lam.wavenumber(), 2);
         let (hx, hy) = (lx / nx as f64, ly / ny as f64);
         let (nodes_x, nodes_y) = ((nx + 1) as f64, (ny + 1) as f64);
         let term = |p: f64, h: f64, nodes: f64| {
-            4.0 / (h * h) * (p * PI / (2.0 * (nodes + 1.0))).sin().powi(2)
+            4.0 / (h * h) * portable::powi(portable::sin(p * PI / (2.0 * (nodes + 1.0))), 2)
         };
         let found = modes(&cs, lam, 4, None).unwrap();
         let mut expected: Vec<f64> = Vec::new();
@@ -1903,7 +1912,7 @@ mod tests {
             30.0,
         );
         for v in [xy.p, xy.n, xy.s, xy.e, xy.w, xy.ne, xy.se, xy.sw, xy.nw] {
-            assert!(v.norm() < 1e-12, "{v}");
+            assert!(portable::complex::abs(v) < 1e-12, "{v}");
         }
         // and A_xx is the standard second difference plus k² ε
         let (n, s, e, w) = (0.1, 0.2, 0.15, 0.05);
@@ -1940,7 +1949,7 @@ mod tests {
         let b = modes(&uniaxial(true), lam, 2, None).unwrap();
         for (ma, mb) in a.iter().zip(&b) {
             let (na, nb) = (ma.effective_index(), mb.effective_index());
-            assert!((na - nb).norm() < 1e-10, "{na} vs {nb}");
+            assert!(portable::complex::abs(na - nb) < 1e-10, "{na} vs {nb}");
         }
     }
 
@@ -1967,7 +1976,7 @@ mod tests {
                 .map(|&h| slab_limit_error(pol, te_like, lam, h))
                 .collect();
             for w in errors.windows(2) {
-                let order = (w[0] / w[1]).abs().log2();
+                let order = portable::log2((w[0] / w[1]).abs());
                 assert!(
                     (order - 2.0).abs() < 0.1,
                     "{pol:?}: order {order}, errors {errors:?}"
@@ -2000,9 +2009,9 @@ mod tests {
 
     fn core(inside: bool) -> Permittivity {
         iso(if inside {
-            3.473f64.powi(2)
+            portable::powi(3.473f64, 2)
         } else {
-            1.444f64.powi(2)
+            portable::powi(1.444f64, 2)
         })
     }
 
@@ -2057,7 +2066,7 @@ mod tests {
                 assert!((a - b).abs() < 1e-12, "{pol:?}: {a} vs {b}");
             }
             for w in errors[0].windows(2) {
-                let order = (w[0] / w[1]).abs().log2();
+                let order = portable::log2((w[0] / w[1]).abs());
                 assert!(
                     (order - 2.0).abs() < 0.1,
                     "{pol:?}: order {order}, {errors:?}"
@@ -2100,7 +2109,10 @@ mod tests {
             (folded(MagneticWall, ElectricWall), tm),
         ] {
             let got = modes(&cs, lam, 1, None).unwrap()[0].effective_index();
-            assert!((got - want).norm() < 1e-10, "{got} vs {want}");
+            assert!(
+                portable::complex::abs(got - want) < 1e-10,
+                "{got} vs {want}"
+            );
         }
     }
 
@@ -2159,8 +2171,8 @@ mod tests {
                     for j in 0..part.y().len() {
                         let (a, b) = pairs(i, j);
                         for k in 0..3 {
-                            worst = worst.max((a[k] - c * b[k]).norm());
-                            largest = largest.max(a[k].norm());
+                            worst = worst.max(portable::complex::abs(a[k] - c * b[k]));
+                            largest = largest.max(portable::complex::abs(a[k]));
                         }
                     }
                 }
@@ -2206,7 +2218,7 @@ mod tests {
                 println!(
                     "problem {problem} N {n:>3}: n_eff {:.9}  error {err:+.3e}  order {:.2}  TE {:.3}",
                     m.effective_index().re,
-                    (last / err).abs().log2(),
+                    portable::log2((last / err).abs()),
                     m.te_fraction()
                 );
                 last = err;
@@ -2244,7 +2256,10 @@ mod tests {
         let without = with.clone().with_pml(Pml::default()).unwrap();
         let a = modes(&with, lam, 1, None).unwrap()[0].effective_index();
         let b = modes(&without, lam, 1, None).unwrap()[0].effective_index();
-        assert!((a - b).norm() < 1e-9 && a.im.abs() < 1e-9, "{a} vs {b}");
+        assert!(
+            portable::complex::abs(a - b) < 1e-9 && a.im.abs() < 1e-9,
+            "{a} vs {b}"
+        );
     }
 
     #[test]
@@ -2276,7 +2291,7 @@ mod tests {
         // 5 nm), its loss within 0.1 %
         let (coarse, exact) = bent_slab(Polarization::Te, 1.0, 0.01);
         let (fine, _) = bent_slab(Polarization::Te, 1.0, 0.005);
-        let order = ((coarse.re - exact.re) / (fine.re - exact.re)).log2();
+        let order = portable::log2((coarse.re - exact.re) / (fine.re - exact.re));
         assert!(
             (order - 2.0).abs() < 0.1,
             "order {order}: {coarse}, {fine} vs {exact}"
@@ -2321,10 +2336,16 @@ mod tests {
     #[test]
     fn richardson_recovers_a_power_law() {
         // v(h) = 2 + 3 h^0.7 at h = 1, 1/2, 1/4: the limit 2, the order 0.7
-        let v = |h: f64| c64::new(2.0 + 3.0 * h.powf(0.7), 1.0 + h.powf(0.7));
+        let v = |h: f64| {
+            c64::new(
+                2.0 + 3.0 * portable::powf(h, 0.7),
+                1.0 + portable::powf(h, 0.7),
+            )
+        };
         let (limit, order) = richardson([v(1.0), v(0.5), v(0.25)]);
         assert!(
-            (order - 0.7).abs() < 1e-12 && (limit - c64::new(2.0, 1.0)).norm() < 1e-12,
+            (order - 0.7).abs() < 1e-12
+                && portable::complex::abs(limit - c64::new(2.0, 1.0)) < 1e-12,
             "{limit}, {order}"
         );
     }
@@ -2386,12 +2407,22 @@ mod tests {
 
     /// J_n(x) = (1/π) ∫₀^π cos(nτ − x sin τ) dτ.
     fn bessel_j(n: f64, x: f64) -> f64 {
-        simpson(|t| (n * t - x * t.sin()).cos(), 0.0, PI, 2000) / PI
+        simpson(
+            |t| portable::cos(n * t - x * portable::sin(t)),
+            0.0,
+            PI,
+            2000,
+        ) / PI
     }
 
     /// K_n(x) = ∫₀^∞ e^(−x cosh t) cosh(nt) dt, x > 0.
     fn bessel_k(n: f64, x: f64) -> f64 {
-        simpson(|t| (-x * t.cosh()).exp() * (n * t).cosh(), 0.0, 12.0, 4000)
+        simpson(
+            |t| portable::exp(-x * portable::cosh(t)) * portable::cosh(n * t),
+            0.0,
+            12.0,
+            4000,
+        )
     }
 
     /// A step-index fibre's LP₀₁ field against r (µm), 1 on the axis, and its effective index:
@@ -2426,7 +2457,7 @@ mod tests {
                 }
             })
             .collect();
-        let n_eff = (core * core - (u / (k0 * a)).powi(2)).sqrt();
+        let n_eff = (core * core - portable::powi(u / (k0 * a), 2)).sqrt();
         let field = move |r: f64| {
             let x = r / dr;
             let k = x.floor() as usize;
@@ -2488,7 +2519,7 @@ mod tests {
             .collect();
         let (fibre, n_fibre) = fibre_mode(1.877, 1.481, 1.46, 1.55);
         eprintln!("fibre LP01 n_eff {n_fibre:.5}, film {:.3} um", 2.0 * top);
-        let gaussian = |r: f64| (-(r * r) / (2.45 * 2.45)).exp();
+        let gaussian = |r: f64| portable::exp(-(r * r) / (2.45 * 2.45));
         for margin in margins {
             for te in [true, false] {
                 let widths: Vec<f64> = if te {

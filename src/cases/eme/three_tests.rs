@@ -6,6 +6,7 @@ use num_complex::Complex64 as c64;
 use super::plane::{Stretch, operators};
 use super::three_checks::{centred, fresnel, strip};
 use super::{Eme3d, Plane, PlaneGrid, Pml3d, Section3d};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 
 fn lam() -> Wavelength {
@@ -92,7 +93,10 @@ fn symmetric(plane: &Plane, pml: Option<&Pml3d>) {
     let mut worst: f64 = 0.0;
     for r in 0..n {
         for &(s, v) in &c[r] {
-            worst = worst.max((w[r] * v - w[s] * entry(&c, s, r)).norm() / (w[r] * v).norm());
+            worst = worst.max(
+                portable::complex::abs(w[r] * v - w[s] * entry(&c, s, r))
+                    / portable::complex::abs(w[r] * v),
+            );
         }
     }
     assert!(worst < 1e-13, "V C is not symmetric: {worst:e}");
@@ -127,7 +131,13 @@ fn symmetric(plane: &Plane, pml: Option<&Pml3d>) {
         let cub = apply(&c, &ub);
         let left: c64 = (0..n).map(|i| w[i] * cua[i] * a_ub[i]).sum();
         let right: c64 = (0..n).map(|i| w[i] * cub[i] * a_ua[i]).sum();
-        assert!((left - right).norm() <= 1e-12 * left.norm().max(right.norm()).max(1.0));
+        assert!(
+            portable::complex::abs(left - right)
+                <= 1e-12
+                    * portable::complex::abs(left)
+                        .max(portable::complex::abs(right))
+                        .max(1.0)
+        );
     }
 }
 
@@ -143,7 +153,10 @@ fn a_sections_modes_are_orthonormal_with_a_pml() {
         for (j, b) in modes.iter().enumerate() {
             let expected = if i == j { 1.0 } else { 0.0 };
             let p = a.product(b).unwrap();
-            assert!((p - expected).norm() < 1e-10, "<E{i}, H{j}> = {p}");
+            assert!(
+                portable::complex::abs(p - expected) < 1e-10,
+                "<E{i}, H{j}> = {p}"
+            );
         }
         assert!(a.effective_index().im >= 0.0 || a.effective_index().re > 0.0);
     }
@@ -191,8 +204,8 @@ fn reciprocal_for_any_number_of_modes_and_lossless_with_every_mode() {
         let s = taper(modes);
         for i in 0..modes {
             for j in 0..modes {
-                assert!((s.s21[i][j] - s.s12[j][i]).norm() < 1e-12);
-                assert!((s.s11[i][j] - s.s11[j][i]).norm() < 1e-12);
+                assert!(portable::complex::abs(s.s21[i][j] - s.s12[j][i]) < 1e-12);
+                assert!(portable::complex::abs(s.s11[i][j] - s.s11[j][i]) < 1e-12);
             }
         }
     }
@@ -240,7 +253,7 @@ fn with_every_mode_the_tangential_fields_are_continuous_at_a_step() {
                     .map(|k| sign * s.s11[k][0] * value(&ma[k], x))
                     .sum::<c64>();
             let right: c64 = (0..n).map(|k| s.s21[k][0] * value(&mb[k], x)).sum();
-            (left - right).norm()
+            portable::complex::abs(left - right)
         })
     };
     let mut worst: f64 = 0.0;
@@ -276,8 +289,8 @@ fn a_field_uniform_in_y_separates() {
     let (a, b) = (s(1), s(3));
     for i in 0..8 {
         for j in 0..8 {
-            assert!((a.s11[i][j] - b.s11[i][j]).norm() < 1e-10);
-            assert!((a.s21[i][j] - b.s21[i][j]).norm() < 1e-10);
+            assert!(portable::complex::abs(a.s11[i][j] - b.s11[i][j]) < 1e-10);
+            assert!(portable::complex::abs(a.s21[i][j] - b.s21[i][j]) < 1e-10);
         }
     }
 }
@@ -287,7 +300,7 @@ fn the_z_limit_fit_is_exact_on_its_own_form() {
     let dz = [0.05, 0.04, 0.03, 0.02];
     let v: Vec<f64> = dz
         .iter()
-        .map(|h: &f64| 0.7 - 3.0 * h * h + 40.0 * h.powi(4))
+        .map(|h: &f64| 0.7 - 3.0 * h * h + 40.0 * portable::powi(*h, 4))
         .collect();
     let (limit, residual) = super::three_checks::z_limit(&dz, &v);
     assert!((limit - 0.7).abs() < 1e-12 && residual < 1e-12);

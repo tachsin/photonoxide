@@ -10,6 +10,7 @@ use super::{Beam, Eme, Section, Slice, power};
 use crate::Result;
 use crate::mode::Polarization;
 use crate::mode::slab::Slab;
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -58,15 +59,15 @@ fn integrate(g: &dyn Fn(f64) -> f64, panels: usize) -> f64 {
 /// where the integrand is smooth; to round-off with 400 panels (800 change it by under 1e-15).
 pub(crate) fn spectral_share(angle: f64, coefficient: &dyn Fn(f64) -> c64) -> f64 {
     let kn = k() * N1;
-    let k0 = kn * angle.sin();
+    let k0 = kn * portable::sin(angle);
     let spectrum = |phi: f64| {
-        let kx = kn * phi.sin();
-        let a = (-(kx - k0).powi(2) * WAIST * WAIST / 4.0).exp();
+        let kx = kn * portable::sin(phi);
+        let a = portable::exp(-portable::powi(kx - k0, 2) * WAIST * WAIST / 4.0);
         // |A|² k_z dk_x/dφ
-        a * a * (kn * phi.cos()).powi(2)
+        a * a * portable::powi(kn * portable::cos(phi), 2)
     };
     let passed = integrate(
-        &|phi| spectrum(phi) * coefficient(kn * phi.sin()).norm_sqr(),
+        &|phi| spectrum(phi) * coefficient(kn * portable::sin(phi)).norm_sqr(),
         400,
     );
     passed / integrate(&spectrum, 400)
@@ -74,7 +75,7 @@ pub(crate) fn spectral_share(angle: f64, coefficient: &dyn Fn(f64) -> c64) -> f6
 
 /// k_z in a medium of index n for transverse wavenumber kx: real below k n, else i|k_z|.
 fn kz(n: f64, kx: f64) -> c64 {
-    c64::new((k() * n).powi(2) - kx * kx, 0.0).sqrt()
+    portable::complex::sqrt(c64::new(portable::powi(k() * n, 2) - kx * kx, 0.0))
 }
 
 /// Fresnel's coefficient from medium 1 to 2 for `polarization`'s U (E_y, or H_y for TM).
@@ -91,7 +92,7 @@ fn fresnel(polarization: Polarization, n1: f64, n2: f64, kx: f64) -> c64 {
 fn airy(polarization: Polarization, kx: f64) -> c64 {
     let r12 = fresnel(polarization, N1, N2, kx);
     let r21 = -r12;
-    let phase = (c64::new(0.0, 1.0) * kz(N2, kx) * FILM).exp();
+    let phase = portable::complex::exp(c64::new(0.0, 1.0) * kz(N2, kx) * FILM);
     (1.0 + r12) * (1.0 + r21) * phase / (1.0 - r21 * r21 * phase * phase)
 }
 
@@ -275,7 +276,7 @@ mod tests {
     /// A facet tilted by `alpha` across the window as a staircase of `steps` sections: N2 from the
     /// lower wall to u_k, N1 above, u_k at each step's middle.
     fn facet_sections(alpha: f64, steps: usize) -> Result<Vec<Section>> {
-        let long = WINDOW * alpha.tan();
+        let long = WINDOW * portable::tan(alpha);
         let mut s = vec![Section::new(uniform(N1, WINDOW)?, Length::ZERO)];
         for k in 0..steps {
             let u = (k as f64 + 0.5) * WINDOW / steps as f64;
@@ -294,11 +295,13 @@ mod tests {
     fn rotated_share(polarization: Polarization, alpha: f64) -> f64 {
         let kn = k() * N1;
         let g = |psi: f64| {
-            let a = (-(kn * psi.sin()).powi(2) * WAIST * WAIST / 4.0).exp();
-            a * a * (kn * psi.cos()).powi(2)
+            let a =
+                portable::exp(-portable::powi(kn * portable::sin(psi), 2) * WAIST * WAIST / 4.0);
+            a * a * portable::powi(kn * portable::cos(psi), 2)
         };
-        let r =
-            |psi: f64| g(psi) * fresnel(polarization, N1, N2, kn * (psi + alpha).sin()).norm_sqr();
+        let r = |psi: f64| {
+            g(psi) * fresnel(polarization, N1, N2, kn * portable::sin(psi + alpha)).norm_sqr()
+        };
         integrate(&r, 400) / integrate(&g, 400)
     }
 

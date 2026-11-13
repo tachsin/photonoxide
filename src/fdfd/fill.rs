@@ -45,6 +45,7 @@ use super::{
 };
 use crate::averaging::{Averaging, Plane, Shares};
 use crate::backend::Choice;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -303,7 +304,7 @@ pub(super) fn with_mixed(
     let (nx, ny) = (g.nx, g.ny);
     let zero = c64::new(0.0, 0.0);
     let phase = |e: Edges, len: f64| match e {
-        Edges::Bloch { k } => Some(c64::from_polar(1.0, k * len)),
+        Edges::Bloch { k } => Some(portable::complex::from_polar(1.0, k * len)),
         Edges::Pml { .. } => None,
     };
     let px = phase(b.x, nx as f64 * g.dx);

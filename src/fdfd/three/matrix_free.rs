@@ -39,6 +39,7 @@ use rayon::prelude::*;
 use super::{Axis, Grid3d, Lattice};
 use crate::fdfd::Edges;
 use crate::fdfd::krylov::Operator;
+use crate::portable;
 
 /// The operator L A(±k) R, with L and R diagonal (1 if none): A itself, its transpose, or its
 /// symmetric similarity.
@@ -128,7 +129,10 @@ impl MatrixFree {
         };
         let walls = Axis::ALL.map(|a| matches!(lattice.boundaries.edges(a), Edges::Pml { .. }));
         let up = Axis::ALL.map(|a| match lattice.boundaries.edges(a) {
-            Edges::Bloch { k } => Some(c64::from_polar(1.0, k * grid.n(a) as f64 * grid.step(a))),
+            Edges::Bloch { k } => Some(portable::complex::from_polar(
+                1.0,
+                k * grid.n(a) as f64 * grid.step(a),
+            )),
             Edges::Pml { .. } => None,
         });
         let (nx, ny) = (grid.nx, grid.ny);
@@ -226,8 +230,16 @@ impl MatrixFree {
         {
             return None;
         }
-        let largest = self.d.iter().map(|z| z.norm()).fold(0.0, f64::max);
-        let s: Vec<c64> = self.d.par_iter().map(|z| (z / largest).sqrt()).collect();
+        let largest = self
+            .d
+            .iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max);
+        let s: Vec<c64> = self
+            .d
+            .par_iter()
+            .map(|z| portable::complex::sqrt(z / largest))
+            .collect();
         let inverse: Vec<c64> = s.par_iter().map(|z| 1.0 / z).collect();
         let b = self.with(
             Some(Arc::new(s.clone())),
@@ -564,7 +576,10 @@ mod tests {
         let v: Vec<c64> = (0..grid.unknowns())
             .map(|r| {
                 let t = r as f64;
-                c64::new((0.37 * t).sin() + 0.2, (0.11 * t * t).cos() - 0.4)
+                c64::new(
+                    portable::sin(0.37 * t) + 0.2,
+                    portable::cos(0.11 * t * t) - 0.4,
+                )
             })
             .collect();
         (lattice, eps, matrix, v)
@@ -572,10 +587,13 @@ mod tests {
 
     /// The largest |a − b| over the largest |b|.
     fn off(a: &[c64], b: &[c64]) -> f64 {
-        let scale = b.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let scale = b
+            .iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max);
         a.iter()
             .zip(b)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max)
             / scale
     }
@@ -647,7 +665,10 @@ mod tests {
             let w: Vec<c64> = v.iter().rev().map(|z| z.conj() * 0.7).collect();
             let dot = |p: &[c64], q: &[c64]| p.iter().zip(q).map(|(x, y)| x * y).sum::<c64>();
             let (left, right) = (dot(&v, &free.apply(&w)), dot(&a, &w));
-            assert!((left - right).norm() < 1e-11 * left.norm(), "{name}");
+            assert!(
+                portable::complex::abs(left - right) < 1e-11 * portable::complex::abs(left),
+                "{name}"
+            );
             // Shin and Fan's product and its transpose, unshifted and shifted as the multigrid
             // shifts it
             for shift in [0.0, 0.5] {
@@ -813,7 +834,12 @@ mod measure {
             let (lattice, eps) = Solver3d::setup(grid, lam, eps, Boundaries3d::pml(10)).unwrap();
             let unknowns = grid.unknowns();
             let v: Vec<c64> = (0..unknowns)
-                .map(|r| c64::new((0.37 * r as f64).sin(), (0.11 * r as f64).cos()))
+                .map(|r| {
+                    c64::new(
+                        portable::sin(0.37 * r as f64),
+                        portable::cos(0.11 * r as f64),
+                    )
+                })
                 .collect();
             let mut out = vec![c64::new(0.0, 0.0); unknowns];
             // the best of several products, in nanoseconds an unknown
@@ -923,12 +949,16 @@ mod measure {
             let t = Instant::now();
             let (b, how_b) = stored.solve(&source, stopping).unwrap();
             let solved = t.elapsed().as_secs_f64();
-            let largest = b.values().iter().map(|v| v.norm()).fold(0.0, f64::max);
+            let largest = b
+                .values()
+                .iter()
+                .map(|v| portable::complex::abs(*v))
+                .fold(0.0, f64::max);
             let d = a
                 .values()
                 .iter()
                 .zip(b.values())
-                .map(|(p, q)| (p - q).norm())
+                .map(|(p, q)| portable::complex::abs(p - q))
                 .fold(0.0, f64::max);
             println!(
                 "{n}^3: without the matrix, built in {built_free:.2} s, {} iterations in {solved_free:.2} s ({:.2} ms each); with it, built in {built:.2} s, {} iterations in {solved:.2} s ({:.2} ms each); fields differ by {:.1e} of the largest",

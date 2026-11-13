@@ -8,6 +8,7 @@ use num_complex::Complex64 as c64;
 
 use super::scattering::{Blocks, rows, star};
 use super::{Eme, Eme3d, Scattering, Section, Section3d};
+use crate::portable;
 use crate::units::Length;
 use crate::{Error, Result};
 
@@ -90,7 +91,9 @@ impl Bloch {
         })?;
         let (alpha, beta) = (eig.S_a(), eig.S_b());
         // ln λ = ln α − ln β: finite or ±∞ in its real part, never NaN unless both vanish
-        let logs: Vec<c64> = (0..2 * n).map(|i| alpha[i].ln() - beta[i].ln()).collect();
+        let logs: Vec<c64> = (0..2 * n)
+            .map(|i| portable::complex::ln(alpha[i]) - portable::complex::ln(beta[i]))
+            .collect();
         // each eigenvector's share in each of the section's modes, both ways
         let u = eig.U();
         let shares: Vec<Vec<f64>> = (0..2 * n)
@@ -116,7 +119,7 @@ impl Bloch {
         let apart = |p: usize, q: usize| {
             let s = logs[p] + logs[q];
             let phase = s.im - std::f64::consts::TAU * (s.im / std::f64::consts::TAU).round();
-            let d = s.re.hypot(phase);
+            let d = portable::hypot(s.re, phase);
             if d.is_nan() { f64::INFINITY } else { d }
         };
         let count = logs.len();
@@ -146,8 +149,8 @@ impl Bloch {
             .map(|p| {
                 // K Λ = −i ln λ for the one of the pair with |λ| ≤ 1: Im ≥ 0
                 let l = logs[p];
-                let lambda = l.exp();
-                let cos = 0.5 * (lambda + (-l).exp());
+                let lambda = portable::complex::exp(l);
+                let cos = 0.5 * (lambda + portable::complex::exp(-l));
                 let k = c64::new(l.im.abs(), (-l.re).max(0.0)) / (period * k0);
                 (cos, k, p)
             })

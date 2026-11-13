@@ -10,6 +10,7 @@ use rayon::prelude::*;
 use super::checks::half;
 use super::{Eme, Scattering, Section, Spectrum, Wall};
 use crate::mode::Polarization;
+use crate::portable;
 use crate::sweep::Options;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
@@ -44,7 +45,9 @@ pub(crate) fn taper(wavelength: f64) -> crate::Result<Scattering> {
     sections.extend(Section::sampled(Length::um(1.0), 16, |z| {
         let u = z.to_um();
         Ok(half(
-            (0.22f64.powi(2) + (0.60f64.powi(2) - 0.22f64.powi(2)) * u).sqrt(),
+            (portable::powi(0.22f64, 2)
+                + (portable::powi(0.60f64, 2) - portable::powi(0.22f64, 2)) * u)
+                .sqrt(),
             1.5,
         ))
     })?);
@@ -116,16 +119,17 @@ fn study(
         let r = spectrum.at(um(*l));
         for q in 0..n {
             for p in 0..n {
-                truth = truth.max((r[q][p] - s[q][p]).norm());
-                reciprocity = reciprocity.max((r[q][p] - r[p][q]).norm());
-                solves_reciprocity = solves_reciprocity.max((s[q][p] - s[p][q]).norm());
+                truth = truth.max(portable::complex::abs(r[q][p] - s[q][p]));
+                reciprocity = reciprocity.max(portable::complex::abs(r[q][p] - r[p][q]));
+                solves_reciprocity =
+                    solves_reciprocity.max(portable::complex::abs(s[q][p] - s[p][q]));
             }
         }
         for p in 0..n {
             let ours: f64 = (0..n).map(|q| r[q][p].norm_sqr()).sum();
             let theirs: f64 = (0..n).map(|q| s[q][p].norm_sqr()).sum();
             let bound: f64 = (0..n)
-                .map(|q| (2.0 * s[q][p].norm() + errors[q][p]) * errors[q][p])
+                .map(|q| (2.0 * portable::complex::abs(s[q][p]) + errors[q][p]) * errors[q][p])
                 .sum();
             power = power.max((ours - theirs).abs() / bound);
             largest_power = largest_power.max(ours);
@@ -158,7 +162,7 @@ fn up2(v: f64) -> f64 {
     if v <= 0.0 || !v.is_finite() {
         return v;
     }
-    let p = 10f64.powf(v.log10().floor() - 1.0);
+    let p = portable::powf(10f64, portable::log10(v).floor() - 1.0);
     (v / p).ceil() * p
 }
 
@@ -240,12 +244,12 @@ mod tests {
         for l in [1.5137, 1.5501, 1.5893] {
             let s = solve(um(l)).expect("a solve");
             let r = spectrum.at(um(l));
-            let truth = (r[1][0] - s.s21[0][0]).norm();
+            let truth = portable::complex::abs(r[1][0] - s.s21[0][0]);
             assert!(truth <= spectrum.error(), "{truth:e} at {l}");
-            assert!((r[0][1] - r[1][0]).norm() <= 1e-13);
+            assert!(portable::complex::abs(r[0][1] - r[1][0]) <= 1e-13);
             let n = spectrum.effective_indices(um(l));
             assert!(
-                (n[0] - s.first[0]).norm() <= 1e-9,
+                portable::complex::abs(n[0] - s.first[0]) <= 1e-9,
                 "{} against {}",
                 n[0],
                 s.first[0]
@@ -292,7 +296,7 @@ mod tests {
         let gap = |a: &[c64], b: &[c64]| {
             a.iter()
                 .zip(b)
-                .map(|(a, b)| (a - b).norm())
+                .map(|(a, b)| portable::complex::abs(a - b))
                 .fold(0.0, f64::max)
         };
         let started = std::time::Instant::now();
@@ -359,7 +363,7 @@ mod tests {
                     }
                     let estimate = s.error;
                     let scale = s.scale;
-                    let p15 = scale * (estimate / scale).powf(1.5);
+                    let p15 = scale * portable::powf(estimate / scale, 1.5);
                     let extrapolated = 2.0 * d_h * d_h / d_q;
                     let ratio = truth / estimate;
                     low = low.min(estimate / truth);

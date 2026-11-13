@@ -42,6 +42,7 @@ use num_complex::Complex64 as c64;
 use crate::material::catalogue::Kerr;
 use crate::mode::fields::Fields;
 use crate::mode::vector::{Boundary, CrossSection, Permittivity, VectorMode};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -421,7 +422,7 @@ impl Orthogonality {
                     .filter(move |&b| b != a)
                     .map(move |b| (a, b))
             })
-            .map(|(a, b)| self.get(a, b).norm())
+            .map(|(a, b)| portable::complex::abs(self.get(a, b)))
             .fold(0.0, f64::max)
     }
 
@@ -429,7 +430,7 @@ impl Orthogonality {
     /// conjugated product, a mode that carries no reactive power along z, as a lossless one).
     pub fn diagonal(&self) -> f64 {
         (0..self.count)
-            .map(|a| (self.get(a, a) - 1.0).norm())
+            .map(|a| portable::complex::abs(self.get(a, a) - 1.0))
             .fold(0.0, f64::max)
     }
 }
@@ -456,7 +457,7 @@ pub fn orthogonality(modes: &[Fields], product: Product) -> Option<Orthogonality
             if conjugated {
                 c64::new(d.re.sqrt(), 0.0)
             } else {
-                d.sqrt()
+                portable::complex::sqrt(d)
             }
         })
         .collect();
@@ -533,7 +534,7 @@ mod tests {
         let neff = m[0].effective_index().re;
         let (mut core, mut all) = (0.0, 0.0);
         for ((e, a), p) in f.e.iter().zip(&f.area).zip(cs.cells()) {
-            let e4 = e[1].norm_sqr().powi(2) * a;
+            let e4 = portable::powi(e[1].norm_sqr(), 2) * a;
             all += e4;
             if *p == si {
                 core += e4;
@@ -555,7 +556,7 @@ mod tests {
         assert!((f.power() - 1.0).abs() < 1e-14);
         for p in [Product::Conjugated, Product::Unconjugated] {
             let o = orthogonality(&[f.clone(), f.clone()], p).unwrap();
-            assert!((o.get(0, 1) - 1.0).norm() < 1e-14 && o.diagonal() < 1e-14);
+            assert!(portable::complex::abs(o.get(0, 1) - 1.0) < 1e-14 && o.diagonal() < 1e-14);
             assert_eq!(o.len(), 2);
         }
         // modes behind different walls aren't compared

@@ -8,6 +8,7 @@ use super::{Branch, Options, Rational, Sweep};
 use crate::mode::Polarization;
 use crate::mode::multilayer::Multilayer;
 use crate::mode::vector::{self, CrossSection, Permittivity};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier, note_numerical};
 
@@ -38,11 +39,14 @@ pub(crate) fn known_rational() -> (f64, f64, usize) {
         .collect();
     let f: Vec<c64> = x.iter().map(|&x| known(x)).collect();
     let fit = Rational::aaa(&x, &f, super::DEFAULT_TOLERANCE).expect("a valid fit");
-    let scale = f.iter().map(|v| v.norm()).fold(0.0, f64::max);
+    let scale = f
+        .iter()
+        .map(|v| portable::complex::abs(*v))
+        .fold(0.0, f64::max);
     let value = (0..=20000)
         .map(|k| {
             let x = -1.0 + 2.0 * f64::from(k) / 20000.0;
-            (fit.eval(x) - known(x)).norm()
+            portable::complex::abs(fit.eval(x) - known(x))
         })
         .fold(0.0, f64::max)
         / scale;
@@ -53,7 +57,7 @@ pub(crate) fn known_rational() -> (f64, f64, usize) {
             let p = c64::new(a, b);
             poles
                 .iter()
-                .map(|q| (q - p).norm() / p.norm())
+                .map(|q| portable::complex::abs(q - p) / portable::complex::abs(p))
                 .fold(f64::INFINITY, f64::min)
         })
         .fold(0.0, f64::max);
@@ -75,7 +79,7 @@ impl Lcg {
 
     /// 10^u, u uniform on [a, b).
     fn log(&mut self, a: f64, b: f64) -> f64 {
-        10f64.powf(self.uniform(a, b))
+        portable::powf(10f64, self.uniform(a, b))
     }
 }
 
@@ -94,7 +98,7 @@ pub(crate) fn test_functions(each: usize) -> Vec<TestFunction> {
         let (c, w) = (g.uniform(-1.0, 1.0), g.log(-1.7, -0.5));
         out.push((
             "Lorentzian",
-            Box::new(move |x| re(1.0 / (1.0 + ((x - c) / w).powi(2)) + 0.3 * x)),
+            Box::new(move |x| re(1.0 / (1.0 + portable::powi((x - c) / w, 2)) + 0.3 * x)),
         ));
         let (c, d, w) = (
             g.uniform(-0.5, 0.5),
@@ -104,7 +108,8 @@ pub(crate) fn test_functions(each: usize) -> Vec<TestFunction> {
         out.push((
             "two Lorentzians",
             Box::new(move |x| {
-                re(1.0 / (1.0 + ((x - c) / w).powi(2)) + 0.7 / (1.0 + ((x - c - d) / w).powi(2)))
+                re(1.0 / (1.0 + portable::powi((x - c) / w, 2))
+                    + 0.7 / (1.0 + portable::powi((x - c - d) / w, 2)))
             }),
         ));
         let (r, a, l, p) = (
@@ -116,29 +121,35 @@ pub(crate) fn test_functions(each: usize) -> Vec<TestFunction> {
         out.push((
             "ring",
             Box::new(move |x| {
-                let e = c64::from_polar(a, p + l * x);
+                let e = portable::complex::from_polar(a, p + l * x);
                 (r - e) / (1.0 - r * e)
             }),
         ));
         let (f, k, p) = (g.log(0.0, 1.7), g.uniform(2.0, 8.0), g.uniform(0.0, 3.0));
         out.push((
             "Fabry-Perot",
-            Box::new(move |x| re(1.0 / (1.0 + f * (k * x + p).sin().powi(2)))),
+            Box::new(move |x| re(1.0 / (1.0 + f * portable::powi(portable::sin(k * x + p), 2)))),
         ));
         let k = g.uniform(5.0, 30.0);
-        out.push(("delay", Box::new(move |x| c64::from_polar(1.0, k * x))));
+        out.push((
+            "delay",
+            Box::new(move |x| portable::complex::from_polar(1.0, k * x)),
+        ));
         let p = c64::new(g.uniform(-1.0, 1.0), g.log(-1.7, -0.3));
         out.push(("pole", Box::new(move |x| 1.0 / (re(x) - p))));
         let d = 1.0 + g.log(-2.0, 0.0);
         out.push(("branch point", Box::new(move |x| re((x + d).sqrt()))));
         let (s, c) = (g.log(0.0, 1.3), g.uniform(-0.8, 0.8));
-        out.push(("step", Box::new(move |x| re((s * (x - c)).tanh()))));
+        out.push(("step", Box::new(move |x| re(portable::tanh(s * (x - c))))));
         let (k, p) = (g.uniform(1.0, 6.0), g.uniform(0.0, 6.0));
-        out.push(("exp(sin)", Box::new(move |x| re((k * x + p).sin().exp()))));
+        out.push((
+            "exp(sin)",
+            Box::new(move |x| re(portable::exp(portable::sin(k * x + p)))),
+        ));
         let (a, b) = (g.uniform(0.05, 0.2), g.uniform(0.01, 0.05));
         out.push((
             "effective index",
-            Box::new(move |x| re(2.8 - a * x - b * x * x + 0.01 * (-x).exp())),
+            Box::new(move |x| re(2.8 - a * x - b * x * x + 0.01 * portable::exp(-x))),
         ));
     }
     out
@@ -169,7 +180,7 @@ pub(crate) fn true_and_estimated(
     );
     let true_error = points
         .iter()
-        .map(|&x| (sweep.eval(x) - f(x)).norm())
+        .map(|&x| portable::complex::abs(sweep.eval(x) - f(x)))
         .fold(0.0, f64::max)
         / sweep.scale;
     (true_error, sweep.relative_error(), sweep.calls())
@@ -292,8 +303,8 @@ pub(crate) fn uniform_error(
     for k in 0..=4000 {
         let l = a + (b - a) * f64::from(k) / 4000.0;
         let exact = f(l);
-        scale = scale.max(exact.norm());
-        let e = (at(l) - exact).norm();
+        scale = scale.max(portable::complex::abs(exact));
+        let e = portable::complex::abs(at(l) - exact);
         worst = worst.max(if e.is_nan() { f64::INFINITY } else { e });
     }
     worst / scale
@@ -399,7 +410,7 @@ fn up(v: f64) -> f64 {
     if v <= 0.0 || !v.is_finite() {
         return v;
     }
-    let p = 10f64.powf(v.log10().floor());
+    let p = portable::powf(10f64, portable::log10(v).floor());
     (v / p).ceil() * p
 }
 

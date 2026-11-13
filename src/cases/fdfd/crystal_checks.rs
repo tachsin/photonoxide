@@ -9,6 +9,7 @@ use crate::geometry::{Point, Shape};
 use crate::material::catalogue::{Conditions, entry};
 use crate::material::crystal::checks::{SLAB, cut_slab_exact};
 use crate::material::{CrystalAxis, Material, Orientation};
+use crate::portable;
 use crate::stack::{Layer, LayerStack, Structure};
 use crate::units::{Length, Wavelength};
 
@@ -87,7 +88,7 @@ pub(crate) fn slab_errors(
     let orders = errors
         .windows(2)
         .zip(steps.windows(2))
-        .map(|(e, s)| (e[0] / e[1]).ln() / (s[0] / s[1]).ln())
+        .map(|(e, s)| portable::ln(e[0] / e[1]) / portable::ln(s[0] / s[1]))
         .collect();
     (errors, orders)
 }
@@ -148,8 +149,8 @@ pub(crate) fn turned_2d() -> f64 {
     let mut largest = 0.0f64;
     for j in 0..n {
         for i in 0..n {
-            worst = worst.max((f.at(i, j) - g.at(j, i)).norm());
-            largest = largest.max(f.at(i, j).norm());
+            worst = worst.max(portable::complex::abs(f.at(i, j) - g.at(j, i)));
+            largest = largest.max(portable::complex::abs(f.at(i, j)));
         }
     }
     worst / largest
@@ -239,8 +240,8 @@ pub(crate) fn turned_3d() -> f64 {
             for i in 0..n {
                 for (a, b) in [(Axis::X, Axis::Y), (Axis::Y, Axis::X), (Axis::Z, Axis::Z)] {
                     let e = f.e(a, (i, j, k));
-                    worst = worst.max((e - g.e(b, (j, i, k))).norm());
-                    largest = largest.max(e.norm());
+                    worst = worst.max(portable::complex::abs(e - g.e(b, (j, i, k))));
+                    largest = largest.max(portable::complex::abs(e));
                 }
             }
         }

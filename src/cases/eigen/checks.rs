@@ -3,6 +3,7 @@
 use faer::c64;
 
 use crate::mode::vector;
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
 
@@ -39,8 +40,8 @@ pub(crate) fn laplacian(nx: usize, ny: usize) -> (Vec<(usize, usize, c64)>, Vec<
     let mut exact: Vec<f64> = (1..=nx)
         .flat_map(|p| (1..=ny).map(move |q| (p, q)))
         .map(|(p, q)| {
-            4.0 - 2.0 * (p as f64 * pi / (nx + 1) as f64).cos()
-                - 2.0 * (q as f64 * pi / (ny + 1) as f64).cos()
+            4.0 - 2.0 * portable::cos(p as f64 * pi / (nx + 1) as f64)
+                - 2.0 * portable::cos(q as f64 * pi / (ny + 1) as f64)
         })
         .collect();
     exact.sort_by(f64::total_cmp);
@@ -75,9 +76,10 @@ pub(crate) fn uniform_box() -> f64 {
     let (hx, hy) = (lx / nx as f64, ly / ny as f64);
     let term = |p: usize, h: f64, nodes: usize| {
         4.0 / (h * h)
-            * (p as f64 * std::f64::consts::PI / (2.0 * (nodes as f64 + 1.0)))
-                .sin()
-                .powi(2)
+            * portable::powi(
+                portable::sin(p as f64 * std::f64::consts::PI / (2.0 * (nodes as f64 + 1.0))),
+                2,
+            )
     };
     let mut exact: Vec<f64> = (1..=nx + 1)
         .flat_map(|p| (1..=ny + 1).map(move |q| (p, q)))
@@ -120,7 +122,9 @@ pub(crate) fn dense_leaky() -> f64 {
     let Ok(mut all) = dense.eigenvalues() else {
         return f64::NAN;
     };
-    all.sort_by(|a, b| (a - shift).norm().total_cmp(&(b - shift).norm()));
+    all.sort_by(|a, b| {
+        portable::complex::abs(a - shift).total_cmp(&portable::complex::abs(b - shift))
+    });
     let Ok(Some((pairs, _))) =
         crate::eigen::krylov_schur(n, &entries, shift, 30, 1e-10, None, &|| false)
     else {
@@ -129,7 +133,10 @@ pub(crate) fn dense_leaky() -> f64 {
     pairs
         .iter()
         .zip(&all)
-        .map(|(p, d)| (p.value.sqrt() - d.sqrt()).norm() / k)
+        .map(|(p, d)| {
+            portable::complex::abs(portable::complex::sqrt(p.value) - portable::complex::sqrt(*d))
+                / k
+        })
         .fold(0.0, f64::max)
 }
 
@@ -152,7 +159,7 @@ pub(crate) fn against_growing() -> f64 {
             growing
                 .iter()
                 .flat_map(|b| [b.value, b.value.conj()])
-                .map(|b| ((a.value - b) / b).norm())
+                .map(|b| portable::complex::abs((a.value - b) / b))
                 .fold(f64::INFINITY, f64::min)
         })
         .fold(0.0, f64::max)
@@ -207,7 +214,7 @@ pub(crate) fn convergence_slope() -> f64 {
                 .map(|x| (v.re - x).abs())
                 .fold(f64::INFINITY, f64::min);
             if (1e-8..1e-2).contains(&r) && error > 1e-13 {
-                points.push((r.ln(), error.ln()));
+                points.push((portable::ln(r), portable::ln(error)));
             }
         }
     }
@@ -215,7 +222,10 @@ pub(crate) fn convergence_slope() -> f64 {
     let mx = points.iter().map(|p| p.0).sum::<f64>() / k;
     let my = points.iter().map(|p| p.1).sum::<f64>() / k;
     let slope = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum::<f64>()
-        / points.iter().map(|p| (p.0 - mx).powi(2)).sum::<f64>();
+        / points
+            .iter()
+            .map(|p| portable::powi(p.0 - mx, 2))
+            .sum::<f64>();
     (10.0 * slope).round() / 10.0
 }
 
@@ -286,7 +296,7 @@ pub(crate) fn every_guided_mode() -> (f64, usize) {
         .modes
         .iter()
         .zip(&ks)
-        .map(|(a, b)| (a.effective_index() - b.effective_index()).norm())
+        .map(|(a, b)| portable::complex::abs(a.effective_index() - b.effective_index()))
         .fold(0.0, f64::max);
     (worst, count)
 }
@@ -306,7 +316,7 @@ pub(crate) fn chilwell_above() -> f64 {
         match profile.modes_above(pol, w, 1.5005, &crate::mode::region::Search::default()) {
             Ok(f) if f.modes.len() == 4 => {
                 for (m, t) in f.modes.iter().zip(want) {
-                    worst = worst.max((m.effective_index - t).norm());
+                    worst = worst.max(portable::complex::abs(m.effective_index - t));
                 }
             }
             _ => return f64::NAN,
@@ -489,7 +499,7 @@ mod tests {
                             pairs
                                 .iter()
                                 .flat_map(|b| [b.value, b.value.conj()])
-                                .map(|b| ((a.value - b) / b).norm())
+                                .map(|b| portable::complex::abs((a.value - b) / b))
                                 .fold(f64::INFINITY, f64::min)
                         })
                         .fold(0.0, f64::max);

@@ -6,6 +6,7 @@ use num_complex::Complex64 as c64;
 
 use super::super::{Sparse, Stopping, gmres_preconditioned, norm};
 use super::{Identity, Space, gcro_dr, qr};
+use crate::portable;
 
 /// The interior points along each side: h = 1/41.
 const P: usize = 40;
@@ -66,10 +67,10 @@ pub(crate) fn deflated_against_gmres() -> (f64, usize, usize, usize) {
     let d: Vec<c64> = (0..N)
         .map(|j| {
             if j < K {
-                c64::from_polar(0.002 * (j + 1) as f64, (j + 1) as f64 / 3.0)
+                portable::complex::from_polar(0.002 * (j + 1) as f64, (j + 1) as f64 / 3.0)
             } else {
                 let angle = 2.0 * std::f64::consts::PI * (j - K) as f64 / (N - K) as f64;
-                c64::new(1.5, 0.0) + c64::from_polar(1.0 / 1.2, angle)
+                c64::new(1.5, 0.0) + portable::complex::from_polar(1.0 / 1.2, angle)
             }
         })
         .collect();
@@ -228,8 +229,10 @@ pub(crate) fn table_cosines_scaled(scale: f64) -> Vec<f64> {
             for j in 0..P {
                 for i in 0..P {
                     let (x, y) = ((i + 1) as f64 * h, (j + 1) as f64 * h);
-                    v[i + P * j] =
-                        c64::new((p as f64 * pi * x).sin() * (q as f64 * pi * y).sin(), 0.0);
+                    v[i + P * j] = c64::new(
+                        portable::sin(p as f64 * pi * x) * portable::sin(q as f64 * pi * y),
+                        0.0,
+                    );
                 }
             }
             let length = v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();

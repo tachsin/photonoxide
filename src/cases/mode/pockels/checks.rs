@@ -26,6 +26,7 @@ use crate::mode::pockels::{
 };
 use crate::mode::thermo::{index_change, index_change_resolved};
 use crate::mode::vector::{self, CrossSection, Permittivity, VectorMode, graded_nodes};
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -144,7 +145,7 @@ fn bulk(orientation: Orientation, field_axis: usize, textbook: [f64; 2]) -> f64 
     for a in 0..2 {
         let n = eps[a][a].re.sqrt();
         let moved = (eps[a][a] + d[a][a]).re.sqrt() - n;
-        let expected = -0.5 * n.powi(3) * textbook[a] * 1e-12 * e;
+        let expected = -0.5 * portable::powi(n, 3) * textbook[a] * 1e-12 * e;
         worst = worst.max((moved / expected - 1.0).abs());
     }
     worst
@@ -220,7 +221,7 @@ const AIR: f64 = 20.0;
 impl Tfln {
     /// The rib's half width at height y (in the rib's part of the film).
     fn half_width(&self, y: f64) -> f64 {
-        0.5 * self.top + (self.film - y) / self.angle_deg.to_radians().tan()
+        0.5 * self.top + (self.film - y) / portable::tan(self.angle_deg.to_radians())
     }
 
     /// Whether (x, y) is in the film.
@@ -699,7 +700,7 @@ fn plates(cut: CrystalAxis) -> f64 {
     // the slab, its film's index moved by the textbook change along E (the cross-section's x)
     let n = crystal[0][0].re.sqrt();
     let coefficient = r.element(0, 0, axis);
-    let moved = n - 0.5 * n.powi(3) * coefficient * exact_field;
+    let moved = n - 0.5 * portable::powi(n, 3) * coefficient * exact_field;
     let slab = |core: f64| {
         crate::mode::slab::Slab::new(ox, core, ox, Length::um(FILM))
             .expect(OK)
@@ -744,7 +745,7 @@ fn resolve_tfln() -> Outcome {
 /// doubles as V does (log₂ of the ratio of its two changes).
 fn resolve_order() -> Outcome {
     let d = [10.0, 20.0, 40.0].map(|v| resolve_difference(&wang_2018(ANGLE), v, 0.02));
-    outcome(((d[2] - d[1]) / (d[1] - d[0])).log2(), 1.0, 0.1)
+    outcome(portable::log2((d[2] - d[1]) / (d[1] - d[0])), 1.0, 0.1)
 }
 
 /// Vπ·L of Wang et al.'s cross-section (film coefficients) on the static grid's smallest cells
@@ -752,7 +753,7 @@ fn resolve_order() -> Outcome {
 fn static_order() -> Outcome {
     let v = [0.02, 0.01, 0.005]
         .map(|s| modulation(&wang_2018(ANGLE), Coefficients::Film, &grading(s), 0.02));
-    outcome(((v[0] - v[1]) / (v[1] - v[2])).log2(), 1.0, 0.5)
+    outcome(portable::log2((v[0] - v[1]) / (v[1] - v[2])), 1.0, 0.5)
 }
 
 /// Vπ·L of the same on optical cells of 40, 20 and 10 nm, the static grid's smallest 10 nm: the
@@ -810,7 +811,7 @@ pub(crate) fn overlap_gamma() -> (f64, f64) {
     let gamma = overlap_factor(&mode, &cs, share, |x, y| -field.at(x, y)[0], t.gap, 1.0).expect(OK);
     let ne = optics.crystal[0][0].re.sqrt();
     let r33 = Coefficients::Film.pockels().voigt()[2][2] * 1e-12;
-    let papers = 100.0 * LAMBDA * 1e-6 * t.gap * 1e-6 / (2.0 * ne.powi(3) * r33 * gamma);
+    let papers = 100.0 * LAMBDA * 1e-6 * t.gap * 1e-6 / (2.0 * portable::powi(ne, 3) * r33 * gamma);
     let scaled = papers * mode.effective_index().re / ne;
     let ours = modulation(&t, Coefficients::Film, &grading(0.01), 0.01);
     (scaled / ours - 1.0, gamma)
@@ -863,8 +864,8 @@ fn bto_angle() -> Outcome {
     let (mut worst, mut largest) = (0.0f64, 0.0f64);
     for k in 0..=6 {
         let phi = (15.0 * f64::from(k)).to_radians();
-        let (s, c) = phi.sin_cos();
-        let expected = r33 * s.powi(3) + 2.0 * r42 * c * c * s;
+        let (s, c) = portable::sin_cos(phi);
+        let expected = r33 * portable::powi(s, 3) + 2.0 * r42 * c * c * s;
         worst = worst.max((in_plane(&r, 15.0 * f64::from(k)) - expected).abs());
         largest = largest.max(expected.abs());
     }
@@ -896,7 +897,7 @@ fn bto_eltes() -> Outcome {
     };
     let (r, n) = (constant(r"r_\mathrm{eff}"), constant("n"));
     let (gap, overlap) = (2.6e-6, 0.38);
-    let per_volt = 0.5 * n.powi(3) * r * 1e-12 * overlap / gap;
+    let per_volt = 0.5 * portable::powi(n, 3) * r * 1e-12 * overlap / gap;
     let vpi_l =
         100.0 * half_wave_voltage_length(per_volt, wavelength(), Drive::SingleArm).expect(OK);
     outcome((vpi_l * 1e4).round() / 1e4, 0.23, 0.005)
@@ -940,7 +941,7 @@ fn litao3_x_cut() -> Outcome {
     for (a, coefficient) in [(0, r33), (1, r13)] {
         let n = eps[a][a].re.sqrt();
         let moved = (eps[a][a] + d[a][a]).re.sqrt() - n;
-        let expected = -0.5 * n.powi(3) * coefficient * 1e-12 * field;
+        let expected = -0.5 * portable::powi(n, 3) * coefficient * 1e-12 * field;
         worst = worst.max((moved / expected - 1.0).abs());
     }
     outcome(worst, 0.0, 1e-4)

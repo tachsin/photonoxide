@@ -31,6 +31,7 @@ use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Accum, Mat, Par, c64};
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// An eigenpair of A.
@@ -116,8 +117,8 @@ fn start(n: usize) -> Vec<c64> {
     (0..n)
         .map(|i| {
             c64::new(
-                1.0 + 0.5 * (i as f64 * 0.7).sin(),
-                0.25 * (i as f64 * 1.3).cos(),
+                1.0 + 0.5 * portable::sin(i as f64 * 0.7),
+                0.25 * portable::cos(i as f64 * 1.3),
             )
         })
         .collect()
@@ -314,7 +315,7 @@ fn schur_restarted(
         Run::Done(done) => return Ok(done),
         Run::Stalled { values, record } => (values, record),
     };
-    let distance = |v: &c64| (v - shift).norm();
+    let distance = |v: &c64| portable::complex::abs(v - shift);
     let far = values.iter().map(distance).fold(0.0, f64::max);
     let Some(nearest) = values
         .iter()
@@ -327,8 +328,8 @@ fn schur_restarted(
         return Err(stalled(&values, shift));
     }
     let side = shift - nearest;
-    let side = if side.norm() > 0.0 {
-        side / side.norm()
+    let side = if portable::complex::abs(side) > 0.0 {
+        side / portable::complex::abs(side)
     } else {
         c64::new(1.0, 0.0)
     };
@@ -364,8 +365,8 @@ fn restarted(
     scale: Scale,
 ) -> Result<Run> {
     let against = |value: c64| match scale {
-        Scale::Unit => value.norm().max(1.0),
-        Scale::Own => value.norm(),
+        Scale::Unit => portable::complex::abs(value).max(1.0),
+        Scale::Own => portable::complex::abs(value),
     };
     let mut record = Record::default();
     if count == 0 || n == 0 {
@@ -437,7 +438,7 @@ fn restarted(
         let (mut t, mut q) = schur::schur(quotient)?;
         let want = count.min(steps);
         let kept = keep.min(steps).max(want);
-        schur::order(&mut t, &mut q, 0, kept, |z| z.norm());
+        schur::order(&mut t, &mut q, 0, kept, portable::complex::abs);
         // bᴴ Q, the residual row in the Schur basis
         let b: Vec<c64> = (0..steps)
             .map(|c| (0..steps).map(|i| h[(steps, i)] * q[(i, c)]).sum())
@@ -453,7 +454,7 @@ fn restarted(
             let rho: c64 = y.iter().zip(&b).map(|(y, b)| y * b).sum();
             let theta = t[(i, i)];
             let value = shift + c64::new(1.0, 0.0) / theta;
-            let estimate = rho.norm() * size / theta.norm();
+            let estimate = portable::complex::abs(rho) * size / portable::complex::abs(theta);
             let relative = estimate / against(value);
             worst = worst.max(relative / tolerance);
             residuals.push(relative);
@@ -533,7 +534,10 @@ fn fresh(basis: &[Vec<c64>], j: usize) -> Option<Vec<c64>> {
     let mut w: Vec<c64> = (0..n)
         .map(|i| {
             let (a, b) = (i as f64 + 1.0, j as f64 + 2.0);
-            c64::new((0.37 * a * b).sin(), (0.61 * a + 1.7 * b).cos())
+            c64::new(
+                portable::sin(0.37 * a * b),
+                portable::cos(0.61 * a + 1.7 * b),
+            )
         })
         .collect();
     let before = norm(&w);
@@ -618,8 +622,8 @@ mod tests {
             .flat_map(|p| (1..=ny).map(move |q| (p, q)))
             .map(|(p, q)| {
                 let pi = std::f64::consts::PI;
-                4.0 - 2.0 * (p as f64 * pi / (nx + 1) as f64).cos()
-                    - 2.0 * (q as f64 * pi / (ny + 1) as f64).cos()
+                4.0 - 2.0 * portable::cos(p as f64 * pi / (nx + 1) as f64)
+                    - 2.0 * portable::cos(q as f64 * pi / (ny + 1) as f64)
             })
             .collect();
         exact.sort_by(f64::total_cmp);
@@ -698,7 +702,7 @@ mod tests {
             entries.push((
                 i,
                 i,
-                c64::new(2.0 + 0.01 * i as f64, 0.05 * (i as f64).sin()),
+                c64::new(2.0 + 0.01 * i as f64, 0.05 * portable::sin(i as f64)),
             ));
             if i + 1 < n {
                 entries.push((i, i + 1, c64::new(-1.0, 0.0)));
@@ -715,10 +719,17 @@ mod tests {
         let all = dense.eigenvalues().unwrap();
         let shift = c64::new(0.5, 0.0);
         let mut want: Vec<c64> = all.clone();
-        want.sort_by(|a, b| (a - shift).norm().total_cmp(&(b - shift).norm()));
+        want.sort_by(|a, b| {
+            portable::complex::abs(a - shift).total_cmp(&portable::complex::abs(b - shift))
+        });
         let pairs = nearest(n, &entries, shift, 4, 1e-10).unwrap();
         for (p, w) in pairs.iter().zip(&want) {
-            assert!((p.value - w).norm() < 1e-9, "{} vs {}", p.value, w);
+            assert!(
+                portable::complex::abs(p.value - w) < 1e-9,
+                "{} vs {}",
+                p.value,
+                w
+            );
         }
     }
 }

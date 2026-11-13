@@ -5,6 +5,7 @@ use num_complex::Complex64 as c64;
 use super::{
     Eme, Eme3d, Plane, PlaneGrid, Pml3d, Scattering, Section, Section3d, Slice, Wall, Walls,
 };
+use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::validation::{Case, Outcome, Tier};
 
@@ -49,7 +50,7 @@ fn orthonormality(modes: &[super::Mode3d]) -> f64 {
         for (j, b) in modes.iter().enumerate() {
             let expected = if i == j { 1.0 } else { 0.0 };
             let p = a.product(b).expect("the same grid");
-            worst = worst.max((p - expected).norm());
+            worst = worst.max(portable::complex::abs(p - expected));
         }
     }
     worst
@@ -88,7 +89,7 @@ pub(crate) fn fresnel() -> f64 {
     for (i, m) in modes.iter().enumerate() {
         let b1 = m.beta();
         let b2 = {
-            let b = (b1 * b1 + k * k * (e2 - e1)).sqrt();
+            let b = portable::complex::sqrt(b1 * b1 + k * k * (e2 - e1));
             if b.im.abs() < b.re.abs() && b.re < 0.0 || b.im.abs() >= b.re.abs() && b.im < 0.0 {
                 -b
             } else {
@@ -102,7 +103,7 @@ pub(crate) fn fresnel() -> f64 {
         };
         for (j, &entry) in s.s11[i].iter().enumerate().take(n) {
             let expected = if i == j { r } else { c64::new(0.0, 0.0) };
-            worst = worst.max((entry - expected).norm());
+            worst = worst.max(portable::complex::abs(entry - expected));
         }
     }
     worst
@@ -157,7 +158,7 @@ pub(crate) fn lossless(modes: usize) -> (f64, f64) {
     let mut symmetry: f64 = 0.0;
     for i in 0..n {
         for j in 0..n {
-            symmetry = symmetry.max((at(i, j) - at(j, i)).norm());
+            symmetry = symmetry.max(portable::complex::abs(at(i, j) - at(j, i)));
         }
     }
     let m = s.first.len();
@@ -175,7 +176,7 @@ pub(crate) fn lossless(modes: usize) -> (f64, f64) {
         for &b in &open {
             let sum: c64 = open.iter().map(|&q| at(q, a).conj() * at(q, b)).sum();
             let expected = if a == b { 1.0 } else { 0.0 };
-            unitarity = unitarity.max((sum - expected).norm());
+            unitarity = unitarity.max(portable::complex::abs(sum - expected));
         }
     }
     (symmetry, unitarity)
@@ -300,8 +301,9 @@ pub(crate) fn quarter() -> (f64, f64) {
         .expect("the whole window's S");
     let b2 = |n: c64| n * n;
     (
-        (quarter.s21[0][0] - whole.s21[0][0]).norm(),
-        (b2(quarter.first[0]) - b2(whole.first[0])).norm() / b2(whole.first[0]).norm(),
+        portable::complex::abs(quarter.s21[0][0] - whole.s21[0][0]),
+        portable::complex::abs(b2(quarter.first[0]) - b2(whole.first[0]))
+            / portable::complex::abs(b2(whole.first[0])),
     )
 }
 
@@ -456,9 +458,9 @@ pub(crate) fn ports_agree() -> f64 {
     let ports = solver.port_modes(Axis::Z, 3, 6).expect("the ports' modes");
     let mut worst: f64 = 0.0;
     for (m, p) in modes.iter().zip(&ports) {
-        let beta_d = 2.0 / dz * (p.beta() * dz / 2.0).sin();
+        let beta_d = 2.0 / dz * portable::complex::sin(p.beta() * dz / 2.0);
         let (a, b) = (m.beta() * m.beta(), beta_d * beta_d);
-        worst = worst.max((a - b).norm() / a.norm());
+        worst = worst.max(portable::complex::abs(a - b) / portable::complex::abs(a));
     }
     worst
 }
@@ -467,7 +469,7 @@ pub(crate) fn ports_agree() -> f64 {
 /// v = v₀ + a dz² + b dz⁴ (FDFD's second order along z), and the fit's largest residual.
 pub(crate) fn z_limit(dz: &[f64], v: &[f64]) -> (f64, f64) {
     // the normal equations of the 3-parameter fit, solved by Cramer's rule
-    let basis = |h: f64| [1.0, h * h, h.powi(4)];
+    let basis = |h: f64| [1.0, h * h, portable::powi(h, 4)];
     let mut m = [[0.0; 3]; 3];
     let mut r = [0.0; 3];
     for (&h, &y) in dz.iter().zip(v) {
@@ -542,7 +544,7 @@ pub(crate) fn separable() -> f64 {
     let mut worst: f64 = 0.0;
     for i in 0..n {
         for j in 0..n {
-            worst = worst.max((at(i, j) - bt(i, j)).norm());
+            worst = worst.max(portable::complex::abs(at(i, j) - bt(i, j)));
         }
     }
     worst
@@ -569,7 +571,7 @@ pub(crate) fn stepped_2d() -> (c64, c64) {
 pub(crate) fn extruded_order() -> ([c64; 3], f64, c64, c64) {
     let s = [0.01, 0.005, 0.0025].map(|h| extruded(h, 1).s11[0][0]);
     let (d1, d2) = (s[1] - s[0], s[2] - s[1]);
-    let order = (d1.norm() / d2.norm()).log2();
+    let order = portable::log2(portable::complex::abs(d1) / portable::complex::abs(d2));
     let limit = s[2] + d2 / 3.0;
     (s, order, limit, stepped_2d().0)
 }
@@ -588,7 +590,7 @@ fn significant(v: f64, digits: i32) -> f64 {
     if v == 0.0 || !v.is_finite() {
         return v;
     }
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 
@@ -596,13 +598,16 @@ fn significant(v: f64, digits: i32) -> f64 {
 /// own error noted.
 fn extruded_limit() -> Outcome {
     let (s, _, limit, exact) = extruded_order();
-    crate::validation::note_numerical(significant((s[2] - s[1]).norm() / 3.0 / exact.norm(), 2));
-    let expected = significant(exact.norm(), 6);
+    crate::validation::note_numerical(significant(
+        portable::complex::abs(s[2] - s[1]) / 3.0 / portable::complex::abs(exact),
+        2,
+    ));
+    let expected = significant(portable::complex::abs(exact), 6);
     Outcome {
-        measured: significant(limit.norm(), 6),
+        measured: significant(portable::complex::abs(limit), 6),
         expected,
         tolerance: 3e-4 * expected,
-        error: significant((limit - exact).norm(), 2),
+        error: significant(portable::complex::abs(limit - exact), 2),
     }
 }
 

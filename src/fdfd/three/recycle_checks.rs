@@ -9,6 +9,7 @@ use super::{
 };
 use crate::Result;
 use crate::fdfd::{Convergence, Side, Stopping};
+use crate::portable;
 use crate::units::Wavelength;
 
 /// How the coupler is solved.
@@ -206,7 +207,7 @@ pub(crate) fn largest_difference(a: &Sweep, b: &Sweep) -> f64 {
         .flatten()
         .flatten()
         .zip(b.s.iter().flatten().flatten())
-        .map(|(p, q)| (p - q).norm())
+        .map(|(p, q)| portable::complex::abs(p - q))
         .fold(0.0, f64::max)
 }
 
