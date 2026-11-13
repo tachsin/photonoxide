@@ -87,9 +87,9 @@ jobs:
   # The canaries on Windows and macOS: fast tests of what can differ by system (the system's maths
   # library against correctly rounded values, the dense kernels, the sparse LU, the Krylov
   # solvers, threads, files and sockets; docs: CONTRIBUTING.md), every week whatever changed. On
-  # Linux they run with the unit tests on every pull request that reaches them. Each file
-  # tests/canary*.rs is a test target of its own, run in release mode; the job is skipped while
-  # there is none.
+  # Linux, CI's Lint runs them for every pull request with unit tests. It runs the
+  # justfile's `canaries` recipe (tests/canary.rs, the library's canary_ tests and the tests they
+  # reuse by name, in release); the job is skipped while tests/canary*.rs is missing.
   canaries:
     name: Canaries (${{ matrix.os }})
     needs: changed
@@ -109,12 +109,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
       - name: The canaries
-        run: |
-          set -euo pipefail
-          args=()
-          for f in tests/canary*.rs; do args+=(--test "$(basename "$f" .rs)"); done
-          cargo test --release --all-features "${args[@]}"
+        run: just canaries
 
   # the floating stable, against the pin: rust-toolchain.toml would make every cargo in the
   # checkout use its version, so RUSTUP_TOOLCHAIN overrides it for the whole job
