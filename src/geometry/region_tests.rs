@@ -641,3 +641,29 @@ fn material_at_timing() {
         every.as_secs_f64()
     );
 }
+
+/// Platform canary: Γ(x) for ½ ≤ x ≤ 10 against mpmath (`tests/data/canary/golden.txt`;
+/// `tests/canary.rs` has the canaries' tables), to its doc's 15 digits: a relative error below
+/// 10⁻¹⁵.
+#[test]
+fn canary_gamma_to_fifteen_digits() {
+    let mut worst = 0.0f64;
+    let mut failures = Vec::new();
+    for g in crate::canary_tests::golden::golden("gamma") {
+        let ours = gamma(g.a);
+        let rel = (ours - g.r).abs() / g.r.abs();
+        worst = worst.max(rel);
+        if rel > 1e-15 {
+            failures.push(format!("Γ({}) = {ours:e}, exact {:e}: {rel:e}", g.a, g.r));
+        }
+    }
+    println!("gamma: worst relative error {worst:.2e}");
+    assert!(
+        failures.is_empty(),
+        "{}",
+        failures.join(
+            "
+"
+        )
+    );
+}

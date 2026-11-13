@@ -78,6 +78,13 @@ systems before the change: the report and 29 of the 31 examples printed the same
   that reads the modes' frequencies off the probes, keeping singular values down to 1e-10 of the
   largest, turned that into 1e-11 of a frequency. Unchanged on Linux.
 
+Since November 2026 the whole suite runs on Linux per pull request, and Windows and macOS run the
+platform canaries weekly (`just canaries`, [CONTRIBUTING.md](../../CONTRIBUTING.md#platform-canaries)):
+the system's maths library against correctly rounded values, faer's dense kernels, the sparse LU,
+QMR and GMRES, the FFT, a slab's modes, a small FDFD solve, threads, the bits of a 2D FDTD run and
+a job file read with CRLF line endings, each against an exact value or against itself computed
+another way.
+
 ## Validation
 
 Two analytic cases pin the convention: the amplitude of a real signal is recovered with the

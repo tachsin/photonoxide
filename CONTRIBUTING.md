@@ -213,6 +213,48 @@ Every validation case has a rule, kept beside its area's cases in `src/validatio
 
 The report marks a case whose rule doesn't hold: a tolerance other than the rule's, a round-off tolerance above 1e-8, a published comparison without our own error beside it, or our own error above a third of the tolerance. Where a grid isn't precise enough to judge what it compares with, refine the grid; never loosen the tolerance. The report must read the same on every system: a value that depends on a platform's last bits (an iteration count, a slope over iterative results, a noise-level difference) is shown only to the digits that hold everywhere, rounded in the case, or as the resolution the comparison has.
 
+## Platform canaries
+
+The whole suite runs on Linux. Windows, macOS and ARM run a small set instead, the platform
+canaries (`just canaries`): tests of the building blocks every result rests on, which are the
+only places a result can differ between systems (docs/methods/conventions.md, "The same numbers
+on every system"). If the blocks agree, the methods built on them follow, since they are the same
+code on every system; a canary that fails points at a primitive, not at a method.
+
+- **What they check.** IEEE 754 arithmetic with no fused multiply-add; the system's maths library
+  (exp, ln, sin, cos, tan, atan2, hypot, the hyperbolic functions, powf, cbrt, complex sqrt, exp
+  and ln, and more) at about 50 arguments each; photonoxide's own erf, Bessel, Hankel, E₁ and Γ;
+  faer's dense LU, QR, SVD and eigensolvers on ill-conditioned matrices; the sparse LU; QMR and
+  GMRES; the FFT; a slab's modes; a small FDFD solve; threads; the bits of a 2D FDTD run; a job
+  file with CRLF line endings in a folder with spaces and non-ASCII letters. `tests/canary.rs`
+  holds those the public API reaches, `src/canary_tests.rs` (and three `canary_` tests beside the
+  private modules they test) the rest, and the `canaries` recipe in the justfile also runs, by
+  name, the existing tests that already check a block. The module docs of `tests/canary.rs` have
+  the table of every canary: its kind, its reference, and its tolerance with the tolerance's basis.
+- **What they compare with.** Never a number one system's run of photonoxide printed. Three
+  kinds: *exact*, the correctly rounded value from mpmath; *by construction*, a bit hash of a
+  computation that is only `+ − × ÷ √` and the pure-Rust `libm` crate, which IEEE 754 makes the
+  same everywhere (a system that differs has a fused operation or a flag that isn't IEEE); and
+  *self-consistency*, the same quantity two ways on one machine (1, 2 and 5 threads, a solve and
+  its residual, reciprocity, a dense and a sparse solve, an iteration count known in closed form),
+  which needs no stored value at all and is preferred.
+- **How golden values are made.** `tests/data/canary/golden.py` computes them with mpmath at 256
+  bits and rounds each to the nearest binary64; `golden.txt` holds the arguments and the results
+  as bits. It is run by hand, once, and never by CI: `uv run --no-project --with mpmath==1.3.0
+  python tests/data/canary/golden.py > tests/data/canary/golden.txt`. Its arguments come from
+  fixed lists and a fixed generator, so a rerun writes the same lines and a new function only adds
+  its own.
+- **How to add one.** Name it `canary_…`, so `cargo test --test canary` and `cargo test --lib
+  canary_` select it. Put it in `tests/canary.rs` when the public API reaches the block, in
+  `src/canary_tests.rs` when it needs the crate's internals, beside the module when that module is
+  private to its parent. Give its tolerance as a rule with a basis, as a validation case's: ulps of
+  the correctly rounded value for a function of the maths library, a backward error bound for a
+  kernel (10·n·ε·‖A‖), a closed form for an iteration count, exact bits across threads. Add its
+  row to the table in `tests/canary.rs`. To reuse an existing test instead, add its full name to
+  the `canaries` recipe and to that table: `canary_reused_tests_exist` fails when a name the
+  recipe runs no longer exists, since `cargo test --exact` with a name that matches nothing
+  passes.
+
 ## A new kind of job
 
 A job's `[task]` names its kind (`kind = "fdfd"`), and what the task sits beside decides which kinds there are: a task alone, one beside a `[device]`, or one beside a `[circuit]`. Each kind implements the trait `TaskKind` in `src/job/kind.rs`: its name, its task table's schema, and how a job of it is checked, previewed, run and farmed, and which fields its `[task.export]` may ask for. The registry, `kinds` in the same file, lists the kinds of each holder; checking, previewing, running, farming and the schema look a kind up there. A new kind is:

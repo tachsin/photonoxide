@@ -105,8 +105,9 @@ const LAYERS: &[Layer] = &[
     },
 ];
 
-/// Modules that belong to no layer: the test modules.
-const UNLAYERED: &[&str] = &["layering"];
+/// Modules that belong to no layer: the test modules (the layering test itself, and the
+/// platform canaries, which test blocks from every layer).
+const UNLAYERED: &[&str] = &["layering", "canary_tests"];
 
 /// An import that points upward and is allowed for now: the file, the module it imports and
 /// why. An entry goes when its import is moved down or the path it keeps is given up.
