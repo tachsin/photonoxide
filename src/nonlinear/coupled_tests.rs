@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 fn real(x: f64) -> c64 {
     c64::new(x, 0.0)
@@ -7,9 +8,9 @@ fn real(x: f64) -> c64 {
 #[test]
 fn the_conversions_are_the_units() {
     // 100 %/(W·cm²) is 1 /(W·cm²) = 1e-8 /(W·µm²)
-    assert!((coupling_from_efficiency(100.0).powi(2) - 1e-8).abs() < 1e-22);
+    assert!((portable::powi(coupling_from_efficiency(100.0), 2) - 1e-8).abs() < 1e-22);
     // 10 dB/cm is a factor 10 in power over 1 cm
-    assert!(((-loss_from_db_per_cm(10.0) * 1e4).exp() - 0.1).abs() < 1e-15);
+    assert!((portable::exp(-loss_from_db_per_cm(10.0) * 1e4) - 0.1).abs() < 1e-15);
 }
 
 #[test]
@@ -24,8 +25,10 @@ fn undepleted_shg_is_the_sinc2_of_phase_matching() {
     let [_, a2] = shg
         .propagate([real(p0.sqrt()), real(0.0)], length, 2000)
         .unwrap();
-    let expected =
-        shg.coupling.powi(2) * p0 * p0 * crate::nonlinear::phase::undepleted(shg.mismatch, length);
+    let expected = portable::powi(shg.coupling, 2)
+        * p0
+        * p0
+        * crate::nonlinear::phase::undepleted(shg.mismatch, length);
     assert!((a2.norm_sqr() / expected - 1.0).abs() < 1e-9);
     assert!((undepleted_lossy_shg(&shg, p0, length) / expected - 1.0).abs() < 1e-12);
 }
@@ -40,7 +43,7 @@ fn depleted_shg_is_armstrongs_tanh() {
     // κ√P₀L = 2
     let (p0, length) = (1.0, 1000.0);
     let [a1, a2] = shg.propagate([real(1.0), real(0.0)], length, 2000).unwrap();
-    assert!((a2.norm_sqr() - 2.0_f64.tanh().powi(2)).abs() < 1e-10);
+    assert!((a2.norm_sqr() - portable::powi(portable::tanh(2.0_f64), 2)).abs() < 1e-10);
     assert!((a1.norm_sqr() + a2.norm_sqr() - p0).abs() < 1e-12);
 }
 
@@ -59,7 +62,9 @@ fn parametric_gain_is_a_cosh() {
     let [a1, ..] = tw
         .propagate([real(1e-6), real(0.0), real(1.0)], length, 4000)
         .unwrap();
-    assert!((a1.norm_sqr() / 1e-12 / 2.0_f64.cosh().powi(2) - 1.0).abs() < 1e-8);
+    assert!(
+        (a1.norm_sqr() / 1e-12 / portable::powi(portable::cosh(2.0_f64), 2) - 1.0).abs() < 1e-8
+    );
 }
 
 #[test]

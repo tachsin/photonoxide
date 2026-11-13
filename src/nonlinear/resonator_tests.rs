@@ -1,5 +1,6 @@
 use super::*;
 use crate::nonlinear::kerr_checks::coen_2012_ring;
+use crate::portable;
 
 #[test]
 fn the_homogeneous_states_solve_the_cubic() {
@@ -9,14 +10,14 @@ fn the_homogeneous_states_solve_the_cubic() {
         assert!(!roots.is_empty());
         for &x in &roots {
             assert!(
-                (x * (1.0 + (x - z).powi(2)) / f2 - 1.0).abs() < 1e-13,
+                (x * (1.0 + portable::powi(x - z, 2)) / f2 - 1.0).abs() < 1e-13,
                 "{z} {f2} {x}"
             );
             // and its field is stationary: −(1 + iζ₀)ψ + i|ψ|²ψ + f = 0
             let psi = r.homogeneous_field(x);
             assert!((psi.norm_sqr() - x).abs() < 1e-12);
             let rate = -c64::new(1.0, z) * psi + c64::new(0.0, x) * psi + f2.sqrt();
-            assert!(rate.norm() < 1e-12);
+            assert!(portable::complex::abs(rate) < 1e-12);
         }
     }
     // three states between the turning points' drives, at ζ₀ = 3
@@ -60,7 +61,7 @@ fn the_split_step_keeps_a_settled_state_and_takes_the_drive_exactly() {
     let psi = r.homogeneous_field(0.0);
     let end = r.evolve(&[psi; 8], 3.0, 7).unwrap();
     for v in end {
-        assert!((v - psi).norm() < 1e-20);
+        assert!(portable::complex::abs(v - psi) < 1e-20);
     }
     assert!(r.evolve(&[psi; 4], 1.0, 1).is_err());
     assert!(Resonator::quadratic(1.0, 1.0, 0.1, 12).is_err());
@@ -74,10 +75,10 @@ fn a_sech_has_its_width() {
     let field: Vec<c64> = (0..n)
         .map(|j| {
             let phi = 2.0 * PI * (j as f64 - 100.3) / n as f64;
-            c64::new(1.0 / (phi / w).cosh(), 0.0)
+            c64::new(1.0 / portable::cosh(phi / w), 0.0)
         })
         .collect();
-    let fwhm = 2.0 * w * (2f64.sqrt()).acosh();
+    let fwhm = 2.0 * w * portable::acosh(2f64.sqrt());
     assert!((peak_width(&field).unwrap() / fwhm - 1.0).abs() < 1e-4);
 }
 
@@ -96,11 +97,12 @@ fn the_approximate_soliton_and_its_limit() {
     );
     let field = r.soliton_field(&s);
     assert!(
-        (field[32]
-            - s.background
-            - c64::new(s.cos_phase, (1.0 - s.cos_phase.powi(2)).sqrt()) * s.amplitude)
-            .norm()
-            < 1e-12
+        portable::complex::abs(
+            field[32]
+                - s.background
+                - c64::new(s.cos_phase, (1.0 - portable::powi(s.cos_phase, 2)).sqrt())
+                    * s.amplitude
+        ) < 1e-12
     );
     // Herr et al.'s Eq. (2) and the approximation's shortest width at critical coupling
     let ring = Ring {
@@ -115,7 +117,7 @@ fn the_approximate_soliton_and_its_limit() {
         ring.pump,
     );
     let ours = ring.minimum_soliton_width();
-    assert!((ours / herr - 2.0 * (2f64.sqrt()).acosh() / PI.sqrt()).abs() < 1e-12);
+    assert!((ours / herr - 2.0 * portable::acosh(2f64.sqrt()) / PI.sqrt()).abs() < 1e-12);
 }
 
 #[test]
@@ -123,8 +125,8 @@ fn coens_ring_normalizes_as_the_paper_has_it() {
     let ring = coen_2012_ring().unwrap();
     assert!((ring.normalized_detuning() - 0.0012 / 1.75e-5).abs() < 1e-12);
     // f² = θγLP_in/α³
-    let f2 = 1.75e-5 * 0.032e-3 * 0.0119 * 0.0556 / 1.75e-5f64.powi(3);
-    assert!((ring.normalized_drive().powi(2) / f2 - 1.0).abs() < 1e-14);
+    let f2 = 1.75e-5 * 0.032e-3 * 0.0119 * 0.0556 / portable::powi(1.75e-5f64, 3);
+    assert!((portable::powi(ring.normalized_drive(), 2) / f2 - 1.0).abs() < 1e-14);
     // its loaded Q, ω t_R/2α, is the caption's 1.90 × 10⁹ at 1.55 µm
     let q = angular_frequency(1.55) * ring.roundtrip / (2.0 * ring.loss);
     assert!((q / 1.9e9 - 1.0).abs() < 0.005, "{q}");

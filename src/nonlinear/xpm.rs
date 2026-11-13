@@ -28,6 +28,7 @@ use num_complex::Complex64 as c64;
 
 use super::fft::Fft;
 use super::pulse::{Guide, Pulse};
+use crate::portable;
 use crate::{Error, Result};
 
 /// Two pulses at different wavelengths in one Kerr guide: each one's [`Guide`] at its own
@@ -107,7 +108,10 @@ impl TwoPulses {
             omegas
                 .iter()
                 .map(|&w| {
-                    c64::new(-0.5 * g.loss * dz, (g.dispersion.phase(w) + walk * w) * dz).exp()
+                    portable::complex::exp(c64::new(
+                        -0.5 * g.loss * dz,
+                        (g.dispersion.phase(w) + walk * w) * dz,
+                    ))
                 })
                 .collect()
         };
@@ -135,8 +139,8 @@ impl TwoPulses {
             let [a1, a2] = &mut a;
             for (u, v) in a1.iter_mut().zip(a2.iter_mut()) {
                 let (p1, p2) = (u.norm_sqr(), v.norm_sqr());
-                *u *= c64::new(0.0, g1 * (p1 + c * p2) * h).exp();
-                *v *= c64::new(0.0, g2 * (p2 + c * p1) * h).exp();
+                *u *= portable::complex::exp(c64::new(0.0, g1 * (p1 + c * p2) * h));
+                *v *= portable::complex::exp(c64::new(0.0, g2 * (p2 + c * p1) * h));
             }
             apply(&mut a, if s + 1 == steps { &half } else { &full });
         }
@@ -171,9 +175,9 @@ pub fn gaussian_phase(
     t: f64,
 ) -> f64 {
     let (tau, td, delta) = (t / t0, delay / t0, walk_off * length / t0);
-    let spm = peaks[0] * (-tau * tau).exp();
+    let spm = peaks[0] * portable::exp(-tau * tau);
     let xpm = if delta.abs() < 1e-8 {
-        cross * peaks[1] * (-(tau - td).powi(2)).exp()
+        cross * peaks[1] * portable::exp(-portable::powi(tau - td, 2))
     } else {
         0.5 * cross * peaks[1] * std::f64::consts::PI.sqrt() / delta
             * (crate::portable::erf(tau - td) - crate::portable::erf(tau - td - delta))

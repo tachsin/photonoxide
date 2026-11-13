@@ -1,5 +1,6 @@
 use super::*;
 use crate::nonlinear::guide_checks as checks;
+use crate::portable;
 
 #[test]
 fn a_tensor_turns_into_the_guides_frame() {
@@ -65,16 +66,16 @@ fn chebyshev_interpolants_and_their_derivatives_converge() {
     let n = 16;
     let f: Vec<f64> = (0..=n)
         .map(|j| {
-            (std::f64::consts::PI * f64::from(j) / f64::from(n))
-                .cos()
-                .exp()
+            portable::exp(portable::cos(
+                std::f64::consts::PI * f64::from(j) / f64::from(n),
+            ))
         })
         .collect();
     let c = chebyshev_coefficients(&f);
     let d1 = chebyshev_derivative(&c);
     let d2 = chebyshev_derivative(&d1);
     for x in [-1.0, -0.3, 0.0, 0.71, 1.0] {
-        let e: f64 = f64::exp(x);
+        let e: f64 = portable::exp(x);
         assert!((clenshaw(&c, x) - e).abs() < 1e-14, "{x}");
         assert!((clenshaw(&d1, x) - e).abs() < 1e-12, "{x}");
         assert!((clenshaw(&d2, x) - e).abs() < 1e-10, "{x}");
@@ -111,7 +112,8 @@ fn a_ridge_is_checked_and_its_film_found() {
         .map(|(n, s)| s * (xs[n / ny + 1] - xs[n / ny]) * (ys[n % ny + 1] - ys[n % ny]))
         .sum();
     let reach = xs[xs.len() - 1];
-    let exact = reach * 0.25 + 0.5 * (0.62 + 0.62 + 0.05 / 75f64.to_radians().tan()) * 0.05;
+    let exact =
+        reach * 0.25 + 0.5 * (0.62 + 0.62 + 0.05 / portable::tan(75f64.to_radians())) * 0.05;
     assert!((area / exact - 1.0).abs() < 2e-3, "{area} vs {exact}");
 }
 
@@ -268,7 +270,7 @@ fn zhao_numbers() {
         let kp = second_harmonic_coupling(&es, &ef, &d, &poled).unwrap();
         let (g50, g55) = (fourier_coefficient(1, 0.5), fourier_coefficient(1, 0.552));
         // η P L² per hertz, per GHz and mW, over 5 mm
-        let b = |k: f64| k * k * 1e-3 * 5000.0f64.powi(2) * 1e9;
+        let b = |k: f64| k * k * 1e-3 * portable::powi(5000.0f64, 2) * 1e9;
         let ff = f.fields_one_sided(&cs).unwrap();
         let fs = s.fields_one_sided(&cs_s).unwrap();
         eprintln!(
@@ -384,7 +386,7 @@ fn the_sweep_on_the_slabs_solver_data_study() {
         // the samples' noise: the tail of the Chebyshev coefficients on 65 points
         let samples: Vec<f64> = (0..=64)
             .map(|j| {
-                let x = (std::f64::consts::PI * f64::from(j) / 64.0).cos();
+                let x = portable::cos(std::f64::consts::PI * f64::from(j) / 64.0);
                 checks::slab_index(h, 1.55 + 0.05 * x)
             })
             .collect();

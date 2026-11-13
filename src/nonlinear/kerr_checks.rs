@@ -16,6 +16,7 @@ use crate::nonlinear::pulse::{
     second_order_soliton, soliton_period, soliton_power, spm_peak_phase, spm_rms_broadening,
 };
 use crate::nonlinear::resonator::{Resonator, Ring, peak_width};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier, note_numerical};
 
@@ -177,7 +178,7 @@ fn max_error(a: &Pulse, exact: impl Fn(f64) -> c64) -> f64 {
     a.times()
         .iter()
         .zip(&a.field)
-        .map(|(&t, v)| (v - exact(t)).norm())
+        .map(|(&t, v)| portable::complex::abs(v - exact(t)))
         .fold(0.0, f64::max)
 }
 
@@ -192,7 +193,8 @@ pub(crate) fn fundamental_soliton(steps: usize) -> f64 {
         let start = Pulse::sech(p0, T0, 1024, 50.0 * T0)?;
         let end = soliton_guide().propagate(&start, z, steps)?;
         Ok(max_error(&end, |t| {
-            c64::new(p0.sqrt() / (t / T0).cosh(), 0.0) * c64::new(0.0, 0.5 * z / ld).exp()
+            c64::new(p0.sqrt() / portable::cosh(t / T0), 0.0)
+                * portable::complex::exp(c64::new(0.0, 0.5 * z / ld))
         }) / p0.sqrt())
     };
     run().unwrap_or(f64::NAN)
@@ -262,7 +264,7 @@ const THIRD_ORDER_TOLERANCE: f64 = 6e-5;
 /// The split-step's order from the second-order soliton's errors on 1000 and 2000 steps, to
 /// two decimals.
 fn split_step_order() -> Outcome {
-    let order = (second_order(1000) / second_order(2000)).log2();
+    let order = portable::log2(second_order(1000) / second_order(2000));
     let shown = (order * 100.0).round() / 100.0;
     absolute(shown, 2.0, 0.1)
 }
@@ -277,7 +279,7 @@ pub(crate) fn spm_phase(steps: usize) -> (f64, f64) {
         let start = Pulse::gaussian(p0, 1.0, 512, 64.0)?;
         let end = guide.propagate(&start, length, steps)?;
         let j = start.field.len() / 2;
-        Ok((end.field[j] / start.field[j]).arg())
+        Ok(portable::complex::arg(end.field[j] / start.field[j]))
     };
     (
         run().unwrap_or(f64::NAN),
@@ -427,7 +429,7 @@ pub(crate) fn fwm_nlse(steps: usize) -> (f64, f64) {
         let guide = Guide::new(d, 1.0, 0.0);
         let a = 1e-6;
         let start = Pulse::sampled(points, window, |t| {
-            c64::new(FWM_PUMP.sqrt(), 0.0) + c64::new(0.0, -omega * t).exp() * a
+            c64::new(FWM_PUMP.sqrt(), 0.0) + portable::complex::exp(c64::new(0.0, -omega * t)) * a
         })?;
         let end = guide.propagate(&start, FWM_LENGTH, steps)?;
         // the signal's bin: Ω = 10·2π/window
@@ -481,7 +483,7 @@ pub(crate) fn sfwm_purity(n: usize) -> (f64, f64) {
     };
     // ln f = −2 ln 2 (δs + δi)²/(√2Δν)² − γ (πL)² (A δs + B δi)², A = g_s − g_p, B = g_i − g_p
     let p = std::f64::consts::LN_2 / 1e-6;
-    let g = gaussian_gamma() * (PI * length).powi(2);
+    let g = gaussian_gamma() * portable::powi(PI * length, 2);
     let (a, b) = (gs - gp, gi - gp);
     let closed = gaussian_purity(p + g * a * a, p + g * b * b, p + g * a * b);
     (run().unwrap_or(f64::NAN), closed)
@@ -552,7 +554,7 @@ pub(crate) fn lle_instability(steps: usize) -> (f64, f64) {
         let r = Resonator::quadratic(z, crate::nonlinear::resonator::drive_for(z, x), 0.05, n)?;
         let psi_s = r.homogeneous_field(x);
         let start: Vec<c64> = (0..n)
-            .map(|j| psi_s + 1e-9 * (2.0 * PI * mode as f64 * j as f64 / n as f64).cos())
+            .map(|j| psi_s + 1e-9 * portable::cos(2.0 * PI * mode as f64 * j as f64 / n as f64))
             .collect();
         let a = r.evolve(&start, 10.0, steps)?;
         let b = r.evolve(&a, 10.0, steps)?;
@@ -561,7 +563,7 @@ pub(crate) fn lle_instability(steps: usize) -> (f64, f64) {
             v.iter().map(|x| (x - m).norm_sqr()).sum::<f64>().sqrt()
         };
         Ok((
-            (amplitude(&b) / amplitude(&a)).ln() / 10.0,
+            portable::ln(amplitude(&b) / amplitude(&a)) / 10.0,
             r.instability_rate(x, mode),
         ))
     };
@@ -584,7 +586,7 @@ fn lle_order() -> Outcome {
         let (a, b) = lle_instability(n);
         (a / b - 1.0).abs()
     };
-    let order = (e(800) / e(1600)).log2();
+    let order = portable::log2(e(800) / e(1600));
     let shown = (order * 100.0).round() / 100.0;
     absolute(shown, 2.0, 0.1)
 }

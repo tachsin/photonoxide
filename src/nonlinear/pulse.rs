@@ -37,6 +37,7 @@ use num_complex::Complex64 as c64;
 
 use super::fft::Fft;
 use super::guide::{ModeIndex, chebyshev_coefficients, chebyshev_derivative, clenshaw};
+use crate::portable;
 use crate::{Error, Result};
 
 /// The speed of light in m/ps.
@@ -253,7 +254,7 @@ fn betas_from_chebyshev(
     let n = points - 1;
     let samples = (0..=n)
         .map(|j| {
-            let w = mid + half * (PI * j as f64 / n as f64).cos();
+            let w = mid + half * portable::cos(PI * j as f64 / n as f64);
             let v = index(wavelength_of(w))?;
             if v.is_finite() {
                 Ok(v)
@@ -271,7 +272,7 @@ fn betas_from_chebyshev(
     let mut derivatives = Vec::with_capacity(order + 1);
     let mut c = chebyshev_coefficients(&samples);
     for k in 0..=order {
-        derivatives.push(clenshaw(&c, x) / half.powi(k as i32));
+        derivatives.push(clenshaw(&c, x) / portable::powi(half, k as i32));
         c = chebyshev_derivative(&c);
     }
     Ok((1..=order)
@@ -438,7 +439,12 @@ fn evolve(
     let linear = |dz: f64| -> Vec<c64> {
         omegas
             .iter()
-            .map(|&w| c64::new(-0.5 * guide.loss * dz, guide.dispersion.phase(w) * dz).exp())
+            .map(|&w| {
+                portable::complex::exp(c64::new(
+                    -0.5 * guide.loss * dz,
+                    guide.dispersion.phase(w) * dz,
+                ))
+            })
             .collect()
     };
     let (half, full) = (linear(0.5 * h), linear(h));
@@ -493,7 +499,7 @@ impl FreeCarriers {
     /// Eqs. (16)–(17)); σ_n takes the holes' share as five times the electrons', which Lin et al.
     /// take for densities from 10¹⁶ to 10¹⁷ cm⁻³. `lifetime_ps` is τ₀ and `index_ratio` n₀/n.
     pub fn silicon(wavelength_um: f64, lifetime_ps: f64, index_ratio: f64) -> FreeCarriers {
-        let scale = (wavelength_um / 1.55).powi(2);
+        let scale = portable::powi(wavelength_um / 1.55, 2);
         FreeCarriers {
             absorption: 1.45e-21 * scale,
             index: -5.3e-27 * scale,
@@ -655,7 +661,7 @@ impl CarrierModel {
     fn density(&self, power: &[f64]) -> Vec<f64> {
         let d = self.step;
         let w = d / self.lifetime;
-        let decay = (-w).exp();
+        let decay = portable::exp(-w);
         // ∫₀^δ e^{−(δ−s)/τ} ds and ∫₀^δ e^{−(δ−s)/τ} s ds / δ
         let (flat, ramp) = if w < 1e-3 {
             (
@@ -663,7 +669,7 @@ impl CarrierModel {
                 d * (0.5 - w / 6.0 + w * w / 24.0 - w * w * w / 120.0),
             )
         } else {
-            let one = -(-w).exp_m1();
+            let one = -portable::exp_m1(-w);
             (self.lifetime * one, self.lifetime * (1.0 - one / w))
         };
         let mut n = Vec::with_capacity(power.len());
@@ -732,15 +738,15 @@ impl<'a> Nonlinear<'a> {
         if self.shock.is_none() && self.raman.is_none() && self.carriers.is_none() {
             if self.tpa == 0.0 {
                 for v in a.iter_mut() {
-                    *v *= c64::new(0.0, self.gamma * v.norm_sqr() * h).exp();
+                    *v *= portable::complex::exp(c64::new(0.0, self.gamma * v.norm_sqr() * h));
                 }
             } else {
                 // dA/dz = (iγ − b)|A|²A: |A|² → P/(1 + 2bPh), the phase γ/(2b)·ln(1 + 2bPh)
                 // (Lin Eqs. (60)–(61) without the linear loss)
                 let b = self.tpa;
                 for v in a.iter_mut() {
-                    let x = (2.0 * b * v.norm_sqr() * h).ln_1p();
-                    *v *= c64::new(-0.5 * x, self.gamma / (2.0 * b) * x).exp();
+                    let x = portable::ln_1p(2.0 * b * v.norm_sqr() * h);
+                    *v *= portable::complex::exp(c64::new(-0.5 * x, self.gamma / (2.0 * b) * x));
                 }
             }
             return;
@@ -843,7 +849,9 @@ impl Pulse {
     /// As [`Pulse::sampled`].
     pub fn sech(peak: f64, t0: f64, points: usize, window: f64) -> Result<Pulse> {
         let a = peak.sqrt();
-        Pulse::sampled(points, window, |t| c64::new(a / (t / t0).cosh(), 0.0))
+        Pulse::sampled(points, window, |t| {
+            c64::new(a / portable::cosh(t / t0), 0.0)
+        })
     }
 
     /// √P₀ exp(−T²/2T₀²) (Agrawal Eq. (3.2.4)): `peak` W, `t0` ps.
@@ -854,7 +862,7 @@ impl Pulse {
     pub fn gaussian(peak: f64, t0: f64, points: usize, window: f64) -> Result<Pulse> {
         let a = peak.sqrt();
         Pulse::sampled(points, window, |t| {
-            c64::new(a * (-0.5 * (t / t0).powi(2)).exp(), 0.0)
+            c64::new(a * portable::exp(-0.5 * portable::powi(t / t0, 2)), 0.0)
         })
     }
 
@@ -974,7 +982,7 @@ pub fn effective_length(loss: f64, length: f64) -> f64 {
     if loss == 0.0 {
         length
     } else {
-        -(-loss * length).exp_m1() / loss
+        -portable::exp_m1(-loss * length) / loss
     }
 }
 
@@ -993,7 +1001,7 @@ pub fn spm_rms_broadening(phi_max: f64) -> f64 {
 /// dispersion or carriers: P = P₀e^{−αL}/(1 + β_T P₀ L_eff/ā) (Lin, Painter and Agrawal 2007,
 /// Eq. (60)), W; β_T in m/W, ā in m², α in 1/m.
 pub fn two_photon_power(peak: f64, coefficient: f64, area: f64, loss: f64, length: f64) -> f64 {
-    peak * (-loss * length).exp()
+    peak * portable::exp(-loss * length)
         / (1.0 + coefficient * peak * effective_length(loss, length) / area)
 }
 
@@ -1011,7 +1019,7 @@ pub fn two_photon_phase(
     if coefficient == 0.0 {
         return gamma * peak * l;
     }
-    gamma * area / coefficient * (coefficient * peak * l / area).ln_1p()
+    gamma * area / coefficient * portable::ln_1p(coefficient * peak * l / area)
 }
 
 /// The carrier density a Gaussian pulse |A|² = P₀e^{−T²/T₀²} leaves behind it without
@@ -1032,10 +1040,11 @@ pub fn gaussian_carriers(
 /// The second-order soliton in normalized units (ξ = z/L_D, τ = T/T₀, u = N U, Eq. (5.2.5)):
 /// u = 4[cosh 3τ + 3 e^{4iξ} cosh τ] e^{iξ/2} / [cosh 4τ + 4 cosh 2τ + 3 cos 4ξ] (Eq. (5.2.23)).
 pub fn second_order_soliton(xi: f64, tau: f64) -> c64 {
-    let num =
-        c64::new((3.0 * tau).cosh(), 0.0) + c64::new(0.0, 4.0 * xi).exp() * (3.0 * tau.cosh());
-    let den = (4.0 * tau).cosh() + 4.0 * (2.0 * tau).cosh() + 3.0 * (4.0 * xi).cos();
-    num * c64::new(0.0, 0.5 * xi).exp() * (4.0 / den)
+    let num = c64::new(portable::cosh(3.0 * tau), 0.0)
+        + portable::complex::exp(c64::new(0.0, 4.0 * xi)) * (3.0 * portable::cosh(tau));
+    let den =
+        portable::cosh(4.0 * tau) + 4.0 * portable::cosh(2.0 * tau) + 3.0 * portable::cos(4.0 * xi);
+    num * portable::complex::exp(c64::new(0.0, 0.5 * xi)) * (4.0 / den)
 }
 
 #[cfg(test)]

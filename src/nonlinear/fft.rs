@@ -6,6 +6,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// A transform of one length: its twiddle factors and bit-reversal permutation, computed once.
@@ -35,7 +36,7 @@ impl Fft {
         let twiddles = (0..n / 2)
             .map(|k| {
                 let a = -std::f64::consts::TAU * k as f64 / n as f64;
-                c64::new(a.cos(), a.sin())
+                c64::new(portable::cos(a), portable::sin(a))
             })
             .collect();
         let reversed = (0..n)
@@ -97,7 +98,12 @@ mod tests {
         let n = 64;
         let fft = Fft::new(n).unwrap();
         let x: Vec<c64> = (0..n)
-            .map(|j| c64::new((0.3 * j as f64).sin(), (0.11 * (j * j) as f64).cos()))
+            .map(|j| {
+                c64::new(
+                    portable::sin(0.3 * j as f64),
+                    portable::cos(0.11 * (j * j) as f64),
+                )
+            })
             .collect();
         let mut y = x.clone();
         fft.forward(&mut y);
@@ -107,14 +113,17 @@ mod tests {
                 .enumerate()
                 .map(|(j, &v)| {
                     let a = -std::f64::consts::TAU * (j * k) as f64 / n as f64;
-                    v * c64::new(a.cos(), a.sin())
+                    v * c64::new(portable::cos(a), portable::sin(a))
                 })
                 .sum();
-            assert!((direct - yk).norm() < 1e-12, "{k}: {direct} {yk}");
+            assert!(
+                portable::complex::abs(direct - yk) < 1e-12,
+                "{k}: {direct} {yk}"
+            );
         }
         fft.inverse(&mut y);
         for (a, b) in x.iter().zip(&y) {
-            assert!((a - b).norm() < 1e-14);
+            assert!(portable::complex::abs(a - b) < 1e-14);
         }
         assert!(Fft::new(48).is_err());
     }
@@ -151,7 +160,7 @@ mod tests {
         let mu = 2f64.sqrt() * (std::f64::consts::PI + 2.0) * u;
         let gamma4 = 4.0 * u / (1.0 - 4.0 * u);
         let eta = mu + gamma4 * (2f64.sqrt() + mu);
-        let l = (n as f64).log2();
+        let l = portable::log2(n as f64);
         let allowed = l * eta / (1.0 - l * eta) + u;
         println!("fft: relative error {off:.2e}, allowed {allowed:.2e}");
         assert!(off <= allowed, "{off:e} > {allowed:e}");

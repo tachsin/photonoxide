@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 fn process() -> ThreeWave {
     // a 1.5 µm signal and a 3.0 µm idler from a 1.0 µm pump, 1e-4 /(√W·µm), matched, lossless
@@ -21,8 +22,8 @@ fn the_singly_resonant_threshold_is_cosh_gl_one_over_r() {
     let p = osc.threshold(400).unwrap();
     let (n1, n2) = (1.0 / 1.5, 1.0 / 3.0);
     let n3 = n1 + n2;
-    let gl = (1.0f64 / 0.9).acosh();
-    let expected = (gl / 1e4).powi(2) / (1e-8 * n1 * n2 / (n3 * n3));
+    let gl = portable::acosh(1.0f64 / 0.9);
+    let expected = portable::powi(gl / 1e4, 2) / (1e-8 * n1 * n2 / (n3 * n3));
     assert!((p / expected - 1.0).abs() < 1e-8, "{p} {expected}");
 }
 
@@ -46,11 +47,14 @@ fn below_threshold_the_signal_dies_and_above_it_the_pump_is_depleted() {
 #[test]
 fn the_uniform_limit_is_full_depletion_at_pi_squared_over_four() {
     assert_eq!(uniform_depletion(0.9), 0.0);
-    let full = uniform_depletion(std::f64::consts::PI.powi(2) / 4.0);
+    let full = uniform_depletion(portable::powi(std::f64::consts::PI, 2) / 4.0);
     assert!((full - 1.0).abs() < 1e-12);
     // x²/sin²x = 2 at x = 1.39156 (sinc's half maximum), so D = x²/2
     let d = uniform_depletion(2.0);
-    assert!((d - 1.391_557_4f64.powi(2) / 2.0).abs() < 1e-7, "{d}");
+    assert!(
+        (d - portable::powi(1.391_557_4f64, 2) / 2.0).abs() < 1e-7,
+        "{d}"
+    );
     assert!(uniform_depletion(4.0) < full);
 }
 

@@ -27,6 +27,7 @@
 
 use num_complex::Complex64 as c64;
 
+use crate::portable;
 use crate::{Error, Result};
 
 /// The effective mismatch κ = Δk + 2γP (Agrawal Eq. (10.2.21)), rad/m.
@@ -37,7 +38,7 @@ pub fn effective_mismatch(gamma: f64, pump: f64, mismatch: f64) -> f64 {
 /// g² = (γP)² − (κ/2)² (Eq. (10.2.19)), 1/m²: the gain where positive.
 pub fn gain_squared(gamma: f64, pump: f64, mismatch: f64) -> f64 {
     let k = 0.5 * effective_mismatch(gamma, pump, mismatch);
-    (gamma * pump).powi(2) - k * k
+    portable::powi(gamma * pump, 2) - k * k
 }
 
 /// The parametric gain g (1/m), 0 where the process doesn't amplify (|κ/2| ≥ γP).
@@ -49,10 +50,10 @@ pub fn parametric_gain(gamma: f64, pump: f64, mismatch: f64) -> f64 {
 fn sinhc(g2: f64, length: f64) -> f64 {
     if g2 > 0.0 {
         let g = g2.sqrt();
-        (g * length).sinh() / g
+        portable::sinh(g * length) / g
     } else if g2 < 0.0 {
         let g = (-g2).sqrt();
-        (g * length).sin() / g
+        portable::sin(g * length) / g
     } else {
         length
     }
@@ -62,7 +63,10 @@ fn sinhc(g2: f64, length: f64) -> f64 {
 /// P_i(L)/P_s(0) = (γP sinh(gL)/g)² (Eq. (10.4.6), whose 1 + κ²/4g² is (γP/g)²). The
 /// conversion efficiency.
 pub fn conversion(gamma: f64, pump: f64, mismatch: f64, length: f64) -> f64 {
-    (gamma * pump * sinhc(gain_squared(gamma, pump, mismatch), length)).powi(2)
+    portable::powi(
+        gamma * pump * sinhc(gain_squared(gamma, pump, mismatch), length),
+        2,
+    )
 }
 
 /// The signal's gain G = P_s(L)/P_s(0) = 1 + (γP sinh(gL)/g)² (Eq. (10.4.7) with r = 1), with
@@ -109,7 +113,7 @@ impl FourWave {
     fn rate(&self, z: f64, w: &Waves) -> Waves {
         let (p, s, i) = (w.pump, w.signal, w.idler);
         let (pp, ps, pi) = (p.norm_sqr(), s.norm_sqr(), i.norm_sqr());
-        let e = c64::new(0.0, self.mismatch * z).exp();
+        let e = portable::complex::exp(c64::new(0.0, self.mismatch * z));
         let ig = c64::new(0.0, self.gamma);
         Waves {
             pump: ig * ((pp + 2.0 * ps + 2.0 * pi) * p + 2.0 * p.conj() * s * i * e),

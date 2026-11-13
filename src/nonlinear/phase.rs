@@ -54,6 +54,7 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 use crate::material::catalogue::{self, Axis, Conditions, IndexModel};
 use crate::material::{Material, Model, Provenance, Table};
+use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
@@ -65,10 +66,10 @@ pub const HALF_MAXIMUM: f64 = 1.391_557_378_251_510_3;
 pub fn sinc2(x: f64) -> f64 {
     if x.abs() < 1e-4 {
         // sin x / x = 1 − x²/6 + x⁴/120, to round-off here
-        let s = 1.0 - x * x / 6.0 + x.powi(4) / 120.0;
+        let s = 1.0 - x * x / 6.0 + portable::powi(x, 4) / 120.0;
         s * s
     } else {
-        let s = x.sin() / x;
+        let s = portable::sin(x) / x;
         s * s
     }
 }
@@ -115,7 +116,7 @@ pub fn nearest_order(mismatch: f64, period: f64) -> (u32, f64) {
 /// cycle D (Fejer et al., Eq. (22)); at D = ½ and odd m, 2/(mπ) (Eq. (23)).
 pub fn fourier_coefficient(order: u32, duty: f64) -> f64 {
     let m = f64::from(order);
-    2.0 / (m * PI) * (m * PI * duty).sin()
+    2.0 / (m * PI) * portable::sin(m * PI * duty)
 }
 
 /// The effective coefficient of a quasi-phase-matched interaction, d_Q = G_m d =
@@ -327,7 +328,7 @@ impl Index {
                 principal,
             } => {
                 let (no, ne) = (ordinary.n(lam, t, theta)?, principal.n(lam, t, theta)?);
-                let (s, c) = theta.sin_cos();
+                let (s, c) = portable::sin_cos(theta);
                 Ok(1.0 / (c * c / (no * no) + s * s / (ne * ne)).sqrt())
             }
         }
@@ -658,14 +659,14 @@ impl Process {
         // (the free wave's index depends on its own direction, Eq. (A1.1))
         let mut phi = tilt;
         for _ in 0..100 {
-            let s = p * tilt.sin() / k(f, phi)?;
+            let s = p * portable::sin(tilt) / k(f, phi)?;
             if s.abs() >= 1.0 {
                 return Err(Error::invalid(
                     "tilt",
                     format!("at {tilt} rad no wave can carry the transverse wave vector"),
                 ));
             }
-            let next = s.asin();
+            let next = portable::asin(s);
             let done = (next - phi).abs() <= 1e-15;
             phi = next;
             if done {
@@ -673,7 +674,7 @@ impl Process {
             }
         }
         // Eq. (38), along the reference axis
-        Ok(sf * (k(f, phi)? * phi.cos() - p * tilt.cos()))
+        Ok(sf * (k(f, phi)? * portable::cos(phi) - p * portable::cos(tilt)))
     }
 
     /// Each wave's frequency (1/µm) when the quoted wave's wavelength is `lam` (µm).

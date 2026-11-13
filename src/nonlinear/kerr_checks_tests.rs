@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 /// The numbers behind the rules and the write-up's tables:
 /// `cargo test --release --lib kerr_checks::tests::tables -- --ignored --nocapture`.
@@ -71,10 +72,10 @@ fn tables() {
     let ring = coen_2012_ring().unwrap();
     let r = ring.resonator(512).unwrap();
     let s = r.soliton(ring.d2()).unwrap();
-    let p = c64::new(s.cos_phase, (1.0 - s.cos_phase.powi(2)).sqrt());
+    let p = c64::new(s.cos_phase, (1.0 - portable::powi(s.cos_phase, 2)).sqrt());
     println!(
         "coen approximation: fwhm {} fs, peak {} W, d2 {}, f {}",
-        ring.time_of(s.width) * 2.0 * (2f64.sqrt()).acosh() * 1e3,
+        ring.time_of(s.width) * 2.0 * portable::acosh(2f64.sqrt()) * 1e3,
         (s.background + p * s.amplitude).norm_sqr() * ring.power_scale(),
         ring.d2(),
         ring.normalized_drive()
@@ -204,12 +205,12 @@ fn soliton_existence() {
         let fwhm = peak_width(&psi).unwrap();
         let approx = r.soliton(d2);
         let approx_peak = approx.map(|s| {
-            let p = c64::new(s.cos_phase, (1.0 - s.cos_phase.powi(2)).sqrt());
+            let p = c64::new(s.cos_phase, (1.0 - portable::powi(s.cos_phase, 2)).sqrt());
             (s.background + p * s.amplitude).norm_sqr()
         });
         println!(
             "{z}: peak {peak:.4} (approx {approx_peak:?}), fwhm {fwhm:.6} (approx {:?})",
-            approx.map(|s| s.width * 2.0 * (2f64.sqrt()).acosh())
+            approx.map(|s| s.width * 2.0 * portable::acosh(2f64.sqrt()))
         );
         z += 0.25;
     }
@@ -218,11 +219,11 @@ fn soliton_existence() {
 #[test]
 fn the_split_steps_are_second_order() {
     let a = second_order(1000) / second_order(2000);
-    assert!((a.log2() - 2.0).abs() < 0.1, "{a}");
+    assert!((portable::log2(a) - 2.0).abs() < 0.1, "{a}");
     let (x, y) = lle_instability(800);
     let (u, v) = lle_instability(1600);
     let b = (x / y - 1.0).abs() / (u / v - 1.0).abs();
-    assert!((b.log2() - 2.0).abs() < 0.1, "{b}");
+    assert!((portable::log2(b) - 2.0).abs() < 0.1, "{b}");
 }
 
 #[test]

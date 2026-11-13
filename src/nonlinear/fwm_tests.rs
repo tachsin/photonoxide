@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 
 #[test]
 fn the_closed_forms_meet_their_limits() {
@@ -8,7 +9,10 @@ fn the_closed_forms_meet_their_limits() {
     assert_eq!(effective_mismatch(gamma, pump, dk), 0.0);
     assert!((parametric_gain(gamma, pump, dk) - gamma * pump).abs() < 1e-15);
     let g = gamma * pump * length;
-    assert!((signal_gain(gamma, pump, dk, length) - (1.0 + g.sinh().powi(2))).abs() < 1e-12);
+    assert!(
+        (signal_gain(gamma, pump, dk, length) - (1.0 + portable::powi(portable::sinh(g), 2))).abs()
+            < 1e-12
+    );
     // g = 0 exactly (κ = ±2γP): the gain is 1 + (γPL)²
     let edge = 0.0;
     assert!((gain_squared(gamma, pump, edge)).abs() < 1e-15);
@@ -16,7 +20,8 @@ fn the_closed_forms_meet_their_limits() {
     // far from phase matching, Eq. (10.4.8): G ≈ 1 + (γPL)² sinc²(κL/2)
     let far = 400.0;
     let k = effective_mismatch(gamma, pump, far);
-    let approx = 1.0 + g * g * ((0.5 * k * length).sin() / (0.5 * k * length)).powi(2);
+    let approx =
+        1.0 + g * g * portable::powi(portable::sin(0.5 * k * length) / (0.5 * k * length), 2);
     assert!((signal_gain(gamma, pump, far, length) / approx - 1.0).abs() < 1e-3);
     assert!(
         (conversion(gamma, pump, dk, length) + 1.0 - signal_gain(gamma, pump, dk, length)).abs()
@@ -83,7 +88,7 @@ fn each_wave_loses_its_own_power() {
         .unwrap();
     for (a, alpha) in [(end.pump, 0.1), (end.signal, 0.2), (end.idler, 0.3)] {
         let p: f64 = a.norm_sqr();
-        assert!((p - (-alpha * 2.0f64).exp()).abs() < 1e-12, "{p}");
+        assert!((p - portable::exp(-alpha * 2.0f64)).abs() < 1e-12, "{p}");
     }
     assert!(
         fw.propagate_with_loss(start, 1.0, 1, [f64::NAN, 0.0, 0.0])

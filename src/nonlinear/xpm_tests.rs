@@ -1,5 +1,6 @@
 use super::*;
 use crate::nonlinear::pulse::Dispersion;
+use crate::portable;
 
 fn kerr(gamma: f64) -> Guide {
     Guide::new(Dispersion::new(1.55, &[0.0]).unwrap(), gamma, 0.0)
@@ -30,7 +31,7 @@ fn without_walk_off_the_cross_phase_is_twice_the_self_phase() {
     let zero = Pulse::sampled(256, 32.0, |_| c64::new(1e-30, 0.0)).unwrap();
     let (_, probe) = pair.propagate(&a, &zero, 1.0, 10).unwrap();
     let j = 128;
-    let phase = (probe.field[j] / zero.field[j]).arg();
+    let phase = portable::complex::arg(probe.field[j] / zero.field[j]);
     assert!((phase - 2.0).abs() < 1e-12, "{phase}");
     let closed = gaussian_phase(1.0, [0.0, 1.0], 1.0, 0.0, 0.0, 2.0, 1.0, 0.0);
     assert!((closed - 2.0).abs() < 1e-15);

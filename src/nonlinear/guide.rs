@@ -64,6 +64,7 @@ use crate::mode::pockels::Along;
 use crate::mode::vector::{
     self, Boundaries, Boundary, CrossSection, Permittivity, VectorMode, graded_nodes,
 };
+use crate::portable;
 use crate::units::{SPEED_OF_LIGHT, Wavelength};
 use crate::{Error, Result};
 
@@ -324,7 +325,7 @@ pub enum Family {
 impl Ridge {
     /// The ridge's half width at height y in its etched part.
     fn half_width(&self, y: f64) -> f64 {
-        0.5 * self.width + (self.film - y) / self.angle.to_radians().tan()
+        0.5 * self.width + (self.film - y) / portable::tan(self.angle.to_radians())
     }
 
     /// The film's thickness left beside the ridge.
@@ -593,7 +594,7 @@ impl ModeIndex {
                     *v = samples[j / 2];
                     continue;
                 }
-                let x = (std::f64::consts::PI * j as f64 / n as f64).cos();
+                let x = portable::cos(std::f64::consts::PI * j as f64 / n as f64);
                 let neff = mode(Wavelength::um(at(x))?)?.effective_index().re;
                 if !neff.is_finite() {
                     return Err(Error::invalid(
@@ -732,7 +733,7 @@ impl ModeIndex {
         let second = self.derivatives(lam).1; // 1/µm²
         // λ³ (µm³) · d²n/dλ² (1/µm²) is in µm; c in µm/fs, so this is fs²/µm
         let c = SPEED_OF_LIGHT * 1e-9;
-        lam.powi(3) * second / (TAU * c * c) * 1e3
+        portable::powi(lam, 3) * second / (TAU * c * c) * 1e3
     }
 
     /// The interpolant as an [`Index`] for [`super::phase`]'s processes: a natural cubic spline
@@ -762,7 +763,7 @@ pub(crate) fn chebyshev_coefficients(f: &[f64]) -> Vec<f64> {
             let mut sum = 0.0;
             for (j, &v) in f.iter().enumerate() {
                 let w = if j == 0 || j == n { 0.5 } else { 1.0 };
-                sum += w * v * (std::f64::consts::PI * (k * j) as f64 / nf).cos();
+                sum += w * v * portable::cos(std::f64::consts::PI * (k * j) as f64 / nf);
             }
             let c = 2.0 / nf * sum;
             if k == 0 || k == n { 0.5 * c } else { c }
@@ -979,7 +980,7 @@ pub fn sum_frequency_coupling(
 ) -> Result<f64> {
     let o = overlap(sum, first, second, d, share)?;
     // 1/(√W m) → 1/(√W µm)
-    Ok(0.5 * sum.omega * EPSILON_0 * o.norm() * 1e-6)
+    Ok(0.5 * sum.omega * EPSILON_0 * portable::complex::abs(o) * 1e-6)
 }
 
 /// The coupling κ of second-harmonic generation along the guide, in 1/(√W·µm) as
@@ -995,7 +996,7 @@ pub fn second_harmonic_coupling(
     share: &[f64],
 ) -> Result<f64> {
     let o = overlap(harmonic, fundamental, fundamental, d, share)?;
-    Ok(0.5 * fundamental.omega * EPSILON_0 * o.norm() * 1e-6)
+    Ok(0.5 * fundamental.omega * EPSILON_0 * portable::complex::abs(o) * 1e-6)
 }
 
 /// A coupling κ (1/(√W·µm)) as the normalized efficiency η = κ² in %/(W·cm²): the inverse of
@@ -1017,7 +1018,7 @@ pub fn plane_wave_efficiency(
     let d = d * 1e-12;
     let eta = 2.0 * omega * omega * d * d
         / (EPSILON_0
-            * SPEED_OF_LIGHT.powi(3)
+            * portable::powi(SPEED_OF_LIGHT, 3)
             * n_fundamental
             * n_fundamental
             * n_harmonic
