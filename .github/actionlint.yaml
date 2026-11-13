@@ -1,0 +1,11 @@
+# actionlint's settings (CI's "CI's own files" job; `actionlint` here reads them too)
+self-hosted-runner:
+  # GitHub's Xcode 27 beta image, which the Libraries workflow's Accelerate row runs on; actionlint
+  # doesn't know the label yet
+  labels:
+    - xcode-27
+paths:
+  .github/workflows/libraries.yml:
+    ignore:
+      # the "Where it landed" step's `matrix.file`, which no row sets yet: the step is skipped
+      - 'property "file" is not defined'
