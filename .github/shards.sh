@@ -24,6 +24,9 @@
 #               (in the same Cargo command as photonoxide's where the job runs every test)
 #   build_cases     true when a Linux job runs validation cases: the build makes their binary
 #   build_examples  the examples the Linux jobs run, which the build makes
+#   minutes     the Linux jobs' cases and examples one after the other, in minutes, from their
+#               measured times (.github/case-times.txt): ci.yml runs a pull request's in one job
+#               when they are few, and in the shards otherwise
 #
 # The unit tests run on the systems the area map's `systems` names (ci.yml sets it: Linux on a
 # pull request, in the merge queue and on a push to main; all three in the Weekly run, by hand, on
@@ -325,6 +328,16 @@ fail() { echo "::error::shards.sh: $1" >&2; failed=true; }
 field() { sed -E "s/.*\"$2\":\"([^\"]*)\".*/\1/" <<<"$1"; }
 
 # (selects: above, with the groups)
+# The measured times (.github/case-times.txt, tenths of a second; 10 s for one not there), added up
+# below for the run's cases and examples: the minutes they take one after the other
+declare -A case_time=() example_time=()
+while read -r kind name sec; do
+  case "$kind" in case | example) ;; *) continue ;; esac
+  sec=${sec%$'\r'}
+  if [[ "$sec" == *.* ]]; then tenths=$((10#${sec%%.*} * 10 + 10#${sec#*.})); else tenths=$((10#$sec * 10)); fi
+  if [ "$kind" = case ]; then case_time[$name]=$tenths; else example_time[$name]=$tenths; fi
+done < .github/case-times.txt
+total_tenths=0
 if [ -n "$cases" ]; then
   job_cases=()
   for e in "${release[@]}"; do job_cases+=("$(field "$e" cases)"); done
@@ -345,6 +358,7 @@ if [ -n "$cases" ]; then
     done
     if [ "$k" -gt 1 ]; then fail "the case $id is in $k jobs"; fi
     if [ "$wanted" = true ] && [ "$k" -eq 0 ]; then fail "the case $id is in no job"; fi
+    [ "$k" -eq 0 ] || total_tenths=$((total_tenths + ${case_time[$id]:-100}))
     n=$((n + 1))
   done < <(grep -E '^\| `' docs/validation.md)
   [ "$failed" = true ] || echo "checked: each of the $n cases in one job at most, each wanted one in exactly one" >&2
@@ -429,3 +443,6 @@ echo "release_os=$(json "${others[@]}")"
 echo "test=$(json "${tested[@]}")"
 echo "build_cases=$build_cases"
 echo "build_examples=${build_examples# }"
+# the Linux jobs' cases and examples, one after the other, in whole minutes (rounded up)
+for name in $build_examples; do total_tenths=$((total_tenths + ${example_time[$name]:-100})); done
+echo "minutes=$(((total_tenths + 599) / 600))"
