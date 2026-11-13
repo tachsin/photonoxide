@@ -263,6 +263,12 @@ fn no_window(what: &str) -> ExitCode {
 
 fn usage() -> ExitCode {
     eprintln!("{USAGE}");
+    if cfg!(not(feature = "window")) {
+        eprintln!(
+            "\nThis build has no window: the studio, view, nightly, setup and uninstall need the \
+             program with it (studio/README.md)."
+        );
+    }
     ExitCode::from(2)
 }
 

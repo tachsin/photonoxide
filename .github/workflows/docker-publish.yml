@@ -76,10 +76,12 @@ jobs:
         name: The architecture, the version and the commit
         run: |
           platform='${{ matrix.platform }}'
-          echo "name=${platform#linux/}" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "created=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+          {
+            echo "name=${platform#linux/}"
+            echo "version=${TAG#v}"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "created=$(git log -1 --format=%cI)"
+          } >> "$GITHUB_OUTPUT"
       - id: rust
         uses: ./.github/actions/rust-toolchain
       - uses: Swatinem/rust-cache@v2
@@ -213,12 +215,16 @@ jobs:
           HUB: ${{ needs.build.outputs.hub }}
         run: |
           set -euo pipefail
-          for image in "$GHCR" $([ "$HUB" = true ] && echo "$DOCKERHUB"); do
+          images=("$GHCR")
+          if [ "$HUB" = true ]; then images+=("$DOCKERHUB"); fi
+          for image in "${images[@]}"; do
             args=()
             while read -r tag; do
               case "$tag" in "$image":*) args+=(-t "$tag") ;; esac
             done <<<"$TAGS"
-            docker buildx imagetools create "${args[@]}" $(printf "$image@sha256:%s " *)
+            sources=()
+            for digest in *; do sources+=("$image@sha256:$digest"); done
+            docker buildx imagetools create "${args[@]}" "${sources[@]}"
             docker buildx imagetools inspect "${args[1]}"
           done
       - if: needs.build.outputs.hub == 'true'

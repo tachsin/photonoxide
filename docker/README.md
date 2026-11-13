@@ -99,3 +99,26 @@ photonoxide is licensed under either of the
 [Apache License, Version 2.0](https://github.com/tachsin/photonoxide/blob/main/LICENSE-APACHE) or
 the [MIT licence](https://github.com/tachsin/photonoxide/blob/main/LICENSE-MIT), at your option.
 Both are in the image, in `/usr/share/doc/photonoxide/`.
+
+## Publishing
+
+Each release's image is built and pushed by the repository's workflow
+(`.github/workflows/docker-publish.yml`, which the release workflow calls with the new tag):
+both architectures are built on runners of their own and checked first (`docker/check.sh`: the
+image's own checks, and the same jobs run natively giving the same bits), then pushed with their
+SBOM and provenance. GitHub's registry needs no setup. Docker Hub needs, once:
+
+1. A Docker Hub account, and a public repository in it, `photonoxide` (the namespace is the
+   account's or an organization's).
+2. A personal access token of that account (Account settings, Personal access tokens) with
+   **Read, Write, Delete** access: Read & Write pushes the image, and Delete is what Docker Hub
+   asks to update the repository's page from this file. With Read & Write alone, the push works
+   and the page's text is pasted by hand.
+3. In the GitHub repository's Settings, Secrets and variables, Actions: the secrets
+   `DOCKERHUB_USERNAME` (the account's name) and `DOCKERHUB_TOKEN` (the token); and, when the
+   repository isn't `tachsin/photonoxide`, the variable `DOCKERHUB_REPOSITORY` naming it
+   (`<namespace>/photonoxide`).
+
+Without the secrets, a release's workflow skips Docker Hub with a notice and pushes to GitHub's
+registry alone. A release's image can be made again by running the workflow by hand with its
+tag.
