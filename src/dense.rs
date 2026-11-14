@@ -2,8 +2,8 @@
 //! calls them and the backends that choose them. Public at [`crate::backend::dense`], where
 //! the choice of kernels and the solver made from them are.
 //!
-//! faer's QR, SVD and eigendecompositions, which the library takes sequentially so that their
-//! bits don't follow the number of threads, are in [`fixed`].
+//! faer's QR, SVD and eigendecompositions, which the library takes sequentially, and its sparse
+//! LU, on four tasks, so that their bits don't follow the number of threads, are in [`fixed`].
 
 pub(crate) mod fixed;
 

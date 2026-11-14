@@ -45,9 +45,10 @@ $$
 
 photonoxide's own solvers give the same bits on any number of threads: each sums in an order
 fixed by the problem, not by the threads, and CI runs the tests on one thread as well as many.
-So do the calls into faer: its products and LUs give the same bits on any number of threads, and
-the library takes faer's QR, SVDs and eigendecompositions sequentially (`src/dense/fixed.rs`),
-since faer's own divide their work by the threads (faer's dense kernels, below). On one machine
+So do the calls into faer: its dense products and LUs give the same bits on any number of
+threads, and the library takes faer's QR, SVDs and eigendecompositions sequentially and its
+sparse LU on four tasks whatever the threads (`src/dense/fixed.rs`), since faer's own divide
+their work by the threads (faer's dense kernels, below). On one machine
 a result is the same bits whatever its number of cores or `RAYON_NUM_THREADS`, and so on every
 machine of one family, x86-64 or ARM.
 Across systems the same bits are wanted but not promised, and CI checks what shows: the examples'
@@ -110,9 +111,17 @@ What can differ between systems, and what photonoxide does about each:
   thread, on any number of threads. At the sizes the library takes, sequential is also faster (a
   QR of 100 × 31 in 23 µs against 444 µs on four threads, the complex thin SVD of 300 × 30 in
   0.35 ms against 1.4 ms, an eigendecomposition of 100 × 100 in 4.7 ms against 7.9 ms); rayon's
-  threads win from about 200 × 200 and on tall matrices of thousands of rows. The product and the
-  LUs, whose bits don't follow the threads, stay on rayon's. The canaries assert all of it: every
-  one of the 181 results the same bits sequential and on 1 to 5 threads. What is promised, then:
+  threads win from about 200 × 200 and on tall matrices of thousands of rows. faer's sparse LU
+  (`sp_lu`: the mode solvers', the eigensolvers' shift and invert, a circuit's solve) followed
+  the threads too: its supernodal factorization takes another path on rayon's threads than
+  sequentially, and other bits on each number of them, from about 40 000 unknowns; 75 of the
+  validation's cases gave other digits on 1 and on 3 threads here, 78 on 3 and on 4 threads on
+  macOS. The library takes it on four tasks whatever rayon's pool (`SparseLu`): the same bits on
+  any number of threads, and those 78 cases took 1131 s on 3 threads against 1703 s on faer's
+  default (1356 s sequential). The dense products and LUs, whose bits don't follow the threads
+  (the same on 1 to 5 threads up to 2000 × 2000), stay on rayon's. The canaries assert all of it:
+  every one of the 181 dense results and the sparse LU's solves the same bits sequential and on 1
+  to 5 threads. What is promised, then:
   on one machine family, the same bits on any number of threads; between x86-64 and ARM, not,
   unless photonoxide takes its own fixed-order kernels (#822, Stage B, undecided). The Systems
   workflow sets `RAYON_NUM_THREADS=4` all the same, so that GitHub's macOS runners (3 cores) and

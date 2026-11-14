@@ -1,5 +1,5 @@
-//! faer's QR, SVD and eigendecompositions, sequential: the same bits on any number of threads
-//! (#822).
+//! faer's QR, SVD and eigendecompositions, sequential, and its sparse LU on four tasks: the same
+//! bits on any number of threads (#822).
 //!
 //! faer's own methods (`Mat::qr`, `svd`, `thin_svd`, `singular_values`, `eigen`, `eigenvalues`,
 //! `generalized_eigen`) run on its global parallelism, all of rayon's threads unless it is set, and its blocked
@@ -12,8 +12,9 @@
 //! 4-core and an 8-core machine. These functions compute the same decompositions as faer's methods,
 //! step for step, on [`PAR`] instead. So are the eigenvalues alone (the canaries found their bits
 //! the same on 1 to 5 threads up to 256 × 256, but they go through the same Hessenberg reduction)
-//! and the generalized eigenproblems (QZ starts with a QR of B). faer's product and LUs give the
-//! same bits on any number of threads and stay on rayon's.
+//! and the generalized eigenproblems (QZ starts with a QR of B). faer's sparse LU is here too, on
+//! four tasks ([`SparseLu`]). faer's dense product and LUs give the same bits on any number of
+//! threads and stay on rayon's.
 //!
 //! [`PAR`] is sequential because that was also the fastest at the sizes the library takes
 //! (November 2026, faer 0.24.4, a Core Ultra 7 265K on 4 threads): a QR of 100 × 31 in 23 µs

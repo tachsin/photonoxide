@@ -46,6 +46,7 @@
 //! | `canary_tests::canary_qmr_and_gmres_iterations_are_the_closed_form` | QMR, GMRES | closed form | k iterations for k distinct eigenvalues, within 5 % |
 //! | `canary_tests::canary_least_squares_and_its_jacobi_fallback` | `lstsq` (faer QR, SVD; Jacobi) | self-consistency | forward error ≤ 10·n·ε·κ; Weyl between the two SVDs |
 //! | `canary_tests::canary_faer_least_squares_bit_for_bit` | `lstsq`, 30 × 8 to 400 × 64 | self-consistency; the hashes printed (`FAER r_lstsq …`) | bit-exact computed again, sequential and on 1 to 5 threads |
+//! | `canary_tests::canary_sparse_lu_bit_for_bit` | `dense::fixed::SparseLu` (faer's supernodal LU on four tasks), 3 600 and 40 000 unknowns | self-consistency; the hashes printed (`FAER c_sparse_lu …`) | bit-exact computed again, sequential and on 1 to 5 threads |
 //! | `expr::tests::canary_erf_to_round_off` | own erf | exact (mpmath) | the series' rounding |
 //! | `geometry::region_tests::canary_gamma_to_fifteen_digits` | own Γ (Lanczos) | exact (mpmath) | its doc's 15 digits for the approximation, plus its arithmetic's running error |
 //! | `nonlinear::fft::tests::canary_fft_against_the_exact_dft` | own FFT, libm twiddles | exact (mpmath) | Higham's bound for the FFT |

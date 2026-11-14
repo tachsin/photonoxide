@@ -458,13 +458,14 @@ fn canary_faer_least_squares_bit_for_bit() {
 /// bit for bit: a solve and a transposed solve of a complex five-point operator on an n × n grid
 /// (a mode solver's shape: −∇² + k² ε with ε random about 1, 2 + 0.1i in the middle), its
 /// entries from [`faer_bits::Inputs`], printed as `FAER c_sparse_lu <n> <hash>`. Asserted: the
-/// same bits computed again, and sequential and on 1 to 5 threads (faer's own `sp_lu` gave other
-/// bits on each number of threads, and another path sequentially, #822); not asserted: the
-/// hashes against another system's.
+/// same bits computed again, and sequential and on 1 to 5 threads. faer's own `sp_lu` (all of
+/// rayon's threads) gave the same bits on 1 to 5 threads at 60 × 60 but other bits on 2 to 5
+/// than on one at 200 × 200 (40 000 unknowns; in November 2026, on x86-64), as it did in the mode
+/// solvers (#822). Not asserted: the hashes against another system's.
 #[test]
 fn canary_sparse_lu_bit_for_bit() {
     fn items() -> Vec<faer_bits::Item> {
-        [30usize, 60, 120]
+        [60usize, 200]
             .into_iter()
             .map(|n| {
                 let mut g = faer_bits::Inputs::new(7000 + n as u64);
