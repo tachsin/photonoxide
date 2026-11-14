@@ -48,9 +48,9 @@ fixed by the problem, not by the threads, and CI runs the tests on one thread as
 So do the calls into faer: its dense products and LUs give the same bits on any number of
 threads, and the library takes faer's QR, SVDs and eigendecompositions sequentially and its
 sparse LU on four tasks whatever the threads (`src/dense/fixed.rs`), since faer's own divide
-their work by the threads (faer's dense kernels, below). On one machine
-a result is the same bits whatever its number of cores or `RAYON_NUM_THREADS`, and so on every
-machine of one family, x86-64 or ARM.
+their work by the threads (faer's dense kernels, below). On one machine a result is the same bits
+whatever its number of cores or `RAYON_NUM_THREADS`, and so on every machine of one family: on
+x86-64 every validation row, on ARM all but five (below).
 Across systems the same bits are wanted but not promised, and CI checks what shows: the examples'
 outputs, written on Linux, are compared on Windows and macOS (Apple silicon) too, the 3D devices
 and the validation report by hand (the Systems workflow).
@@ -121,8 +121,13 @@ What can differ between systems, and what photonoxide does about each:
   default (1356 s sequential). The dense products and LUs, whose bits don't follow the threads
   (the same on 1 to 5 threads up to 2000 × 2000), stay on rayon's. The canaries assert all of it:
   every one of the 181 dense results and the sparse LU's solves the same bits sequential and on 1
-  to 5 threads. What is promised, then:
-  on one machine family, the same bits on any number of threads; between x86-64 and ARM, not,
+  to 5 threads. The Systems workflow on 2 and on 4 threads (November 2026) gave the same 17
+  digits in all 982 validation rows on Linux and on Windows, and in all but five on macOS: the 3D
+  FDFD direct solves of `fdtd/fdfd-band-3d-strip`, `-bend` and `fdtd/adjoint-fdfd-cpml`, and
+  `fdtd/smoothing-crystal` and `-crystal-order`, where something in faer's ARM kernels still
+  divides by the threads. What is promised, then:
+  on one machine family, the same bits on any number of threads (on ARM, but for those five);
+  between x86-64 and ARM, not,
   unless photonoxide takes its own fixed-order kernels (#822, Stage B, undecided). The Systems
   workflow sets `RAYON_NUM_THREADS=4` all the same, so that GitHub's macOS runners (3 cores) and
   its Linux and Windows ones (4) run alike.
