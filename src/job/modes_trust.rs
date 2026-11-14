@@ -405,7 +405,7 @@ pub(super) fn window_warning(
         }
         sum += s;
         let (at, field) = window.edge(k);
-        edges.push(format!("{at} ({share:.1e} of its |E|^2 in the last cells)"));
+        edges.push(format!("{at} ({share:.1e} of its field in the last cells)"));
         fields.push(field);
     }
     fields.sort_unstable();
