@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.5](https://github.com/tachsin/photonoxide/compare/v0.6.4...v0.6.5) - 2026-11-14
+
+### <!-- 0 -->Added
+
+- *(studio)* the workspace reworked page by page, and a Mission page ([#790](https://github.com/tachsin/photonoxide/pull/790))
+- *(academy)* the tracks, and four silicon photonics lessons with nine laid out ([#774](https://github.com/tachsin/photonoxide/pull/774)) ([#791](https://github.com/tachsin/photonoxide/pull/791))
+- mixed-precision direct solve for 3D FDFD (part of #789; the GPU's QMR not yet) ([#795](https://github.com/tachsin/photonoxide/pull/795))
+- inverse design for 0.7, topology optimization I1 to I7 (part of #761) ([#796](https://github.com/tachsin/photonoxide/pull/796))
+- Docker support: a headless image, signals, and a Slurm cluster in Docker (part of #805) ([#807](https://github.com/tachsin/photonoxide/pull/807))
+- inverse design I8, lithography inside the loop (part of #761) ([#806](https://github.com/tachsin/photonoxide/pull/806))
+- *(native)* the multigrid without its finest matrix on the GPU, and the GPU's hierarchy kept between solves (part of #337) ([#802](https://github.com/tachsin/photonoxide/pull/802))
+- *(portable)* the same numbers on every platform, the portable module and the ban on the system's functions (part of #822) ([#826](https://github.com/tachsin/photonoxide/pull/826))
+- *(portable)* the solvers use the portable maths (part of #822) ([#828](https://github.com/tachsin/photonoxide/pull/828))
+- *(portable)* the physics areas use the portable maths (part of #822) ([#830](https://github.com/tachsin/photonoxide/pull/830))
+- *(portable)* the rest of the library, the examples and the tests use the portable maths (part of #822) ([#831](https://github.com/tachsin/photonoxide/pull/831))
+- *(portable)* the studio, native and crosscode use the portable maths (part of #822) ([#833](https://github.com/tachsin/photonoxide/pull/833))
+- inverse design I9, adjoints for the other solvers (part of #761) ([#835](https://github.com/tachsin/photonoxide/pull/835))
+- inverse design I10, quantum objectives (part of #761) ([#838](https://github.com/tachsin/photonoxide/pull/838))
+- *(job)* the modes job warns when its numbers can be wrong, and run --strict (part of #783) ([#840](https://github.com/tachsin/photonoxide/pull/840))
+
+### <!-- 1 -->Fixed
+
+- job files and the command line say when a result is not to be trusted (part of #783) ([#787](https://github.com/tachsin/photonoxide/pull/787))
+- AlN in the studio, a lift-off film on the etched floor, and the O⁺ range model (part of #622) ([#794](https://github.com/tachsin/photonoxide/pull/794))
+- the lints of clippy 1.100 (needless_range_loop and the rest) ([#800](https://github.com/tachsin/photonoxide/pull/800))
+- *(just)* the recipes that write generated files write UTF-8 with LF on Windows (closes #829) ([#839](https://github.com/tachsin/photonoxide/pull/839))
+- *(native)* MUMPS and SuperLU never run during a threaded OpenBLAS call, which deadlocked in OpenBLAS 0.3.34's OpenMP build (closes #812) ([#837](https://github.com/tachsin/photonoxide/pull/837))
+- *(bench)* the reference of guide-qmr-44 and guide-qmr-free-44 is the direct solve (closes #819) ([#841](https://github.com/tachsin/photonoxide/pull/841))
+- *(cases)* the Kerr gradient case's math renders on GitHub; the PR path checks every case's math ([#842](https://github.com/tachsin/photonoxide/pull/842))
+
+### <!-- 4 -->Documentation
+
+- the studio first for newcomers, and claims that say what is checked (part of #783) ([#784](https://github.com/tachsin/photonoxide/pull/784))
+- decisions taken on 2026-11-10 for 0.8, germanium and the performance limits ([#788](https://github.com/tachsin/photonoxide/pull/788))
+- the fabrication umbrella says what is built (part of #622) ([#793](https://github.com/tachsin/photonoxide/pull/793))
+- the EME umbrella says what is built (part of #432) ([#798](https://github.com/tachsin/photonoxide/pull/798))
+
 ## [0.6.4](https://github.com/tachsin/photonoxide/compare/v0.6.3...v0.6.4) - 2026-11-09
 
 ### <!-- 0 -->Added
