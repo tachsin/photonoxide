@@ -1,0 +1,19 @@
+Setup
+  devices: an ideal coupler; a 4-mode Clements mesh of ideal MZIs; Helt et al.'s ring (R = 47.5 µm, 1.48 GHz resonances), with Vernon et al.'s second channel at the pump
+  grid: none for the coupler and the mesh; the ring's joint spectrum on 81 and 121 points across ±10 linewidths, 2001 pump points
+  solver: genoxide's L-BFGS-B on the exact gradients (the circuit adjoint, the purity's sensitivity and the spectrum's derivative); Newton's method for the dual coupling
+  tolerance: the coupler to 1e-6 in R, the mesh's fidelity to 1e-12, the ring's numbers at the paper's printed digits with the finer grid beside
+
+
+A Hong–Ou–Mandel coupler from R = 0.15: R = 0.500000000, V = 1.000000000000 in 10 evaluations
+  the coupler's R                        0.500000   Hong, Ou & Mandel, R = 1/2 0.500000   ± 1e-6 ok
+  its visibility                         1.000000   1 at R = 1/2 1.000000   ± 1e-10 ok
+A 4-mode Clements mesh, 16 phases, programmed to a Haar-random unitary: 1 − F = 0.0e0 in 146 evaluations
+  the mesh's 1 − F                       0.000000   paper below 0.000000000001   ok
+Equal linewidths: the purity is largest at a pump 400.000 linewidths wide (a 1 ps pulse): γ = 0.91707, K = 1.0904, in 27 evaluations; on 121 points 400.000, γ = 0.91707
+  the largest purity's K (Fig. 2(a))     1.090432   paper 1.09       ± 5e-3      ok
+The dual coupling, ±10 linewidths: γ = 1/1.0009 at an extra round-trip loss of 0.13077, the pump's resonance 9.640 times the signal's, in 8 Newton steps
+The dual coupling, ±20 linewidths: γ = 1/1.0009 at an extra round-trip loss of 0.15902, the pump's resonance 11.679 times the signal's, in 8 Newton steps
+The dual coupling, ±40 linewidths: γ = 1/1.0009 at an extra round-trip loss of 0.17471, the pump's resonance 12.843 times the signal's, in 8 Newton steps
+  extrapolated in 1/span, 14.01; at their ratio of 6.6, K = 1.0034 on ±40 linewidths, against their K = 1.0009 (Fig. 2(b)): not reproduced, reported (#595), not checked
+all 4 within tolerance of the paper

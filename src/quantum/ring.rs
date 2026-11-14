@@ -113,3 +113,88 @@ pub fn ring_spectrum(
         amplitude,
     })
 }
+
+/// [`ring_spectrum`] and its derivative along a parameter θ that moves the enhancements (a
+/// ring's coupling, or Vernon et al.'s second channel at the pump) or the pump's bandwidth:
+/// `derivative` gives dF/dθ of the pump, signal and idler waves, and `bandwidth` dΔν/dθ (α's
+/// derivative in Δν is α · 4 ln 2 (ν − ν₀)²/Δν³). The product rule on f = F_P(ν_s + ν_i) F_s(ν_s)
+/// F_i(ν_i), and on F_P's integral, ∫ α α (dF_p(ν_p) F_p(ν − ν_p) + F_p(ν_p) dF_p(ν − ν_p))
+/// dν_p, on the same grid and quadrature: exact for the discrete spectrum (0.7, #761's I10).
+///
+/// # Errors
+///
+/// As [`ring_spectrum`].
+pub fn ring_spectrum_derivative(
+    pump: Pump,
+    bandwidth: f64,
+    enhancement: [&(dyn Fn(f64) -> Result<c64> + Sync); 3],
+    derivative: [&(dyn Fn(f64) -> Result<c64> + Sync); 3],
+    centers: [f64; 2],
+    grid: RingGrid,
+) -> Result<(JointSpectrum, JointSpectrum)> {
+    let value = ring_spectrum(pump, enhancement, centers, grid)?;
+    let RingGrid {
+        half,
+        points,
+        pump_half,
+        pump_points,
+    } = grid;
+    let [fp, fs, fi] = enhancement;
+    let [dp, ds, di] = derivative;
+    let step = 2.0 * half / (points - 1) as f64;
+    let axis = |c: f64| -> Vec<f64> { (0..points).map(|k| c - half + step * k as f64).collect() };
+    let (signal, idler) = (axis(centers[0]), axis(centers[1]));
+    let eval = |f: &(dyn Fn(f64) -> Result<c64> + Sync), at: &[f64]| -> Result<Vec<c64>> {
+        at.iter().map(|&v| f(v)).collect()
+    };
+    let (ts, dts) = (eval(fs, &signal)?, eval(ds, &signal)?);
+    let (ti, dti) = (eval(fi, &idler)?, eval(di, &idler)?);
+    let p_step = 2.0 * pump_half / (pump_points - 1) as f64;
+    let nu_p: Vec<f64> = (0..pump_points)
+        .map(|k| pump.center - pump_half + p_step * k as f64)
+        .collect();
+    let sums: Vec<f64> = (0..2 * points - 1)
+        .map(|k| signal[0] + idler[0] + step * k as f64)
+        .collect();
+    let pair = crate::parallel::map_in_order(&sums, |&total| -> Result<(c64, c64)> {
+        let (mut acc, mut dacc) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
+        for (k, &v) in nu_p.iter().enumerate() {
+            let other = total - v;
+            let w = if k == 0 || k + 1 == pump_points {
+                0.5
+            } else {
+                1.0
+            };
+            let (av, ao) = (pump.amplitude(v), pump.amplitude(other));
+            // dα/dΔν over α
+            let slope = |nu: f64| {
+                let d = nu - pump.center;
+                4.0 * std::f64::consts::LN_2 * d * d
+                    / (pump.bandwidth * pump.bandwidth * pump.bandwidth)
+            };
+            let alpha = av * ao * w;
+            let d_alpha = alpha * (slope(v) + slope(other)) * bandwidth;
+            let (a, b) = (fp(v)?, fp(other)?);
+            acc += a * b * alpha;
+            dacc += (dp(v)? * b + a * dp(other)?) * alpha + a * b * d_alpha;
+        }
+        Ok((acc * p_step, dacc * p_step))
+    })
+    .into_iter()
+    .collect::<Result<Vec<(c64, c64)>>>()?;
+    let mut amplitude = Vec::with_capacity(points * points);
+    for s in 0..points {
+        for i in 0..points {
+            let (f, df) = pair[s + i];
+            amplitude.push(df * ts[s] * ti[i] + f * dts[s] * ti[i] + f * ts[s] * dti[i]);
+        }
+    }
+    Ok((
+        value,
+        JointSpectrum {
+            signal,
+            idler,
+            amplitude,
+        },
+    ))
+}

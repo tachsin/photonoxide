@@ -2318,6 +2318,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::quantum::checks::cases());
     cases.extend(crate::quantum::light_checks::cases());
     cases.extend(crate::quantum::real_checks::cases());
+    // and quantum objectives with their gradients (0.7, I10; quantum.md's Q4)
+    cases.extend(crate::quantum::objective_checks::cases());
     // and rigorous coupled-wave analysis: lamellar gratings, Li's rules, the static limit
     cases.extend(crate::mode::rcwa_checks::cases());
     // and inverse design's densities: the filter, the projection and the chain's gradient (0.7)

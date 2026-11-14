@@ -42,6 +42,7 @@ mod hom;
 mod intermodal;
 mod matrix;
 mod mesh;
+mod objective;
 mod pairs;
 mod permanent;
 mod ring;
@@ -57,6 +58,7 @@ pub(crate) mod checks;
 pub(crate) mod light_checks;
 #[cfg(test)]
 mod light_tests;
+pub(crate) mod objective_checks;
 pub(crate) mod real_checks;
 #[cfg(test)]
 mod real_tests;
@@ -75,9 +77,12 @@ pub use hom::{Dip, Wavepacket, coincidence, hom_dip};
 pub use intermodal::{Beta, DualPump, dual_pump_spectrum, shaped_dual_pump_spectrum};
 pub use matrix::Matrix;
 pub use mesh::{Arrangement, Cell, Mesh, fidelity, haar_unitary};
+pub use objective::{
+    fidelity_gradient, probability_gradient, purity_gradient, visibility_gradient,
+};
 pub use pairs::{PairBirth, pair_amplitude, two_path_visibility};
 pub use permanent::{Formula, permanent, permanent_by};
-pub use ring::{RingGrid, ring_spectrum};
+pub use ring::{RingGrid, ring_spectrum, ring_spectrum_derivative};
 pub use sampler::sample;
 pub use source::{Source, heralding_through, hom_visibility, path};
 pub use spectral::{SpectralInput, SpectralPhoton};
