@@ -335,12 +335,21 @@ pub(crate) fn generalized_eigen(
     Ok(GeneralizedEigen { s_a, s_b, u })
 }
 
-/// The parallelism of the sparse LU: [`SparseLu`].
-pub(crate) const SPARSE_PAR: Par = Par::Seq;
+/// The tasks faer's sparse LU divides its work into: four, whatever rayon's pool, which runs them
+/// on as many threads as it has. faer's supernodal LU gives other bits on each number of tasks
+/// (and sequentially another path again), but the same bits for a given number on any pool: on
+/// this machine (x86-64) the validation cases through it gave the same 17 digits with four tasks
+/// on 1 and 3 threads, where faer's default (as many tasks as threads) gave other digits in 75
+/// of 78 cases. Four rather than sequential because the large factorizations want the threads:
+/// those cases took 1131 s with four tasks, 1356 s sequential and 1703 s on faer's default, on
+/// 3 threads (November 2026; one run each, while the machine ran other work).
+fn sparse_par() -> Par {
+    Par::rayon(4)
+}
 
-/// faer's sparse LU with partial pivoting (its `sp_lu`), on [`SPARSE_PAR`] instead of faer's
-/// global parallelism: faer's supernodal factorization takes another path on rayon's threads
-/// than sequentially, and other bits on each number of them (its panels' LU).
+/// faer's sparse LU with partial pivoting (its `sp_lu`), on [`sparse_par`]'s four tasks instead
+/// of faer's global parallelism (all of rayon's threads), so that its bits don't follow the
+/// machine's number of cores.
 pub(crate) struct SparseLu {
     symbolic: Arc<lu::SymbolicLu<usize>>,
     numeric: lu::NumericLu<usize, c64>,
@@ -370,12 +379,12 @@ impl SparseLu {
     ) -> Result<SparseLu, LuError> {
         let mut numeric = lu::NumericLu::new();
         let mut scratch = MemBuffer::try_new(
-            symbolic.factorize_numeric_lu_scratch::<c64>(SPARSE_PAR, Default::default()),
+            symbolic.factorize_numeric_lu_scratch::<c64>(sparse_par(), Default::default()),
         )?;
         symbolic.factorize_numeric_lu(
             &mut numeric,
             a,
-            SPARSE_PAR,
+            sparse_par(),
             MemStack::new(&mut scratch),
             Default::default(),
         )?;
@@ -386,12 +395,12 @@ impl SparseLu {
     pub(crate) fn solve_in_place(&self, rhs: MatMut<'_, c64>) {
         let mut scratch = MemBuffer::new(
             self.symbolic
-                .solve_in_place_scratch::<c64>(rhs.ncols(), SPARSE_PAR),
+                .solve_in_place_scratch::<c64>(rhs.ncols(), sparse_par()),
         );
         lu::LuRef::new_unchecked(&self.symbolic, &self.numeric).solve_in_place_with_conj(
             Conj::No,
             rhs,
-            SPARSE_PAR,
+            sparse_par(),
             MemStack::new(&mut scratch),
         );
     }
@@ -400,12 +409,12 @@ impl SparseLu {
     pub(crate) fn solve_transpose_in_place(&self, rhs: MatMut<'_, c64>) {
         let mut scratch = MemBuffer::new(
             self.symbolic
-                .solve_transpose_in_place_scratch::<c64>(rhs.ncols(), SPARSE_PAR),
+                .solve_transpose_in_place_scratch::<c64>(rhs.ncols(), sparse_par()),
         );
         lu::LuRef::new_unchecked(&self.symbolic, &self.numeric).solve_transpose_in_place_with_conj(
             Conj::No,
             rhs,
-            SPARSE_PAR,
+            sparse_par(),
             MemStack::new(&mut scratch),
         );
     }
