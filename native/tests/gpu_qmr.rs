@@ -77,7 +77,8 @@ fn it_solves_without_the_finest_matrix_as_photonoxide_does() {
     ]);
 }
 
-/// The guide of 44 cells a side too: over an hour, most of it its reference fields to 1e-12.
+/// The guide of 44 cells a side too: slow, and the reference fields it is checked against are
+/// the direct solver's, about 4 GB.
 #[test]
 #[ignore]
 fn it_solves_the_large_3d_guide() {

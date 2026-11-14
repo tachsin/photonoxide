@@ -189,7 +189,8 @@ pub struct Entry {
     /// What it asks of the linear algebra.
     pub task: Task,
     /// The memory it is expected to take, in bytes: the factors and the matrix of a direct
-    /// solve by photonoxide's own solver, the matrix and the vectors of an iterative one.
+    /// solve by photonoxide's own solver, the matrix and the vectors of an iterative one (the
+    /// direct reference's, where a plain QMR solve is checked against one).
     pub memory_bytes: u64,
     /// The shortest tier it is part of.
     pub tier: Tier,
@@ -615,8 +616,12 @@ fn fixed(id: &'static str, title: &str, heavy: bool) -> Option<Entry> {
         // E, H̃, their coefficients and the CPMLs' ψ, for the run, the kernel alone and its check
         Task::TimeSteps { .. } => (3 * 13 * 8 * unknowns) as u64,
         Task::DirectSymmetric | Task::Mixed => direct_memory(unknowns, nonzeros, three, true),
-        _ if id.ends_with("-free") => iterative_memory(unknowns, super::Solve::QmrFree),
-        _ if id == "fdfd3d/guide-qmr" => iterative_memory(unknowns, super::Solve::Qmr),
+        _ if id.ends_with("-free") => {
+            iterative_memory(unknowns, super::Solve::QmrFree).max(qmr_reference_memory(unknowns))
+        }
+        _ if id == "fdfd3d/guide-qmr" => {
+            iterative_memory(unknowns, super::Solve::Qmr).max(qmr_reference_memory(unknowns))
+        }
         // the matrix, and GMRES's 40 vectors or QMR's dozen
         _ => (24 * nonzeros + 16 * 40 * unknowns) as u64,
     };
@@ -685,6 +690,13 @@ fn iterative(solve: super::Solve) -> (&'static str, &'static str, f64) {
 /// with ports and the guide, 2 × 10⁵ to 6.3 × 10⁶ unknowns (docs/methods/multigrid-stencil.md).
 const MULTIGRID_STENCIL_BYTES: u64 = 3_600;
 const MULTIGRID_REDISCRETIZED_BYTES: u64 = 2_000;
+
+/// The bytes of the direct solve that checks a plain QMR solve (the reference of
+/// `fdfd3d-iterative/guide-qmr-*`, 4 GB at 44³, #819): the memory the run peaks at after its
+/// timed phases, where more than the iterations took.
+fn qmr_reference_memory(unknowns: usize) -> u64 {
+    direct_memory(unknowns, 13 * unknowns, true, true)
+}
 
 /// The bytes of an iterative solve: plain QMR's, with and without the matrix, as they were
 /// measured at their peaks; the others', the matrix and GMRES's 40 vectors or QMR's dozen.
@@ -836,7 +848,12 @@ fn guide(core: usize, pml: usize, solve: super::Solve) -> Entry {
         unknowns,
         nonzeros,
         task: Task::Iterative { tolerance },
-        memory_bytes: iterative_memory(unknowns, solve),
+        memory_bytes: match solve {
+            super::Solve::Qmr | super::Solve::QmrFree => {
+                iterative_memory(unknowns, solve).max(qmr_reference_memory(unknowns))
+            }
+            _ => iterative_memory(unknowns, solve),
+        },
         tier: if cells <= 20 {
             Tier::Quick
         } else if cells <= 50 {
