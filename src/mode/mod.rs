@@ -28,6 +28,7 @@
 
 pub mod bend;
 pub mod dispersion;
+pub(crate) mod dual;
 pub mod eim;
 pub mod fields;
 pub mod hadley;

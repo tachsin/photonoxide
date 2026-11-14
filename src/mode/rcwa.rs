@@ -44,6 +44,9 @@ use crate::portable;
 use crate::units::{Length, Wavelength};
 use crate::{Error, Result};
 
+mod tangent;
+pub use tangent::{DiffractionTangent, GratingParameter};
+
 /// The most harmonics either side of the zeroth that [`Grating::diffract`] keeps.
 pub const MAX_ORDERS: usize = 400;
 
@@ -438,9 +441,29 @@ fn lamellar_modes(
     te: bool,
     rule: Factorization,
 ) -> Result<Modes> {
+    lamellar_parts(stripes, period, kx, te, rule).map(|(modes, _)| modes)
+}
+
+/// What a lamellar layer's modes were found from, for their derivatives: E, E⁻¹ (TM), the
+/// matrix and its eigenvalues q².
+struct Lamellar {
+    e_inv: Option<Mat<c64>>,
+    matrix: Mat<c64>,
+    q2: Vec<c64>,
+}
+
+/// [`lamellar_modes`], with what they were found from.
+fn lamellar_parts(
+    stripes: &[(c64, f64)],
+    period: f64,
+    kx: &[f64],
+    te: bool,
+    rule: Factorization,
+) -> Result<(Modes, Lamellar)> {
     let n = kx.len();
     let eps: Vec<(c64, f64)> = stripes.iter().map(|&(m, w)| (m * m, w)).collect();
     let e = toeplitz(&coefficients(&eps, period, n), n);
+    let mut e_inverse = None;
     let matrix = if te {
         Mat::<c64>::from_fn(n, n, |i, j| {
             let d = if i == j { kx[i] * kx[i] } else { 0.0 };
@@ -453,13 +476,14 @@ fn lamellar_modes(
             let d = if i == j { 1.0 } else { 0.0 };
             e_inv[(i, j)] * kx[i] * kx[j] - d
         });
+        e_inverse = Some(e_inv);
         match rule {
             Factorization::Li => inverse_rule(stripes, period, n).partial_piv_lu().solve(&b),
             Factorization::Laurent => &e * &b,
         }
     };
     let (q2, w) = eigenpairs(&matrix)?;
-    let q: Vec<c64> = q2.into_iter().map(q_of).collect();
+    let q: Vec<c64> = q2.iter().copied().map(q_of).collect();
     let wq = Mat::<c64>::from_fn(n, n, |i, j| w[(i, j)] * q[j]);
     let v = if te {
         wq
@@ -469,7 +493,14 @@ fn lamellar_modes(
             Factorization::Laurent => e.partial_piv_lu().solve(&wq),
         }
     };
-    Ok(Modes { w, v, q })
+    Ok((
+        Modes { w, v, q },
+        Lamellar {
+            e_inv: e_inverse,
+            matrix,
+            q2,
+        },
+    ))
 }
 
 /// A = ⟦1/ε⟧, the Toeplitz matrix of 1/ε's coefficients.
