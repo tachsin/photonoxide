@@ -24,6 +24,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # rayon's threads, the same on every runner (GitHub's macOS runners have 3 cores, its Linux and
+  # Windows ones 4): photonoxide's results don't depend on them (docs/methods/conventions.md,
+  # "faer's dense kernels"), and this keeps the comparison like with like if one ever did
+  RAYON_NUM_THREADS: "4"
 
 jobs:
   run:

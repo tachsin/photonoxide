@@ -20,9 +20,11 @@
 //! pair from the block-diagonal S by his Eq. 6; it is the reference the sparse solve is checked
 //! against.
 
-use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
+use crate::dense::fixed::SparseLu;
+use faer::sparse::linalg::lu::SymbolicLu;
 use faer::sparse::{SparseColMat, Triplet};
 use num_complex::Complex64 as c64;
+use std::sync::Arc;
 
 use super::netlist::{Netlist, NetlistError};
 use super::{Component, Fidelity, Parameter, Port, Provenance, SMatrix, Spectrum};
@@ -51,7 +53,7 @@ pub(super) struct Solved {
     /// The entries of I − S_b Γ.
     pub(super) triplets: Vec<Triplet<usize, usize, c64>>,
     /// Its factorization.
-    pub(super) lu: Lu<usize, c64>,
+    pub(super) lu: SparseLu,
     /// The outgoing waves b, a column per external input.
     pub(super) b: faer::Mat<c64>,
     /// The circuit's S-matrix, Eᵀ b.
@@ -82,7 +84,7 @@ pub struct Circuit {
     values: Vec<f64>,
     /// The entries of I − S_b Γ, column by column.
     entries: Vec<(usize, usize, Entry)>,
-    symbolic: SymbolicLu<usize>,
+    symbolic: Arc<SymbolicLu<usize>>,
 }
 
 impl Netlist {
@@ -170,7 +172,7 @@ impl Netlist {
             .collect();
         let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &pattern)
             .map_err(|e| Error::invalid("circuit", format!("can't assemble its system: {e:?}")))?;
-        let symbolic = SymbolicLu::try_new(matrix.symbolic())
+        let symbolic = SparseLu::analyse(matrix.symbolic())
             .map_err(|e| Error::invalid("circuit", format!("can't analyse its system: {e:?}")))?;
         Ok(Circuit {
             netlist: self.clone(),
@@ -300,7 +302,6 @@ impl Circuit {
     /// The sparse solve, its parameters at `values`, with what the adjoint reuses: the system's
     /// entries and factorization, and the outgoing waves b. For a circuit with external ports.
     pub(super) fn solved(&self, wavelength: Wavelength, values: &[f64]) -> Result<Solved> {
-        use faer::linalg::solvers::Solve;
         let blocks = self.blocks(wavelength, values)?;
         let n = self.owner.len();
         let k = self.external.len();
@@ -334,7 +335,7 @@ impl Circuit {
             .map_err(|e| Error::invalid("circuit", format!("can't assemble its system: {e:?}")))?;
         // the symbolic analysis is shared (faer keeps it behind an Arc), the numeric
         // factorization this wavelength's own
-        let lu = Lu::try_new_with_symbolic(self.symbolic.clone(), matrix.as_ref())
+        let lu = SparseLu::with_symbolic(self.symbolic.clone(), matrix.as_ref())
             .map_err(|_| singular())?;
         // S_b E: column c is column `external[c]` of S_b, on its instance's rows
         let mut rhs = faer::Mat::<c64>::zeros(n, k);
@@ -345,7 +346,7 @@ impl Circuit {
                 rhs[(start + q, c)] = blocks[instance][(q, p)];
             }
         }
-        let mut b = lu.solve(&rhs);
+        let mut b = lu.solve(rhs.as_ref());
         // one step of iterative refinement, against the factorization's rounding near a sharp
         // resonance
         let mut residual = rhs.clone();
@@ -354,7 +355,7 @@ impl Circuit {
                 residual[(t.row, c)] -= t.val * b[(t.col, c)];
             }
         }
-        let correction = lu.solve(&residual);
+        let correction = lu.solve(residual.as_ref());
         b += &correction;
         let s = SMatrix::from_fn(k, |q, p| b[(self.external[q], p)]);
         if s.values.iter().any(|v| !v.is_finite()) {

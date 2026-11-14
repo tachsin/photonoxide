@@ -30,7 +30,6 @@ const LAYERS: &[Layer] = &[
             "parallel",
             "traffic",
             "convergence",
-            "lstsq",
             "error",
             "stop",
             "verdict",
@@ -53,7 +52,7 @@ const LAYERS: &[Layer] = &[
     },
     Layer {
         name: "linalg",
-        modules: &["dense", "sparse", "backend", "eigen"],
+        modules: &["dense", "sparse", "backend", "eigen", "lstsq"],
         may_use: &["core"],
     },
     Layer {

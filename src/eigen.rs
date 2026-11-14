@@ -27,7 +27,6 @@ mod schur;
 pub(crate) use growing::nearest_growing;
 
 use faer::linalg::matmul::matmul;
-use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Accum, Mat, Par, c64};
 
@@ -61,7 +60,7 @@ pub(crate) struct Shifted {
     n: usize,
     rows: Vec<Vec<(usize, c64)>>,
     shift: c64,
-    lu: faer::sparse::linalg::solvers::Lu<usize, c64>,
+    lu: crate::dense::fixed::SparseLu,
 }
 
 impl Shifted {
@@ -80,7 +79,7 @@ impl Shifted {
         }
         let matrix = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &shifted)
             .map_err(|e| Error::invalid("eigenproblem", format!("{e:?}")))?;
-        let lu = matrix.sp_lu().map_err(|e| {
+        let lu = crate::dense::fixed::SparseLu::new(matrix.as_ref()).map_err(|e| {
             Error::invalid(
                 "eigenproblem",
                 format!("the shifted matrix is singular: {e:?}"),

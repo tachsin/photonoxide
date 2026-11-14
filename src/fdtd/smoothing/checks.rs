@@ -7,6 +7,7 @@ use num_complex::Complex64 as c64;
 use super::super::checks::{grid, noise};
 use super::super::{Cpml, Current, Field, PlaneWave, Simulation, Source, Waveform};
 use super::*;
+use crate::dense::fixed;
 use crate::fdfd::Edges;
 use crate::portable;
 use crate::units::Frequency;
@@ -36,18 +37,17 @@ pub(crate) fn harmonics(signals: &[Vec<f64>], dt: f64) -> Vec<Harmonic> {
     let y = Mat::<f64>::from_fn(rows * signals.len(), l + 1, |i, j| {
         signals[i / rows][i % rows + j]
     });
-    let svd = y.thin_svd().expect("the SVD of a small dense matrix");
-    let s = svd.S().column_vector();
+    let svd = fixed::thin_svd(y.as_ref()).expect("the SVD of a small dense matrix");
+    let s = svd.s.column_vector();
     let m = (0..s.nrows()).filter(|&k| s[k] > 1e-10 * s[0]).count();
-    let v = svd.V();
+    let v = svd.v.as_ref();
     let v1 = Mat::<f64>::from_fn(l, m, |i, k| v[(i, k)]);
     let v2 = Mat::<f64>::from_fn(l, m, |i, k| v[(i + 1, k)]);
     let z = (v1.transpose() * &v1)
         .partial_piv_lu()
         .solve(v1.transpose() * &v2);
-    let poles = z
-        .eigenvalues()
-        .expect("the eigenvalues of a small dense matrix");
+    let poles =
+        fixed::eigenvalues_of_real(z.as_ref()).expect("the eigenvalues of a small dense matrix");
     // the amplitudes, by the normal equations of each signal's fit
     let k = poles.len();
     let gram = Mat::<c64>::from_fn(k, k, |a, b| {

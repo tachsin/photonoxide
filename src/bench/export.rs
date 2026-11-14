@@ -197,13 +197,11 @@ pub fn solve(system: &System) -> Result<Vec<c64>> {
             .collect::<Vec<_>>(),
     )
     .map_err(|e| Error::invalid("bench export", format!("{e:?}")))?;
-    use faer::linalg::solvers::Solve;
-    let lu = matrix
-        .sp_lu()
+    let lu = crate::dense::fixed::SparseLu::new(matrix.as_ref())
         .map_err(|e| Error::invalid("bench export", format!("{e:?}")))?;
     let column = |v: &[c64]| faer::Mat::<c64>::from_fn(n, 1, |r, _| v[r]);
     let norm = |v: &[c64]| v.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
-    let solved = lu.solve(column(&system.rhs));
+    let solved = lu.solve(column(&system.rhs).as_ref());
     let mut x: Vec<c64> = (0..n).map(|r| solved[(r, 0)]).collect();
     // steps of refinement to round-off, as the 2D solver takes one
     for _ in 0..5 {
@@ -214,7 +212,7 @@ pub fn solve(system: &System) -> Result<Vec<c64>> {
         if norm(&r) <= 1e-13 * norm(&system.rhs) {
             break;
         }
-        let d = lu.solve(column(&r));
+        let d = lu.solve(column(&r).as_ref());
         for (xk, k) in x.iter_mut().zip(0..n) {
             *xk += d[(k, 0)];
         }

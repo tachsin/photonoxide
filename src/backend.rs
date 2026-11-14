@@ -38,7 +38,6 @@ use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Instant;
 
 use faer::Mat;
-use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, SparseColMatRef, SymbolicSparseColMatRef, Triplet};
 use num_complex::{Complex32 as c32, Complex64 as c64};
 
@@ -688,7 +687,7 @@ struct FaerAnalysis {
 
 struct FaerFactors {
     n: usize,
-    lu: faer::sparse::linalg::solvers::Lu<usize, c64>,
+    lu: crate::dense::fixed::SparseLu,
     seconds: f64,
 }
 
@@ -733,8 +732,7 @@ impl Analysis for FaerAnalysis {
             .collect();
         let a = SparseColMat::<usize, c64>::try_new_from_triplets(n, n, &triplets)
             .map_err(|e| invalid(format!("faer can't assemble the matrix: {e:?}")))?;
-        let lu = a
-            .sp_lu()
+        let lu = crate::dense::fixed::SparseLu::new(a.as_ref())
             .map_err(|e| invalid(format!("faer's LU failed: {e:?}")))?;
         Ok(Box::new(FaerFactors {
             n,

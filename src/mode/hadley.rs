@@ -50,7 +50,6 @@
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
-use faer::linalg::solvers::Solve;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Mat, c64};
 
@@ -663,8 +662,7 @@ fn refine(
         for ((p, q), &(i, j, _)) in plus.iter().zip(&minus).zip(&m) {
             rhs[i] += (p.2 - q.2) / (2.0 * delta) * v[j];
         }
-        let lu = sparse(n, &m)?
-            .sp_lu()
+        let lu = crate::dense::fixed::SparseLu::new(sparse(n, &m)?.as_ref())
             .map_err(|e| Error::invalid("Hadley's equations", format!("singular system: {e:?}")))?;
         let mut w = Mat::<c64>::from_fn(n, 1, |i, _| rhs[i]);
         lu.solve_in_place(w.as_mut());

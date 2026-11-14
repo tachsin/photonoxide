@@ -238,22 +238,9 @@ fn cpu_name() -> String {
 }
 
 /// The rayon pools every item is computed on: faer's default, `Par::rayon(0)`, takes the pool's
-/// size, as the library's calls do (it never sets faer's parallelism).
+/// size, as the library's products and LUs do; its QR, SVDs and eigendecompositions run
+/// sequentially whatever the pool (`src/dense/fixed.rs`).
 const THREADS: [usize; 5] = [1, 2, 3, 4, 5];
-
-/// Whether an item goes through faer's blocked Householder code (QR; the SVDs, through the QR a
-/// rectangular one starts with and the accumulation of U and V; the eigenvectors, through the
-/// accumulation of the Hessenberg reduction's Q), whose bits depend on the number of threads:
-/// faer 0.24's `linalg/householder.rs` divides the columns a block reflector updates among
-/// min(threads, 4) tasks above a size threshold, and its products take the threads that are
-/// left. Measured in November 2026: QR at 100 × 30 and from 128 on, and the SVDs through it,
-/// change with the threads on Windows x86-64 and Linux ARM, the eigenvectors at 128 on Linux ARM;
-/// the product, both LUs and the eigenvalues alone gave the same bits on 1 to 5 threads.
-pub(crate) fn splits_by_threads(name: &str) -> bool {
-    ["qr", "svd", "lstsq", "eigen_full"]
-        .iter()
-        .any(|n| name.contains(n))
-}
 
 /// What `compute` gives every way: faer sequential (in a child process, since faer's
 /// parallelism is one global setting and the other tests run beside this one), on rayon pools of
@@ -370,22 +357,20 @@ pub(crate) fn every_way(test: &str, compute: fn() -> Vec<Item>) -> Option<Ways> 
     Some(ways)
 }
 
-/// The test's assertions, the same for every group: the same bits computed again, and on every
-/// number of threads unless the item goes through faer's Householder code
-/// ([`splits_by_threads`]), whose dependence on the threads is printed, not asserted.
+/// The test's assertions, the same for every group: the same bits computed again, and the same
+/// bits sequential and on every number of threads. faer's own QR, SVDs and eigenvectors failed
+/// the second (its blocked Householder code divides its work by the threads: QR at 100 × 30 and
+/// from 128 on, the SVDs through it, the eigenvectors at 128 on ARM, #832); the library's run
+/// sequentially (`src/dense/fixed.rs`) and pass it.
 pub(crate) fn assert_what_holds_on_one_system(ways: &Ways) {
     let again = ways.unrepeatable();
     assert!(
         again.is_empty(),
         "not the same bits computed again: {again:?}"
     );
-    let threads: Vec<String> = ways
-        .thread_dependent()
-        .into_iter()
-        .filter(|n| !splits_by_threads(n))
-        .collect();
+    let threads = ways.thread_dependent();
     assert!(
         threads.is_empty(),
-        "bits that depend on faer's threads outside its Householder code: {threads:?}"
+        "bits that depend on the number of threads: {threads:?}"
     );
 }

@@ -491,10 +491,9 @@ fn deflate(
     let gh = gm.adjoint();
     let left = gh * &gm;
     let right = gh * &wv;
-    let eig = left
-        .generalized_eigen(&right)
+    let eig = crate::dense::fixed::generalized_eigen(left.as_ref(), right.as_ref())
         .map_err(|e| Error::invalid("gcro-dr", format!("the harmonic Ritz values: {e:?}")))?;
-    let (alpha, beta) = (eig.S_a(), eig.S_b());
+    let (alpha, beta) = (&eig.s_a, &eig.s_b);
     let magnitude = |i: usize| {
         if beta[i] == zero {
             f64::INFINITY
@@ -507,7 +506,7 @@ fn deflate(
         .collect();
     order.sort_by(|&p, &q| magnitude(p).total_cmp(&magnitude(q)).then(p.cmp(&q)));
     order.truncate(keep.min(size));
-    let vectors = eig.U();
+    let vectors = &eig.u;
     // G P, and its QR factorization
     let gp: Vec<Vec<c64>> = order
         .iter()
