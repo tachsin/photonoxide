@@ -18,6 +18,7 @@ prints the run's folder on its first line of output (`runs/20261014-120000-strip
 | 2 | wasn't started: the command line was wrong (an unknown command or flag, or no job file named) |
 | 3 | stopped by its timeout: the job's `timeout_minutes` or `--timeout`, whichever is shorter |
 | 4 | stopped on request: its window was closed before it finished |
+| 5 | finished, with `--strict`, and printed a `warning:` or a `convergence:` line (below): a number it says may be wrong, `unchecked` or `not_converged`; the results are written as for 0 |
 
 A stopped run's folder holds what was done before it stopped.
 
@@ -38,6 +39,12 @@ What the run's numbers may not be, it says on stderr, without changing the exit 
 A warning names the number behind it and what to change; it is never a refusal, since a job may
 mean what it asks (validation's crossing slabs cut their window through two slabs on purpose).
 `results.json` doesn't hold the warnings yet: the record's `warning` events do.
+
+`--strict` turns those lines into an exit code for a script or CI: a run that finished with any
+`warning:` or `convergence:` line leaves its files as it would have and exits 5 instead of 0,
+saying how many of each on its last line. A run that stopped keeps its 3 or 4, and one that
+failed its 1; without the flag nothing changes. The `scheme:` line doesn't count: it says how
+the numbers were made, not that they may be wrong.
 
 ## The files
 
