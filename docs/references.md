@@ -1912,7 +1912,7 @@ N. Heurtel, A. Fyrillas, G. D. Gliniasty, R. Le Bihan, S. Malherbe, M. Pailhas, 
 
 N. J. Higham, "Accuracy and Stability of Numerical Algorithms: Second Edition", Society for Industrial and Applied Mathematics (2002). [doi:10.1137/1.9780898718027](https://doi.org/10.1137/1.9780898718027)
 
-- Code: [src/canary_tests.rs:213](../src/canary_tests.rs#L213), [381](../src/canary_tests.rs#L381), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:614](../tests/canary.rs#L614)
+- Code: [src/canary_tests.rs:214](../src/canary_tests.rs#L214), [382](../src/canary_tests.rs#L382), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:619](../tests/canary.rs#L619)
 
 #### Higham and Mary 2022
 
