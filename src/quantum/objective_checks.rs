@@ -13,6 +13,9 @@ use crate::validation::{Case, Outcome, Tier, note_numerical};
 
 const OK: &str = "a valid quantum objective";
 
+/// A value along a direction, by the step taken.
+type Along = Box<dyn Fn(f64) -> f64>;
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -106,7 +109,7 @@ pub(crate) fn probability_agreement() -> (f64, f64) {
     });
     let input = Fock::new(vec![0, 1, 1, 1, 0]);
     let directions = [varied(5, 5, 1.1), varied(5, 5, 2.9)];
-    let mut sets: Vec<(f64, Box<dyn Fn(f64) -> f64>)> = Vec::new();
+    let mut sets: Vec<(f64, Along)> = Vec::new();
     for output in [
         Fock::new(vec![0, 2, 0, 1, 0]),
         Fock::new(vec![1, 0, 1, 0, 1]),
@@ -149,7 +152,7 @@ pub(crate) fn fidelity_agreement() -> (f64, f64) {
         0.9 * haar_unitary(4, 12)[(i, j)] + 0.1 * varied(4, 4, 0.7)[(i, j)]
     });
     let (_, g) = fidelity_gradient(&target, &implemented);
-    let sets: Vec<(f64, Box<dyn Fn(f64) -> f64>)> = [varied(4, 4, 1.3), varied(4, 4, 4.1)]
+    let sets: Vec<(f64, Along)> = [varied(4, 4, 1.3), varied(4, 4, 4.1)]
         .into_iter()
         .map(|d| {
             let (target, implemented) = (target.clone(), implemented.clone());

@@ -415,6 +415,25 @@ dispersion.
 closed-form optima: Vernon et al.'s dual-coupling condition, the 50:50 coupler of a HOM
 experiment, a Clements mesh programmed to a Haar-random unitary.
 
+*Done 2026-11-14:* `quantum::objective` (docs/methods/quantum.md, "Objectives and their
+gradients"): `probability_gradient` (the minors' permanents, indistinguishable and
+distinguishable photons), `fidelity_gradient` (Clements et al.'s Eq. 6), `visibility_gradient`
+(the quotient of the two coincidences) and `purity_gradient` (tr A²/(tr A)² on the joint
+amplitude, no Schmidt decomposition), each a Wirtinger sensitivity that the circuit adjoint takes;
+and `ring_spectrum_derivative`, a ring's joint amplitude differentiated in its enhancements (a
+coupling, Vernon et al.'s second channel at the pump) or the pump's bandwidth. Cases, each with
+its Rule: `quantum/probability-gradient` (2.0e-10), `quantum/fidelity-gradient` (1.3e-10),
+`quantum/visibility-coupler` (the closed form, 8.9e-16) and `quantum/purity-gradient` (2.7e-9).
+`optimize_quantum`: the HOM coupler's R = ½ by L-BFGS-B through the circuit adjoint (10
+evaluations from 0.15), a 4-mode Clements mesh to a Haar-random unitary (1 − F at round-off in
+146), and a ring with equal linewidths (the purity rises to the broad-pump limit, K = 1.0904
+against Vernon et al.'s Fig. 2(a)'s 1.09, checked). *Left:* Vernon et al.'s dual-coupling
+condition is not reproduced: for K = 1.0009 ours needs a pump linewidth about 14 times the
+signal's (12.8 on ±40 linewidths, rising with the window), their Fig. 2(b) 6.6 (from their full
+device's simulation, whose model the paper doesn't give); at 6.6 ours gives K = 1.0034. Kept in
+#595. The dispersion objectives through the mode solvers' derivatives (I9) are named on the
+methods page; no example uses them yet.
+
 ### I11: Device and circuit co-design
 
 The chip optimization of #346 through the solvers' own shape derivatives (I7, I9) rather than
