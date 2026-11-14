@@ -425,8 +425,8 @@ fn canary_least_squares_and_its_jacobi_fallback() {
 /// The library's least squares (faer's QR, then faer's thin SVD of R) on exact inputs, bit for
 /// bit: the hash of the solution, printed as `FAER r_lstsq <size> <hash>` beside
 /// `tests/canary.rs`'s `canary_faer_dense_kernels_bit_for_bit` (faer_bits.rs says how). Asserted:
-/// the same bits computed again and on faer sequential, 1, 2 and 5 threads; not asserted: the
-/// hashes against another system's (#822).
+/// the same bits computed again, and sequential and on 1 to 5 threads (its QR and SVD are faer's,
+/// sequential: `crate::dense::fixed`); not asserted: the hashes against another system's (#822).
 #[test]
 fn canary_faer_least_squares_bit_for_bit() {
     fn items() -> Vec<faer_bits::Item> {

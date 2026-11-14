@@ -233,6 +233,9 @@ fn slope(errors: &[f64], from: usize) -> f64 {
 }
 
 pub fn main() -> ExitCode {
+    // faer's SVD and eigenvalues sequential, as the library's are: on rayon's threads their last
+    // bits would follow the machine's number of cores (docs/methods/conventions.md)
+    faer::set_global_parallelism(faer::Par::Seq);
     let mut setup = common::Setup::new();
     setup.item(
         "medium",

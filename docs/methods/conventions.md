@@ -45,8 +45,11 @@ $$
 
 photonoxide's own solvers give the same bits on any number of threads: each sums in an order
 fixed by the problem, not by the threads, and CI runs the tests on one thread as well as many.
-The exception is what goes through faer's QR, SVD or eigenvectors, the least squares of the fits
-among them, whose bits follow faer's threads (faer's dense kernels, below).
+So do the calls into faer: its products and LUs give the same bits on any number of threads, and
+the library takes faer's QR, SVDs and eigendecompositions sequentially (`src/dense/fixed.rs`),
+since faer's own divide their work by the threads (faer's dense kernels, below). On one machine
+a result is the same bits whatever its number of cores or `RAYON_NUM_THREADS`, and so on every
+machine of one family, x86-64 or ARM.
 Across systems the same bits are wanted but not promised, and CI checks what shows: the examples'
 outputs, written on Linux, are compared on Windows and macOS (Apple silicon) too, the 3D devices
 and the validation report by hand (the Systems workflow).
@@ -89,18 +92,31 @@ What can differ between systems, and what photonoxide does about each:
   the hashes. Measured in November 2026 on seven x86-64 machines (Linux, Windows and macOS; AMD
   Zen 4 and Zen 5, Intel Coffee Lake, Arrow Lake, Emerald Rapids and Granite Rapids; two with
   AVX2 alone, five with AVX-512) and two ARM ones (macOS on Apple M1, Linux on Neoverse N2):
-  every x86-64 machine gave the same bits for every one of the 181 results, on any number of
-  threads, and so did both ARM machines; between the two families 164 of the 181 differ, from the
+  every x86-64 machine gave the same bits for every one of the 181 results, sequential and on
+  each number of threads, and so did both ARM machines; between the two families 164 of the 181 differ, from the
   smallest size on: the complex product at every size, the real product within nano-gemm's range
   (M·N·K ≤ 4096; above it the same bits), the LUs, QR, SVD and eigensolvers from 4 × 4 or 8 × 8
   on, and the least squares. So faer's results follow the instruction set, x86-64 or ARM, not the
   operating system and not AVX-512, and this is where macOS on Apple silicon parts from Linux and
-  Windows. A second dependence, on one machine: QR, the SVDs, the eigenvectors and the least
-  squares give other bits on another number of threads (faer's Householder code divides its work
-  by the threads; for a given number, the same bits on every machine of a family). faer takes
-  rayon's thread count, the machine's number of cores unless `RAYON_NUM_THREADS` is set: 3 on
-  GitHub's macOS runners, 4 on its Linux and Windows ones. Whether photonoxide takes its own
-  fixed-order kernels for these is open (#822).
+  Windows. A second dependence was on one machine: faer's own QR, SVDs and eigenvectors gave
+  other bits on 2, 3 or 4 threads than on one (its blocked Householder code gives a reflector's
+  columns to as many as four tasks, each a product of another shape): QR at 100 × 30 and from
+  128 × 128 on, the SVDs through it, the eigenvectors at 128 × 128 on ARM, and the fits' least
+  squares at 100 × 30 and 400 × 64. faer takes rayon's thread count, the machine's number of
+  cores unless `RAYON_NUM_THREADS` is set, so a fit could give other digits on a 4-core and on an
+  8-core machine. The library therefore takes faer's QR, its SVDs (the singular values alone
+  too), its eigendecompositions and eigenvalues and its generalized eigenproblems sequentially
+  (`src/dense/fixed.rs`, the same steps as faer's own methods on `Par::Seq`): faer's bits on one
+  thread, on any number of threads. At the sizes the library takes, sequential is also faster (a
+  QR of 100 × 31 in 23 µs against 444 µs on four threads, the complex thin SVD of 300 × 30 in
+  0.35 ms against 1.4 ms, an eigendecomposition of 100 × 100 in 4.7 ms against 7.9 ms); rayon's
+  threads win from about 200 × 200 and on tall matrices of thousands of rows. The product and the
+  LUs, whose bits don't follow the threads, stay on rayon's. The canaries assert all of it: every
+  one of the 181 results the same bits sequential and on 1 to 5 threads. What is promised, then:
+  on one machine family, the same bits on any number of threads; between x86-64 and ARM, not,
+  unless photonoxide takes its own fixed-order kernels (#822, Stage B, undecided). The Systems
+  workflow sets `RAYON_NUM_THREADS=4` all the same, so that GitHub's macOS runners (3 cores) and
+  its Linux and Windows ones (4) run alike.
 - **powi.** `f64::powi` is square and multiply (compiler-builtins' `__powidf2`) on Linux, but
   the C runtime's `pow` on Windows, where LLVM lowers it so: both within a few ulps, but a third
   of the powers differ in their last bit between the two (measured by the platform canaries,

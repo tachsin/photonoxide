@@ -54,11 +54,10 @@ pub(crate) fn nearest_growing(
         }
         held = held.max(v.len());
         let hm = faer::Mat::<c64>::from_fn(steps, steps, |i, j| h[(i, j)]);
-        let eig = hm
-            .eigen()
+        let eig = crate::dense::fixed::eigen(hm.as_ref())
             .map_err(|e| Error::invalid("eigenproblem", format!("{e:?}")))?;
-        let theta = eig.S();
-        let y = eig.U();
+        let theta = &eig.s;
+        let y = &eig.u;
         let mut order: Vec<usize> = (0..steps).collect();
         order.sort_by(|&a, &b| {
             portable::complex::abs(theta[b]).total_cmp(&portable::complex::abs(theta[a]))

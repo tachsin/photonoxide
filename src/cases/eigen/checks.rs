@@ -119,7 +119,7 @@ pub(crate) fn dense_leaky() -> f64 {
     for &(i, j, v) in &entries {
         dense[(i, j)] += v;
     }
-    let Ok(mut all) = dense.eigenvalues() else {
+    let Ok(mut all) = crate::dense::fixed::eigenvalues(dense.as_ref()) else {
         return f64::NAN;
     };
     all.sort_by(|a, b| {
