@@ -9,6 +9,7 @@
 //! a frequency in c/µm is then ω/ω_p, γ/2π in c/µm is γ/ω_p, and a length in µm is in units of
 //! the plasma wavelength λ_p = 2πc/ω_p.
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
@@ -403,7 +404,10 @@ pub fn dispersion(medium: f64, damping: f64) -> photonoxide::Result<ChartData> {
         .fold((0.0, 0.0), |a, p| if p[0] > a.0 { (p[0], p[1]) } else { a });
     let worst = found
         .iter()
-        .map(|p| (p.index - closed_form(p.eps_m, medium * medium)).norm() / p.index.norm())
+        .map(|p| {
+            portable::complex::abs(p.index - closed_form(p.eps_m, medium * medium))
+                / portable::complex::abs(p.index)
+        })
         .fold(0.0, f64::max);
     let half = found
         .iter()
@@ -578,7 +582,7 @@ pub fn length(medium: f64, damping: f64, at: f64) -> photonoxide::Result<ChartDa
 /// Rayleigh's small-sphere scattering, (8/3) α⁴ |(m² − 1)/(m² + 2)|².
 fn rayleigh(size: f64, m: c64) -> f64 {
     let m2 = m * m;
-    8.0 / 3.0 * size.powi(4) * ((m2 - 1.0) / (m2 + 2.0)).norm_sqr()
+    8.0 / 3.0 * portable::powi(size, 4) * ((m2 - 1.0) / (m2 + 2.0)).norm_sqr()
 }
 
 /// Mie's efficiencies against the size parameter.
@@ -661,7 +665,7 @@ pub fn efficiency(index: f64, kappa: f64, up_to: f64) -> photonoxide::Result<Cha
 pub fn dipole(eps: c64, eps_d: f64, x: f64) -> (f64, f64, f64) {
     let f = (eps - eps_d) / (eps + 2.0 * eps_d);
     let abs = 4.0 * x * f.im;
-    let sca = 8.0 / 3.0 * x.powi(4) * f.norm_sqr();
+    let sca = 8.0 / 3.0 * portable::powi(x, 4) * f.norm_sqr();
     (abs + sca, sca, abs)
 }
 
@@ -821,7 +825,7 @@ pub fn against_mie(row: &(f64, [f64; 7])) -> photonoxide::Result<(f64, f64)> {
 /// is the number of spheres per mm³, each taking q πρ².
 pub fn per_mm(q: f64, diameter: f64) -> f64 {
     let rho = 0.5 * diameter * 1e-6;
-    1e3 * 1e-6 * q * PI * rho * rho / (4.0 / 3.0 * PI * rho.powi(3))
+    1e3 * 1e-6 * q * PI * rho * rho / (4.0 / 3.0 * PI * portable::powi(rho, 3))
 }
 
 /// Mie's gold spheres `diameter` nm across: (vacuum wavelength nm, extinction, absorption,
@@ -1001,6 +1005,7 @@ pub fn evaluate(id: &str, at: impl Fn(&str) -> f64) -> Option<photonoxide::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn close(a: f64, b: f64, tol: f64) {
         assert!((a - b).abs() <= tol, "{a} against {b}");
@@ -1037,8 +1042,8 @@ mod tests {
             {
                 let w = p[0];
                 let e = b - 1.0 / c64::new(w * w, d * w);
-                close(p[1], e.re, 1e-12 * e.norm());
-                close(q[1], e.im, 1e-12 * e.norm());
+                close(p[1], e.re, 1e-12 * portable::complex::abs(e));
+                close(q[1], e.im, 1e-12 * portable::complex::abs(e));
             }
             close(
                 fig(&data, "Re $\\varepsilon = 0$"),
@@ -1115,7 +1120,7 @@ mod tests {
         close(fig(&low, "depth in the dielectric"), 1.0 / kd, 1e-8 / kd);
         // ε_m ≫ ε_d: the depth in the dielectric over the metal's is about |ε_m|/ε_d
         let ratio = fig(&low, "depth in the dielectric") / fig(&low, "depth in the metal");
-        close(ratio / e.norm(), 1.0, 0.05);
+        close(ratio / portable::complex::abs(e), 1.0, 0.05);
     }
 
     /// Mie's efficiencies: a lossless sphere scatters what it takes, Rayleigh's limit at small
@@ -1295,7 +1300,7 @@ mod tests {
         let series = |x: f64| {
             let mie = Mie::new(x, Some(index)).unwrap();
             (
-                mie.mie_coefficients()[0].0 / (2.0 * x.powi(3)),
+                mie.mie_coefficients()[0].0 / (2.0 * portable::powi(x, 3)),
                 mie.extinction(),
             )
         };

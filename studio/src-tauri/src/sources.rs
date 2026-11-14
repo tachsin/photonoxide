@@ -24,6 +24,7 @@
 //! The library does the physics; this module checks the design against its limits, hands it to
 //! the library, and returns what comes back as the view draws it.
 
+use photonoxide::portable;
 use std::f64::consts::{LN_2, TAU};
 use std::time::Instant;
 
@@ -367,7 +368,11 @@ pub(crate) fn designed(d: &Design) -> Result<Designed, String> {
 
     // the maps, and whether the grid holds the spectrum
     let n = d.points;
-    let magnitude: Vec<f64> = s.amplitude.iter().map(|z| z.norm()).collect();
+    let magnitude: Vec<f64> = s
+        .amplitude
+        .iter()
+        .map(|z| portable::complex::abs(*z))
+        .collect();
     let peak = magnitude.iter().copied().fold(0.0, f64::max);
     let amplitude: Vec<f64> = magnitude.iter().map(|m| m / peak).collect();
     let edge = (0..n)
@@ -846,7 +851,7 @@ fn made_in_ring(d: &Design, bandwidth: f64) -> Result<Built, String> {
     // the second channel takes a share of the pump's power per round trip: a loss of the pump's
     let pumped = ring
         .clone()
-        .with_round_trip_loss(-10.0 * (1.0 - pump_extra).log10())
+        .with_round_trip_loss(-10.0 * portable::log10(1.0 - pump_extra))
         .map_err(err)?;
     let values = [length, *coupling];
     let resonance = |nu: f64| -> Result<f64, String> {

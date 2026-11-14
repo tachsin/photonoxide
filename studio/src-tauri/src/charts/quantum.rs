@@ -7,6 +7,7 @@
 //! after loss and its photon numbers by hafnians (`Gaussian`); and Qi et al.'s simulability test
 //! (`qi_simulable_error`).
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::{LN_2, TAU};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -550,8 +551,8 @@ pub fn dip_closed(kappa2: f64, sigma: f64, separation: f64, tau: f64) -> f64 {
         - 2.0
             * r
             * t
-            * (-(separation * separation) / (4.0 * sigma * sigma)).exp()
-            * (-(sigma * tau).powi(2)).exp()
+            * portable::exp(-(separation * separation) / (4.0 * sigma * sigma))
+            * portable::exp(-portable::powi(sigma * tau, 2))
 }
 
 pub fn hom_dip_chart(kappa2: f64, width_nm: f64, offset_nm: f64) -> photonoxide::Result<ChartData> {
@@ -606,7 +607,7 @@ pub fn hom_dip_chart(kappa2: f64, width_nm: f64, offset_nm: f64) -> photonoxide:
         ),
         figure(
             "spectral overlap",
-            (-(d.separation * d.separation) / (4.0 * d.sigma * d.sigma)).exp(),
+            portable::exp(-(d.separation * d.separation) / (4.0 * d.sigma * d.sigma)),
             4,
             "",
             "|⟨φ₁|φ₂⟩|² = e^(−Δ²/4σ²), which scales the dip",
@@ -645,7 +646,8 @@ pub fn mesh_means(n: usize, count: usize, clements: bool, losses: &[f64]) -> Vec
         .map(|j| {
             let f: Vec<f64> = all.iter().map(|v| v[j]).collect();
             let mean = f.iter().sum::<f64>() / f.len() as f64;
-            let var = f.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (f.len() - 1) as f64;
+            let var =
+                f.iter().map(|x| portable::powi(x - mean, 2)).sum::<f64>() / (f.len() - 1) as f64;
             (mean, (var / f.len() as f64).sqrt())
         })
         .collect()
@@ -836,10 +838,10 @@ pub fn formula_agreement(up_to: usize) -> photonoxide::Result<f64> {
         let a = haar_unitary(n, n as u64);
         let g = permanent_by(&a, Formula::Glynn)?;
         let r = permanent_by(&a, Formula::Ryser)?;
-        e = e.max((g - r).norm() / g.norm());
+        e = e.max(portable::complex::abs(g - r) / portable::complex::abs(g));
         if n <= 8 {
             let d = permanent_by(&a, Formula::Definition)?;
-            e = e.max((g - d).norm() / g.norm());
+            e = e.max(portable::complex::abs(g - d) / portable::complex::abs(g));
         }
     }
     Ok(e)
@@ -881,7 +883,7 @@ pub fn permanent_cost(up_to: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             "growth per photon",
-            (last / before).powf(0.25),
+            portable::powf(last / before, 0.25),
             3,
             "",
             "the time's growth per photon over the last four: 2 for n·2ⁿ, once the threads are busy",
@@ -964,7 +966,7 @@ pub fn loss_varnava(detector: f64) -> photonoxide::Result<ChartData> {
 /// left in mode 1 is ⟨k, 1, 0|U|k, 1, 0⟩ = Per(u[k·1, 2; k·1, 2]) / k!.
 pub fn sign_gate() -> photonoxide::Result<[f64; 3]> {
     let s2 = 2f64.sqrt();
-    let q = 2f64.powf(-0.25);
+    let q = portable::powf(2f64, -0.25);
     let e = (3.0 / s2 - 2.0).sqrt();
     let rows = [
         [1.0 - s2, q, e],
@@ -1032,7 +1034,7 @@ pub fn bell_measurement() -> photonoxide::Result<f64> {
 const BARTOLUCCI_FUSION: f64 = 0.104;
 
 pub fn fusion_chart(boost: f64) -> photonoxide::Result<ChartData> {
-    let chosen = 0.5f64.powf(boost.round());
+    let chosen = portable::powf(0.5f64, boost.round());
     let mut series = Vec::new();
     for (k, p) in [0.5, 0.25, 0.125].into_iter().enumerate() {
         let pts: Vec<[f64; 2]> = (0..=100)
@@ -1050,7 +1052,7 @@ pub fn fusion_chart(boost: f64) -> photonoxide::Result<ChartData> {
         true,
         GREY,
     ));
-    let tolerated = 1.0 - (1.0 - BARTOLUCCI_FUSION).powf(chosen);
+    let tolerated = 1.0 - portable::powf(1.0 - BARTOLUCCI_FUSION, chosen);
     let ns = sign_gate()?;
     let mut out = data(
         "loss per photon, %",
@@ -1136,7 +1138,7 @@ pub fn pair_statistics(purity: f64, pairs: f64) -> photonoxide::Result<ChartData
             if n > 0 {
                 factorial *= n as f64;
             }
-            (-pairs).exp() * pairs.powi(n as i32) / factorial
+            portable::exp(-pairs) * portable::powi(pairs, n as i32) / factorial
         })
         .collect();
     let mut out = data(
@@ -1289,7 +1291,7 @@ const POINTS: usize = 601;
 /// The pulses the ring chart is drawn at, ps.
 fn pulses() -> Vec<f64> {
     (0..=12)
-        .map(|k| 0.05 * 10f64.powf(f64::from(k) / 3.0))
+        .map(|k| 0.05 * portable::powf(10f64, f64::from(k) / 3.0))
         .collect()
 }
 
@@ -1305,8 +1307,12 @@ pub fn ring_pairs(ratio: f64) -> photonoxide::Result<ChartData> {
     };
     let equal = sweep(1.0)?;
     let wide = sweep(ratio)?;
-    let pts =
-        |k: &[f64]| -> Vec<[f64; 2]> { ps.iter().zip(k).map(|(p, k)| [p.log10(), *k]).collect() };
+    let pts = |k: &[f64]| -> Vec<[f64; 2]> {
+        ps.iter()
+            .zip(k)
+            .map(|(p, k)| [portable::log10(*p), *k])
+            .collect()
+    };
     let mut series = vec![curve("equal linewidths", pts(&equal), false, 0)];
     if (ratio - 1.0).abs() > 1e-9 {
         series.push(curve(
@@ -1362,7 +1368,7 @@ pub fn squeezed_after(db: f64, eta: f64) -> photonoxide::Result<(f64, f64)> {
 }
 
 fn to_db(v: f64) -> f64 {
-    10.0 * v.log10()
+    10.0 * portable::log10(v)
 }
 
 pub fn squeezing_loss(db: f64) -> photonoxide::Result<ChartData> {
@@ -1377,8 +1383,8 @@ pub fn squeezing_loss(db: f64) -> photonoxide::Result<ChartData> {
         let (a, b) = squeezed_after(db, eta)?;
         low.push([eta, to_db(a)]);
         high.push([eta, to_db(b)]);
-        closed_low.push([eta, to_db(eta * (-2.0 * r).exp() + 1.0 - eta)]);
-        closed_high.push([eta, to_db(eta * (2.0 * r).exp() + 1.0 - eta)]);
+        closed_low.push([eta, to_db(eta * portable::exp(-2.0 * r) + 1.0 - eta)]);
+        closed_high.push([eta, to_db(eta * portable::exp(2.0 * r) + 1.0 - eta)]);
         if eta < 1.0 {
             limit.push([eta, to_db(1.0 - eta)]);
         }
@@ -1416,7 +1422,7 @@ pub fn squeezing_loss(db: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             "η keeping 3 dB",
-            (1.0 - 10f64.powf(-0.3)) / (1.0 - (-2.0 * r).exp()),
+            (1.0 - portable::powf(10f64, -0.3)) / (1.0 - portable::exp(-2.0 * r)),
             4,
             "",
             "(1 − 10^(−0.3))/(1 − e^(−2r)), above 1 when the squeezing is below 3 dB",
@@ -1444,14 +1450,14 @@ pub fn squeezed_closed(r: f64, n: usize) -> f64 {
     for j in 1..=k {
         ratio *= (2 * j - 1) as f64 / (2 * j) as f64;
     }
-    r.tanh().powi(2 * k as i32) * ratio / r.cosh()
+    portable::powi(portable::tanh(r), 2 * k as i32) * ratio / portable::cosh(r)
 }
 
 pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
     let most = 30;
     let r = r_of_db(db);
     let p = squeezed_numbers(db, eta, most)?;
-    let mean = eta * r.sinh().powi(2);
+    let mean = eta * portable::powi(portable::sinh(r), 2);
     // the odd numbers of a lossless squeezed vacuum are zero, computed to round-off
     let floor = 1e-13;
     let pts = |v: &[f64]| -> Vec<[f64; 2]> {
@@ -1462,7 +1468,7 @@ pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
             .collect()
     };
     let thermal: Vec<f64> = (0..=most)
-        .map(|n| mean.powi(n as i32) / (1.0 + mean).powi(n as i32 + 1))
+        .map(|n| portable::powi(mean, n as i32) / portable::powi(1.0 + mean, n as i32 + 1))
         .collect();
     let mut factorial = 1.0;
     let poisson: Vec<f64> = (0..=most)
@@ -1470,7 +1476,7 @@ pub fn squeezed_photons(db: f64, eta: f64) -> photonoxide::Result<ChartData> {
             if n > 0 {
                 factorial *= n as f64;
             }
-            (-mean).exp() * mean.powi(n as i32) / factorial
+            portable::exp(-mean) * portable::powi(mean, n as i32) / factorial
         })
         .collect();
     let mut series = vec![curve("squeezed vacuum, by hafnians", pts(&p), false, 0)];
@@ -1605,6 +1611,7 @@ pub fn evaluate(id: &str, at: impl Fn(&str) -> f64) -> Option<photonoxide::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -1627,7 +1634,7 @@ mod tests {
             for (p, q) in c.points.iter().zip(&data.series[3].points) {
                 let (r, t) = (1.0 - p[0], p[0]);
                 let expected = match c.label.as_str() {
-                    l if l.starts_with("photons alike") => (r - t).powi(2),
+                    l if l.starts_with("photons alike") => portable::powi(r - t, 2),
                     l if l.starts_with("told apart") => r * r + t * t,
                     _ => q[1],
                 };
@@ -1750,7 +1757,7 @@ mod tests {
         let mu = 0.2;
         let one = Source::new(&gaussian_weights(1.0), mu).unwrap();
         for (n, p) in one.pairs(8).into_iter().enumerate() {
-            let thermal = mu.powi(n as i32) / (1.0 + mu).powi(n as i32 + 1);
+            let thermal = portable::powi(mu, n as i32) / portable::powi(1.0 + mu, n as i32 + 1);
             assert!((p - thermal).abs() < 1e-14, "{n}");
         }
         assert!((one.unheralded_g2() - 2.0).abs() < 1e-12);
@@ -1821,7 +1828,10 @@ mod tests {
         let r3 = r_of_db(3.0);
         let lossy = squeezed_numbers(3.0, 0.5, 30).unwrap();
         let mean: f64 = lossy.iter().enumerate().map(|(n, v)| n as f64 * v).sum();
-        assert!((mean - 0.5 * r3.sinh().powi(2)).abs() < 1e-12, "{mean}");
+        assert!(
+            (mean - 0.5 * portable::powi(portable::sinh(r3), 2)).abs() < 1e-12,
+            "{mean}"
+        );
     }
 
     #[test]

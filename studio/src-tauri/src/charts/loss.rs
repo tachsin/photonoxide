@@ -7,6 +7,7 @@
 use photonoxide::circuit::Component;
 use photonoxide::circuit::components::{Dispersion, Waveguide};
 use photonoxide::mode::roughness::{Roughness, db_per_cm, payne_lacey, slab_loss};
+use photonoxide::portable;
 use photonoxide::units::{Length, Wavelength};
 
 use super::{ChartData, ChartSpec, Curve, figure, invalid, param, sig};
@@ -38,7 +39,7 @@ fn curve(label: &str, points: Vec<[f64; 2]>, dashed: bool, colour: usize) -> Cur
 /// `n` points from `a` to `b`, both included, evenly on a logarithmic scale.
 fn log_span(a: f64, b: f64, n: usize) -> Vec<f64> {
     (0..n)
-        .map(|k| a * (b / a).powf(k as f64 / (n - 1) as f64))
+        .map(|k| a * portable::powf(b / a, k as f64 / (n - 1) as f64))
         .collect()
 }
 
@@ -382,13 +383,13 @@ fn line(points: &[[f64; 2]]) -> (f64, f64, f64) {
     let n = points.len() as f64;
     let mx = points.iter().map(|p| p[0]).sum::<f64>() / n;
     let my = points.iter().map(|p| p[1]).sum::<f64>() / n;
-    let sxx: f64 = points.iter().map(|p| (p[0] - mx).powi(2)).sum();
+    let sxx: f64 = points.iter().map(|p| portable::powi(p[0] - mx, 2)).sum();
     let sxy: f64 = points.iter().map(|p| (p[0] - mx) * (p[1] - my)).sum();
     let slope = sxy / sxx;
     let intercept = my - slope * mx;
     let residuals: f64 = points
         .iter()
-        .map(|p| (p[1] - intercept - slope * p[0]).powi(2))
+        .map(|p| portable::powi(p[1] - intercept - slope * p[0], 2))
         .sum();
     let error = (residuals / (n - 2.0)).sqrt() / sxx.sqrt();
     (slope, intercept, error)
@@ -403,7 +404,7 @@ fn transmission(
     facet: f64,
 ) -> photonoxide::Result<f64> {
     let s = wire.s_matrix(Wavelength::um(WAVELENGTH)?, &[length_cm * 1e4, loss])?;
-    Ok(10.0 * s[(1, 0)].norm_sqr().log10() - 2.0 * facet)
+    Ok(10.0 * portable::log10(s[(1, 0)].norm_sqr()) - 2.0 * facet)
 }
 
 /// A cutback: six guides up to `longest` cm, each measured off the line by its share of

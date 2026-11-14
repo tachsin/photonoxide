@@ -18,6 +18,7 @@
 
 use photonoxide::circuit::Fidelity;
 use photonoxide::device::{self, Device, Spec, TflnModulator};
+use photonoxide::portable;
 use photonoxide::raster::Raster;
 use serde::Serialize;
 
@@ -117,7 +118,7 @@ pub fn electrode_field(spec: &SpecIn) -> Result<ElectrodeView, String> {
         .iter()
         .enumerate()
         .fold((0, f32::MIN), |b, (k, &v)| if v > b.1 { (k, v) } else { b });
-    let mode = [0.5, (-2.0f64).exp()]
+    let mode = [0.5, portable::exp(-2.0f64)]
         .into_iter()
         .map(|level| Isoline {
             level,

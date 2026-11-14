@@ -1,6 +1,7 @@
 //! The quantum view's Gaussian part: squeezed light through a chip against closed forms, and
 //! what it refuses.
 
+use photonoxide::portable;
 use std::f64::consts::TAU;
 use std::path::Path;
 
@@ -70,12 +71,12 @@ fn squeezing_through_a_balanced_coupler_is_halved_with_the_vacuum() {
         &request(vec![squeezed("a", db)], "c"),
     )
     .unwrap();
-    let to_db = |x: f64| 10.0 * x.log10();
+    let to_db = |x: f64| 10.0 * portable::log10(x);
     for out in ["c", "d"] {
         let s = v.states.iter().find(|s| s.port == out).unwrap();
-        assert!((s.squeezed_db - to_db(0.5 * ((-2.0 * r).exp() + 1.0))).abs() < 1e-12);
-        assert!((s.anti_squeezed_db - to_db(0.5 * ((2.0 * r).exp() + 1.0))).abs() < 1e-12);
-        assert!((s.mean_photons - 0.5 * r.sinh().powi(2)).abs() < 1e-12);
+        assert!((s.squeezed_db - to_db(0.5 * (portable::exp(-2.0 * r) + 1.0))).abs() < 1e-12);
+        assert!((s.anti_squeezed_db - to_db(0.5 * (portable::exp(2.0 * r) + 1.0))).abs() < 1e-12);
+        assert!((s.mean_photons - 0.5 * portable::powi(portable::sinh(r), 2)).abs() < 1e-12);
     }
     let a = v.states.iter().find(|s| s.port == "a").unwrap();
     assert_eq!(a.given_db, db);
@@ -99,18 +100,18 @@ fn two_squeezed_inputs_make_thermal_outputs() {
         &request(vec![squeezed("a", db), squeezed("b", db)], "d"),
     )
     .unwrap();
-    let nbar = r.sinh().powi(2);
+    let nbar = portable::powi(portable::sinh(r), 2);
     let d = v.states.iter().find(|s| s.port == "d").unwrap();
     assert!((d.squeezed_db - d.anti_squeezed_db).abs() < 1e-9, "{d:?}");
     assert!((d.mean_photons - nbar).abs() < 1e-12);
     for (n, p) in v.distribution.iter().enumerate() {
-        let thermal = nbar.powi(n as i32) / (1.0 + nbar).powi(n as i32 + 1);
+        let thermal = portable::powi(nbar, n as i32) / portable::powi(1.0 + nbar, n as i32 + 1);
         assert!(
             (p - thermal).abs() < 1e-12,
             "P({n}) = {p} against {thermal}"
         );
     }
-    let tail = (nbar / (1.0 + nbar)).powi(13);
+    let tail = portable::powi(nbar / (1.0 + nbar), 13);
     assert!(
         (v.beyond - tail).abs() < 1e-9,
         "{} against {tail}",
@@ -144,7 +145,7 @@ fn a_lossy_chip_lets_less_squeezing_out() {
     assert!(v.loss_modes > 0);
     assert!(v.purity < 1.0);
     let lost: f64 = v.states.iter().map(|s| s.mean_photons).sum();
-    assert!(lost < r_of_db(10.0).sinh().powi(2));
+    assert!(lost < portable::powi(portable::sinh(r_of_db(10.0)), 2));
     for s in &v.states {
         assert!(s.squeezed_db > -10.0 + 1e-6, "{s:?}");
     }

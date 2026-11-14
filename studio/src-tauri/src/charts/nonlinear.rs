@@ -26,6 +26,7 @@
 //! - **Photon pairs** (`nl-jsa`): a down-converter's joint spectral intensity and its Schmidt
 //!   purity (`nonlinear::pairs`), against the Gaussian closed form.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::{LN_2, PI, TAU};
 use std::sync::{Mutex, OnceLock};
@@ -654,9 +655,9 @@ pub fn coupled(
         let g2 = gamma * gamma - 0.25 * dk * dk;
         let closed = |z: f64| {
             let s = if g2 > 0.0 {
-                (g2.sqrt() * z).sinh() / g2.sqrt()
+                portable::sinh(g2.sqrt() * z) / g2.sqrt()
             } else if g2 < 0.0 {
-                ((-g2).sqrt() * z).sin() / (-g2).sqrt()
+                portable::sin((-g2).sqrt() * z) / (-g2).sqrt()
             } else {
                 z
             };
@@ -684,7 +685,7 @@ pub fn coupled(
                     end,
                     6,
                     "",
-                    &format!("{} dB", sig(10.0 * end.log10(), 4)),
+                    &format!("{} dB", sig(10.0 * portable::log10(end), 4)),
                 ),
                 figure("Undepleted", closed(l), 6, "", "cosh² ΓL when matched"),
                 figure("$\\Gamma L$", gamma * l, 4, "", "Γ = κ(ν_sν_iP)^½/ν_p"),
@@ -715,7 +716,10 @@ pub fn coupled(
         if u <= 1.1 {
             undepleted.push([z * 1e-3, u]);
         }
-        tanh.push([z * 1e-3, (kappa * p0.sqrt() * z).tanh().powi(2)]);
+        tanh.push([
+            z * 1e-3,
+            portable::powi(portable::tanh(kappa * p0.sqrt() * z), 2),
+        ]);
     }
     let end = ours.last().map_or(0.0, |p| p[1]);
     let mut series = vec![
@@ -738,7 +742,7 @@ pub fn coupled(
         series.push(curve("Armstrong et al.: tanh² κ√P z", tanh, true, 2));
         figures.push(figure(
             "$\\tanh^2\\kappa\\sqrt{P}L$",
-            x.tanh().powi(2),
+            portable::powi(portable::tanh(x), 2),
             6,
             "",
             "matched",
@@ -771,7 +775,8 @@ pub fn qpm(order: f64, duty: f64, span_lc: f64) -> photonoxide::Result<ChartData
     let dk = PI;
     // ∫_a^b e^{−iΔkz} dz
     let piece = |a: f64, b: f64| {
-        (c64::from_polar(1.0, -dk * a) - c64::from_polar(1.0, -dk * b)) / c64::new(0.0, dk)
+        (portable::complex::from_polar(1.0, -dk * a) - portable::complex::from_polar(1.0, -dk * b))
+            / c64::new(0.0, dk)
     };
     let sign = |z: f64| {
         if (z / period).rem_euclid(1.0) < duty {
@@ -1074,7 +1079,8 @@ fn ridge_modes(width: f64, etch: f64, lam: f64) -> photonoxide::Result<RidgeMode
                     let cj = cell(ys, y);
                     for i in 0..nx {
                         let x = x0 + (i as f64 + 0.5) * (x1 - x0) / nx as f64;
-                        values[j * nx + i] = fields.e(cell(xs, x.abs()), cj)[0].norm();
+                        values[j * nx + i] =
+                            portable::complex::abs(fields.e(cell(xs, x.abs()), cj)[0]);
                     }
                 }
                 let peak = values
@@ -1096,7 +1102,7 @@ fn ridge_modes(width: f64, etch: f64, lam: f64) -> photonoxide::Result<RidgeMode
                 });
             }
             let slab = FILM - etch;
-            let foot = 0.5 * width + etch / SIDEWALL.to_radians().tan();
+            let foot = 0.5 * width + etch / portable::tan(SIDEWALL.to_radians());
             let outline = vec![
                 [x0, 0.0],
                 [x1, 0.0],
@@ -1330,17 +1336,23 @@ pub fn fwm_gain(
     // where β₂Ω² or β₄Ω⁴/12 alone would cancel the Kerr shift 2γP
     let reach = (2.0 * gamma * power / beta2.abs().max(1e-6))
         .sqrt()
-        .min((24.0 * gamma * power / (beta4.abs() * 1e-4).max(1e-12)).powf(0.25));
+        .min(portable::powf(
+            24.0 * gamma * power / (beta4.abs() * 1e-4).max(1e-12),
+            0.25,
+        ));
     let edge = (2.5 * peak.unwrap_or(reach)).clamp(0.5, 300.0);
     let mut gain = Vec::new();
     let mut idler = Vec::new();
     for w in span(-edge, edge, 801) {
         let dk = disp.four_wave_mismatch(w);
         let f = w / TAU;
-        gain.push([f, 10.0 * fwm::signal_gain(gamma, power, dk, length).log10()]);
+        gain.push([
+            f,
+            10.0 * portable::log10(fwm::signal_gain(gamma, power, dk, length)),
+        ]);
         idler.push([
             f,
-            10.0 * fwm::conversion(gamma, power, dk, length).max(1e-30).log10(),
+            10.0 * portable::log10(fwm::conversion(gamma, power, dk, length).max(1e-30)),
         ]);
     }
     let gpl = gamma * power * length;
@@ -1366,12 +1378,12 @@ pub fn fwm_gain(
             g,
             6,
             "",
-            &format!("{} dB", sig(10.0 * g.log10(), 4)),
+            &format!("{} dB", sig(10.0 * portable::log10(g), 4)),
         ));
     }
     figures.push(figure(
         "$\\cosh^2\\gamma PL$",
-        gpl.cosh().powi(2),
+        portable::powi(portable::cosh(gpl), 2),
         6,
         "",
         "the gain where κ = 0",
@@ -1508,7 +1520,9 @@ fn lines_of(field: &[c64]) -> Vec<[f64; 2]> {
             let s: c64 = field
                 .iter()
                 .enumerate()
-                .map(|(j, v)| v * c64::from_polar(1.0, -TAU * mu as f64 * j as f64 / n as f64))
+                .map(|(j, v)| {
+                    v * portable::complex::from_polar(1.0, -TAU * mu as f64 * j as f64 / n as f64)
+                })
                 .sum();
             [mu as f64, (s / n as f64).norm_sqr()]
         })
@@ -1537,7 +1551,7 @@ fn settled(detuning: f64, drive: f64, d2: f64) -> photonoxide::Result<Option<Set
                 approx_peak: peak_of(&start),
                 width: if decayed { f64::NAN } else { peak_width(&end)? },
                 // the sech²'s own FWHM, 2 acosh(√2) W, as the write-up's table takes it
-                approx_width: 2.0 * 2f64.sqrt().acosh() * s.width,
+                approx_width: 2.0 * portable::acosh(2f64.sqrt()) * s.width,
                 decayed,
                 time,
             }))
@@ -1572,7 +1586,7 @@ pub fn comb(detuning: f64, drive: f64, d2: f64) -> photonoxide::Result<ChartData
         let top = lines.iter().map(|q| q[1]).fold(0.0, f64::max);
         lines
             .iter()
-            .map(|q| [q[0], 10.0 * (q[1] / top).max(1e-12).log10()])
+            .map(|q| [q[0], 10.0 * portable::log10((q[1] / top).max(1e-12))])
             .filter(|q| q[0].abs() <= 200.0)
             .collect()
     };
@@ -1673,7 +1687,7 @@ pub fn jsa(
     };
     // the Gaussian amplitude's covariance sets the window: ln f = −p(δs + δi)² − g(Aδs + Bδi)²
     let p = 2.0 * LN_2 / (bandwidth * bandwidth);
-    let g = gaussian_gamma() * (PI * length).powi(2);
+    let g = gaussian_gamma() * portable::powi(PI * length, 2);
     let (a, b) = (gp - gs, gp - idler);
     let q = [
         [p + g * a * a, p + g * a * b],
@@ -1697,11 +1711,11 @@ pub fn jsa(
     let mut values = vec![0.0f64; cells * cells];
     let pick = |x: f64| {
         if gaussian {
-            (-gaussian_gamma() * x * x).exp()
+            portable::exp(-gaussian_gamma() * x * x)
         } else if x.abs() < 1e-4 {
             1.0 - x * x / 6.0
         } else {
-            x.sin() / x
+            portable::sin(x) / x
         }
     };
     for j in 0..cells {
@@ -1710,7 +1724,7 @@ pub fn jsa(
             let ls = near + (far - near) * (i as f64 + 0.5) / cells as f64;
             let (s, id) = (1.0 / ls, 1.0 / li);
             let x = device.phase_at_frequencies(&[s, id, s + id], &state)?;
-            values[j * cells + i] = (pump.amplitude(s + id) * pick(x)).powi(2);
+            values[j * cells + i] = portable::powi(pump.amplitude(s + id) * pick(x), 2);
         }
     }
     let top = values
@@ -1802,6 +1816,7 @@ pub fn jsa(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -1840,9 +1855,11 @@ mod tests {
     fn coupled_is_armstrongs() {
         // κ√P L = 2 at 4.5e-7 /(W µm²) and 4 mm: P = 1/(κL/2)² W
         let kappa = coupling_from_efficiency(4500.0);
-        let p = (2.0 / (kappa * 4000.0)).powi(2);
+        let p = portable::powi(2.0 / (kappa * 4000.0), 2);
         let d = coupled(1.0, 4500.0, p * 1e3, 4.0, 0.0).unwrap();
-        assert!((fig(&d, "$P_{2\\omega}/P$") - 2f64.tanh().powi(2)).abs() < 1e-9);
+        assert!(
+            (fig(&d, "$P_{2\\omega}/P$") - portable::powi(portable::tanh(2f64), 2)).abs() < 1e-9
+        );
         assert!((fig(&d, "$\\kappa") - 2.0).abs() < 1e-12);
         for (a, b) in d.series[0].points.iter().zip(&d.series[2].points) {
             assert!((a[1] - b[1]).abs() < 1e-9, "{a:?} {b:?}");
@@ -1862,7 +1879,7 @@ mod tests {
             );
             if phase == 0.0 {
                 let gl = fig(&g, "$\\Gamma L$");
-                assert!((closed - gl.cosh().powi(2)).abs() < 1e-9 * closed);
+                assert!((closed - portable::powi(portable::cosh(gl), 2)).abs() < 1e-9 * closed);
             }
         }
     }
@@ -1874,7 +1891,7 @@ mod tests {
     fn qpm_is_fejers() {
         let d = qpm(1.0, 0.5, 40.0).unwrap();
         assert!((fig(&d, "No grating's") - 4.0 / (PI * PI)).abs() < 1e-12);
-        let g2 = (2.0 / PI).powi(2);
+        let g2 = portable::powi(2.0 / PI, 2);
         assert!((fig(&d, "$G_m^2$") - g2).abs() < 1e-12);
         let ratio = fig(&d, "Poled over");
         assert!((ratio / g2 - 1.0).abs() < 0.05, "{ratio}");
@@ -1959,11 +1976,16 @@ mod tests {
         assert!((fig(&d, "Peak detuning") - 40f64.sqrt()).abs() < 1e-12);
         assert!((fig(&d, "Gain there") - 14.154116).abs() < 1e-6);
         let top = d.series[0].points.iter().map(|q| q[1]).fold(0.0, f64::max);
-        assert!((top - 10.0 * 14.154116f64.log10()).abs() < 0.01, "{top}");
+        assert!(
+            (top - 10.0 * portable::log10(14.154116f64)).abs() < 0.01,
+            "{top}"
+        );
         let disp = Dispersion::new(1.55, &[-0.05, 0.0, 1e-4]).unwrap();
         let w: f64 = 5.0;
         assert!(
-            (disp.four_wave_mismatch(w) - (-0.05 * w * w + 1e-4 * w.powi(4) / 12.0)).abs() < 1e-12
+            (disp.four_wave_mismatch(w) - (-0.05 * w * w + 1e-4 * portable::powi(w, 4) / 12.0))
+                .abs()
+                < 1e-12
         );
     }
 

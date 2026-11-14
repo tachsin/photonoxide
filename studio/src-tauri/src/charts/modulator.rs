@@ -15,6 +15,7 @@
 //!   effective index method (`PcmShifter`'s analytic fidelity), Δn_eff from the amorphous to the
 //!   crystalline state against the film's thickness, for Sb₂Se₃, Sb₂S₃ and GST.
 
+use photonoxide::portable;
 use std::f64::consts::{LN_10, PI};
 
 use num_complex::Complex64 as c64;
@@ -350,7 +351,7 @@ pub fn mzm_transfer(
     }
     let here = device.derived(&Values::new(&device, &base)?, Fidelity::TwoD)?;
     let (m_db, _) = read(&here, "m_dB")?;
-    let m = 10f64.powf(m_db / 20.0);
+    let m = portable::powf(10f64, m_db / 20.0);
     series.push(curve(
         &if frequency_ghz > 0.0 {
             format!("at {} GHz", sig(frequency_ghz, 3))
@@ -369,7 +370,7 @@ pub fn mzm_transfer(
         series.push(curve("at DC", dc_points, true, 1));
     }
     // the slope at the bias, dT/dV = −(π|m|/2Vπ) sin(φ₀): the component's T = cos²(φ/2)
-    let slope = -(PI * m / (2.0 * vpi)) * (bias_pi * PI).sin();
+    let slope = -(PI * m / (2.0 * vpi)) * portable::sin(bias_pi * PI);
     Ok(ChartData {
         maps: Vec::new(),
         x_label: "drive voltage V (V)".to_owned(),
@@ -446,7 +447,7 @@ pub fn modulator_response(
         if u.abs() < 1e-12 {
             1.0
         } else {
-            (u.sin() / u).abs()
+            (portable::sin(u) / u).abs()
         }
     };
     let lossy = |hz: f64| {
@@ -454,10 +455,10 @@ pub fn modulator_response(
         if al < 1e-12 {
             1.0
         } else {
-            (1.0 - (-al).exp()) / al
+            (1.0 - portable::exp(-al)) / al
         }
     };
-    let db = |m: &dyn Fn(f64) -> f64, hz: f64| 20.0 * (m(hz) / m(REFERENCE)).log10();
+    let db = |m: &dyn Fn(f64) -> f64, hz: f64| 20.0 * portable::log10(m(hz) / m(REFERENCE));
     let ghz = span(1.0, 300.0, 300);
     let line_of = |m: &dyn Fn(f64) -> f64| -> Vec<[f64; 2]> {
         ghz.iter().map(|&g| [g, db(m, g * 1e9)]).collect()
@@ -470,7 +471,7 @@ pub fn modulator_response(
     let f6 = band(&full, -6.0)?;
     let f3_walk = band(&walk_off, -3.0)?;
     let f3_loss = band(&lossy, -3.0)?;
-    let low = 20.0 * full(REFERENCE).log10();
+    let low = 20.0 * portable::log10(full(REFERENCE));
     let series = vec![
         curve("the line", line_of(&full), false, 0),
         curve("walk-off alone: |sin U/U|", line_of(&walk_off), true, 1),
@@ -610,6 +611,7 @@ pub fn pcm_shift(thickness_nm: f64, width: f64) -> photonoxide::Result<ChartData
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -656,7 +658,10 @@ mod tests {
         let vpi = fig(&data, "$V_\\pi$ at DC");
         for q in &data.series[0].points {
             let phi = PI * q[0] / vpi + 0.5 * PI;
-            assert!((q[1] - (phi / 2.0).cos().powi(2)).abs() < 1e-9, "{q:?}");
+            assert!(
+                (q[1] - portable::powi(portable::cos(phi / 2.0), 2)).abs() < 1e-9,
+                "{q:?}"
+            );
         }
         let at_zero = data.series[0].points[40];
         assert!(at_zero[0].abs() < 1e-12 && (at_zero[1] - 0.5).abs() < 1e-9);
@@ -681,7 +686,7 @@ mod tests {
         let f3 = fig(&walk, "the walk-off's 3 dB");
         let u = PI * f3 * 1e9 * 0.2 * 0.01 / SPEED_OF_LIGHT;
         let u1 = PI * 1e9 * 0.2 * 0.01 / SPEED_OF_LIGHT;
-        let db = 20.0 * ((u.sin() / u) / (u1.sin() / u1)).log10();
+        let db = 20.0 * portable::log10((portable::sin(u) / u) / (portable::sin(u1) / u1));
         assert!(
             (db + 3.0).abs() < 1e-6 && (u - 1.389).abs() < 1e-3,
             "{u}: {db} dB"
@@ -695,9 +700,9 @@ mod tests {
         let f = fig(&lossy, "the loss's 3 dB");
         let m = |ghz: f64| {
             let al = 0.6 * ghz.sqrt() / DB_PER_NEPER;
-            (1.0 - (-al).exp()) / al
+            (1.0 - portable::exp(-al)) / al
         };
-        let db = 20.0 * (m(f) / m(1.0)).log10();
+        let db = 20.0 * portable::log10(m(f) / m(1.0));
         assert!((db + 3.0).abs() < 1e-6, "{f} GHz: {db} dB");
         // Zhang et al.'s fitted line
         let short = fig(

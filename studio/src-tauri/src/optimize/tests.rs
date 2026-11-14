@@ -4,6 +4,7 @@
 
 use photonoxide::circuit::Fidelity;
 use photonoxide::job::Event;
+use photonoxide::portable;
 
 use super::*;
 
@@ -155,7 +156,7 @@ fn a_ring_is_taken_to_critical_coupling() {
         .unwrap();
     let kappa2 = built.figure("kappa2").unwrap().value;
     let length = built.figure("L").unwrap().value;
-    let a2 = 10f64.powf(-(20.0 * length * 1e-4) / 10.0);
+    let a2 = portable::powf(10f64, -(20.0 * length * 1e-4) / 10.0);
     assert!(
         (kappa2 - (1.0 - a2)).abs() < 1e-6,
         "κ² {kappa2} against {} ({stop})",
@@ -291,7 +292,7 @@ fn strip() -> photonoxide::circuit::components::Dispersion {
 fn the_chip_splitter_reaches_clements_closed_form() {
     // the bar port carries sin²(θ/2): 0.3 at θ = 2 arcsin √0.3
     let x = chip_optimum("chip-splitter.yaml");
-    let theta = 2.0 * 0.3f64.sqrt().asin();
+    let theta = 2.0 * portable::asin(0.3f64.sqrt());
     assert!((x[0] - theta).abs() < 1e-6, "θ {} against {theta}", x[0]);
 }
 
@@ -305,7 +306,7 @@ fn the_chip_ring_reaches_critical_coupling_on_resonance() {
     let m = (n * tau * 9.985 / 1.55).round();
     assert_eq!(m, 99.0);
     let radius = m * 1.55 / (tau * n);
-    let a = 10f64.powf(-3.0 * 1e-4 * tau * radius / 20.0);
+    let a = portable::powf(10f64, -3.0 * 1e-4 * tau * radius / 20.0);
     let kappa2 = 1.0 - a * a;
     assert!((x[0] - kappa2).abs() < 1e-9, "κ² {} against {kappa2}", x[0]);
     assert!((x[1] - radius).abs() < 1e-9, "R {} against {radius}", x[1]);

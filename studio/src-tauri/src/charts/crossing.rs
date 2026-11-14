@@ -17,6 +17,7 @@
 //!   TE₀ through against the taper's length for a linear, a parabolic and an exponential
 //!   profile, and the adiabatic parameter the coupled local modes give.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::{Mutex, OnceLock};
@@ -132,7 +133,8 @@ impl Crossing {
 
     fn in_ellipses(&self, x: f64, z: f64) -> bool {
         let [a, b] = ELLIPSE;
-        (z / a).powi(2) + (x / b).powi(2) <= 1.0 || (x / a).powi(2) + (z / b).powi(2) <= 1.0
+        portable::powi(z / a, 2) + portable::powi(x / b, 2) <= 1.0
+            || portable::powi(x / a, 2) + portable::powi(z / b, 2) <= 1.0
     }
 
     /// The through arm's cross-section at z, from the axis out: the extent of silicon (with the
@@ -151,12 +153,12 @@ impl Crossing {
         let slab = if self.ellipses {
             let [a, b] = ELLIPSE;
             let along = if z.abs() < a {
-                b * (1.0 - (z / a).powi(2)).sqrt()
+                b * (1.0 - portable::powi(z / a, 2)).sqrt()
             } else {
                 0.0
             };
             let across = if z.abs() < b {
-                a * (1.0 - (z / b).powi(2)).sqrt()
+                a * (1.0 - portable::powi(z / b, 2)).sqrt()
             } else {
                 0.0
             };
@@ -283,7 +285,7 @@ pub fn eme_crossing(c: &Crossing, set: Settings) -> photonoxide::Result<Through>
 /// [1 + (d/2z_R)²]^(−1/2) of its power in the waist's mode, z_R = π n w₀²/λ.
 pub fn gaussian_through(w0: f64, n: f64, d: f64) -> f64 {
     let zr = PI * n * w0 * w0 / LAMBDA;
-    1.0 / (1.0 + (d / (2.0 * zr)).powi(2)).sqrt()
+    1.0 / (1.0 + portable::powi(d / (2.0 * zr), 2)).sqrt()
 }
 
 /// Points across a guide `w` µm wide in the plane, from 3 µm beyond one face to 3 beyond the
@@ -327,11 +329,11 @@ pub fn fitted_waist(n: &Indices, w: f64) -> photonoxide::Result<(f64, f64)> {
     let overlap = |w0: f64| -> f64 {
         let (mut fg, mut gg) = (0.0, 0.0);
         for (x, f) in xs.iter().zip(&field) {
-            let g = (-(x / w0).powi(2)).exp();
+            let g = portable::exp(-portable::powi(x / w0, 2));
             fg += f * g;
             gg += g * g;
         }
-        (fg * dx).powi(2) / (own * gg * dx)
+        portable::powi(fg * dx, 2) / (own * gg * dx)
     };
     // golden section on the waist
     let (mut a, mut b) = (0.05, w + 2.0);
@@ -410,7 +412,7 @@ pub fn fdfd_crossing(c: &Crossing, h: f64) -> photonoxide::Result<Fdfd> {
     let mut values = Vec::with_capacity(cells * cells);
     for j in FDFD_PML..FDFD_PML + cells {
         for i in FDFD_PML..FDFD_PML + cells {
-            values.push(field.at(i, j).norm());
+            values.push(portable::complex::abs(field.at(i, j)));
         }
     }
     let top = values.iter().fold(0.0f64, |m, v| m.max(*v)).max(1e-300);
@@ -495,7 +497,7 @@ fn outlines(c: &Crossing) -> Vec<Vec<[f64; 2]>> {
                 (0..=96)
                     .map(|k| {
                         let t = 2.0 * PI * k as f64 / 96.0;
-                        [ax * t.cos(), by * t.sin()]
+                        [ax * portable::cos(t), by * portable::sin(t)]
                     })
                     .collect(),
             );
@@ -525,7 +527,7 @@ impl Profile {
         match self {
             Profile::Linear => from + (to - from) * t,
             Profile::Parabolic => (from * from + (to * to - from * from) * t).sqrt(),
-            Profile::Exponential => from * (to / from).powf(t),
+            Profile::Exponential => from * portable::powf(to / from, t),
         }
     }
 
@@ -587,7 +589,7 @@ pub fn junction_overlap(to: f64) -> photonoxide::Result<f64> {
     };
     let (a, b) = (mode(GUIDE)?, mode(to)?);
     let (xs, dx) = across(to, 20000);
-    let eps = |w: f64, x: f64| if x.abs() < w / 2.0 { n.core } else { n.clad }.powi(2);
+    let eps = |w: f64, x: f64| portable::powi(if x.abs() < w / 2.0 { n.core } else { n.clad }, 2);
     let (mut ab, mut ba, mut aa, mut bb) = (0.0, 0.0, 0.0, 0.0);
     for &x in &xs {
         let (ha, hb) = (on_axis(&a, GUIDE, x), on_axis(&b, to, x));
@@ -625,7 +627,11 @@ pub fn adiabatic_parameter(profile: Profile, to: f64, length: f64) -> photonoxid
         };
         let edge = |m: &SlabMode| -> f64 {
             let (xs, dx) = across(w, 2000);
-            let norm: f64 = xs.iter().map(|&x| on_axis(m, w, x).powi(2)).sum::<f64>() * dx;
+            let norm: f64 = xs
+                .iter()
+                .map(|&x| portable::powi(on_axis(m, w, x), 2))
+                .sum::<f64>()
+                * dx;
             on_axis(m, w, w / 2.0) / norm.sqrt()
         };
         let (b0, b2) = (k * m0.effective_index(), k * m2.effective_index());
@@ -813,7 +819,7 @@ fn curve(label: &str, points: Vec<[f64; 2]>, dashed: bool, colour: usize) -> Cur
 }
 
 fn db(t: f64) -> f64 {
-    10.0 * t.log10()
+    10.0 * portable::log10(t)
 }
 
 /// The crossing a chart's `kind`, `width` and `taper` name.
@@ -1034,7 +1040,7 @@ pub fn width_chart(taper: f64, width: f64) -> photonoxide::Result<ChartData> {
 /// The lengths of the taper chart, µm: 15 from 0.5 to 40, evenly on a logarithmic scale.
 fn lengths() -> Vec<f64> {
     (0..15)
-        .map(|k| 0.5 * 80f64.powf(f64::from(k) / 14.0))
+        .map(|k| 0.5 * portable::powf(80f64, f64::from(k) / 14.0))
         .collect()
 }
 
@@ -1053,7 +1059,7 @@ fn reaches(points: &[[f64; 2]], level: f64) -> Option<f64> {
         let ([l0, t0], [l1, t1]) = (p[0], p[1]);
         (t0 < level && t1 >= level).then(|| {
             let f = (level - t0) / (t1 - t0);
-            (l0.ln() + f * (l1.ln() - l0.ln())).exp()
+            portable::exp(portable::ln(l0) + f * (portable::ln(l1) - portable::ln(l0)))
         })
     })
 }

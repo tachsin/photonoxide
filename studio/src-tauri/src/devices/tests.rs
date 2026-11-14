@@ -1,3 +1,4 @@
+use photonoxide::portable;
 use std::time::{Duration, Instant};
 
 use photonoxide::device::{self, Device, Values};
@@ -464,8 +465,8 @@ fn yardstick() -> Duration {
             let mut points: Vec<(f64, f64)> = (0..n)
                 .map(|k| {
                     let a = std::f64::consts::TAU * f64::from(k) / f64::from(n);
-                    let r = 1.0 + 0.1 * (7.0 * a + f64::from(turn)).sin();
-                    (r * a.cos(), r * a.sin())
+                    let r = 1.0 + 0.1 * portable::sin(7.0 * a + f64::from(turn));
+                    (r * portable::cos(a), r * portable::sin(a))
                 })
                 .collect();
             let area = points
@@ -994,7 +995,7 @@ fn the_temperature_in_time_is_the_2d_model_s_turn_on_its_times_the_device_s_figu
         };
         for (time, share) in [
             (t.ten_us, 0.1),
-            (t.tau_us, 1.0 - (-1.0f64).exp()),
+            (t.tau_us, 1.0 - portable::exp(-1.0f64)),
             (t.ninety_us, 0.9),
         ] {
             assert!(

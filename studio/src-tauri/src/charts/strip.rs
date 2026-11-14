@@ -16,6 +16,7 @@
 //! The solves are cached by their geometry, wavelength and grid, so a chart asked again with only
 //! its marker moved is drawn at once.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
@@ -366,7 +367,7 @@ pub fn pictures(width: f64, thickness: f64, l: f64, n: usize) -> photonoxide::Re
                     let xc = -half[0] + (i as f64 + 0.5) * 2.0 * half[0] / nx as f64;
                     let e = fields.e(cell(x, xc), cj);
                     for c in 0..3 {
-                        values[c][j * nx + i] = e[c].norm();
+                        values[c][j * nx + i] = portable::complex::abs(e[c]);
                     }
                 }
             }
@@ -758,7 +759,11 @@ fn order(points: &[[f64; 2]]) -> f64 {
     let [a, b, c] = [points[0], points[1], points[2]];
     // e(h) = C h^p: (n₁ − n₂)/(n₂ − n₃) = (h₁^p − h₂^p)/(h₂^p − h₃^p); bisected for p
     let target = (a[1] - b[1]) / (b[1] - c[1]);
-    let f = |p: f64| (a[0].powf(p) - b[0].powf(p)) / (b[0].powf(p) - c[0].powf(p)) - target;
+    let f = |p: f64| {
+        (portable::powf(a[0], p) - portable::powf(b[0], p))
+            / (portable::powf(b[0], p) - portable::powf(c[0], p))
+            - target
+    };
     let (mut lo, mut hi) = (0.05, 6.0);
     if !(target.is_finite() && target > 0.0) || f(lo) * f(hi) > 0.0 {
         return f64::NAN;
@@ -800,7 +805,7 @@ pub fn corners(width_nm: f64, thickness_nm: f64) -> photonoxide::Result<ChartDat
     let p_hadley = order(&hadley[k - 3..]);
     let p = if p_hadley.is_finite() { p_hadley } else { 2.0 };
     let ([h1, n1], [h2, n2]) = (hadley[k - 2], hadley[k - 1]);
-    let limit = n2 + (n2 - n1) / ((h1 / h2).powf(p) - 1.0);
+    let limit = n2 + (n2 - n1) / (portable::powf(h1 / h2, p) - 1.0);
     let finest = standard[k - 1];
     let figures = vec![
         figure(

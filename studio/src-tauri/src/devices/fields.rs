@@ -16,6 +16,7 @@
 //! The lines are found on the picture's pixels (marching squares between the pixels' centres),
 //! so they are as fine as the picture, not the solver's grid.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 
 use photonoxide::device::{Device, ThermoShifter};
@@ -172,7 +173,7 @@ pub fn levels(peak: f64, count: usize) -> Vec<f64> {
         return Vec::new();
     }
     let rough = peak / count as f64;
-    let ten = 10f64.powf(rough.log10().floor());
+    let ten = portable::powf(10f64, portable::log10(rough).floor());
     let step = [1.0, 2.0, 5.0, 10.0]
         .into_iter()
         .map(|m| m * ten)
@@ -401,7 +402,7 @@ fn heated(spec: &SpecIn) -> Result<Heated, String> {
     let (mode, mode_step) = match weights_picture(guide.weights()) {
         Some((w, h)) => {
             let top = w.values.iter().copied().fold(0.0f32, f32::max);
-            let lines = [0.5, (-2.0f64).exp()]
+            let lines = [0.5, portable::exp(-2.0f64)]
                 .into_iter()
                 .map(|share| Isoline {
                     level: share,
@@ -648,6 +649,7 @@ pub fn device_temperature(spec: SpecIn) -> Result<Temperature, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     /// A picture of `f(x, y)` over [−1, 1]², `n` × `n` pixels.
     fn picture(n: usize, f: impl Fn(f64, f64) -> f64) -> Raster {
@@ -679,14 +681,15 @@ mod tests {
         let line = &lines[0];
         assert_eq!(line.first(), line.last(), "closed");
         for p in line {
-            let radius = p[0].hypot(p[1]);
+            let radius = portable::hypot(p[0], p[1]);
             assert!((radius - 0.5).abs() < 1e-3, "{radius}");
         }
     }
 
     #[test]
     fn two_peaks_give_two_lines_and_a_saddle_none_crossed() {
-        let bump = |x: f64, y: f64, cx: f64| (-((x - cx).powi(2) + y * y) / 0.05).exp();
+        let bump =
+            |x: f64, y: f64, cx: f64| portable::exp(-(portable::powi(x - cx, 2) + y * y) / 0.05);
         let r = picture(80, |x, y| bump(x, y, -0.5) + bump(x, y, 0.5));
         assert_eq!(contours(&r, 0.5).len(), 2);
         // below the saddle between them (2 e^-5 ≈ 0.013), one closed line around both

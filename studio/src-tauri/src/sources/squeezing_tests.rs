@@ -1,5 +1,6 @@
 use super::*;
 use crate::sources::{Arm, Filter, ModeSpec, PairProcess, PumpSpec, designed};
+use photonoxide::portable;
 
 fn bare() -> Arm {
     Arm {
@@ -85,7 +86,7 @@ fn the_schmidt_model_squeezes_the_designers_own_modes() {
     }
     // dB: 10 log₁₀ e^{2r}
     let r = s.squeezing[0][0];
-    assert!((s.squeezing_db[0][0] - 10.0 * (2.0 * r).exp().log10()).abs() < 1e-12);
+    assert!((s.squeezing_db[0][0] - 10.0 * portable::log10(portable::exp(2.0 * r))).abs() < 1e-12);
 }
 
 /// Where the phase matching changes with the frequencies, the ordered product squeezes its first
@@ -109,7 +110,8 @@ fn a_mismatched_guide_squeezes_beyond_the_schmidt_model() {
     // the bound of quantum/broadband-symplectic
     assert!(s.symplectic_error < 1e-12, "{}", s.symplectic_error);
     let changes = [run(50).slice_change, s.slice_change, run(200).slice_change];
-    let order = 0.5 * ((changes[0] / changes[1]).log2() + (changes[1] / changes[2]).log2());
+    let order =
+        0.5 * (portable::log2(changes[0] / changes[1]) + portable::log2(changes[1] / changes[2]));
     assert!((order - 2.0).abs() < 0.1, "order {order} from {changes:?}");
     // each mode's |u|² sums to 1, one value per signal frequency
     for m in &s.modes {

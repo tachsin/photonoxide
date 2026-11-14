@@ -3,8 +3,6 @@
 //! studio; runs the built-in examples; checks the validation report; times the benchmark
 //! problems.
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
 // the headless program's modules: every command but the window's
 mod auto;
 mod bench;

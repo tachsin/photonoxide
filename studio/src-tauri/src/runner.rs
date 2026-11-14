@@ -13,6 +13,7 @@
 //!   crossover sizes and the best backend per family and size. A run that misses its accuracy
 //!   check doesn't count.
 
+use photonoxide::portable;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -587,7 +588,7 @@ pub fn summarize(records: &[Record]) -> Summary {
         let xy: Vec<(f64, f64)> = points
             .iter()
             .filter(|p| p.1 > 0 && p.2 > 0.0)
-            .map(|p| ((p.1 as f64).ln(), p.2.ln()))
+            .map(|p| (portable::ln(p.1 as f64), portable::ln(p.2)))
             .collect();
         let distinct = {
             let mut u: Vec<usize> = points.iter().map(|p| p.1).collect();
@@ -600,7 +601,7 @@ pub fn summarize(records: &[Record]) -> Summary {
                 xy.iter().map(|p| p.0).sum::<f64>() / n,
                 xy.iter().map(|p| p.1).sum::<f64>() / n,
             );
-            let sxx: f64 = xy.iter().map(|p| (p.0 - mx).powi(2)).sum();
+            let sxx: f64 = xy.iter().map(|p| portable::powi(p.0 - mx, 2)).sum();
             let sxy: f64 = xy.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
             s.exponents.push((
                 family.clone(),
@@ -830,6 +831,7 @@ fn load_average() -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn record(id: &str, size: usize, backend: &str, seconds: f64, accurate: bool) -> Record {
         Record {
@@ -910,7 +912,13 @@ mod tests {
         for size in [100usize, 200, 400] {
             let n = (size * size) as f64;
             let id = format!("fdfd2d/slab-{size}");
-            records.push(record(&id, size, "photonoxide", 1e-6 * n.powf(1.5), true));
+            records.push(record(
+                &id,
+                size,
+                "photonoxide",
+                1e-6 * portable::powf(n, 1.5),
+                true,
+            ));
             records.push(record(&id, size, "gpu", 1.5e-4 * n, true));
             // a slower repeat and an inaccurate faster run: neither counts
             records.push(record(&id, size, "gpu", 1e3, true));

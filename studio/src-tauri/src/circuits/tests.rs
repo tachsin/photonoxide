@@ -1,3 +1,4 @@
+use photonoxide::portable;
 use std::collections::HashSet;
 
 use photonoxide::Complex64 as c64;
@@ -257,7 +258,7 @@ fn the_mzi_from_parts_is_the_closed_form() {
         let w = Wavelength::um(w).unwrap();
         let upper = element("waveguide", &[("length", length("upper"))], 1, 0, w);
         let lower = element("waveguide", &[("length", length("lower"))], 1, 0, w);
-        worst = worst.max((s[k] - (upper - lower) / 2.0).norm());
+        worst = worst.max(portable::complex::abs(s[k] - (upper - lower) / 2.0));
     }
     assert!(worst < 1e-12, "{worst}");
     // its fringes are λ²/(n_g ΔL) apart: n_g 4.17 and ΔL 50 µm give 11.5 nm at 1.55 µm
@@ -267,7 +268,7 @@ fn the_mzi_from_parts_is_the_closed_form() {
         .map(|k| sim.spectrum.wavelength_um[k])
         .collect();
     let fsr = (peaks[peaks.len() - 1] - peaks[0]) / (peaks.len() - 1) as f64;
-    let expected = 1.55f64.powi(2) / (4.172901 * 50.0);
+    let expected = portable::powi(1.55f64, 2) / (4.172901 * 50.0);
     assert!(
         (fsr - expected).abs() < 0.02 * expected,
         "{fsr} against {expected}"
@@ -302,7 +303,7 @@ fn the_chips_from_parts_are_the_librarys() {
         let mut worst: f64 = 0.0;
         for (k, &w) in sim.spectrum.wavelength_um.iter().enumerate() {
             let m = mzi.s_matrix(Wavelength::um(w).unwrap(), &values).unwrap();
-            worst = worst.max((s[k] - m[(q, p)]).norm());
+            worst = worst.max(portable::complex::abs(s[k] - m[(q, p)]));
         }
         assert!(worst < 1e-12, "{out} <- {input}: {worst}");
     }
@@ -324,7 +325,7 @@ fn the_chips_from_parts_are_the_librarys() {
     let mut worst: f64 = 0.0;
     for (k, &w) in sim.spectrum.wavelength_um.iter().enumerate() {
         let closed = element("ring-all-pass", &values, 1, 0, Wavelength::um(w).unwrap());
-        worst = worst.max((s[k] - closed).norm());
+        worst = worst.max(portable::complex::abs(s[k] - closed));
     }
     assert!(worst < 1e-12, "{worst}");
     // the add-drop ring; the library's ports: in, through, add, drop
@@ -641,7 +642,7 @@ fn a_touchstone_file_is_a_measured_component() {
             let worst = a
                 .iter()
                 .zip(&b)
-                .map(|(x, y)| (x - y).norm())
+                .map(|(x, y)| portable::complex::abs(x - y))
                 .fold(0.0, f64::max);
             assert!(worst < 1e-9, "{out} <- {input}: {worst}");
         }
@@ -653,7 +654,7 @@ fn a_touchstone_file_is_a_measured_component() {
     let conj = simulate(&chip, &dir).unwrap();
     let drop = spectrum.port("drop").unwrap();
     let a = at(&conj, "drop", "in")[100];
-    assert!((a - spectrum.element(drop, 0)[100].conj()).norm() < 1e-9);
+    assert!(portable::complex::abs(a - spectrum.element(drop, 0)[100].conj()) < 1e-9);
     // a missing file is a problem of its instance
     chip.instances[0].file = Some("measured/nothing.s4p".into());
     let problems = check(chip.clone());
@@ -748,7 +749,9 @@ fn a_devices_compact_model_is_a_part_of_the_chip() {
     let mut worst = 0.0f64;
     for (k, s) in through.iter().enumerate() {
         let w = photonoxide::units::Wavelength::um(1.545 + 0.01 * k as f64 / 50.0).unwrap();
-        worst = worst.max((s - exact.s_matrix(w).unwrap()[(1, 0)]).norm());
+        worst = worst.max(portable::complex::abs(
+            s - exact.s_matrix(w).unwrap()[(1, 0)],
+        ));
     }
     assert!(worst < 3.0 * fitted.held_out_error.max(1e-9), "{worst}");
     // it round-trips through the chip's file; outside its range it is the instance's problem

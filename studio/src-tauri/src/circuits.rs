@@ -32,6 +32,7 @@ mod sampling_tests;
 #[cfg(test)]
 mod tests;
 
+use photonoxide::portable;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -581,7 +582,10 @@ impl Chip {
                 .into_iter()
                 .find(|p| p.port == r.port)
                 .expect("a pin per port");
-            let (dx, dy) = (pin.angle.to_radians().cos(), pin.angle.to_radians().sin());
+            let (dx, dy) = (
+                portable::cos(pin.angle.to_radians()),
+                portable::sin(pin.angle.to_radians()),
+            );
             chip.ports.push(External {
                 name: name.clone(),
                 at: r.to_string(),
