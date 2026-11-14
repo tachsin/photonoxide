@@ -3,8 +3,8 @@
 # what clippy.toml's ban on the system's maths functions can't check by itself.
 #
 # 1. The allows ratchet: the lines that mention clippy::disallowed_methods in the Rust sources
-#    (an area not converted to `photonoxide::portable` yet, a crate's root, a test that takes the
-#    system's functions as a reference) number exactly what .github/portable-allows holds. More
+#    (a test that takes the system's functions as an independent reference) number exactly what
+#    .github/portable-allows holds. More
 #    fails: convert the code instead. Fewer fails too, with the number to write there, so that the
 #    count only ever goes down.
 # 2. `libm::` only inside src/portable/: everything else calls the portable functions.

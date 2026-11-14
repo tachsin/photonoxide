@@ -69,9 +69,14 @@ What can differ between systems, and what photonoxide does about each:
   compact models, topology, fabrication, nonlinear and quantum optics, and the rest of the
   library: the jobs and their runs, the validation cases, expressions, units, the exports and the
   benchmarks; the examples and the tests too, but for the two tests that take the system's
-  functions as an independent reference. The studio, native and crosscode follow in #822's
-  phases, and until then the last bits of a number computed there may differ between systems with
-  nothing printed to show it.
+  functions as an independent reference. So do the studio, native and crosscode. The studio's
+  window computes a few of the numbers it shows itself (S-parameters and spectra in dB, their
+  phases, errors' logarithms): with a port of the portable `log10` and `atan2` that gives the same
+  bits, tested against them, since JavaScript's `Math` functions are each browser engine's own;
+  `Math` draws, and shows no result. The GPU's kernels (FDTD's and native's operator) call no
+  maths function at all and never divide; a run repeats bit for bit on one GPU and driver, but
+  different GPUs can round their sums differently, so their results agree with the CPU's to
+  within the solver's stated bounds, not bit for bit.
 - **Fused multiply-adds.** Rust never fuses a multiply and an add on its own, and photonoxide
   builds with no `target-cpu` or feature flags; `mul_add` (fused in hardware or in software,
   whichever the build has) is forbidden. faer's dense kernels pick their SIMD instructions at run

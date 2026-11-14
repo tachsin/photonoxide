@@ -5,10 +5,10 @@
 # in software, whichever the build has. Allowed: `f64::sqrt` (IEEE 754 rounds it exactly),
 # `Complex::powi` and `powu` (products only), `norm_sqr`, `inv` and complex division.
 #
-# Crates not converted yet (the studio, native, crosscode) carry `#[allow(clippy::disallowed_methods)]`
-# at their crate's root; .github/scripts/check-portable.sh counts those allows,
-# which may only go down. A test may call the system's functions as an independent reference, with
-# an allow of its own that says so. CONTRIBUTING.md, "The same numbers on every system".
+# Every crate here follows it: the library, its tests and examples, the studio, native and crosscode.
+# A test may call the system's functions as an independent reference, with an allow of its own that
+# says so; .github/scripts/check-portable.sh counts those allows, which may only go down.
+# CONTRIBUTING.md, "The same numbers on every system".
 disallowed-methods = [
   { path = "f64::powi", reason = "the system's maths library rounds differently on each system: use photonoxide::portable::powi (#822)" },
   { path = "f64::powf", reason = "the system's maths library rounds differently on each system: use photonoxide::portable::powf (#822)" },
