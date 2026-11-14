@@ -91,6 +91,49 @@ impl Solver2d {
         self.power_gradient(field, c)
     }
 
+    /// A complex linear functional of the field, a = cᵀu (`c` one coefficient per cell), and
+    /// its derivative with respect to each cell's relative permittivity (a real change):
+    /// da/dε_k = −λᵀ(∂A/∂ε_k)u with Aᵀλ = c, one more solve. What a real function of several
+    /// such functionals needs, as [`Solver2d::s_matrix_gradient`] does: dF = 2 Re Σ (∂F/∂a) da.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::functional_power_gradient`].
+    pub fn functional_gradient(&self, field: &Field2d, c: &[c64]) -> Result<(c64, Vec<c64>)> {
+        let g = self.grid;
+        if self.polarization == Polarization::Hz && !self.cellwise {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "with H along z the gradient is for a problem given cell by cell (from_cells)",
+            ));
+        }
+        if c.len() != g.nx * g.ny || field.values.len() != g.nx * g.ny {
+            return Err(Error::invalid(
+                "fdfd gradient",
+                "the field and the coefficients must be one per cell of this problem",
+            ));
+        }
+        let u = &field.values;
+        let a: c64 = c.iter().zip(u).map(|(c, u)| c * u).sum();
+        let lambda = self.solve_transposed(c)?;
+        let mut gradient = vec![c64::new(0.0, 0.0); g.nx * g.ny];
+        match self.polarization {
+            Polarization::Ez => {
+                let k2 = self.k0 * self.k0;
+                for (k, d) in gradient.iter_mut().enumerate() {
+                    *d = -(lambda[k] * k2 * u[k]);
+                }
+            }
+            Polarization::Hz => self.hz_face_terms(u, |k, slope, difference, shares| {
+                let term = -(lambda[k] * slope * difference);
+                for (cell, w) in shares {
+                    gradient[cell] += term * w;
+                }
+            }),
+        }
+        Ok((a, gradient))
+    }
+
     /// The coefficients of the amplitude of `mode` (one solved as a column port of a straight
     /// guide, [`Solver2d::port_modes_within`], on a problem whose cells along y are this one's
     /// along x) travelling `direction` along y on rows `row` and `row + 1` of this problem, its

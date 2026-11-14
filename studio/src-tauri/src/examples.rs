@@ -72,6 +72,7 @@ examples!(
     optimize_crossing_ssp: "../../../examples/optimize_crossing_ssp.rs",
     optimize_swg_converter: "../../../examples/optimize_swg_converter.rs",
     optimize_quantum: "../../../examples/optimize_quantum.rs",
+    optimize_codesign_ring: "../../../examples/optimize_codesign_ring.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -231,6 +232,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "Quantum objectives optimized on their gradients",
             "Vernon et al. 2017",
         ),
+        "optimize_codesign_ring" => (
+            "A ring's coupler designed for the ring",
+            "Mason et al. 2025",
+        ),
         "optimize_demux_robust" => (
             "A demultiplexer robust to a ±8 nm etch",
             "Christiansen & Sigmund 2021",
@@ -328,6 +333,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_crossing_ssp" => 5.0,
         "optimize_swg_converter" => 60.0,
         "optimize_quantum" => 30.0,
+        "optimize_codesign_ring" => 60.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,

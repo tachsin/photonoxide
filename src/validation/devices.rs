@@ -1790,5 +1790,26 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the analytic fidelity's stated error, as device/thermo-analytic-metal: the heat thermally all oxide",
             ),
         ),
-    ]
+        (
+            "circuit/instance-sensitivity",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-11,
+                Noted,
+                "fourth-order differences of the circuit solve at h = 1e-4: what they resolve, the difference between h and 2h, is 1.4e-12 of the largest derivative (noted), and the sensitivity is within 2.2e-13 of them; held to ten times what they resolve, rounded up, 2e-11",
+            )
+            .varying(),
+        ),
+        (
+            "device/codesign-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-7,
+                Noted,
+                "fourth-order differences of the whole chain (FDFD solves and the circuit solve) at δ = 1e-3: they resolve 5.4e-9 of the largest derivative (noted), and the composed gradient is within 3.6e-10 of them; held to ten times what they resolve, rounded up, 1e-7",
+            )
+            .varying(),
+        ),    ]
 }

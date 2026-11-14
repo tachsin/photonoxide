@@ -180,6 +180,90 @@ impl Circuit {
         Ok((value, gradient))
     }
 
+    /// A real objective F of the circuit's S-matrices at `wavelengths` (as
+    /// [`Circuit::gradient`] takes it) and, for the instance named `instance`, F's sensitivity to
+    /// that instance's own S-matrix at each wavelength: H with H_ab = ∂F/∂S_ab (Wirtinger), so
+    /// that dF = 2 Re Σ H_ab dS_ab. From the same adjoint fields as the gradient,
+    /// H_ab = Σ_c λ_a,c A_b,c over the inputs c that F depends on (λ the transposed system's
+    /// solution at the instance's ports, A the waves going into them). A device whose S comes
+    /// from a solver of its own carries H to its parameters (0.7, #761's I11; for 2D FDFD,
+    /// [`crate::fdfd::Solver2d::s_matrix_gradient`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Circuit::gradient`], and [`Error::InvalidValue`] for an instance that isn't there.
+    pub fn instance_sensitivity<F>(
+        &self,
+        wavelengths: &[Wavelength],
+        values: &[f64],
+        instance: &str,
+        objective: F,
+    ) -> Result<(f64, Vec<SMatrix>)>
+    where
+        F: FnOnce(&[SMatrix]) -> (f64, Vec<SMatrix>),
+    {
+        let Some(i) = self
+            .netlist()
+            .instances()
+            .iter()
+            .position(|inst| inst.name == instance)
+        else {
+            return Err(Error::invalid(
+                "circuit sensitivity",
+                format!("there is no instance {instance}"),
+            ));
+        };
+        let size = self.netlist().instances()[i].component.ports().len();
+        let start = self.offsets[i];
+        let k = self.external.len();
+        if k == 0 {
+            return Err(Error::invalid(
+                "circuit sensitivity",
+                "a circuit without external ports has no response",
+            ));
+        }
+        let solved = wavelengths
+            .iter()
+            .map(|&w| self.solved(w, values))
+            .collect::<Result<Vec<_>>>()?;
+        let s: Vec<SMatrix> = solved.iter().map(|x| x.s.clone()).collect();
+        let (value, sensitivities) = objective(&s);
+        if sensitivities.len() != wavelengths.len() || sensitivities.iter().any(|g| g.size() != k) {
+            return Err(Error::invalid(
+                "circuit sensitivity",
+                "the objective must give one sensitivity per wavelength, each the size of S",
+            ));
+        }
+        let mut out = Vec::with_capacity(wavelengths.len());
+        for (solved, g) in solved.iter().zip(&sensitivities) {
+            let inputs: Vec<usize> = (0..k)
+                .filter(|&p| (0..k).any(|q| g[(q, p)] != c64::new(0.0, 0.0)))
+                .collect();
+            let mut h = SMatrix::zeros(size);
+            if !inputs.is_empty() {
+                let mut rhs = Mat::<c64>::zeros(self.partner.len(), inputs.len());
+                for (c, &p) in inputs.iter().enumerate() {
+                    for (q, &e) in self.external.iter().enumerate() {
+                        rhs[(e, c)] = g[(q, p)];
+                    }
+                }
+                let lambda = transposed(solved, &rhs);
+                let incoming = self.incoming(&solved.b);
+                for a in 0..size {
+                    for b in 0..size {
+                        let mut sum = c64::new(0.0, 0.0);
+                        for (c, &p) in inputs.iter().enumerate() {
+                            sum += lambda[(start + a, c)] * incoming[(start + b, p)];
+                        }
+                        h[(a, b)] = sum;
+                    }
+                }
+            }
+            out.push(h);
+        }
+        Ok((value, out))
+    }
+
     /// A = Γ B + E: the waves going into every port, a column per external input.
     fn incoming(&self, b: &Mat<c64>) -> Mat<c64> {
         let (n, k) = (b.nrows(), b.ncols());
