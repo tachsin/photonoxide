@@ -1,6 +1,6 @@
 //! What faer's dense kernels do on this system, bit for bit (#822): a 64-bit hash of the exact
-//! bits of each result, on inputs whose bits are the same everywhere (multiples of 1/64 in
-//! [−4, 4), from an integer generator), each computed with faer sequential and on rayon pools of
+//! bits of each result, on inputs whose bits are the same everywhere (53 random bits from an
+//! integer generator, scaled to [−4, 4)), each computed with faer sequential and on rayon pools of
 //! 1 to 5 threads. Shared by `src/canary_tests.rs` (the least squares, which the public API
 //! doesn't reach) and `tests/canary.rs` (faer's own calls), which takes this file by `#[path]`.
 //!
@@ -102,9 +102,11 @@ impl Bits {
     }
 }
 
-/// Exact inputs: multiples of 1/64 in [−4, 4), 512 values, from a linear congruential
-/// generator seeded by `seed`. Integers and a division by a power of two: the same bits on
-/// every system.
+/// Inputs with the same bits on every system: 53 random bits from a linear congruential
+/// generator seeded by `seed`, a double in [0, 1) exactly, then − ½ and × 8 (IEEE roundings).
+/// Full mantissas, so that the order of a sum shows in its bits: with short ones (multiples of
+/// 1/64) every product is exact and every sum of them exact in any order, and the products came
+/// out the same bits on x86-64 and ARM whatever the kernel.
 pub(crate) struct Inputs(u64);
 
 impl Inputs {
@@ -117,17 +119,17 @@ impl Inputs {
             .0
             .wrapping_mul(6_364_136_223_846_793_005)
             .wrapping_add(1_442_695_040_888_963_407);
-        ((self.0 >> 33) % 512) as f64 / 64.0 - 4.0
+        ((self.0 >> 11) as f64 / 9_007_199_254_740_992.0 - 0.5) * 8.0
     }
 }
 
-/// An m × n real matrix of exact inputs.
+/// An m × n real matrix of [`Inputs`].
 pub(crate) fn real(m: usize, n: usize, seed: u64) -> faer::Mat<f64> {
     let mut g = Inputs::new(seed);
     faer::Mat::from_fn(m, n, |_, _| g.next())
 }
 
-/// An m × n complex matrix of exact inputs.
+/// An m × n complex matrix of [`Inputs`].
 pub(crate) fn complex(m: usize, n: usize, seed: u64) -> faer::Mat<c64> {
     let mut g = Inputs::new(seed);
     faer::Mat::from_fn(m, n, |_, _| {
