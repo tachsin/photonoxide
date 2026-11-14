@@ -5,7 +5,8 @@
 // Every value is written by one invocation, and every sum is taken by one invocation in a fixed
 // order: no atomics, no reductions across invocations, so a run repeats bit for bit on the same
 // device and driver. Nothing divides: in f64 a division gave one of two results from run to run on
-// an RTX 4060, so the CPML's derivatives multiply by 1/Δ from the host.
+// an RTX 4060 (the driver's two compiled forms of a kernel evaluate a quotient as x/Δ or as x
+// times 1/Δ rounded, #818), so the CPML's derivatives multiply by 1/Δ from the host.
 //
 // The curl updates march along z, a plane at a time (P. Micikevicius, GPGPU-2, 79 (2009),
 // doi:10.1145/1513895.1513905): a workgroup of 32 x 8 invocations owns a tile of 32 x 8 values in

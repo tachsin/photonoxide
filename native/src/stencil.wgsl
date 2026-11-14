@@ -7,8 +7,9 @@
 // One invocation per cell, all three components; every value is written by one invocation and
 // every sum is taken by it in the order the CPU takes it: no atomics, no reductions across
 // invocations, so a product repeats bit for bit on the same device and driver. Nothing divides
-// (in f64 a division gave one of two results from run to run on an RTX 4060, in FDTD's kernels):
-// the steps come as 1/(s h), and the phases and their inverses from the host.
+// (in f64 a division gave one of two results from run to run on an RTX 4060, in FDTD's kernels:
+// the driver's two compiled forms of a kernel evaluate a quotient differently, #818): the steps
+// come as 1/(s h), and the phases and their inverses from the host.
 
 struct Params {
     // nx, ny, nz, and the cells

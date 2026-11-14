@@ -165,8 +165,8 @@ impl Resident {
             )));
         }
         let g = s.grid;
-        // the CPML's derivatives multiply by 1/Δ rather than divide by Δ: in f64 the division
-        // the shader compiler makes didn't repeat bit for bit (see gpu.rs)
+        // the CPML's derivatives multiply by 1/Δ rather than divide by Δ: in f64 the driver's
+        // two compiled forms of a kernel evaluate a quotient differently (see gpu.rs, #818)
         let mut reals = vec![s.dt, 1.0 / g.dx, 1.0 / g.dy, 1.0 / g.dz];
         for kappa in [&s.kappa_nodes, &s.kappa_halves] {
             for a in Axis::ALL {
