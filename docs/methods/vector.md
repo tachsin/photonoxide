@@ -148,6 +148,61 @@ report's `job/` cases check it: a film leaking into its substrate against the ex
 second order in the grid and insensitive to the PML, and Bienstman's wire to its published index
 and loss on a 5 nm grid.
 
+### What a modes job warns of
+
+A `"modes"` job's run records a warning (an event `warning`; `photonoxide run` prints it on
+stderr as `warning: ...`) where its numbers may not mean what they seem, and runs on: a job may
+cut its window through a slab on purpose. Each says the number behind it and what to change,
+and none is a threshold of our own choosing:
+
+- **Too few cells across a guide.** A guide is a region of cells whose index is above every
+  medium around the guides. The grid puts a node on every interface and the scheme differences
+  three nodes, so a difference at a node beside an interface mixes the media on its two sides.
+  Four cells across give one node inside whose neighbours are inside too, where the difference
+  sees the guide alone; with fewer, every difference in the guide touches an interface, and the
+  curvature of its field, which sets its modes, is the interfaces'. A guide fewer than four
+  cells across, or up, is warned of before the run starts, with the step that gives it four.
+  On `photonoxide new modes`'s strip a 200 nm step leaves 2 cells up the 220 nm film and 3
+  across the 500 nm, and $n_\text{eff}$ comes out 2.3347 against 2.4498 on the template's 20 nm (4.7 % low).
+- **A mode the window holds.** Along each edge a wave travels at the edge's own index (its
+  medium's, or the slab mode of a guide that runs into it, as for the guided modes above). A
+  mode not above it doesn't decay towards that edge: the window, not the guide, holds it, and
+  its $n_\text{eff}$ is the window's. The same strip in a window 0.4 µm wide gives 2.2354
+  where 2.44 is right. In an open window (a `[task.pml]`) a leaky mode lies below the index it
+  leaks into by design, so this isn't asked there.
+- **A mode whose field reaches the edge.** Beyond a closed edge the field is zero one step past
+  the edge's nodes. To first order that wall lowers $\beta^2$ by $2\gamma\,\psi(x_0)^2 / \int
+  \psi^2$, with $\gamma = k_0 (n_\text{eff}^2 - n^2)^{1/2}$ the tail's decay into the edge's
+  medium and $\psi(x_0)$ the open tail's field at the wall. The tail held to zero there is
+  $\sinh \gamma (x_0 - x)$, so the share $s$ of the field in the last cells gives the shift,
+  $\delta n_\text{eff} \approx \gamma s / (k_0^2 n_\text{eff} h (\sinh \gamma h + \sinh
+  2\gamma h)^2)$, $h$ the last cells' width. The field is the transverse $H$, the solver's
+  unknowns: its component normal to the edge as a share of $\int \lvert H \rvert^2$, the one
+  along it of $\int \lvert H \rvert^2 / \varepsilon$, the norm of the equation it obeys across
+  the interfaces. On the book's strip at 20 nm, 0.81 µm of window either side gives an
+  estimate of 4.75e-6 against the 5.93e-6 it moves $n_\text{eff}$ (0.80), and 0.81 µm above
+  and below 3.67e-6 against 4.09e-6 (0.90); narrower windows are overestimated, which warns
+  the sooner. It is warned of when it exceeds
+  the tolerance of the job's `[task.convergence]`, the accuracy the job asks for, or, without
+  one, the grid's own error at its step, $k_0^2 (n^2 - n_\text{eff}^2)^2 h^2 / (24\,
+  n_\text{eff})$ with $n$ the guide's index: the three-point difference's
+  $-k^2 (1 - (kh)^2/12)$ for a field varying at $k^2 = k_0^2 (n^2 - n_\text{eff}^2)$. That is
+  the error where the field is smooth; at the corners the scheme is first order (below), so the
+  grid's error is larger and the warning comes early rather than late. The window's error is
+  then the larger of the two, and widening it is what the number needs: a convergence check
+  refines the grid, not the window, and doesn't see it. At 20 nm the book's strip has a grid
+  error of about 4.2e-3 by this estimate; with 1.5 µm of oxide above and below, a window
+  0.41 µm either side (0.16 µm of oxide beside the strip) estimates 4.0e-3, just under it
+  (its shift is 4.4e-3), and one 0.35 µm either side 1.2e-2, over it (shift 1.1e-2).
+- **No mode found:** none above the highest index of the media around the guides (or above
+  `modes_above`), with what may be why: a guide the window's edge cuts, a guide with too few
+  cells. A sweep's point with none is warned of too, by its value.
+
+The run's solver details name its scheme, and `photonoxide run` prints it (`scheme: ...`): the
+standard finite differences, second order at straight interfaces and about first order at the
+guides' corners. A sweep's points aren't checked for their window; the job's own cross-section
+is.
+
 ## Accuracy
 
 - **Interfaces:** second order, in both orientations. A slab turned on its side converges onto

@@ -21,11 +21,23 @@ prints the run's folder on its first line of output (`runs/20261014-120000-strip
 
 A stopped run's folder holds what was done before it stopped.
 
-What the run's numbers may not be, it says on stderr, without changing the exit code: a line
-`warning: ...` before it starts for a chip instance's parameter that nothing uses (a misspelled
-name, which leaves the parameter at its default; a device job refuses one), and at its end a
-line `convergence: ...` for each number `results.json` holds as `unchecked` or `not_converged`
-(below), and for a modes sweep, whose points are each solved on one grid.
+What the run's numbers may not be, it says on stderr, without changing the exit code:
+
+- a line `warning: ...` before it starts for a chip instance's parameter that nothing uses (a
+  misspelled name, which leaves the parameter at its default; a device job refuses one), and for
+  a modes job's guide with fewer than two cells across it at the job's step;
+- a line `warning: ...` at its end for each warning the run recorded (an event `warning` in
+  `events.jsonl`), but those said before it started: a modes job's mode whose field reaches the
+  window's edge, a solve or a sweep point that found no mode
+  ([modes jobs' warnings](methods/vector.md#what-a-modes-job-warns-of));
+- a line `scheme: ...` naming the scheme a solver ran, where it says one: a modes job's standard
+  finite differences, first order at the guides' corners;
+- a line `convergence: ...` for each number `results.json` holds as `unchecked` or
+  `not_converged` (below), and for a modes sweep, whose points are each solved on one grid.
+
+A warning names the number behind it and what to change; it is never a refusal, since a job may
+mean what it asks (validation's crossing slabs cut their window through two slabs on purpose).
+`results.json` doesn't hold the warnings yet: the record's `warning` events do.
 
 ## The files
 

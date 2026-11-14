@@ -321,8 +321,10 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
-    // what the job does that it may not mean, though it runs: a chip's misspelled parameter
-    for w in job::warnings(&job) {
+    // what the job does that it may not mean, though it runs: a chip's misspelled parameter, a
+    // modes job's guide with too few cells across it
+    let warned = job::warnings(&job);
+    for w in &warned {
         eprintln!("warning: {w}");
     }
     // this machine's benchmark records for auto, and the external libraries if the job needs
@@ -395,8 +397,19 @@ fn run(args: &[String]) -> ExitCode {
     let _ = (headless, linger, finished);
     match worker.join() {
         Ok(Ok(stopped)) => {
-            // what results.json says of grids not known to have converged, said here too
+            // what the run recorded its numbers may not mean (a modes job's mode at its
+            // window's edge, no mode found), but for what was said before it started
+            if let Ok(recorded) = job::results::warnings_in(&dir) {
+                for w in recorded.iter().filter(|w| !warned.contains(w)) {
+                    eprintln!("warning: {w}");
+                }
+            }
+            // the scheme a solver ran, and what results.json says of grids not known to have
+            // converged, said here too
             if let Ok(results) = job::results::Results::read(&dir) {
+                for line in results.scheme_lines() {
+                    eprintln!("{line}");
+                }
                 for line in results.convergence_lines() {
                     eprintln!("{line}");
                 }

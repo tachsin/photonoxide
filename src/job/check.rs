@@ -155,9 +155,16 @@ pub fn check(job: &Job) -> Result<()> {
 /// chip, a name among an instance's device parameters that is neither the device's nor used by
 /// another of its expressions (a misspelled one leaves the parameter at its default). A chip's
 /// instances take names of their own, which a study names as `instance.name`, so these are
-/// warnings rather than errors; a device job refuses them. The command line prints them before
-/// it runs the job.
+/// warnings rather than errors; a device job refuses them. And of a modes job, a guide with
+/// fewer than two cells across it on the job's grid (#783), which its run records too, with
+/// what only the run can tell (a mode's field at the window's edge, no mode found). The command
+/// line prints them before it runs the job.
 pub fn warnings(job: &Job) -> Vec<String> {
+    if Holder::of(job) == Holder::Solver
+        && job.task().get("kind").and_then(toml::Value::as_str) == Some("modes")
+    {
+        return super::modes::warnings(job);
+    }
     let Ok(chip) = chip::chip_of(job) else {
         return Vec::new();
     };
