@@ -190,8 +190,7 @@ impl SMatrix {
             return Ok(0.0);
         }
         let m = faer::Mat::<c64>::from_fn(self.n, self.n, |q, p| self[(q, p)]);
-        let values = m
-            .singular_values()
+        let values = crate::dense::fixed::singular_values(m.as_ref())
             .map_err(|e| Error::invalid("S-matrix", format!("its singular values: {e:?}")))?;
         Ok(values.into_iter().fold(0.0, f64::max))
     }

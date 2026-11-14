@@ -1670,7 +1670,7 @@ B. Gustavsen, A. Semlyen, "Rational approximation of frequency domain responses 
 - Methods pages: [compact.md:8](methods/compact.md?plain=1#L8)
 - Academy lessons: [from-components-to-circuits.md:30](../academy/from-components-to-circuits.md?plain=1#L30), [152](../academy/from-components-to-circuits.md?plain=1#L152), [225](../academy/from-components-to-circuits.md?plain=1#L225), [ring-resonator.md:37](../academy/ring-resonator.md?plain=1#L37), [487](../academy/ring-resonator.md?plain=1#L487)
 - Validation cases: [`compact/vf-paper-rms`](validation.md?plain=1#L377)
-- Code: [src/cases/compact/checks.rs:717](../src/cases/compact/checks.rs#L717), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:79](../src/compact/model/tests.rs#L79), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1385](../src/compact/param.rs#L1385), [src/device/compact.rs:703](../src/device/compact.rs#L703)
+- Code: [src/cases/compact/checks.rs:717](../src/cases/compact/checks.rs#L717), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:79](../src/compact/model/tests.rs#L79), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1384](../src/compact/param.rs#L1384), [src/device/compact.rs:703](../src/device/compact.rs#L703)
 - Other documents: [ROADMAP.md:832](../ROADMAP.md?plain=1#L832), [docs/plans/carrier-modulators.md:556](plans/carrier-modulators.md?plain=1#L556)
 
 #### Güttel and Tisseur 2017
@@ -1902,7 +1902,7 @@ T. Herr, V. Brasch, J. D. Jost, C. Y. Wang, N. M. Kondratiev, M. L. Gorodetsky, 
 
 M. R. Hestenes, "Inversion of Matrices by Biorthogonalization and Related Results", Journal of the Society for Industrial and Applied Mathematics 6, 51 (1958). [doi:10.1137/0106005](https://doi.org/10.1137/0106005)
 
-- Code: [src/lstsq.rs:64](../src/lstsq.rs#L64)
+- Code: [src/lstsq.rs:62](../src/lstsq.rs#L62)
 
 #### Heurtel et al. 2023
 
@@ -1914,7 +1914,7 @@ N. Heurtel, A. Fyrillas, G. D. Gliniasty, R. Le Bihan, S. Malherbe, M. Pailhas, 
 
 N. J. Higham, "Accuracy and Stability of Numerical Algorithms: Second Edition", Society for Industrial and Applied Mathematics (2002). [doi:10.1137/1.9780898718027](https://doi.org/10.1137/1.9780898718027)
 
-- Code: [src/canary_tests.rs:214](../src/canary_tests.rs#L214), [382](../src/canary_tests.rs#L382), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:619](../tests/canary.rs#L619)
+- Code: [src/canary_tests.rs:214](../src/canary_tests.rs#L214), [382](../src/canary_tests.rs#L382), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:625](../tests/canary.rs#L625)
 
 #### Higham and Mary 2022
 
@@ -3838,7 +3838,7 @@ C. Sanathanan, J. Koerner, "Transfer function synthesis as a ratio of two comple
 
 - Methods pages: [compact.md:14](methods/compact.md?plain=1#L14)
 - Validation cases: [`device/compact-ring-closed-form`](validation.md?plain=1#L352), [`compact/param-ring-coupling`](validation.md?plain=1#L386)
-- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [src/compact/param.rs:31](../src/compact/param.rs#L31), [1377](../src/compact/param.rs#L1377), [src/device/compact.rs:709](../src/device/compact.rs#L709), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
+- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [src/compact/param.rs:31](../src/compact/param.rs#L31), [1376](../src/compact/param.rs#L1376), [src/device/compact.rs:709](../src/device/compact.rs#L709), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
 
 #### Sanford et al. 2003
 
@@ -4354,7 +4354,7 @@ P. Triverio, S. Grivet-Talocia, M. Nakhla, "A Parameterized Macromodeling Strate
 
 - Methods pages: [compact.md:12](methods/compact.md?plain=1#L12)
 - Validation cases: [`device/compact-ring-closed-form`](validation.md?plain=1#L352), [`compact/param-ring-coupling`](validation.md?plain=1#L386), [`compact/param-ring-piecewise`](validation.md?plain=1#L391)
-- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [815](../src/cases/compact/checks.rs#L815), [src/compact/param.rs:5](../src/compact/param.rs#L5), [1380](../src/compact/param.rs#L1380), [src/device/compact.rs:706](../src/device/compact.rs#L706), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
+- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [815](../src/cases/compact/checks.rs#L815), [src/compact/param.rs:5](../src/compact/param.rs#L5), [1379](../src/compact/param.rs#L1379), [src/device/compact.rs:706](../src/device/compact.rs#L706), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
 
 #### Tsai et al. 1993
 

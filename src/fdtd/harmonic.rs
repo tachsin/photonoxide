@@ -16,6 +16,7 @@ use num_complex::Complex64 as c64;
 
 use super::invalid;
 use crate::Result;
+use crate::dense::fixed;
 use crate::portable;
 use crate::units::Frequency;
 
@@ -103,10 +104,9 @@ pub fn harmonic_inversion(
         .collect();
     let u: [Mat<c64>; 3] =
         std::array::from_fn(|p| Mat::from_fn(j, j, |a, b| element(signal, m, p, z[a], z[b])));
-    let svd = u[0]
-        .svd()
+    let svd = fixed::svd(u[0].as_ref())
         .map_err(|e| invalid(format!("harmonic inversion's SVD failed: {e:?}")))?;
-    let s = svd.S().column_vector();
+    let s = svd.s.column_vector();
     // the singular values, real, in complex numbers
     let rank = (0..s.nrows())
         .filter(|&k| s[k].re > 1e-11 * s[0].re)
@@ -114,7 +114,7 @@ pub fn harmonic_inversion(
     if rank == 0 {
         return Ok(Vec::new());
     }
-    let (w, v) = (svd.U(), svd.V());
+    let (w, v) = (svd.u.as_ref(), svd.v.as_ref());
     let wr = Mat::<c64>::from_fn(j, rank, |a, b| w[(a, b)]);
     let vr = Mat::<c64>::from_fn(j, rank, |a, b| v[(a, b)]);
     // U⁽¹⁾ V y = u U⁽⁰⁾ V y = u W S y, so S⁻¹ Wᴴ U⁽¹⁾ V y = u y
@@ -124,10 +124,9 @@ pub fn harmonic_inversion(
             reduced[(a, b)] /= s[a].re;
         }
     }
-    let eigen = reduced
-        .eigen()
+    let eigen = fixed::eigen(reduced.as_ref())
         .map_err(|e| invalid(format!("harmonic inversion's eigenproblem failed: {e:?}")))?;
-    let (values, vectors) = (eigen.S().column_vector(), eigen.U());
+    let (values, vectors) = (eigen.s.column_vector(), eigen.u.as_ref());
     let mut found = Vec::new();
     for k in 0..rank {
         let uk = values[k];

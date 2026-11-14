@@ -105,6 +105,9 @@ jobs:
         shell: bash
     env:
       CARGO_TERM_COLOR: always
+      # rayon's threads, as the recipe's default and the Systems workflow have them: 4 on every
+      # runner (macOS's have 3 cores)
+      RAYON_NUM_THREADS: "4"
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/rust-toolchain

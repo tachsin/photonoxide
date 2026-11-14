@@ -11,6 +11,7 @@ use faer::Mat;
 use faer::prelude::Solve;
 use num_complex::Complex64 as c64;
 
+use crate::dense::fixed;
 use crate::portable;
 use crate::{Error, Result};
 
@@ -213,7 +214,7 @@ pub(super) fn poles(support: &[f64], weights: &[c64]) -> Vec<c64> {
         }
     });
     let k = shifted.partial_piv_lu().solve(&b);
-    let Ok(mu) = k.eigenvalues() else {
+    let Ok(mu) = fixed::eigenvalues(k.as_ref()) else {
         return Vec::new();
     };
     mu.into_iter()
@@ -226,11 +227,11 @@ pub(super) fn poles(support: &[f64], weights: &[c64]) -> Vec<c64> {
 /// thin SVD, or, where that doesn't converge (it can, rarely: #398), one-sided Jacobi.
 pub(super) fn smallest_right_singular_vector(a: &Mat<c64>) -> Vec<c64> {
     let n = a.ncols();
-    if let Ok(svd) = a.thin_svd() {
+    if let Ok(svd) = fixed::thin_svd(a.as_ref()) {
         // faer keeps a complex matrix's singular values as complex numbers, real and ≥ 0
-        let s: Vec<f64> = svd.S().column_vector().iter().map(|v| v.re).collect();
+        let s: Vec<f64> = svd.s.column_vector().iter().map(|v| v.re).collect();
         let k = (0..n).min_by(|&i, &j| s[i].total_cmp(&s[j])).unwrap_or(0);
-        return (0..n).map(|i| svd.V()[(i, k)]).collect();
+        return (0..n).map(|i| svd.v[(i, k)]).collect();
     }
     let (s, v) = jacobi(a);
     let k = (0..n).min_by(|&i, &j| s[i].total_cmp(&s[j])).unwrap_or(0);

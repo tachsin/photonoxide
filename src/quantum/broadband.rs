@@ -41,6 +41,7 @@ use faer::Mat;
 use num_complex::Complex64 as c64;
 
 use super::{Gaussian, Matrix};
+use crate::dense::fixed;
 use crate::nonlinear::pairs::JointSpectrum;
 use crate::portable;
 use crate::{Error, Result};
@@ -70,11 +71,10 @@ fn to_faer(m: &Matrix) -> Mat<c64> {
 /// The map of one slice of generator g (signal × idler), exp [[0, g], [g†, 0]].
 fn slice_map(g: &Mat<c64>) -> Result<Mat<c64>> {
     let (ns, ni) = (g.nrows(), g.ncols());
-    let svd = g
-        .thin_svd()
+    let svd = fixed::thin_svd(g.as_ref())
         .map_err(|e| invalid(format!("a slice's singular values: {e:?}")))?;
-    let (u, v) = (svd.U(), svd.V());
-    let s: Vec<f64> = svd.S().column_vector().iter().map(|x| x.re).collect();
+    let (u, v) = (svd.u.as_ref(), svd.v.as_ref());
+    let s: Vec<f64> = svd.s.column_vector().iter().map(|x| x.re).collect();
     let k = s.len();
     let n = ns + ni;
     let mut m = Mat::<c64>::zeros(n, n);
@@ -238,13 +238,12 @@ impl Broadband {
 
     fn from_map(signal: usize, idler: usize, map: Mat<c64>) -> Result<Broadband> {
         let b = Mat::<c64>::from_fn(signal, idler, |i, j| map[(i, signal + j)]);
-        let svd = b
-            .thin_svd()
+        let svd = fixed::thin_svd(b.as_ref())
             .map_err(|e| invalid(format!("the map's singular values: {e:?}")))?;
-        let s: Vec<f64> = svd.S().column_vector().iter().map(|x| x.re).collect();
+        let s: Vec<f64> = svd.s.column_vector().iter().map(|x| x.re).collect();
         let mut order: Vec<usize> = (0..s.len()).collect();
         order.sort_by(|&p, &q| s[q].total_cmp(&s[p]));
-        let u = svd.U();
+        let u = svd.u.as_ref();
         let n = signal + idler;
         Ok(Broadband {
             signal,

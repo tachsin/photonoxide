@@ -247,7 +247,7 @@ pub(crate) fn table_cosines_scaled(scale: f64) -> Vec<f64> {
             .map(|(p, q)| p.conj() * q)
             .sum()
     });
-    let mut cosines = overlaps.singular_values().unwrap_or_default();
+    let mut cosines = crate::dense::fixed::singular_values(overlaps.as_ref()).unwrap_or_default();
     cosines.sort_by(|p, q| q.total_cmp(p));
     cosines
 }
