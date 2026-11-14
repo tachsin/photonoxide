@@ -1,6 +1,6 @@
 # Quantum photonics: a survey and a plan
 
-*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built, and released as 0.6.3: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; the studio's quantum views (#746, #749, #765) and the Academy's lesson (#751). Q4 and Q5 are not built.*
+*A survey and a plan, 2026-10-08. It is on the roadmap since 2026-10-09 (decisions, section 5). Built, and released as 0.6.3: Q1 (#738), Q2 (#742) and Q3 (#743), part of #737, with what each leaves for #595 stated on the methods page; the studio's quantum views (#746, #749, #765) and the Academy's lesson (#751). Q4 is built with inverse design's I10 (#761): the objectives' gradients in `quantum::objective` and the example `optimize_quantum`, with Vernon et al.'s dual-coupling condition left in #595. Q5 is not built.*
 
 When this was written, the roadmap had photon pairs in 0.6.1 (SPDC and SFWM, the joint spectral
 amplitude, purity, brightness and heralding) and one line in 0.16, "Quantum photonics: linear

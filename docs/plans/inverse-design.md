@@ -29,7 +29,8 @@ the studio run genoxide's methods on what the library computes.
 | Devices | `Problem::evaluate`: exact derivatives where the components give them, central differences elsewhere, every exact one checked by `Problem::check_gradients` before use ([optimization.md](../methods/optimization.md)) | `job/optimize-*` |
 
 **No adjoint yet:** the mode solvers (no dn_eff/dp), eigenmode expansion, RCWA, the nonlinear
-solvers, the thermal and electrostatic solvers, and the quantum statistics.
+solvers, the thermal and electrostatic solvers, and the quantum statistics. (I9 added the mode
+solvers', RCWA's and eigenmode expansion's derivatives and a Kerr FDFD with its adjoint: section 3.)
 
 **Parametrizations:** a device's parameters with units and bounds (`Component::parameters`),
 layer thicknesses, a spline's widths along a path (the Y-branch's taper), Haar-random mesh phases,
@@ -402,7 +403,33 @@ comparison (above); the job and the studio take no lithography yet (the plan ask
 *Validation:* each against fourth-order differences within what they resolve, and a closed form
 each: a slab's dn_eff/dw from the dispersion relation's implicit derivative; a uniform grating's
 first-order efficiency derivative; Hughes 2018's own device numbers where the paper states them.
-*Papers:* Hughes 2018 (in hand, not read); Hughes 2019 (to get).
+*Papers:* Hughes 2018 and Hughes 2019 (in hand, read 2026-11-14).
+
+*Done 2026-11-14:* docs/methods/solver-derivatives.md. **The mode solvers:**
+`SlabMode::derivatives` (the characteristic equation's implicit derivative in the thickness and
+the three indices, closed form); `Profile::index_gradient` (every cell's permittivity and every
+interior node's position, the left eigenvector y = Wx free since M = W⁻¹H) and
+`VectorMode::index_gradient` (every cell, the left eigenvector by inverse iteration with Aᵀ), each
+dM from the assembling expressions on dual numbers (`mode::dual`), so exact. **RCWA:**
+`Grating::diffract_tangents`, forward mode through the Toeplitz matrices, the eigenpairs, the
+interfaces and the star products, in a stripe's permittivity or a layer's thickness. **Eigenmode
+expansion:** `Eme::s_matrix_tangent`, forward mode in a section's length, a layer's index or a
+boundary's position, through the modes (dν from the Wronskian, the fields and their
+normalization on duals), the overlaps (with Leibniz's rule where TM's E jumps), the interfaces
+and the cascade. **FDFD:** `Solver2d::field_tangent` (forward mode, Hughes 2019) and `Kerr2d`
+(Hughes 2018: Newton's method with u and ū independent, its R-linear steps and adjoint by GMRES
+preconditioned with J's factors, χ′ for a nonlinearity that follows the density). Cases, each with
+its Rule: `mode/slab-index-derivative` (3.0e-4 at 2.5 nm, second order, 2.0 to 2.3 (h/t)²),
+`mode/profile-index-gradient` (7.3e-11), `mode/vector-index-gradient` (4.1e-11),
+`mode/rcwa-tangent-multilayer` (against the transfer matrices' exact derivatives, round-off),
+`mode/rcwa-tangent-gradient` (1.9e-9), `mode/rcwa-tangent-born` (a weak grating's first order
+against the Born approximation, 0.240 Δ: the uniform grating's closed form read as the
+weak-contrast limit), `eme/s-matrix-tangent` (5.4e-12), `fdfd/forward-mode` (against the adjoint,
+7.6e-14), `fdfd/kerr-uniform` (a uniform Kerr medium against its scalar cubic, 8.9e-15) and
+`fdfd/kerr-gradient` (through Newton's method, 4.3e-10). *Left:* Hughes et al.'s switches
+(98.2 % and 3.1 %; 81.8 %/5.9 % and 6.1 %/80.8 %) can't be reproduced: the paper gives the
+materials and powers but not the designs, and their optimization's settings are in the
+Supporting Information, not in the folder (listed in the papers' README); kept in #595.
 
 ### I10: Quantum objectives (quantum.md's Q4)
 
@@ -414,6 +441,25 @@ dispersion.
 *Validation:* each gradient against differences within what they resolve; optimizers recovering
 closed-form optima: Vernon et al.'s dual-coupling condition, the 50:50 coupler of a HOM
 experiment, a Clements mesh programmed to a Haar-random unitary.
+
+*Done 2026-11-14:* `quantum::objective` (docs/methods/quantum.md, "Objectives and their
+gradients"): `probability_gradient` (the minors' permanents, indistinguishable and
+distinguishable photons), `fidelity_gradient` (Clements et al.'s Eq. 6), `visibility_gradient`
+(the quotient of the two coincidences) and `purity_gradient` (tr A²/(tr A)² on the joint
+amplitude, no Schmidt decomposition), each a Wirtinger sensitivity that the circuit adjoint takes;
+and `ring_spectrum_derivative`, a ring's joint amplitude differentiated in its enhancements (a
+coupling, Vernon et al.'s second channel at the pump) or the pump's bandwidth. Cases, each with
+its Rule: `quantum/probability-gradient` (2.0e-10), `quantum/fidelity-gradient` (1.3e-10),
+`quantum/visibility-coupler` (the closed form, 8.9e-16) and `quantum/purity-gradient` (2.7e-9).
+`optimize_quantum`: the HOM coupler's R = ½ by L-BFGS-B through the circuit adjoint (10
+evaluations from 0.15), a 4-mode Clements mesh to a Haar-random unitary (1 − F at round-off in
+146), and a ring with equal linewidths (the purity rises to the broad-pump limit, K = 1.0904
+against Vernon et al.'s Fig. 2(a)'s 1.09, checked). *Left:* Vernon et al.'s dual-coupling
+condition is not reproduced: for K = 1.0009 ours needs a pump linewidth about 14 times the
+signal's (12.8 on ±40 linewidths, rising with the window), their Fig. 2(b) 6.6 (from their full
+device's simulation, whose model the paper doesn't give); at 6.6 ours gives K = 1.0034. Kept in
+#595. The dispersion objectives through the mode solvers' derivatives (I9) are named on the
+methods page; no example uses them yet.
 
 ### I11: Device and circuit co-design
 
@@ -540,8 +586,8 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
 
 ## 6. Where the work stands
 
-*2026-11-13: I1 to I7 are merged (pull request #796); I8 is on `feat/inverse-design-i8`, pull
-request #806. Each later phase is its own branch and pull request from main.*
+*2026-11-14: I1 to I7 are merged (pull request #796), I8 (#806) and I9 (#835) too; I10 is on
+`feat/inverse-design-i10`. Each later phase is its own branch and pull request from main.*
 
 **Done** (each phase's *Done* paragraph above has its numbers):
 - I1 to I3: densities, filters, projections, robust designs, length scales;
@@ -550,10 +596,15 @@ request #806. Each later phase is its own branch and pull request from main.*
 - I6: the subpixel-smoothed projection, with the crossing;
 - I7: level sets, Vercruysse et al.'s penalty and the Y-branch's adjoint half;
 - I8 (2026-11-13, its own pull request): the lithography proxy inside the loop, the Y-branch and
-  the SWG-to-strip converter designed printed; Table 1's comparison left open (I8 above).
+  the SWG-to-strip converter designed printed; Table 1's comparison left open (I8 above);
+- I9 (2026-11-14, its own pull request): the mode solvers', RCWA's and eigenmode expansion's
+  derivatives, FDFD's forward mode and a Kerr FDFD with its adjoint; Hughes et al.'s switches left
+  open (I9 above);
+- I10 (2026-11-14, its own pull request): quantum objectives with their gradients and
+  `optimize_quantum`; Vernon et al.'s dual-coupling condition left open (I10 above).
 
-The validation report has 31 topology cases (27 from I1 to I7, 4 from I8) and
-`fdfd/adjoint-gradient-row`.
+The validation report has 31 topology cases (27 from I1 to I7, 4 from I8),
+`fdfd/adjoint-gradient-row`, I9's ten (six `mode/`, one `eme/`, three `fdfd/`) and I10's four `quantum/`.
 
 **Settled with #796:**
 
@@ -570,8 +621,6 @@ The validation report has 31 topology cases (27 from I1 to I7, 4 from I8) and
 
 **Left of the plan** (each its own pull request, part of #761; the phases above say what each
 holds and how it is validated):
-- I9: adjoints for the other solvers;
-- I10: quantum objectives;
 - I11: device and circuit co-design;
 - I12: explore in 2D, verify in 3D;
 - the Academy lesson `academy/inverse-design.md`, written last.

@@ -131,9 +131,24 @@ pub struct SlabMode {
     polarization: Polarization,
     order: usize,
     effective_index: f64,
+    k: f64,
     h: f64,
     q: f64,
     p: f64,
+}
+
+/// How a [`SlabMode`]'s effective index moves with the slab ([`SlabMode::derivatives`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct SlabDerivatives {
+    /// dn_eff/dt, with t the core's thickness in µm (per µm).
+    pub thickness: f64,
+    /// dn_eff/dn₂, against the core's index.
+    pub core: f64,
+    /// dn_eff/dn₁, against the lower cladding's index.
+    pub below: f64,
+    /// dn_eff/dn₃, against the upper cladding's index.
+    pub above: f64,
 }
 
 impl SlabMode {
@@ -143,6 +158,7 @@ impl SlabMode {
             polarization,
             order,
             effective_index: n,
+            k,
             h: k * (slab.core * slab.core - n * n).max(0.0).sqrt(),
             q: k * (n * n - slab.below * slab.below).max(0.0).sqrt(),
             p: k * (n * n - slab.above * slab.above).max(0.0).sqrt(),
@@ -167,6 +183,61 @@ impl SlabMode {
     /// The transverse wavenumbers, in 1/µm: h in the core, q below, p above.
     pub fn wavenumbers(&self) -> (f64, f64, f64) {
         (self.h, self.q, self.p)
+    }
+
+    /// The effective index's derivatives with respect to the core's thickness and the three
+    /// indices, in closed form: the characteristic equation C(n_eff; t, n₁, n₂, n₃) =
+    /// h t − atan(q̄/h) − atan(p̄/h) − mπ = 0 holds along the mode, so by the implicit function
+    /// theorem dn_eff/dθ = −(∂C/∂θ)/(∂C/∂n_eff) for each parameter θ, with
+    /// ∂h/∂n_eff = −k²n_eff/h, ∂q/∂n_eff = k²n_eff/q, ∂p/∂n_eff = k²n_eff/p, ∂C/∂t = h, and for TM
+    /// q̄ = (n₂/n₁)²q and p̄ = (n₂/n₃)²p differentiated with their factors.
+    pub fn derivatives(&self) -> SlabDerivatives {
+        let (n1, n2, n3) = (self.slab.below, self.slab.core, self.slab.above);
+        let (k2, n) = (self.k * self.k, self.effective_index);
+        let (h, q, p) = (self.h, self.q, self.p);
+        let t = self.slab.thickness.to_um();
+        let tm = self.polarization == Polarization::Tm;
+        let (r1, r3) = if tm {
+            ((n2 / n1) * (n2 / n1), (n2 / n3) * (n2 / n3))
+        } else {
+            (1.0, 1.0)
+        };
+        let (qb, pb) = (r1 * q, r3 * p);
+        // dC from the changes of h, q̄, p̄ and t
+        let change = |dh: f64, dqb: f64, dpb: f64, dt: f64| {
+            dh * t + h * dt
+                - (h * dqb - qb * dh) / (h * h + qb * qb)
+                - (h * dpb - pb * dh) / (h * h + pb * pb)
+        };
+        // ∂C/∂n_eff: h, q and p move, the ratios don't
+        let c_n = change(-k2 * n / h, r1 * k2 * n / q, r3 * k2 * n / p, 0.0);
+        // the core's index moves h and, for TM, both ratios
+        let (dr1_core, dr3_core) = if tm {
+            (2.0 * n2 / (n1 * n1), 2.0 * n2 / (n3 * n3))
+        } else {
+            (0.0, 0.0)
+        };
+        let c_core = change(k2 * n2 / h, dr1_core * q, dr3_core * p, 0.0);
+        // a cladding's index moves its decay and its ratio
+        let dr1_below = if tm {
+            -2.0 * n2 * n2 / (n1 * n1 * n1)
+        } else {
+            0.0
+        };
+        let c_below = change(0.0, r1 * (-k2 * n1 / q) + dr1_below * q, 0.0, 0.0);
+        let dr3_above = if tm {
+            -2.0 * n2 * n2 / (n3 * n3 * n3)
+        } else {
+            0.0
+        };
+        let c_above = change(0.0, 0.0, r3 * (-k2 * n3 / p) + dr3_above * p, 0.0);
+        let c_t = change(0.0, 0.0, 0.0, 1.0);
+        SlabDerivatives {
+            thickness: -c_t / c_n,
+            core: -c_core / c_n,
+            below: -c_below / c_n,
+            above: -c_above / c_n,
+        }
     }
 
     /// The field across the slab at x (x = 0 at the core's bottom), and its derivative:
@@ -211,6 +282,42 @@ mod tests {
     /// The book's example: 220 nm of silicon (3.473) in oxide (1.444) at 1550 nm.
     fn soi() -> Slab {
         Slab::new(1.444, 3.473, 1.444, Length::nm(220.0)).unwrap()
+    }
+
+    #[test]
+    fn the_closed_form_derivatives_are_the_differences_of_the_index() {
+        // an asymmetric slab, two modes each way, so every term of the derivative is used
+        let (t, n1, n2, n3) = (0.6, 1.444, 3.473, 1.2);
+        let at = |t: f64, n1: f64, n2: f64, n3: f64, pol: Polarization, m: usize| {
+            Slab::new(n1, n2, n3, Length::um(t))
+                .unwrap()
+                .modes(pol, lam(1.31))[m]
+                .effective_index()
+        };
+        for pol in [Polarization::Te, Polarization::Tm] {
+            for m in 0..2 {
+                let d = Slab::new(n1, n2, n3, Length::um(t))
+                    .unwrap()
+                    .modes(pol, lam(1.31))[m]
+                    .derivatives();
+                let diff = |f: &dyn Fn(f64) -> f64, h: f64| {
+                    (8.0 * (f(h) - f(-h)) - (f(2.0 * h) - f(-2.0 * h))) / (12.0 * h)
+                };
+                let h = 1e-4;
+                let checks = [
+                    (d.thickness, diff(&|s| at(t + s, n1, n2, n3, pol, m), h)),
+                    (d.below, diff(&|s| at(t, n1 + s, n2, n3, pol, m), h)),
+                    (d.core, diff(&|s| at(t, n1, n2 + s, n3, pol, m), h)),
+                    (d.above, diff(&|s| at(t, n1, n2, n3 + s, pol, m), h)),
+                ];
+                for (exact, fd) in checks {
+                    assert!(
+                        (exact - fd).abs() < 1e-8 * exact.abs().max(1e-3),
+                        "{pol:?} {m}: {exact} against {fd}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

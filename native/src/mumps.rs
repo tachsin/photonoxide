@@ -214,6 +214,8 @@ unsafe impl Send for Crossing {}
 /// arrays it points at live through the call.
 unsafe fn run(zmumps: ZmumpsC, structure: *mut c_void) -> Result<()> {
     let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
+    // not during a threaded OpenBLAS call of ours: MUMPS may call the same OpenBLAS
+    let _beside = crate::blas::openblas_shared();
     let crossing = Crossing(structure);
     std::thread::scope(|scope| {
         std::thread::Builder::new()

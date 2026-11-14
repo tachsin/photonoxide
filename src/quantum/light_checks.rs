@@ -781,7 +781,7 @@ fn heralding_coupler() -> Outcome {
 // ---------------------------------------------------------------------------------------------
 
 /// Hertz to 1/µm.
-fn per_um(hz: f64) -> f64 {
+pub(crate) fn per_um(hz: f64) -> f64 {
     hz / (SPEED_OF_LIGHT * 1e6)
 }
 
@@ -792,7 +792,7 @@ pub(crate) struct HeltRing {
     /// The power coupling that makes a resonance 1.48 GHz wide.
     coupling: f64,
     /// The pump's, signal's and idler's resonances, 1/µm.
-    resonances: [f64; 3],
+    pub(crate) resonances: [f64; 3],
 }
 
 pub(crate) fn helt_ring(fwhm_hz: f64) -> HeltRing {
@@ -839,7 +839,7 @@ pub(crate) fn helt_ring(fwhm_hz: f64) -> HeltRing {
 impl HeltRing {
     /// F(ν) of a wave in this ring whose round trip loses `extra` of its power besides the
     /// coupling (a second channel's coupling, for Vernon et al.'s pump).
-    fn enhancement(&self, extra: f64) -> impl Fn(f64) -> crate::Result<c64> + Sync + '_ {
+    pub(crate) fn enhancement(&self, extra: f64) -> impl Fn(f64) -> crate::Result<c64> + Sync + '_ {
         move |nu: f64| {
             let w = Wavelength::um(1.0 / nu)?;
             let round =
@@ -850,6 +850,23 @@ impl HeltRing {
     }
 }
 
+impl HeltRing {
+    /// dF/d(extra) of [`HeltRing::enhancement`]: with D = 1 − r a √(1 − x) e^{iφ}, F = i√κ/D
+    /// and dF/dx = −i√κ r a e^{iφ}/(2√(1 − x) D²) (0.7, #761's I10).
+    pub(crate) fn enhancement_slope(
+        &self,
+        extra: f64,
+    ) -> impl Fn(f64) -> crate::Result<c64> + Sync + '_ {
+        move |nu: f64| {
+            let w = Wavelength::um(1.0 / nu)?;
+            let round = self.ring.round_trip(w, &[self.length, self.coupling])?;
+            let r = (1.0 - self.coupling).sqrt();
+            let s = (1.0 - extra).sqrt();
+            let d = 1.0 - r * round * s;
+            Ok(-c64::new(0.0, self.coupling.sqrt()) * r * round / (2.0 * s * d * d))
+        }
+    }
+}
 /// The Schmidt number of pairs from Helt et al.'s ring pumped by a transform-limited Gaussian
 /// pulse of intensity FWHM `pulse` ps, the pump's resonance `ratio` times wider than the
 /// signal's and idler's, on a grid `span` linewidths either side and `points` across.

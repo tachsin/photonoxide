@@ -35,10 +35,12 @@
 
 use faer::c64;
 
+use crate::mode::dual::Arith;
 use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
 
+mod adjoint;
 mod guided;
 
 pub use guided::{guided_modes, guided_modes_until};
@@ -116,17 +118,6 @@ impl Permittivity {
             yy: t[1][1],
             zz: t[2][2],
         })
-    }
-
-    /// The tensor with x and y exchanged (Eq. (36)).
-    fn transposed(self) -> Permittivity {
-        Permittivity {
-            xx: self.yy,
-            xy: self.yx,
-            yx: self.xy,
-            yy: self.xx,
-            zz: self.zz,
-        }
     }
 }
 
@@ -588,38 +579,42 @@ impl CrossSection {
 }
 
 /// The nine coefficients of a node's equation: the node itself and its neighbours.
-#[derive(Clone, Copy, Debug, Default)]
-struct Stencil {
-    p: c64,
-    n: c64,
-    s: c64,
-    e: c64,
-    w: c64,
-    ne: c64,
-    se: c64,
-    sw: c64,
-    nw: c64,
+#[derive(Clone, Copy, Debug)]
+struct Stencil<T> {
+    p: T,
+    n: T,
+    s: T,
+    e: T,
+    w: T,
+    ne: T,
+    se: T,
+    sw: T,
+    nw: T,
 }
 
+/// A region's components as [`coefficients`] takes them: (ε_yy, ε_yx, ε_zz).
+type Region<T> = [T; 3];
+
 /// A_xx and A_xy at a node, Eqs. (21)–(35): regions 1 (NW), 2 (SW), 3 (SE), 4 (NE) around it
-/// (Fig. 1), distances n, s, e, w to its neighbours, and k².
+/// (Fig. 1), distances n, s, e, w to its neighbours, and k². On values (c64) it assembles the
+/// matrix; on dual numbers it carries the entries' derivatives too (the adjoint's).
 #[allow(clippy::too_many_arguments)]
-fn coefficients(
-    r1: Permittivity,
-    r2: Permittivity,
-    r3: Permittivity,
-    r4: Permittivity,
-    n: c64,
-    s: c64,
-    e: c64,
-    w: c64,
+fn coefficients<T: Arith>(
+    r1: Region<T>,
+    r2: Region<T>,
+    r3: Region<T>,
+    r4: Region<T>,
+    n: T,
+    s: T,
+    e: T,
+    w: T,
     k2: f64,
-) -> (Stencil, Stencil) {
-    let one = c64::new(1.0, 0.0);
-    let two = c64::new(2.0, 0.0);
-    let (yy1, yy2, yy3, yy4) = (r1.yy, r2.yy, r3.yy, r4.yy);
-    let (yx1, yx2, yx3, yx4) = (r1.yx, r2.yx, r3.yx, r4.yx);
-    let (zz1, zz2, zz3, zz4) = (r1.zz, r2.zz, r3.zz, r4.zz);
+) -> (Stencil<T>, Stencil<T>) {
+    let one = T::from(1.0);
+    let two = T::from(2.0);
+    let (yy1, yy2, yy3, yy4) = (r1[0], r2[0], r3[0], r4[0]);
+    let (yx1, yx2, yx3, yx4) = (r1[1], r2[1], r3[1], r4[1]);
+    let (zz1, zz2, zz3, zz4) = (r1[2], r2[2], r3[2], r4[2]);
     let v21 = n * yy2 + s * yy1;
     let v34 = n * yy3 + s * yy4;
     let ew = e + w;
@@ -641,11 +636,11 @@ fn coefficients(
         // (26)
         sw: yx2 * yy1 / (zz2 * v21 * ew),
         nw: -yx1 * yy2 / (zz1 * v21 * ew),
-        p: c64::new(0.0, 0.0),
+        p: T::from(0.0),
     };
     // (27)
     xx.p = -(xx.n + xx.s + xx.e + xx.w + xx.ne + xx.se + xx.sw + xx.nw)
-        + k2 * (n + s) / ew * (yy4 * yy3 * e / v34 + yy1 * yy2 * w / v21);
+        + (n + s) * k2 / ew * (yy4 * yy3 * e / v34 + yy1 * yy2 * w / v21);
 
     let mut xy = Stencil {
         // (28)
@@ -680,12 +675,13 @@ fn coefficients(
         // (33)
         nw: (yy2 * yy1 / zz1 - yy2) / (v21 * ew),
         sw: (yy1 - yy1 * yy2 / zz2) / (v21 * ew),
-        p: c64::new(0.0, 0.0),
+        p: T::from(0.0),
     };
     // (34)
     xy.p = -(xy.n + xy.s + xy.e + xy.w + xy.ne + xy.se + xy.sw + xy.nw)
-        - k2 * (w * (n * yx1 * yy2 + s * yx2 * yy1) / (v21 * ew)
-            + e * (s * yx3 * yy4 + n * yx4 * yy3) / (v34 * ew));
+        - (w * (n * yx1 * yy2 + s * yx2 * yy1) / (v21 * ew)
+            + e * (s * yx3 * yy4 + n * yx4 * yy3) / (v34 * ew))
+            * k2;
     (xx, xy)
 }
 
@@ -784,13 +780,61 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
     let (nxn, nyn) = (cs.x.len(), cs.y.len());
     let nodes = nxn * nyn;
     let numbering = Numbering::new(cs);
-    let neighbour = |c, i, j| numbering.neighbour(c, i, j);
-    let pml = cs.pml;
-    let xs = CrossSection::stretched(&cs.x, pml.west, pml.east, pml.strength);
-    let ys = CrossSection::stretched(&cs.y, pml.south, pml.north, pml.strength);
+    let (xs, ys) = cs.stretched_nodes();
+    let mut entries = Vec::with_capacity(nodes * 36);
+    for i in 0..nxn {
+        for j in 0..nyn {
+            let regions = cs
+                .node_regions(i, j)
+                .map(|c| cs.cells[c])
+                .map(|r| [r.xx, r.xy, r.yx, r.yy, r.zz]);
+            node_entries(
+                &numbering,
+                (i, j),
+                regions,
+                node_spacings(&xs, &ys, i, j),
+                k2,
+                |row, q, v: c64| entries.push((row, q, v)),
+            );
+        }
+    }
+    entries
+}
+
+impl CrossSection {
+    /// The nodes' coordinates along x and y, complex inside the PMLs.
+    fn stretched_nodes(&self) -> (Vec<c64>, Vec<c64>) {
+        let pml = self.pml;
+        (
+            CrossSection::stretched(&self.x, pml.west, pml.east, pml.strength),
+            CrossSection::stretched(&self.y, pml.south, pml.north, pml.strength),
+        )
+    }
+
+    /// The cells (as indices into [`CrossSection::cells`]) of node (i, j)'s regions 1 (NW),
+    /// 2 (SW), 3 (SE) and 4 (NE), clamped to the grid as [`CrossSection::cell`] clamps them.
+    fn node_regions(&self, i: usize, j: usize) -> [usize; 4] {
+        let (nx, ny) = (self.x.len() - 1, self.y.len() - 1);
+        let at = |i: isize, j: isize| {
+            let i = i.clamp(0, nx as isize - 1) as usize;
+            let j = j.clamp(0, ny as isize - 1) as usize;
+            i * ny + j
+        };
+        let (ii, jj) = (i as isize, j as isize);
+        [
+            at(ii - 1, jj),
+            at(ii - 1, jj - 1),
+            at(ii, jj - 1),
+            at(ii, jj),
+        ]
+    }
+}
+
+/// Node (i, j)'s distances [n, s, e, w] to its neighbours, from the stretched nodes `xs` and
+/// `ys`: at the window's edge the spacing continues, to the zero beyond it or to the mirror image
+/// of the first node inside a wall.
+fn node_spacings(xs: &[c64], ys: &[c64], i: usize, j: usize) -> [c64; 4] {
     let spacing = |v: &[c64], i: usize, ahead: bool| -> c64 {
-        // at the window's edge the spacing continues: to the zero beyond it, or to the mirror
-        // image of the first node inside a wall
         let last = v.len() - 1;
         match (ahead, i) {
             (true, i) if i < last => v[i + 1] - v[i],
@@ -799,86 +843,98 @@ fn assemble(cs: &CrossSection, k2: f64) -> Vec<(usize, usize, c64)> {
             (false, i) => v[i] - v[i - 1],
         }
     };
-    let mut entries = Vec::with_capacity(nodes * 36);
-    for i in 0..nxn {
-        for j in 0..nyn {
-            let (ii, jj) = (i as isize, j as isize);
-            let r1 = cs.cell(ii - 1, jj);
-            let r2 = cs.cell(ii - 1, jj - 1);
-            let r3 = cs.cell(ii, jj - 1);
-            let r4 = cs.cell(ii, jj);
-            let (n, s) = (spacing(&ys, j, true), spacing(&ys, j, false));
-            let (e, w) = (spacing(&xs, i, true), spacing(&xs, i, false));
-            let (axx, axy) = coefficients(r1, r2, r3, r4, n, s, e, w, k2);
-            // Eq. (36): x ↔ y, so n ↔ e, s ↔ w, region 1 ↔ 3, and the tensor transposed; the
-            // results are A_yy and A_yx with their neighbours mirrored back (N ↔ E, S ↔ W,
-            // NW ↔ SE)
-            let (ayy, ayx) = coefficients(
-                r3.transposed(),
-                r2.transposed(),
-                r1.transposed(),
-                r4.transposed(),
-                e,
-                w,
-                n,
-                s,
-                k2,
-            );
-            let around = |st: &Stencil, mirrored: bool| -> [(isize, isize, c64); 9] {
-                if mirrored {
-                    [
-                        (0, 0, st.p),
-                        (1, 0, st.n),
-                        (-1, 0, st.s),
-                        (0, 1, st.e),
-                        (0, -1, st.w),
-                        (1, 1, st.ne),
-                        (-1, 1, st.se),
-                        (-1, -1, st.sw),
-                        (1, -1, st.nw),
-                    ]
-                } else {
-                    [
-                        (0, 0, st.p),
-                        (0, 1, st.n),
-                        (0, -1, st.s),
-                        (1, 0, st.e),
-                        (-1, 0, st.w),
-                        (1, 1, st.ne),
-                        (1, -1, st.se),
-                        (-1, -1, st.sw),
-                        (-1, 1, st.nw),
-                    ]
-                }
-            };
-            for (component, stencils) in [
-                (
-                    Component::X,
-                    [(&axx, Component::X, false), (&axy, Component::Y, false)],
-                ),
-                (
-                    Component::Y,
-                    [(&ayx, Component::X, true), (&ayy, Component::Y, true)],
-                ),
-            ] {
-                let Some(row) = numbering.row(component, i, j) else {
+    [
+        spacing(ys, j, true),
+        spacing(ys, j, false),
+        spacing(xs, i, true),
+        spacing(xs, i, false),
+    ]
+}
+
+/// The entries of node (i, j)'s rows (H_x's and H_y's, unless held at zero), each handed to
+/// `push` as (row, column, value): from its four `regions` (1 NW, 2 SW, 3 SE, 4 NE, each as
+/// (ε_xx, ε_xy, ε_yx, ε_yy, ε_zz)) and its distances `[n, s, e, w]`. On values (c64) these are
+/// the matrix's; on dual numbers, their derivatives too.
+fn node_entries<T: Arith>(
+    numbering: &Numbering,
+    (i, j): (usize, usize),
+    regions: [[T; 5]; 4],
+    [n, s, e, w]: [c64; 4],
+    k2: f64,
+    mut push: impl FnMut(usize, usize, T),
+) {
+    let (ii, jj) = (i as isize, j as isize);
+    let [r1, r2, r3, r4] = regions;
+    // (ε_yy, ε_yx, ε_zz), and the same of the tensor with x and y exchanged (Eq. (36))
+    let plain = |r: [T; 5]| [r[3], r[2], r[4]];
+    let transposed = |r: [T; 5]| [r[0], r[1], r[4]];
+    let (n, s, e, w) = (T::from(n), T::from(s), T::from(e), T::from(w));
+    let (axx, axy) = coefficients(plain(r1), plain(r2), plain(r3), plain(r4), n, s, e, w, k2);
+    // Eq. (36): x ↔ y, so n ↔ e, s ↔ w, region 1 ↔ 3, and the tensor transposed; the results
+    // are A_yy and A_yx with their neighbours mirrored back (N ↔ E, S ↔ W, NW ↔ SE)
+    let (ayy, ayx) = coefficients(
+        transposed(r3),
+        transposed(r2),
+        transposed(r1),
+        transposed(r4),
+        e,
+        w,
+        n,
+        s,
+        k2,
+    );
+    let around = |st: &Stencil<T>, mirrored: bool| -> [(isize, isize, T); 9] {
+        if mirrored {
+            [
+                (0, 0, st.p),
+                (1, 0, st.n),
+                (-1, 0, st.s),
+                (0, 1, st.e),
+                (0, -1, st.w),
+                (1, 1, st.ne),
+                (-1, 1, st.se),
+                (-1, -1, st.sw),
+                (1, -1, st.nw),
+            ]
+        } else {
+            [
+                (0, 0, st.p),
+                (0, 1, st.n),
+                (0, -1, st.s),
+                (1, 0, st.e),
+                (-1, 0, st.w),
+                (1, 1, st.ne),
+                (1, -1, st.se),
+                (-1, -1, st.sw),
+                (-1, 1, st.nw),
+            ]
+        }
+    };
+    for (component, stencils) in [
+        (
+            Component::X,
+            [(&axx, Component::X, false), (&axy, Component::Y, false)],
+        ),
+        (
+            Component::Y,
+            [(&ayx, Component::X, true), (&ayy, Component::Y, true)],
+        ),
+    ] {
+        let Some(row) = numbering.row(component, i, j) else {
+            continue;
+        };
+        for (st, c, mirrored) in stencils {
+            for (di, dj, v) in around(st, mirrored) {
+                if v.is_zero() {
                     continue;
-                };
-                for (st, c, mirrored) in stencils {
-                    for (di, dj, v) in around(st, mirrored) {
-                        if v.re == 0.0 && v.im == 0.0 {
-                            continue;
-                        }
-                        // folded neighbours can repeat a column: the matrix sums them
-                        if let Some((q, sign)) = neighbour(c, ii + di, jj + dj) {
-                            entries.push((row, q, v * sign));
-                        }
-                    }
+                }
+                // folded neighbours can repeat a column: the matrix sums them
+                if let Some((q, sign)) = numbering.neighbour(c, ii + di, jj + dj) {
+                    push(row, q, v * sign);
                 }
             }
         }
     }
-    entries
 }
 
 /// Grid nodes from `a` to `b` (µm): spacing `h` inside the box `fine` (from, to), growing
@@ -1900,11 +1956,12 @@ mod tests {
     #[test]
     fn a_uniform_isotropic_region_decouples_hx_and_hy() {
         // A_xy vanishes where the four cells around a node are the same isotropic medium
+        let region = |p: Permittivity| [p.yy, p.yx, p.zz];
         let (xx, xy) = coefficients(
-            iso(4.0),
-            iso(4.0),
-            iso(4.0),
-            iso(4.0),
+            region(iso(4.0)),
+            region(iso(4.0)),
+            region(iso(4.0)),
+            region(iso(4.0)),
             c64::new(0.1, 0.0),
             c64::new(0.2, 0.0),
             c64::new(0.15, 0.0),

@@ -11,6 +11,9 @@ use crate::mode::Polarization;
 use crate::portable;
 use crate::{Error, Result};
 
+mod tangent;
+pub(crate) use tangent::{LayerChange, ModeTangent};
+
 /// A layer as the solver sees it: its permittivity n² (in a bent section the map's, n²e^(2u/R)),
 /// the physical one that sets TM's weight, where it starts and its real thickness (µm, from the
 /// lower wall's PML, if any), and its stretch: d̃/d, 1 + iσ in a PML, else 1.

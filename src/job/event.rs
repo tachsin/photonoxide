@@ -977,4 +977,13 @@ pub enum Event {
         /// The evaluations.
         evaluations: usize,
     },
+    /// What the run's numbers may not mean, though it ran (#783): a line in plain words with
+    /// the number behind it and what to change, e.g. a modes job's mode whose field reaches the
+    /// window's edge, a guide with too few cells across it, or no mode found
+    /// ([`results::warnings_in`](super::results::warnings_in) reads them back). `photonoxide run`
+    /// prints each on stderr as `warning: ...`.
+    Warning {
+        /// The warning.
+        text: String,
+    },
 }

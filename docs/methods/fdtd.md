@@ -1432,7 +1432,15 @@ derivatives multiply by 1/Δ, computed on the CPU. Dividing by Δ in the kernel,
 came: the 3D problem's ψ of H̃ after two steps differed by 1 to 4 units in the last place in
 about one value in thirteen, and its fields after 300 steps in 989 and 1171 of 1200 runs (fused
 and in two passes). Multiplying, no run of
-1200 differs, in either precision. WGSL lets a compiler fuse and reorder
+1200 differs, in either precision. The cause, seen in a kernel of the recursion alone (#818,
+`under_load_a_quotient_takes_two_forms_a_product_one`): the driver runs two compiled forms of a
+kernel and switches between them in the first seconds of load, and the two may evaluate a
+quotient differently, as the correctly rounded x/Δ or as x times 1/Δ rounded, an ulp apart
+where 1/Δ isn't exact (Δ = 0.05 isn't). On the RTX 4060, d = x · (1/Δ) is x times 1/Δ rounded
+but for 0.2 s at a time about 4 s into the load (the same in every process), when it is x/Δ to
+the bit (19 480 of 65 536 values an ulp apart); with 1/Δ taken on the host, no run differs.
+No other GPU or driver was at hand to check. WGSL lets a
+compiler fuse and reorder
 arithmetic, so the GPU isn't the CPU's bits; it agrees with the CPU to tolerances measured by how
 rounding grows (`src/fdtd/gpu/tests.rs`):
 

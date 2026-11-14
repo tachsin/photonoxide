@@ -165,5 +165,47 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the standard scheme's first order at convex corners, as device/coupler-3d-order, shown to two decimals",
             ),
         ),
-    ]
+        (
+            "quantum/probability-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-8,
+                Noted,
+                "fourth-order differences of a degree-6 polynomial in the step: what they resolve, the difference between h = 1e-3 and 2e-3, is 3.0e-9 of the largest derivative (noted, mostly 2h's truncation), and the sensitivity is within 2.0e-10 of them; held to ten times what they resolve, rounded up, 5e-8",
+            )
+            .varying(),
+        ),
+        (
+            "quantum/fidelity-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-8,
+                Noted,
+                "as quantum/probability-gradient: the differences resolve 2.0e-9 (noted), the sensitivity within 1.3e-10 of them; held to ten times that, rounded up, 5e-8",
+            )
+            .varying(),
+        ),
+        (
+            "quantum/visibility-coupler",
+            Rule::new(
+                Absolute,
+                RoundOff,
+                1e-12,
+                Exact,
+                "the closed form and the chain through dS/dR are the same derivative: round-off of a few products, 8.9e-16; held to 1e-12",
+            ),
+        ),
+        (
+            "quantum/purity-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-8,
+                Noted,
+                "fourth-order differences at h = 1e-5 in the loss and 1e-4 of the bandwidth: they resolve 9.1e-10 (noted), at the purity's round-off over the step, and the derivative is within 2.7e-9 of them; held to ten times what they resolve, rounded up, 1e-8",
+            )
+            .varying(),
+        ),    ]
 }
