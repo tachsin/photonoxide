@@ -854,5 +854,36 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "as pockels/bto-abel-response",
             ),
         ),
-    ]
+        (
+            "mode/slab-index-derivative",
+            Rule::new(
+                Relative,
+                Order,
+                crate::mode::adjoint_checks::SLAB_TOLERANCE,
+                Measured,
+                "the profile's second-order error with nodes on the interfaces, carried into its derivative: 1.6e-2, 4.5e-3, 1.2e-3 and 3.0e-4 at 20, 10, 5 and 2.5 nm, 2.0 to 2.3 (h/t)² with t the core (the_mode_adjoint_study); held to 3 (h/t)² at 2.5 nm, 3.9e-4, rounded up to 4e-4",
+            ),
+        ),
+        (
+            "mode/profile-index-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                2e-9,
+                Noted,
+                "fourth-order differences of eigenvalues solved to 1e-10: what they resolve, the difference between the steps δ and 2δ, is 1.2e-10 of the largest derivative (noted), and the adjoint is within 7.3e-11 of them; held to ten times what they resolve, rounded up, 2e-9",
+            )
+            .varying(),
+        ),
+        (
+            "mode/vector-index-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                1e-9,
+                Noted,
+                "as mode/profile-index-gradient, eigenvalues solved to 1e-9: the differences resolve 6.8e-11 of the largest derivative (noted), the adjoint within 4.1e-11 of them; held to ten times that, rounded up, 1e-9",
+            )
+            .varying(),
+        ),    ]
 }

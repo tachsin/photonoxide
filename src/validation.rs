@@ -2324,6 +2324,11 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::rcwa_checks::cases());
     // and inverse design's densities: the filter, the projection and the chain's gradient (0.7)
     cases.extend(crate::topology::checks::cases());
+    // and the other solvers' derivatives (0.7, I9): the mode solvers', RCWA's, eigenmode
+    // expansion's, FDFD's forward mode and its Kerr problem's adjoint
+    cases.extend(crate::mode::adjoint_checks::cases());
+    cases.extend(crate::eme::tangent_checks::cases());
+    cases.extend(crate::fdfd::kerr_checks::cases());
     cases
 }
 

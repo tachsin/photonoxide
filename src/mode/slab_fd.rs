@@ -23,9 +23,13 @@
 use num_complex::Complex64 as c64;
 
 use super::Polarization;
+use crate::mode::dual::Arith;
 use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
+
+mod adjoint;
+pub use adjoint::ProfileGradient;
 
 /// A planar profile on a grid of nodes, with optional perfectly matched layers at its ends.
 #[derive(Clone, Debug, PartialEq)]
@@ -127,6 +131,21 @@ impl Profile {
     /// The nodes, µm.
     pub fn nodes(&self) -> &[f64] {
         &self.nodes
+    }
+
+    /// The same profile with cell `c`'s permittivity changed by `d`: for the differences that
+    /// check [`Profile::index_gradient`].
+    pub(crate) fn with_cell_changed(&self, c: usize, d: f64) -> Profile {
+        let mut p = self.clone();
+        p.cells[c] += d;
+        p
+    }
+
+    /// The same profile with node `m` moved by `d` µm.
+    pub(crate) fn with_node_moved(&self, m: usize, d: f64) -> Profile {
+        let mut p = self.clone();
+        p.nodes[m] += d;
+        p
     }
 
     /// The `count` modes with effective indices nearest `near` (the highest index in the
@@ -234,67 +253,95 @@ impl Profile {
 
     /// The matrix whose eigenvalues are β², as (row, column, value) entries.
     pub(crate) fn entries(&self, polarization: Polarization, k2: f64) -> Vec<(usize, usize, c64)> {
-        let (start, end) = (self.nodes[0], self.nodes[self.nodes.len() - 1]);
-        // complex coordinates inside the PML (Chew et al., Eq. 45)
-        let x: Vec<c64> = self
-            .nodes
-            .iter()
-            .map(|&p| {
-                let mut im = 0.0;
-                if self.pml.0 > 0.0 && p < start + self.pml.0 {
-                    im -= self.strength * portable::powi(start + self.pml.0 - p, 3)
-                        / (3.0 * self.pml.0 * self.pml.0);
-                }
-                if self.pml.1 > 0.0 && p > end - self.pml.1 {
-                    im += self.strength * portable::powi(p - (end - self.pml.1), 3)
-                        / (3.0 * self.pml.1 * self.pml.1);
-                }
-                c64::new(p, im)
-            })
-            .collect();
+        let x = self.coordinates();
         let n = x.len();
-        let last = self.cells.len() - 1;
         let mut entries = Vec::with_capacity(3 * n);
         for i in 0..n {
-            // beyond an end the spacing and the cell continue, the field being zero
-            let w = if i > 0 { x[i] - x[i - 1] } else { x[1] - x[0] };
-            let e = if i < n - 1 {
-                x[i + 1] - x[i]
-            } else {
-                x[n - 1] - x[n - 2]
-            };
-            let (ew, ee) = (
-                self.cells[i.saturating_sub(1).min(last)],
-                self.cells[i.min(last)],
-            );
-            let s = 2.0 / (w + e);
-            match polarization {
-                Polarization::Te => {
-                    let (cw, ce) = (s / w, s / e);
-                    let diag = -(cw + ce) + k2 * (w * ew + e * ee) / (w + e);
-                    entries.push((i, i, diag));
-                    if i > 0 {
-                        entries.push((i, i - 1, cw));
-                    }
-                    if i < n - 1 {
-                        entries.push((i, i + 1, ce));
-                    }
-                }
-                Polarization::Tm => {
-                    let inv = (w / ew + e / ee) / (w + e);
-                    let (cw, ce) = (s / (w * ew) / inv, s / (e * ee) / inv);
-                    let diag = -(cw + ce) + k2 / inv;
-                    entries.push((i, i, diag));
-                    if i > 0 {
-                        entries.push((i, i - 1, cw));
-                    }
-                    if i < n - 1 {
-                        entries.push((i, i + 1, ce));
-                    }
-                }
+            let (w, e) = spacings(&x, i);
+            let (ew, ee) = self.neighbours(i);
+            let (diag, cw, ce) = row(polarization, k2, w, e, ew, ee);
+            entries.push((i, i, diag));
+            if i > 0 {
+                entries.push((i, i - 1, cw));
+            }
+            if i < n - 1 {
+                entries.push((i, i + 1, ce));
             }
         }
         entries
+    }
+
+    /// The nodes' coordinates, complex inside the PML (Chew et al., Eq. 45).
+    fn coordinates(&self) -> Vec<c64> {
+        self.nodes
+            .iter()
+            .map(|&p| c64::new(p, self.stretch(p).0))
+            .collect()
+    }
+
+    /// The imaginary part the PML adds to a node at `p`, and its derivative in `p`, the
+    /// layers' extents held.
+    fn stretch(&self, p: f64) -> (f64, f64) {
+        let (start, end) = (self.nodes[0], self.nodes[self.nodes.len() - 1]);
+        let (mut im, mut slope) = (0.0, 0.0);
+        if self.pml.0 > 0.0 && p < start + self.pml.0 {
+            let depth = start + self.pml.0 - p;
+            im -= self.strength * portable::powi(depth, 3) / (3.0 * self.pml.0 * self.pml.0);
+            slope += self.strength * depth * depth / (self.pml.0 * self.pml.0);
+        }
+        if self.pml.1 > 0.0 && p > end - self.pml.1 {
+            let depth = p - (end - self.pml.1);
+            im += self.strength * portable::powi(depth, 3) / (3.0 * self.pml.1 * self.pml.1);
+            slope += self.strength * depth * depth / (self.pml.1 * self.pml.1);
+        }
+        (im, slope)
+    }
+
+    /// The cells to the west and east of node `i`: beyond an end the cell continues.
+    fn neighbours(&self, i: usize) -> (c64, c64) {
+        let last = self.cells.len() - 1;
+        (
+            self.cells[i.saturating_sub(1).min(last)],
+            self.cells[i.min(last)],
+        )
+    }
+
+    /// The indices of the cells [`Profile::neighbours`] gives for node `i`.
+    fn neighbour_cells(&self, i: usize) -> (usize, usize) {
+        let last = self.cells.len() - 1;
+        (i.saturating_sub(1).min(last), i.min(last))
+    }
+}
+
+/// The spacings west and east of node `i`: beyond an end the spacing continues, the field
+/// being zero there.
+fn spacings<T: Arith>(x: &[T], i: usize) -> (T, T) {
+    let n = x.len();
+    let w = if i > 0 { x[i] - x[i - 1] } else { x[1] - x[0] };
+    let e = if i < n - 1 {
+        x[i + 1] - x[i]
+    } else {
+        x[n - 1] - x[n - 2]
+    };
+    (w, e)
+}
+
+/// Node i's equation from its spacings (w, e) and cells (ε_w, ε_e): the diagonal and the
+/// couplings west and east (the module's equations).
+fn row<T: Arith>(polarization: Polarization, k2: f64, w: T, e: T, ew: T, ee: T) -> (T, T, T) {
+    let s = T::from(2.0) / (w + e);
+    match polarization {
+        Polarization::Te => {
+            let (cw, ce) = (s / w, s / e);
+            let diag = -(cw + ce) + (w * ew + e * ee) * k2 / (w + e);
+            (diag, cw, ce)
+        }
+        Polarization::Tm => {
+            let inv = (w / ew + e / ee) / (w + e);
+            let (cw, ce) = (s / (w * ew) / inv, s / (e * ee) / inv);
+            let diag = -(cw + ce) + T::from(k2) / inv;
+            (diag, cw, ce)
+        }
     }
 }
 

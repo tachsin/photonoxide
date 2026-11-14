@@ -16,6 +16,8 @@ After changing an example, regenerate its output:
 cargo run --release --quiet --example <name> > examples/output/<name>.txt
 ```
 
+`just example-output <name>` does the same. On Windows use it, or run the line above in Git Bash: Windows PowerShell 5.1's `>` writes UTF-16 with a BOM and CRLF, not the UTF-8 with LF that `output/` holds (#829).
+
 Each example prints its setup first (`common::Setup`, in `common/setup.rs`), from the same values its
 computation uses: the layers from the top down (the bottom one, the substrate, is the first
 laid down in fabrication), each with its thickness, its material and the material's index at

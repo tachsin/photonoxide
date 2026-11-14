@@ -1043,10 +1043,15 @@ pub(crate) mod direct;
 mod fill;
 #[path = "../cases/fdfd/fill_checks.rs"]
 pub(crate) mod fill_checks;
+mod kerr;
+#[path = "../cases/fdfd/kerr_checks.rs"]
+pub(crate) mod kerr_checks;
 mod ports;
 #[cfg(test)]
 mod tests;
 mod three;
+
+pub use kerr::{Kerr2d, KerrField};
 
 // the Krylov solvers live in `backend` now (#508); these are their old paths
 pub use crate::backend::iterative::CycleShape;
