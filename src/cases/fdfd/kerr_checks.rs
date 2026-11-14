@@ -33,7 +33,7 @@ pub(crate) fn cases() -> Vec<Case> {
             id: "fdfd/kerr-gradient",
             title: r"2D FDFD, $E$ along $z$, at 2 µm: a 0.3 µm guide of 5.95 through a 1 × 1 µm region of varied permittivity whose Kerr coefficient follows its density ($\chi \propto (\varepsilon - 1)/(\varepsilon_m - 1)$), driven to a largest $\Delta\varepsilon$ of 0.05: the gradient of the transmitted mode's power with respect to the region's permittivities by the nonlinear adjoint, against fourth-order differences through Newton's method ($\delta = 10^{-3}$) at a corner, an edge and the middle (largest relative difference shown)",
             tier: Tier::Analytic,
-            source: r"Hughes et al. 2018, Eqs. 6–8 and 16–18: $J^{\mathsf T}\lambda + \bar K\bar\lambda = \partial F/\partial u$ with $J = A(\varepsilon + 2\chi\lvert u\rvert^2)$ and $K = k_0^2\,\mathrm{diag}(\chi u^2)$, and $dF/d\varepsilon_k = -2\mathop{\mathrm{Re}}(\lambda_k k_0^2 (1 + \chi'_k\lvert u_k\rvert^2) u_k)$",
+            source: r"Hughes et al. 2018, Eqs. 6–8 and 16–18: $J^{\mathsf T}\lambda + \bar K\bar\lambda = \partial F/\partial u$ with $J = A(\varepsilon + 2\chi\lvert u\rvert^2)$ and $K = k_0^2\thinspace\mathrm{diag}(\chi u^2)$, and $dF/d\varepsilon_k = -2\mathop{\mathrm{Re}}(\lambda_k k_0^2 (1 + \chi'_k\lvert u_k\rvert^2) u_k)$",
             run: kerr_gradient,
         },
     ]
