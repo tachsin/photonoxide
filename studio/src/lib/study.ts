@@ -4,6 +4,7 @@
 
 import type { DeviceFigure, SpectrumData } from "./api";
 import type { DevicePoint, DeviceStudy, Event } from "./events";
+import { atan2, log10 } from "./portable";
 
 /** A study's record: what it steps through, and its points so far. */
 export interface StudyRecord {
@@ -70,7 +71,7 @@ export function valueAt(pt: DevicePoint, q: Quantity, w: number): number | null 
   const v = pt.s[w]?.[q.q]?.[q.p];
   if (!v) return null;
   const power = v[0] * v[0] + v[1] * v[1];
-  return q.as === "power" ? power : q.as === "db" ? Math.max(-100, 10 * Math.log10(power)) : Math.atan2(v[1], v[0]);
+  return q.as === "power" ? power : q.as === "db" ? Math.max(-100, 10 * log10(power)) : atan2(v[1], v[0]);
 }
 
 /** Whether a quantity depends on the wavelength (an S-parameter), or is one number a point (a figure, an index at the design's own wavelength). */
@@ -140,7 +141,7 @@ export function spectrumCurves(ports: string[], wavelengths: number[], at: (k: n
       });
       if (power.every(([, y]) => !(y > 0))) continue;
       out.push({ x: "wavelength", xUnit: "µm", y: `|${sName(q, p, ports)}|²`, tag, points: power });
-      out.push({ x: "wavelength", xUnit: "µm", y: `|${sName(q, p, ports)}|² (dB)`, tag, points: power.map(([w, y]) => [w, Math.max(-100, 10 * Math.log10(y))]) });
+      out.push({ x: "wavelength", xUnit: "µm", y: `|${sName(q, p, ports)}|² (dB)`, tag, points: power.map(([w, y]) => [w, Math.max(-100, 10 * log10(y))]) });
     }
   }
   return out;

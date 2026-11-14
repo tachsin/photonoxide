@@ -2,6 +2,7 @@
   // A "quantum" job's run: what it recorded of photons through a chip (photonoxide::job's
   // "quantum" task), drawn as the Quantum tab draws it in place.
   import type { QuantumRecord } from "../../lib/quantum";
+  import { log10 } from "../../lib/portable";
   import { dB, patternLabel, percent } from "../../lib/quantum";
   import { figure } from "../../lib/sources";
   import Plot from "../Plot.svelte";
@@ -43,7 +44,7 @@
     <div>
       <h4 class="font-medium">Loss budget <span class="font-normal faint">· the {b.legs.length}-photon event {percent(b.event)}</span></h4>
       {#each b.legs as leg (leg.from + leg.to)}
-        <p class="text-xs num">{leg.from} → {leg.to}: {leg.through.length ? `${leg.through.join(" → ")}, ${dB(-10 * Math.log10(leg.transmission))}` : "no route keeps power"} <span class="faint">({leg.routes} route{leg.routes === 1 ? "" : "s"})</span></p>
+        <p class="text-xs num">{leg.from} → {leg.to}: {leg.through.length ? `${leg.through.join(" → ")}, ${dB(-10 * log10(leg.transmission))}` : "no route keeps power"} <span class="faint">({leg.routes} route{leg.routes === 1 ? "" : "s"})</span></p>
       {/each}
       {#each b.thresholds as t (t.name)}<p class="text-xs faint" title={t.assumptions}>{t.name}: each photon above {percent(t.transmission)}</p>{/each}
     </div>

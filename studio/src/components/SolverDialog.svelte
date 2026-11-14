@@ -10,6 +10,7 @@
   import { run, sweepAxis } from "../lib/app.svelte";
   import { methodHtml, METHODS, parseMethod, SOLVERS, type MethodDoc } from "../lib/methods";
   import type { Series } from "../lib/plot";
+  import { log10 } from "../lib/portable";
   import { len } from "../lib/units";
   import Plot from "./Plot.svelte";
   import UnitChip from "./UnitChip.svelte";
@@ -32,7 +33,7 @@
   /** The measures, in the order they were first recorded. */
   const measures = $derived([...new Set(run.errors.map((e) => e.measure))]);
   /** An error on the chart's scale: its decimal logarithm, a zero drawn at 1e-18. */
-  const log = (e: number) => Math.log10(Math.max(e, 1e-18));
+  const log = (e: number) => log10(Math.max(e, 1e-18));
   /** Each measure over the sweep, when the run swept: (value, log₁₀ error). */
   const series = $derived.by((): Series[] =>
     measures

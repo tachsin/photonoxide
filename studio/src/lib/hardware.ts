@@ -7,9 +7,10 @@ import type { HardwareAdvice } from "./api";
 
 export function bytes(b: number | null | undefined): string {
   if (b === null || b === undefined || !Number.isFinite(b)) return "—";
-  if (b >= 2 ** 30) return `${(b / 2 ** 30).toFixed(1)} GiB`;
-  if (b >= 2 ** 20) return `${(b / 2 ** 20).toFixed(0)} MiB`;
-  return `${(b / 2 ** 10).toFixed(0)} KiB`;
+  // 2³⁰, 2²⁰ and 2¹⁰ as products, exact (`**` is the engine's own pow: #822)
+  if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GiB`;
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(0)} MiB`;
+  return `${(b / 1024).toFixed(0)} KiB`;
 }
 
 /** The CPU's threads, cores, caches, NUMA nodes and instruction sets, as far as the system said. */

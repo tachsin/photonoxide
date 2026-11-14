@@ -4,6 +4,7 @@
 
 import type { EmeBeam, EmeSection, GridConvergence, SParameters, SolveError } from "./events";
 import type { Series } from "./plot";
+import { log10 } from "./portable.ts";
 
 /** What an eme run recorded beside its S-parameters: its sections, its studies and a beam's shares. */
 export interface EmeRecord {
@@ -14,7 +15,7 @@ export interface EmeRecord {
 
 /** |S|² in dB, floored at −300 dB where it is 0. */
 export function decibels(re: number, im: number): number {
-  return 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
+  return 10 * log10(Math.max(re * re + im * im, 1e-30));
 }
 
 /**

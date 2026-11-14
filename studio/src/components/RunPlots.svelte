@@ -6,6 +6,7 @@
   import { range } from "../lib/colours";
   import { lossText, modeKind } from "../lib/events";
   import { ticks, type Series } from "../lib/plot";
+  import { log10 } from "../lib/portable";
   import { len } from "../lib/units";
   import FdtdPlayer from "./FdtdPlayer.svelte";
   import FdtdSpectra from "./FdtdSpectra.svelte";
@@ -21,7 +22,7 @@
   import StudyResults from "./device/StudyResults.svelte";
   import TopologyResults from "./device/TopologyResults.svelte";
 
-  const db = (re: number, im: number) => 10 * Math.log10(Math.max(re * re + im * im, 1e-30));
+  const db = (re: number, im: number) => 10 * log10(Math.max(re * re + im * im, 1e-30));
   /** Spectra as power (linear, the default: dips read as they are) or in dB (small values show). */
   let decibels = $state(false);
 
