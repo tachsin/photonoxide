@@ -512,6 +512,11 @@ done
 # each word once, in order
 once() { tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ' | sed 's/ $//'; }
 
+# a change that runs validation cases runs the validation module's own tests too: they check every
+# case's text (its math as GitHub renders it, its rule), which no area's filter names, and take a
+# second. Without them a case's title or source that GitHub can't render reached main (#835)
+if [ -n "$(echo "$c $direct_cases" | once)" ]; then t+=" validation::tests::"; fi
+
 studio="" studio_skip=""
 if [ -n "${run[studio]:-}" ]; then
   if [ "$studio_slow" = true ]; then studio=every; else studio=fast studio_skip=$(slow_skips); fi
