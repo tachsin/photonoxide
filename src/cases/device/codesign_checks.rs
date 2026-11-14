@@ -295,7 +295,7 @@ pub(crate) fn s_matrix_agreement() -> (f64, f64) {
     h[3][0] = s0[3][0].conj();
     h[2][1] = 0.5 * s0[2][1].conj();
     let (_, gradient) = base.s_matrix_gradient(&c.ports, &h).expect(OK);
-    let sets: Vec<(f64, Along<'_>)> = probes(&c)
+    let sets: Vec<(f64, Along<'_>)> = probes(c)
         .into_iter()
         .map(|k| {
             let g: Along<'_> =
@@ -343,17 +343,17 @@ pub(crate) fn codesign_agreement() -> (f64, f64) {
     let coupler = Coupler::new(0.04).expect(OK);
     let c = &coupler;
     let (a, phase) = (0.95, 0.7);
-    let (_, by_cell, by_phase) = codesign(&c, &[], phase, a).expect(OK);
-    let mut sets: Vec<(f64, Along<'_>)> = probes(&c)
+    let (_, by_cell, by_phase) = codesign(c, &[], phase, a).expect(OK);
+    let mut sets: Vec<(f64, Along<'_>)> = probes(c)
         .into_iter()
         .map(|k| {
-            let g: Along<'_> = Box::new(move |d| codesign(&c, &[(k, d)], phase, a).expect(OK).0);
+            let g: Along<'_> = Box::new(move |d| codesign(c, &[(k, d)], phase, a).expect(OK).0);
             (by_cell[k], g)
         })
         .collect();
     sets.push((
         by_phase,
-        Box::new(|d| codesign(&c, &[], phase + d, a).expect(OK).0),
+        Box::new(|d| codesign(c, &[], phase + d, a).expect(OK).0),
     ));
     let checks: Vec<(f64, &dyn Fn(f64) -> f64)> =
         sets.iter().map(|(e, f)| (*e, f.as_ref())).collect();
@@ -364,20 +364,6 @@ fn codesign_gradient_case() -> Outcome {
     let (error, resolution) = codesign_agreement();
     note_numerical(resolution);
     zero(error, 1e-7)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The numbers the rules quote.
-    #[test]
-    #[ignore = "a study, printed: cargo test --release --lib the_codesign_study -- --ignored --nocapture"]
-    fn the_codesign_study() {
-        println!("instance (error, resolution) {:?}", instance_agreement());
-        println!("s-matrix (error, resolution) {:?}", s_matrix_agreement());
-        println!("codesign (error, resolution) {:?}", codesign_agreement());
-    }
 }
 
 /// The guides' centres' distance from the axis at x (µm): 0.75 at the ports, 0.3 along the
@@ -392,4 +378,18 @@ fn guide_centre(x: f64) -> f64 {
         0.0
     };
     0.3 + 0.45 * away
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The numbers the rules quote.
+    #[test]
+    #[ignore = "a study, printed: cargo test --release --lib the_codesign_study -- --ignored --nocapture"]
+    fn the_codesign_study() {
+        println!("instance (error, resolution) {:?}", instance_agreement());
+        println!("s-matrix (error, resolution) {:?}", s_matrix_agreement());
+        println!("codesign (error, resolution) {:?}", codesign_agreement());
+    }
 }

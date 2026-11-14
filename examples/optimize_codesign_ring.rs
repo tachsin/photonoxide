@@ -274,7 +274,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         (f, by_pixel, s, phase)
     };
     let fitness = |x: &Reals, gradient: &mut [f64]| -> f64 {
-        let (f, g, _, _) = at_resonance(&x.to_vec());
+        let (f, g, _, _) = at_resonance(x);
         gradient.copy_from_slice(&g);
         f
     };
