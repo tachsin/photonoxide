@@ -14,6 +14,7 @@
 use photonoxide::electro::{
     Axis, Boundary, Conductor, Electrostatic, Grading, Grid, Section, Side, Tensor,
 };
+use photonoxide::portable;
 
 use crate::cpw::{C, FIRST, LENGTH, Mesh, SOURCE, SPACING, STEP_ALONG};
 use crate::openems::{self, Cuboid, Material, Measure, Model, Probe, Source};
@@ -107,13 +108,17 @@ impl Microstrip {
             self.permittivity,
             376.73,
         );
-        let f = 6.0 + (2.0 * PI - 6.0) * (-(30.666 / u).powf(0.7528)).exp();
-        let z01 = eta / (2.0 * PI) * (f / u + (1.0 + (2.0 / u).powi(2)).sqrt()).ln();
+        let f = 6.0 + (2.0 * PI - 6.0) * portable::exp(-portable::powf(30.666 / u, 0.7528));
+        let z01 =
+            eta / (2.0 * PI) * portable::ln(f / u + (1.0 + portable::powi(2.0 / u, 2)).sqrt());
         let a = 1.0
-            + ((u.powi(4) + (u / 52.0).powi(2)) / (u.powi(4) + 0.432)).ln() / 49.0
-            + (1.0 + (u / 18.1).powi(3)).ln() / 18.7;
-        let b = 0.564 * ((er - 0.9) / (er + 3.0)).powf(0.053);
-        let ee = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u).powf(-a * b);
+            + portable::ln(
+                (portable::powi(u, 4) + portable::powi(u / 52.0, 2))
+                    / (portable::powi(u, 4) + 0.432),
+            ) / 49.0
+            + portable::ln(1.0 + portable::powi(u / 18.1, 3)) / 18.7;
+        let b = 0.564 * portable::powf((er - 0.9) / (er + 3.0), 0.053);
+        let ee = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * portable::powf(1.0 + 10.0 / u, -a * b);
         (ee.sqrt(), z01 / ee.sqrt())
     }
 

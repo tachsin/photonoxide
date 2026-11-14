@@ -11,8 +11,7 @@
 //! `transient`, `joule`, `tfln`, comma-separated), only those run, and the report is printed,
 //! not written.
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::fmt::Write as _;
 use std::path::Path;
 use std::time::Instant;
@@ -69,8 +68,8 @@ fn extrapolated(v: &[f64]) -> (f64, f64) {
     if ratio.is_nan() || ratio <= 1.0 {
         return (c, f64::NAN);
     }
-    let p = ratio.log2();
-    (c + (c - b) / (2f64.powf(p) - 1.0), p)
+    let p = portable::log2(ratio);
+    (c + (c - b) / (portable::powf(2f64, p) - 1.0), p)
 }
 
 fn order(p: f64) -> String {

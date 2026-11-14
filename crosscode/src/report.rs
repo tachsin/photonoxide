@@ -1,5 +1,7 @@
 //! What the cross-code reports print: errors in percent and times, the same in each.
 
+use photonoxide::portable;
+
 /// `value`'s error against `reference` in percent, signed, with enough decimals for two
 /// significant digits (and at least two): `+0.00090 %`, `−0.20 %`, `+5.57 %`.
 pub fn percent(value: f64, reference: f64) -> String {
@@ -11,7 +13,7 @@ pub fn signed_percent(p: f64) -> String {
     if p == 0.0 {
         return "0.00 %".to_owned();
     }
-    let decimals = (1.0 - p.abs().log10().floor()).clamp(2.0, 8.0) as usize;
+    let decimals = (1.0 - portable::log10(p.abs()).floor()).clamp(2.0, 8.0) as usize;
     let text = format!("{:.decimals$}", p.abs());
     format!("{}{text} %", if p < 0.0 { '−' } else { '+' })
 }

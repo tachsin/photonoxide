@@ -12,6 +12,7 @@
 //! 1 − 1/e of its steady rise (the paper's simulated limiting 1/e time is about 5.8 µs, of the
 //! phase, Fig. 1(c)).
 
+use photonoxide::portable;
 use photonoxide::thermal::{
     Axis, Boundary, Grading, Grid, Heat, Scheme, Section, Side, Stepping, Tensor,
 };
@@ -282,7 +283,7 @@ pub fn figures(history: &[(f64, f64)], steady: f64) -> Vec<f64> {
                 w[0].1 + s * (w[1].1 - w[0].1)
             })
     };
-    let target = (1.0 - (-1.0f64).exp()) * steady;
+    let target = (1.0 - portable::exp(-1.0f64)) * steady;
     let tau = history
         .windows(2)
         .find(|w| w[1].1 >= target)
@@ -297,6 +298,7 @@ pub fn figures(history: &[(f64, f64)], steady: f64) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     #[test]
     fn a_rises_figures_are_read_between_its_steps() {
@@ -304,12 +306,12 @@ mod tests {
         let history: Vec<(f64, f64)> = (0..=40)
             .map(|k| {
                 let t = k as f64 * 0.5e-6;
-                (t, 1.0 - (-t / 5e-6).exp())
+                (t, 1.0 - portable::exp(-t / 5e-6))
             })
             .collect();
         let f = figures(&history, 1.0);
-        assert!((f[0] - (1.0 - (-0.2f64).exp())).abs() < 1e-12);
-        assert!((f[2] - (1.0 - (-4.0f64).exp())).abs() < 1e-12);
+        assert!((f[0] - (1.0 - portable::exp(-0.2f64))).abs() < 1e-12);
+        assert!((f[2] - (1.0 - portable::exp(-4.0f64))).abs() < 1e-12);
         assert!((f[3] - 5.0).abs() < 0.01, "{}", f[3]);
     }
 }
