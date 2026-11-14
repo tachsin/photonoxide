@@ -30,10 +30,9 @@
 //! cargo run --release --example tfln_zhang
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::circuit::Fidelity;
@@ -146,11 +145,12 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             at(2.0, 1.0)?,
             at(2.0, 250.0)?,
         );
-        let ratio = |a: &Built, b: &Built| 10f64.powf((get(b, "m_dB") - get(a, "m_dB")) / 20.0);
+        let ratio =
+            |a: &Built, b: &Built| portable::powf(10f64, (get(b, "m_dB") - get(a, "m_dB")) / 20.0);
         let (coarse, fine) = (ratio(&c1, &c250), ratio(&f1, &f250));
         println!(
             "  2D at 250 GHz: response {:.2} dB from 1 GHz, RF Vpi {:.2} V (measured {vpi_250} V)",
-            20.0 * fine.log10(),
+            20.0 * portable::log10(fine),
             get(&f250, "Vpi_f")
         );
         println!(

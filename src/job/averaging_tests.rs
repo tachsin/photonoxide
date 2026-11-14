@@ -1,6 +1,7 @@
 //! `averaging` in `"fdfd"` jobs: checked, and solved from the fill.
 
 use super::*;
+use crate::portable;
 
 /// A 510 nm strip along x on SOI by 2D FDFD (its edges between the 40 nm grid's lines), with
 /// `extra` in the task and `shapes` after the strip.
@@ -53,7 +54,7 @@ fn the_default_is_samples_to_the_bit() {
 fn a_strip_averaged_from_the_fill_passes_everything_through() {
     for pol in ["te", "tm"] {
         let samples = s_of(&strip_job(&format!("polarization = \"{pol}\""), ""));
-        let sampled = samples.s[0][1][0].norm();
+        let sampled = portable::complex::abs(samples.s[0][1][0]);
         for name in ["point", "mean", "diagonal", "tensor"] {
             let s = s_of(&strip_job(
                 &format!("averaging = \"{name}\"\npolarization = \"{pol}\""),
@@ -61,7 +62,7 @@ fn a_strip_averaged_from_the_fill_passes_everything_through() {
             ));
             // as much through as with samples (the TM mode, less confined, reaches the PMLs a
             // little either way)
-            let through = s.s[0][1][0].norm();
+            let through = portable::complex::abs(s.s[0][1][0]);
             assert!(
                 (through - sampled).abs() < 1e-5,
                 "{name} {pol}: {through} {sampled}"
@@ -102,7 +103,7 @@ fn a_partial_etch_is_two_columns_from_the_fill() {
     let job = Job::parse(&rib).unwrap();
     check(&job).unwrap();
     let s = fdfd_s_parameters(&job, None).unwrap();
-    assert!((s.s[0][1][0].norm() - 1.0).abs() < 1e-6);
+    assert!((portable::complex::abs(s.s[0][1][0]) - 1.0).abs() < 1e-6);
     let strip = s_of(&strip_job(r#"averaging = "tensor""#, ""));
     // the rib's mode spreads into its slab, whose index is far above the oxide's: a higher
     // index than the strip's, and near what samples give the rib

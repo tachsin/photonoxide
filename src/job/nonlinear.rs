@@ -85,6 +85,7 @@ mod pulse;
 
 pub use pulse::PulsePropagation;
 
+use crate::portable;
 use std::f64::consts::{PI, TAU};
 use std::fmt::Write as _;
 use std::path::Path;
@@ -2127,7 +2128,7 @@ fn ring_resonance(
     use crate::nonlinear::cavity::{self, RingWave};
     let length = setup.length_um;
     let wave = |k: usize, coupling: f64| -> Result<RingWave> {
-        let a = (-0.5 * setup.loss[k] * length).exp();
+        let a = portable::exp(-0.5 * setup.loss[k] * length);
         RingWave::all_pass(coupling, c64::new(a, 0.0), length)
             .map_err(|e| task_error(format!("[task.ring] {e}")))
     };
@@ -2161,7 +2162,7 @@ fn ring_resonance(
             let out = |w: &[RingWave]| cavity::four_wave(&w[0], &w[1], &w[2], gamma, dk, p0);
             // the pump's Kerr phase per round trip against the resonance's width
             let r = (1.0 - couplings[0]).sqrt();
-            let width = 1.0 - r * ring[0].round_trip.norm();
+            let width = 1.0 - r * portable::complex::abs(ring[0].round_trip);
             let kerr = gamma * p0 * ring[0].build_up() * length * 1e-6 / width;
             if kerr >= 1.0 {
                 notes.push(format!(
@@ -2194,10 +2195,10 @@ fn ring_resonance(
 fn sinhc(g2: f64, length: f64) -> f64 {
     if g2 > 0.0 {
         let g = g2.sqrt();
-        (g * length).sinh() / g
+        portable::sinh(g * length) / g
     } else if g2 < 0.0 {
         let g = (-g2).sqrt();
-        (g * length).sin() / g
+        portable::sin(g * length) / g
     } else {
         length
     }
@@ -2229,7 +2230,7 @@ fn four_wave_path(setup: &Setup, gamma: f64, mismatch: f64) -> Result<Vec<fwm::W
     };
     let mut path = vec![w];
     for k in 1..n {
-        let turn = c64::from_polar(1.0, -0.5 * mismatch * segment * (k - 1) as f64);
+        let turn = portable::complex::from_polar(1.0, -0.5 * mismatch * segment * (k - 1) as f64);
         let mut b = process.propagate_with_loss(
             fwm::Waves {
                 pump: w.pump * turn,
@@ -2266,7 +2267,7 @@ fn efficiency_curve(
     let (p0, ps) = (setup.pump_w, setup.signal_w);
     let nu: Vec<f64> = setup.waves.iter().map(|l| 1.0 / l).collect();
     let mw = |w: f64| Some(w * 1e3);
-    let db = |g: f64| (g > 0.0).then(|| 10.0 * g.log10());
+    let db = |g: f64| (g > 0.0).then(|| 10.0 * portable::log10(g));
     let lossless =
         |s: EfficiencySeries| -> Option<EfficiencySeries> { (!setup.lossy).then_some(s) };
     let out = match setup.kind {
@@ -2319,7 +2320,8 @@ fn efficiency_curve(
                 return Ok(None);
             };
             let i = c64::new(0.0, 1.0);
-            let rotate = |a: c64, z0: f64, s: f64| a * (i * (s * mismatch * z0)).exp();
+            let rotate =
+                |a: c64, z0: f64, s: f64| a * portable::complex::exp(i * (s * mismatch * z0));
             match setup.kind {
                 Kind::Shg => {
                     let shg = SecondHarmonic {
@@ -2512,7 +2514,7 @@ fn efficiency_curve(
                                 let g2 = big - 0.25 * mismatch * mismatch;
                                 let closed = lengths
                                     .iter()
-                                    .map(|&z| db(1.0 + big * sinhc(g2, z).powi(2)))
+                                    .map(|&z| db(1.0 + big * portable::powi(sinhc(g2, z), 2)))
                                     .collect();
                                 [
                                     Some(series("signal gain (depleted, RK4)", "dB", gain)),
@@ -2552,7 +2554,11 @@ fn pair_spectrum(setup: &Setup, device: &Device, p: Pairs, half: f64) -> Result<
     }
     let jsa = pairs::joint_spectrum(device, spectrum, p.matching, half, p.points)?;
     let schmidt = jsa.schmidt()?;
-    let magnitudes: Vec<f64> = jsa.amplitude.iter().map(|z| z.norm()).collect();
+    let magnitudes: Vec<f64> = jsa
+        .amplitude
+        .iter()
+        .map(|z| portable::complex::abs(*z))
+        .collect();
     let peak = magnitudes.iter().copied().fold(0.0, f64::max);
     Ok(PairSpectrum {
         signal_um: jsa.signal.iter().map(|nu| 1.0 / nu).collect(),

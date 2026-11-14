@@ -14,6 +14,7 @@
 //! Times depend on the machine and on what else runs on it, so they are never part of the
 //! validation report; the errors don't, and are what a change to a solver must keep.
 
+use crate::portable;
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
@@ -422,12 +423,14 @@ fn slab_2d(h: f64, length: f64, timed_done: &mut dyn FnMut()) -> Result<Measurem
     })?;
     let s = timed("S-matrix, 2 runs", &mut phases, || solver.s_matrix(&ports))?;
     timed_done();
-    let through = (c64::new(0.0, 1.0) * ports[0].mode.beta() * ((right - left) as f64 * h)).exp();
+    let through = portable::complex::exp(
+        c64::new(0.0, 1.0) * ports[0].mode.beta() * ((right - left) as f64 * h),
+    );
     let error = [
-        s[0][0].norm(),
-        s[1][1].norm(),
-        (s[1][0] - through).norm(),
-        (s[0][1] - through).norm(),
+        portable::complex::abs(s[0][0]),
+        portable::complex::abs(s[1][1]),
+        portable::complex::abs(s[1][0] - through),
+        portable::complex::abs(s[0][1] - through),
     ]
     .into_iter()
     .fold(0.0, f64::max);
@@ -822,12 +825,14 @@ fn strip_ports_3d_with(
         bytes: Some(bytes_moved() - moved),
     });
     timed_done();
-    let through = (c64::new(0.0, 1.0) * ports[0].mode.beta() * ((right - left) as f64 * h)).exp();
+    let through = portable::complex::exp(
+        c64::new(0.0, 1.0) * ports[0].mode.beta() * ((right - left) as f64 * h),
+    );
     let error = [
-        s[0][0].norm(),
-        s[1][1].norm(),
-        (s[1][0] - through).norm(),
-        (s[0][1] - through).norm(),
+        portable::complex::abs(s[0][0]),
+        portable::complex::abs(s[1][1]),
+        portable::complex::abs(s[1][0] - through),
+        portable::complex::abs(s[0][1] - through),
     ]
     .into_iter()
     .fold(0.0, f64::max);

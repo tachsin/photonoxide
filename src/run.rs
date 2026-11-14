@@ -805,6 +805,7 @@ fn utc(unix_seconds: u64) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A run is Send, Sync, UnwindSafe and RefUnwindSafe, as it was in 0.5.1: losing one is a
@@ -936,7 +937,9 @@ mod tests {
 
     fn picture(n: usize, seed: f32) -> Picture {
         let values: Vec<f32> = (0..n * n)
-            .map(|k| ((k as f32 * 0.013 + seed).sin() / 7.0).powi(2))
+            .map(|k| {
+                portable::powi(portable::sin(f64::from(k as f32 * 0.013 + seed)) / 7.0, 2) as f32
+            })
             .collect();
         let bytes: Vec<u8> = (0..n * n).map(|k| (k * 31 + n) as u8).collect();
         Picture {

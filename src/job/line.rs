@@ -73,6 +73,7 @@
 //! grids of twice and four times its smallest step. A segmented line has no full-wave mode
 //! here (its periods are 3D).
 
+use crate::portable;
 use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
@@ -252,10 +253,14 @@ fn interpolated(table: &[RfMode], frequency_hz: f64) -> (c64, c64) {
         .partition_point(|m| m.frequency_hz <= frequency_hz)
         .clamp(1, n - 1);
     let (a, b) = (&table[k - 1], &table[k]);
-    let t = (frequency_hz / a.frequency_hz).ln() / (b.frequency_hz / a.frequency_hz).ln();
+    let t =
+        portable::ln(frequency_hz / a.frequency_hz) / portable::ln(b.frequency_hz / a.frequency_hz);
     let t = t.clamp(0.0, 1.0);
     let index = a.index() + t * (b.index() - a.index());
-    let loss = (a.attenuation().ln() + t * (b.attenuation().ln() - a.attenuation().ln())).exp();
+    let loss = portable::exp(
+        portable::ln(a.attenuation())
+            + t * (portable::ln(b.attenuation()) - portable::ln(a.attenuation())),
+    );
     let impedance = a.impedance + t * (b.impedance - a.impedance);
     let beta = 2.0 * std::f64::consts::PI * frequency_hz * index / crate::units::SPEED_OF_LIGHT;
     (c64::new(loss, beta), impedance)
@@ -360,7 +365,7 @@ impl LineSpec {
                             self.loss_tangent_at_ghz
                                 .unwrap_or_else(|| self.middle_ghz())
                         });
-                        t * (f_ghz / reference).powf(p)
+                        t * portable::powf(f_ghz / reference, p)
                     }
                     None => *t,
                 };
@@ -419,9 +424,9 @@ fn catalogue_tangent_measured(medium: &str, at_ghz: f64) -> Option<(f64, String,
     let distance = |v: &RfValue| {
         let (f0, f1) = v.frequency_ghz;
         if at_ghz < f0 {
-            (f0 / at_ghz).ln()
+            portable::ln(f0 / at_ghz)
         } else if at_ghz > f1 {
-            (at_ghz / f1).ln()
+            portable::ln(at_ghz / f1)
         } else {
             0.0
         }
@@ -887,7 +892,7 @@ pub(super) fn run(
             let m = response(w.gamma, w.impedance, f * 1e9, d);
             values.push(value(
                 format!("line at {at}: EO response"),
-                20.0 * (m / r0).log10(),
+                20.0 * portable::log10(m / r0),
                 "dB",
             ));
         }
@@ -895,7 +900,7 @@ pub(super) fn run(
     if let (Some((d, f0, up_to)), Some(r0)) = (&drive, reference) {
         let db = |f: f64| -> Result<f64> {
             let w = built.wave(f, metal, &spec.tangents_at(f / 1e9))?;
-            Ok(20.0 * (response(w.gamma, w.impedance, f, d) / r0).log10())
+            Ok(20.0 * portable::log10(response(w.gamma, w.impedance, f, d) / r0))
         };
         for level in [3.0, 6.0] {
             let name = format!("line: EO {level} dB bandwidth");
@@ -1080,7 +1085,7 @@ fn full_wave(
             if stop.reason().is_some() {
                 return Ok(None);
             }
-            let f = f0 * (up_to / f0).powf(s as f64 / (n - 1) as f64);
+            let f = f0 * portable::powf(up_to / f0, s as f64 / (n - 1) as f64);
             table.push(solve(&grid, f * 1e9)?);
         }
         let m = |f: f64| {
@@ -1092,7 +1097,7 @@ fn full_wave(
             if f >= f0 && f <= up_to {
                 values.push(value(
                     format!("full-wave line at {f} GHz: EO response"),
-                    20.0 * (m(f * 1e9) / r0).log10(),
+                    20.0 * portable::log10(m(f * 1e9) / r0),
                     "dB",
                 ));
             }
@@ -1100,7 +1105,7 @@ fn full_wave(
         for level in [3.0, 6.0] {
             let name = format!("full-wave line: EO {level} dB bandwidth");
             match falls_to(
-                |f| Ok(20.0 * (m(f) / r0).log10()),
+                |f| Ok(20.0 * portable::log10(m(f) / r0)),
                 -level,
                 f0 * 1e9,
                 up_to * 1e9,

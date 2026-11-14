@@ -3,6 +3,7 @@
 //! positions, the couplers' and crossings' symmetries, the devices' geometry against the
 //! shapes they drew before they used the generators, and the polygons' convergence.
 
+use crate::portable;
 use std::f64::consts::PI;
 
 use super::*;
@@ -30,7 +31,7 @@ pub(crate) fn examples() -> Vec<(Box<dyn Generator>, Vec<Want>)> {
     let (w, r) = (0.5, 5.0);
     let deg = |a: f64| a.to_radians();
     let theta: f64 = 37.0;
-    let (s, c) = deg(theta).sin_cos();
+    let (s, c) = portable::sin_cos(deg(theta));
     // an Euler S-bend's ends: (L, h)
     let (ls, hs): (f64, f64) = (12.0, 3.0);
     // a ring's buses
@@ -43,7 +44,7 @@ pub(crate) fn examples() -> Vec<(Box<dyn Generator>, Vec<Want>)> {
     let cc = (cg + w) / 2.0;
     // a bent coupler
     let (br, bt) = (10.0, 30.0);
-    let (bs, bcos) = deg(bt / 2.0).sin_cos();
+    let (bs, bcos) = portable::sin_cos(deg(bt / 2.0));
     let outer = br + w + cg;
     // an MMI, 2 × 2, with tapers
     let (mw, ml, wa, wt, lt) = (3.0, 20.0, 0.5, 1.0, 5.0);
@@ -310,11 +311,11 @@ pub(crate) fn area_error() -> f64 {
     let ratio: f64 = w2 / w1;
     check(
         &drawn(&taper.clone().with_profile(TaperProfile::Exponential)),
-        w1 * l * (ratio - 1.0) / ratio.ln(),
+        w1 * l * (ratio - 1.0) / portable::ln(ratio),
     );
     check(
         &drawn(&taper.with_profile(TaperProfile::Parabolic)),
-        2.0 * l * (w2.powi(3) - w1.powi(3)) / (3.0 * (w2 * w2 - w1 * w1)),
+        2.0 * l * (portable::powi(w2, 3) - portable::powi(w1, 3)) / (3.0 * (w2 * w2 - w1 * w1)),
     );
     let (r, theta) = (5.0, 37.0f64);
     check(
@@ -331,8 +332,8 @@ pub(crate) fn area_error() -> f64 {
         );
     }
     let (ls, hs): (f64, f64) = (12.0, 3.0);
-    let th = 2.0 * (hs / ls).atan();
-    let Ok(e) = partial_euler(um(ls / (2.0 * th.sin())), th, 0.6) else {
+    let th = 2.0 * portable::atan(hs / ls);
+    let Ok(e) = partial_euler(um(ls / (2.0 * portable::sin(th))), th, 0.6) else {
         return f64::INFINITY;
     };
     check(
@@ -344,7 +345,10 @@ pub(crate) fn area_error() -> f64 {
         )),
         2.0 * w * e.length.to_um(),
     );
-    let cosine = simpson(|t| ls.hypot(hs * PI / 2.0 * (PI * t).sin()), 4096);
+    let cosine = simpson(
+        |t| portable::hypot(ls, hs * PI / 2.0 * portable::sin(PI * t)),
+        4096,
+    );
     check(
         &drawn(&SBend::new(um(w), um(ls), um(hs), SBendKind::Cosine)),
         w * cosine,
@@ -504,7 +508,7 @@ pub(crate) fn gap_error() -> f64 {
     let (br, bt) = (10.0, 30.0f64);
     let bent = drawn(&BentCoupler::new(um(w), um(cg), um(br), bt));
     for a in [-bt / 2.0, -5.0, 0.0, 11.0, bt / 2.0] {
-        let (s, co) = (90.0 + a).to_radians().sin_cos();
+        let (s, co) = portable::sin_cos((90.0 + a).to_radians());
         let e = p((br + w / 2.0) * co, -br + (br + w / 2.0) * s);
         worst = worst.max((dist(&bent, &[1], e) - cg).abs());
     }
@@ -915,7 +919,7 @@ pub(crate) fn order() -> f64 {
                 return f64::NAN;
             };
             let (d, n) = deviation(shape, &shape.polygons(t));
-            points.push(((n as f64).ln(), d.ln()));
+            points.push((portable::ln(n as f64), portable::ln(d)));
         }
         let m = points.len() as f64;
         let (sx, sy) = points

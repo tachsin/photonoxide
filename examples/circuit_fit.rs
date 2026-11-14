@@ -13,10 +13,9 @@
 //! cargo run --release --example circuit_fit
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{LN_10, PI, TAU};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -92,7 +91,7 @@ fn bogaerts(guide: &Waveguide, x: &[f64; 4], wavelength: Wavelength) -> (f64, f6
     let a = math::exp(-x[2] * 1e-4 * length / 20.0 * LN_10);
     let phi = TAU * guide.dispersion().effective_index_at(wavelength) * length / wavelength_um;
     let cos = math::sin_cos(phi).1;
-    let denominator = 1.0 - 2.0 * r1 * r2 * a * cos + (r1 * r2 * a).powi(2);
+    let denominator = 1.0 - 2.0 * r1 * r2 * a * cos + portable::powi(r1 * r2 * a, 2);
     let through = (r2 * r2 * a * a - 2.0 * r1 * r2 * a * cos + r1 * r1) / denominator;
     let drop = (1.0 - r1 * r1) * (1.0 - r2 * r2) * a / denominator;
     (through, drop)

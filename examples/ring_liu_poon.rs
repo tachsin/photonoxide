@@ -127,10 +127,10 @@
 //! cargo run --release --example ring_liu_poon -- --full    # 3D, 15 and 20 cells a wavelength
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
 mod common;
 mod pdk;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use num_complex::Complex64 as c64;
@@ -209,7 +209,7 @@ fn transform(values: &[f64], dt: f64, frequency: f64, steps: usize) -> c64 {
         .iter()
         .take(steps)
         .enumerate()
-        .map(|(n, &v)| v * c64::from_polar(1.0, w * (n + 1) as f64))
+        .map(|(n, &v)| v * portable::complex::from_polar(1.0, w * (n + 1) as f64))
         .sum()
 }
 
@@ -260,8 +260,8 @@ fn spline(x: &[f64], y: &[f64], at: &[f64]) -> Vec<f64> {
             let k = x.partition_point(|&v| v <= t).clamp(1, n - 1) - 1;
             let (u, v) = (x[k + 1] - t, t - x[k]);
             let hk = h[k];
-            m[k] * u.powi(3) / (6.0 * hk)
-                + m[k + 1] * v.powi(3) / (6.0 * hk)
+            m[k] * portable::powi(u, 3) / (6.0 * hk)
+                + m[k + 1] * portable::powi(v, 3) / (6.0 * hk)
                 + (y[k] / hk - m[k] * hk / 6.0) * u
                 + (y[k + 1] / hk - m[k + 1] * hk / 6.0) * v
         })
@@ -465,10 +465,17 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             Frequency::natural(1.0 / 1.575)?,
             Frequency::natural(1.0 / 1.525)?,
         )?;
-        let largest = found.iter().map(|r| r.amplitude.norm()).fold(0.0, f64::max);
+        let largest = found
+            .iter()
+            .map(|r| portable::complex::abs(r.amplitude))
+            .fold(0.0, f64::max);
         let mut lines: Vec<Line> = found
             .iter()
-            .filter(|r| r.error < 1e-4 && r.decay > 0.0 && r.amplitude.norm() > 1e-2 * largest)
+            .filter(|r| {
+                r.error < 1e-4
+                    && r.decay > 0.0
+                    && portable::complex::abs(r.amplitude) > 1e-2 * largest
+            })
             .map(|r| Line {
                 nm: 1e3 / r.frequency,
                 q: r.q(),

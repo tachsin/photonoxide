@@ -71,6 +71,7 @@
 //! binary design, its field and its spectrum, minimum length and areas
 //! ([`Event::TopologyOptimum`]).
 
+use crate::portable;
 use std::sync::Mutex;
 
 use num_complex::Complex64 as c64;
@@ -731,7 +732,7 @@ impl Plan {
                 let u = (p % nx) as f64 / nx as f64;
                 let v = (p / nx) as f64 / ny as f64;
                 let pi = std::f64::consts::PI;
-                start + a * (pi * (v - 0.5)).sin() * (pi * u).sin()
+                start + a * portable::sin(pi * (v - 0.5)) * portable::sin(pi * u)
             })
             .collect()
     }
@@ -871,7 +872,7 @@ fn round12(x: f64) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
-    let scale = 10f64.powi(11 - x.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, 11 - portable::log10(x.abs()).floor() as i32);
     if !scale.is_finite() {
         // below about 1e-297 the scale overflows: such a value is kept as it is
         return x;

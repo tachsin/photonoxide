@@ -1,6 +1,7 @@
 //! Oriented crystals in jobs: read, checked, refused where their tensor isn't taken, and solved.
 
 use super::*;
+use crate::portable;
 use crate::run::replay;
 
 /// A lithium niobate strip 1 µm wide and 600 nm thick on oxide, in oxide, its modes along
@@ -216,7 +217,10 @@ fn an_fdfd_jobs_te_plane_takes_a_cut_crystals_in_plane_indices() {
         check(&job).unwrap();
         let s = fdfd_s_parameters(&job, None).unwrap();
         // a straight guide: all through, nothing back
-        assert!(s.s[0][1][0].norm() > 0.99 && s.s[0][0][0].norm() < 0.01);
+        assert!(
+            portable::complex::abs(s.s[0][1][0]) > 0.99
+                && portable::complex::abs(s.s[0][0][0]) < 0.01
+        );
         s.effective_indices[0][0]
     };
     // along x, TE's E is along the chip's y: an x-cut's c axis (n_e), a z-cut's n_o

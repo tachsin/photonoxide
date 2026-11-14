@@ -36,10 +36,9 @@
 //! cargo run --release --example pml_oskooi
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use num_complex::Complex64 as c64;
@@ -119,7 +118,7 @@ fn field(thickness: usize, order: f64) -> c64 {
 /// A value rounded to `digits` decimals, so that what is printed doesn't change with the last
 /// bits of a platform's math library.
 fn rounded(v: f64, digits: i32) -> f64 {
-    let scale = 10f64.powi(digits);
+    let scale = portable::powi(10f64, digits);
     (v * scale).round() / scale
 }
 
@@ -181,7 +180,8 @@ pub fn main() -> ExitCode {
                 continue;
             }
             // the slope between the midpoints L - 1/2 and L + 1/2
-            rate = (changes[k - 1] / change).ln() / ((l as f64 + 0.5) / (l as f64 - 0.5)).ln();
+            rate = portable::ln(changes[k - 1] / change)
+                / portable::ln((l as f64 + 0.5) / (l as f64 - 0.5));
             println!(
                 "  L = {l:>2}: |E(L+1) - E(L)|^2 / |E|^2 = {change:.2e}, local rate {:.2}",
                 rounded(rate, 2)

@@ -46,10 +46,9 @@
 //! cargo run --release --example tfsf_square_cylinder
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{EULER_GAMMA, PI, TAU};
 use std::process::ExitCode;
 
@@ -142,13 +141,13 @@ fn fdtd(side: usize) -> [f64; 3] {
     for _ in 0..PERIODS.1 * steps_per_period {
         s.step();
         // H̃ is half a step behind E
-        let w = c64::new(0.0, omega * (s.time() - 0.5 * s.dt())).exp();
+        let w = portable::complex::exp(c64::new(0.0, omega * (s.time() - 0.5 * s.dt())));
         for (a, &(component, (i, j))) in amplitude.iter_mut().zip(&points) {
             *a += s.h(component)[j * n + i] * w;
         }
         incident += s.incident(wave, Field::H, Axis::X, (middle, first - gap + 1, 0)) * w;
     }
-    amplitude.map(|a| a.norm() / incident.norm())
+    amplitude.map(|a| portable::complex::abs(a) / portable::complex::abs(incident))
 }
 
 /// H₀⁽¹⁾(x) = J₀(x) + iY₀(x) for 0 < x ≤ 3, by their power series.
@@ -166,7 +165,7 @@ fn hankel0(x: f64) -> c64 {
         j += sign * term;
         tail -= sign * harmonic * term;
     }
-    let y = 2.0 / PI * (((x / 2.0).ln() + EULER_GAMMA) * j + tail);
+    let y = 2.0 / PI * ((portable::ln(x / 2.0) + EULER_GAMMA) * j + tail);
     c64::new(j, y)
 }
 
@@ -206,7 +205,10 @@ fn moments(per: usize) -> [f64; 3] {
         for c in 0..n {
             let integral = if r == c {
                 // ∫ H₀⁽¹⁾(k|x|) dx over the pulse, from H₀⁽¹⁾(z) ≈ 1 + (2i/π)(ln(z/2) + γ)
-                c64::new(d, 2.0 / PI * d * ((k * d / 4.0).ln() - 1.0 + EULER_GAMMA))
+                c64::new(
+                    d,
+                    2.0 / PI * d * (portable::ln(k * d / 4.0) - 1.0 + EULER_GAMMA),
+                )
             } else {
                 gauss
                     .iter()
@@ -215,8 +217,9 @@ fn moments(per: usize) -> [f64; 3] {
                             middle[c][0] + 0.5 * d * x * along[c][0],
                             middle[c][1] + 0.5 * d * x * along[c][1],
                         ];
-                        let distance =
-                            ((middle[r][0] - p[0]).powi(2) + (middle[r][1] - p[1]).powi(2)).sqrt();
+                        let distance = (portable::powi(middle[r][0] - p[0], 2)
+                            + portable::powi(middle[r][1] - p[1], 2))
+                        .sqrt();
                         hankel0(k * distance) * (0.5 * d * w)
                     })
                     .sum()
@@ -226,12 +229,15 @@ fn moments(per: usize) -> [f64; 3] {
     }
     let mut b: Vec<c64> = middle
         .iter()
-        .map(|p| c64::new(0.0, k * p[1]).exp())
+        .map(|p| portable::complex::exp(c64::new(0.0, k * p[1])))
         .collect();
     // Gaussian elimination with partial pivoting
     for col in 0..n {
         let pivot = (col..n)
-            .max_by(|&p, &q| m[p * n + col].norm().total_cmp(&m[q * n + col].norm()))
+            .max_by(|&p, &q| {
+                portable::complex::abs(m[p * n + col])
+                    .total_cmp(&portable::complex::abs(m[q * n + col]))
+            })
             .expect("a row");
         if pivot != col {
             for c in 0..n {
@@ -260,7 +266,9 @@ fn moments(per: usize) -> [f64; 3] {
     }
     // the middle of each face: the mean of its two middle pulses
     let face = |side: usize| {
-        (current[side * per + per / 2 - 1].norm() + current[side * per + per / 2].norm()) / 2.0
+        (portable::complex::abs(current[side * per + per / 2 - 1])
+            + portable::complex::abs(current[side * per + per / 2]))
+            / 2.0
     };
     [face(0), face(1), face(2)]
 }

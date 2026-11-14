@@ -1,4 +1,5 @@
 use super::*;
+use crate::portable;
 use crate::run::replay;
 use std::path::PathBuf;
 
@@ -469,9 +470,11 @@ fn a_modes_job_records_the_strips_modes() {
             let v = values.at(i, j);
             let x = values.x0 + (i as f64 + 0.5) * (values.x1 - values.x0) / values.nx as f64;
             let z = values.y0 + (j as f64 + 0.5) * (values.y1 - values.y0) / values.ny as f64;
-            let corner = [-0.25, 0.25]
-                .iter()
-                .any(|&cx| [2.0, 2.22].iter().any(|&cz| (x - cx).hypot(z - cz) < 0.06));
+            let corner = [-0.25, 0.25].iter().any(|&cx| {
+                [2.0, 2.22]
+                    .iter()
+                    .any(|&cz| portable::hypot(x - cx, z - cz) < 0.06)
+            });
             assert!(v > -0.02 || corner, "{v} at ({x}, {z})");
         }
     }
@@ -557,7 +560,11 @@ fn a_modes_job_records_its_modes_quantities_when_asked() {
     // the fundamental TE-like mode is the more confined; a mode's product with the other is
     // the TE and TM modes' overlap, near 0
     assert!(q[0].3 > q[1].3);
-    assert!(q[0].5[1][0].hypot(q[0].5[1][1]) < 1e-3, "{:?}", q[0].5);
+    assert!(
+        portable::hypot(q[0].5[1][0], q[0].5[1][1]) < 1e-3,
+        "{:?}",
+        q[0].5
+    );
 }
 
 /// `[task.export]` writes each mode into the run's directory, its `.npz`'s own
@@ -2419,7 +2426,7 @@ fn an_fdfd_job_records_s_parameters_and_a_field() {
     assert_eq!(ports.len(), 2);
     // a straight strip: everything through, in a mode between the oxide's and the slab's
     // index (the slab's TE mode, 2.85, in oxide, 1.444)
-    let through = s[1][0][0].hypot(s[1][0][1]);
+    let through = portable::hypot(s[1][0][0], s[1][0][1]);
     assert!((through - 1.0).abs() < 1e-6, "{s:?}");
     assert!(
         effective_indices.iter().all(|&n| n > 1.444 && n < 2.85),

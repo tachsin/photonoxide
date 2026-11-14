@@ -389,6 +389,7 @@ pub fn inline<'a>(dir: &Path, line: &'a str) -> Result<Cow<'a, str>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable;
 
     #[test]
     fn base64_reads_back_what_it_writes() {
@@ -424,9 +425,11 @@ mod tests {
 
     #[test]
     fn long_arrays_move_and_come_back_as_the_same_text() {
-        let f32s: Vec<f32> = (0..1000).map(|k| (k as f32 * 0.37).sin() / 3.0).collect();
+        let f32s: Vec<f32> = (0..1000)
+            .map(|k| (portable::sin(f64::from(k as f32 * 0.37)) / 3.0) as f32)
+            .collect();
         let f64s: Vec<f64> = (0..1000)
-            .map(|k| (f64::from(k) * 0.37).sin() / 3.0)
+            .map(|k| portable::sin(f64::from(k) * 0.37) / 3.0)
             .collect();
         let ints: Vec<u32> = (0..1000).collect();
         let bytes: Vec<u8> = (0..3000u32).map(|k| (k * 7 % 256) as u8).collect();

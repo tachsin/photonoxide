@@ -36,10 +36,9 @@
 //! cargo run --release --example optimize_ring_flat
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::cell::Cell;
 use std::f64::consts::PI;
 use std::process::ExitCode;
@@ -85,7 +84,7 @@ fn chain(n: usize) -> photonoxide::Result<Circuit> {
 /// The Butterworth prototype's elements g₁ … g_N.
 fn prototype(n: usize) -> Vec<f64> {
     (1..=n)
-        .map(|k| 2.0 * ((2 * k - 1) as f64 * PI / (2 * n) as f64).sin())
+        .map(|k| 2.0 * portable::sin((2 * k - 1) as f64 * PI / (2 * n) as f64))
         .collect()
 }
 
@@ -159,7 +158,7 @@ impl Filter {
         gradient.fill(0.0);
         let mut total = 0.0;
         for t in detunings() {
-            let u = (t / s).powi(two_n);
+            let u = portable::powi(t / s, two_n);
             let target = 1.0 / (1.0 + u);
             let values = self.values(&x[..m], t * self.bus);
             let drop = Cell::new(0.0);

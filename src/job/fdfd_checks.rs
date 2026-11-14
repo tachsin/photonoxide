@@ -2,6 +2,7 @@
 //! over the sweep's wavelengths interpolated from a few solves, every entry on one set of
 //! wavelengths, against the same job solved at every point of its sweep.
 
+use crate::portable;
 use std::sync::OnceLock;
 
 use super::{Event, execute};
@@ -134,8 +135,8 @@ pub(super) fn study() -> &'static Study {
                 for p in 0..n {
                     let ours = num_complex::Complex64::new(r[q][p][0], r[q][p][1]);
                     let theirs = num_complex::Complex64::new(r[p][q][0], r[p][q][1]);
-                    truth = truth.max((ours - s[q][p]).norm());
-                    reciprocity = reciprocity.max((ours - theirs).norm());
+                    truth = truth.max(portable::complex::abs(ours - s[q][p]));
+                    reciprocity = reciprocity.max(portable::complex::abs(ours - theirs));
                 }
             }
         }
@@ -157,7 +158,7 @@ fn ratio() -> f64 {
     if v <= 0.0 || !v.is_finite() {
         return v;
     }
-    let p = 10f64.powf(v.log10().floor() - 1.0);
+    let p = portable::powf(10f64, portable::log10(v).floor() - 1.0);
     (v / p).ceil() * p
 }
 

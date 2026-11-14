@@ -186,10 +186,9 @@
 //! cargo run --release --example optimize_grating_pareto -- --dispersion --fine  # on 10 x 5 nm
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{LN_10, PI};
 use std::io::Write;
 use std::process::ExitCode;
@@ -1395,7 +1394,7 @@ fn structure_bands(model: &Model, structures: &[&Structure]) -> Vec<Band> {
 /// A number to the digits that hold on every system: the efficiency in % to 0.01, the
 /// bandwidth in nm to 0.1.
 fn held(x: f64, digits: i32) -> f64 {
-    let scale = 10f64.powi(digits);
+    let scale = portable::powi(10f64, digits);
     (x * scale).round() / scale
 }
 

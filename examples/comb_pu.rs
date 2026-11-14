@@ -26,10 +26,9 @@
 //! cargo run --release --example comb_pu
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 use std::process::ExitCode;
 
@@ -68,7 +67,7 @@ fn ring(q_c: f64, pump: f64) -> Ring {
 /// The threshold in the bus (W): the pump at which f = 1.
 fn threshold(q_c: f64) -> f64 {
     let r = ring(q_c, 1.0);
-    1.0 / r.normalized_drive().powi(2)
+    1.0 / portable::powi(r.normalized_drive(), 2)
 }
 
 /// Whether the homogeneous state at ζ₀ = 1 and drive `f` is unstable for some mode's
@@ -81,7 +80,7 @@ fn unstable(f: f64) -> bool {
 /// `x` to `decimals` decimals: what the output prints the same on every system (a value's last
 /// bits differ between their maths libraries).
 fn shown(x: f64, decimals: i32) -> f64 {
-    let s = 10f64.powi(decimals);
+    let s = portable::powi(10f64, decimals);
     (x * s).round() / s
 }
 

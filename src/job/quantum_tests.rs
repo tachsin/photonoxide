@@ -2,6 +2,7 @@
 //! what it refuses.
 
 use super::*;
+use crate::portable;
 use crate::run::{Job, Run, Stop};
 
 /// A balanced coupler as a chip job's `[circuit]`, and `task`.
@@ -150,7 +151,7 @@ delays = 101
         })
         .unwrap();
     let r = 6.0 * std::f64::consts::LN_10 / 20.0;
-    let half = 10.0 * (0.5 * ((-2.0 * r).exp() + 1.0)).log10();
+    let half = 10.0 * portable::log10(0.5 * (portable::exp(-2.0 * r) + 1.0));
     assert!(
         (sq.squeezed_db[2] - half).abs() < 1e-12,
         "{:?}",

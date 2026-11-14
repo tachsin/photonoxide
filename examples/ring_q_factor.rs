@@ -26,10 +26,9 @@
 //! cargo run --release --example ring_q_factor
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::circuit::components::{AddDropRing, AllPassRing, Dispersion};
@@ -48,7 +47,7 @@ const LENGTHS: (f64, f64) = (1e3, 3e4);
 
 /// The single-pass amplitude of a ring `length` µm round losing 2.7 dB/cm and `fixed` dB.
 fn single_pass(length: f64, fixed: f64) -> f64 {
-    10f64.powf(-(LOSS * length * 1e-4 + fixed) / 20.0)
+    portable::powf(10f64, -(LOSS * length * 1e-4 + fixed) / 20.0)
 }
 
 /// The length (µm) in [lo, hi] where `f` peaks, by golden-section search, and the peak.
@@ -160,7 +159,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let q_add_drop = |l: f64| {
         let a = single_pass(l, FIXED.1);
         add_drop
-            .q_factor(l0, &[l, 1.0 - (r2 * a).powi(2), 1.0 - r2 * r2])
+            .q_factor(l0, &[l, 1.0 - portable::powi(r2 * a, 2), 1.0 - r2 * r2])
             .unwrap_or(f64::NAN)
     };
     let (la, qa) = peak(q_all_pass, LENGTHS.0, LENGTHS.1);
@@ -187,7 +186,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
 
     // the all-pass ring at its best length, from its spectrum: the FWHM measured, not Eq. 7
-    let kappa2 = 1.0 - single_pass(la, FIXED.0).powi(2);
+    let kappa2 = 1.0 - portable::powi(single_pass(la, FIXED.0), 2);
     let values = [la, kappa2];
     let centre = all_pass.resonance(l0, la)?;
     let fsr = all_pass.fsr(centre, la)?;

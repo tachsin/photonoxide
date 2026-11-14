@@ -2,6 +2,7 @@
 
 use super::{Event, StructureTask, check, params, preview};
 use crate::geometry::Point;
+use crate::portable;
 use crate::run::Job;
 use crate::units::{Length, Wavelength};
 
@@ -142,8 +143,8 @@ fn bodies_in_a_job_are_checked_placed_and_previewed() {
     assert_eq!(at(-2.0, 2.0, top + 0.1), "Si");
     // the graded body: 1.6 at its axis, its walls leaning out going down from its top face
     assert!((eps(0.0, -3.0, top + 0.2) - 2.56).abs() < 1e-12);
-    let reach = 0.2 / 80f64.to_radians().tan();
-    let n = 1.5 + 0.1 * (-(0.8f64 + 0.5 * reach).powi(2)).exp();
+    let reach = 0.2 / portable::tan(80f64.to_radians());
+    let n = 1.5 + 0.1 * portable::exp(-portable::powi(0.8f64 + 0.5 * reach, 2));
     assert!((eps(0.8 + 0.5 * reach, -3.0, top + 0.2) - n * n).abs() < 1e-12);
     assert_ne!(at(0.8 + 1.5 * reach, -3.0, top + 0.2), "Si");
     assert_eq!(at(0.0, 3.0, top + 0.5), "SiO2");

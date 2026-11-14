@@ -3,6 +3,7 @@
 //! sweep interpolated from a few solves with the modes followed by their fields' overlap
 //! (`follow = "overlap"`), against the same job solved and followed at every point.
 
+use crate::portable;
 use std::sync::OnceLock;
 
 use super::{Event, execute};
@@ -188,7 +189,7 @@ fn ratio() -> f64 {
     if v <= 0.0 || !v.is_finite() {
         return v;
     }
-    let p = 10f64.powf(v.log10().floor() - 1.0);
+    let p = portable::powf(10f64, portable::log10(v).floor() - 1.0);
     (v / p).ceil() * p
 }
 

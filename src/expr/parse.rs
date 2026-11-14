@@ -1,5 +1,6 @@
 //! The expression language's parser, its checks of units, and the compiled program.
 
+use crate::portable;
 use std::f64::consts::PI;
 
 use super::special::{erf, erf_derivative};
@@ -490,7 +491,7 @@ impl Parser<'_> {
                         }
                         let k = k as i32;
                         return Ok(Typed {
-                            node: Node::Num(v * u.2.apply(1.0).powi(k)),
+                            node: Node::Num(v * portable::powi(u.2.apply(1.0), k)),
                             dim: Some(Dim {
                                 length: u.1.length * k as i8,
                                 angle: u.1.angle * k as i8,
@@ -1079,36 +1080,36 @@ fn bin(op: Bin, x: f64, y: f64) -> f64 {
 /// x^y, by repeated multiplication for small whole exponents (exact for squares and cubes).
 fn pow(x: f64, y: f64) -> f64 {
     if y.fract() == 0.0 && y.abs() <= 64.0 {
-        x.powi(y as i32)
+        portable::powi(x, y as i32)
     } else {
-        x.powf(y)
+        portable::powf(x, y)
     }
 }
 
 fn f1(f: F1, x: f64) -> f64 {
     match f {
         F1::Neg => -x,
-        F1::Sin => x.sin(),
-        F1::Cos => x.cos(),
-        F1::Tan => x.tan(),
-        F1::Asin => x.asin(),
-        F1::Acos => x.acos(),
-        F1::Atan => x.atan(),
-        F1::Exp => x.exp(),
-        F1::Ln => x.ln(),
-        F1::Log10 => x.log10(),
+        F1::Sin => portable::sin(x),
+        F1::Cos => portable::cos(x),
+        F1::Tan => portable::tan(x),
+        F1::Asin => portable::asin(x),
+        F1::Acos => portable::acos(x),
+        F1::Atan => portable::atan(x),
+        F1::Exp => portable::exp(x),
+        F1::Ln => portable::ln(x),
+        F1::Log10 => portable::log10(x),
         F1::Sqrt => x.sqrt(),
         F1::Abs => x.abs(),
         F1::Floor => x.floor(),
         F1::Ceil => x.ceil(),
         F1::Round => x.round(),
         F1::Erf => erf(x),
-        F1::Tanh => x.tanh(),
+        F1::Tanh => portable::tanh(x),
         F1::Sinc => {
             if x == 0.0 {
                 1.0
             } else {
-                x.sin() / x
+                portable::sin(x) / x
             }
         }
     }
@@ -1116,7 +1117,7 @@ fn f1(f: F1, x: f64) -> f64 {
 
 fn f2(f: F2, x: f64, y: f64) -> f64 {
     match f {
-        F2::Atan2 => x.atan2(y),
+        F2::Atan2 => portable::atan2(x, y),
         F2::Min => x.min(y),
         F2::Max => x.max(y),
     }
@@ -1575,21 +1576,21 @@ fn dual1(f: F1, a: Dual) -> Dual {
     };
     match f {
         F1::Neg => d(-x, -a.derivative),
-        F1::Sin => chain(x.sin(), x.cos()),
-        F1::Cos => chain(x.cos(), -x.sin()),
+        F1::Sin => chain(portable::sin(x), portable::cos(x)),
+        F1::Cos => chain(portable::cos(x), -portable::sin(x)),
         F1::Tan => {
-            let t = x.tan();
+            let t = portable::tan(x);
             chain(t, 1.0 + t * t)
         }
-        F1::Asin => chain(x.asin(), 1.0 / (1.0 - x * x).sqrt()),
-        F1::Acos => chain(x.acos(), -1.0 / (1.0 - x * x).sqrt()),
-        F1::Atan => chain(x.atan(), 1.0 / (1.0 + x * x)),
+        F1::Asin => chain(portable::asin(x), 1.0 / (1.0 - x * x).sqrt()),
+        F1::Acos => chain(portable::acos(x), -1.0 / (1.0 - x * x).sqrt()),
+        F1::Atan => chain(portable::atan(x), 1.0 / (1.0 + x * x)),
         F1::Exp => {
-            let e = x.exp();
+            let e = portable::exp(x);
             chain(e, e)
         }
-        F1::Ln => chain(x.ln(), 1.0 / x),
-        F1::Log10 => chain(x.log10(), 1.0 / (x * std::f64::consts::LN_10)),
+        F1::Ln => chain(portable::ln(x), 1.0 / x),
+        F1::Log10 => chain(portable::log10(x), 1.0 / (x * std::f64::consts::LN_10)),
         F1::Sqrt => {
             let r = x.sqrt();
             chain(r, 0.5 / r)
@@ -1598,18 +1599,21 @@ fn dual1(f: F1, a: Dual) -> Dual {
         F1::Floor | F1::Ceil | F1::Round => d(f1(f, x), 0.0),
         F1::Erf => chain(erf(x), erf_derivative(x)),
         F1::Tanh => {
-            let t = x.tanh();
+            let t = portable::tanh(x);
             chain(t, 1.0 - t * t)
         }
         F1::Sinc => {
             if x.abs() < 1e-4 {
                 // the series: 1 − x²/6 + x⁴/120, its derivative −x/3 + x³/30
                 chain(
-                    1.0 - x * x / 6.0 + x.powi(4) / 120.0,
-                    -x / 3.0 + x.powi(3) / 30.0,
+                    1.0 - x * x / 6.0 + portable::powi(x, 4) / 120.0,
+                    -x / 3.0 + portable::powi(x, 3) / 30.0,
                 )
             } else {
-                chain(x.sin() / x, (x * x.cos() - x.sin()) / (x * x))
+                chain(
+                    portable::sin(x) / x,
+                    (x * portable::cos(x) - portable::sin(x)) / (x * x),
+                )
             }
         }
     }
@@ -1632,7 +1636,7 @@ fn dual_bin(op: Bin, a: Dual, b: Dual) -> Dual {
             let db = if b.derivative == 0.0 {
                 0.0
             } else {
-                v * x.ln() * b.derivative
+                v * portable::ln(x) * b.derivative
             };
             d(v, da + db)
         }
@@ -1645,7 +1649,10 @@ fn dual2(f: F2, a: Dual, b: Dual) -> Dual {
         F2::Atan2 => {
             let (y, x) = (a.value, b.value);
             let r2 = x * x + y * y;
-            d(y.atan2(x), (x * a.derivative - y * b.derivative) / r2)
+            d(
+                portable::atan2(y, x),
+                (x * a.derivative - y * b.derivative) / r2,
+            )
         }
         F2::Min => {
             if a.value <= b.value {

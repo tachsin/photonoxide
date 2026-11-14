@@ -1,5 +1,6 @@
 //! The FDTD kernel's problems: a box of vacuum and a silicon guide, in f64 and f32.
 
+use crate::portable;
 use std::time::Instant;
 
 use super::{Accuracy, Measurement, Phase};
@@ -52,7 +53,7 @@ fn start(run: Run) -> Result<Simulation> {
             for i in 0..n {
                 let p = grid.e_position(Axis::Y, (i, j, k));
                 let r2 = p.iter().map(|x| x * x).sum::<f64>();
-                ey[(k * n + j) * n + i] = (-r2 / (width * width)).exp();
+                ey[(k * n + j) * n + i] = portable::exp(-r2 / (width * width));
             }
         }
     }

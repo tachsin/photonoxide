@@ -1,5 +1,6 @@
 //! The modes task: its cross-section, its checks and its run.
 
+use crate::portable;
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
 
@@ -1201,8 +1202,8 @@ fn signed_field(
         }
     }
     // e^(−i arg) of the peak: it, and with it the whole component, made real
-    let turn = if peak.norm() > 0.0 {
-        peak.conj() / peak.norm()
+    let turn = if portable::complex::abs(peak) > 0.0 {
+        peak.conj() / portable::complex::abs(peak)
     } else {
         num_complex::Complex64::new(1.0, 0.0)
     };

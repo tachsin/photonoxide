@@ -37,10 +37,9 @@
 //! cargo run --release --example lorentz_okoniewski
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::Complex64 as c64;
@@ -150,20 +149,23 @@ fn reflection(dz: f64, courant: f64, frequencies: &[f64]) -> Vec<c64> {
                 series
                     .iter()
                     .enumerate()
-                    .map(|(n, v)| v * c64::new(0.0, w * (n + 1) as f64 * dt).exp())
+                    .map(|(n, v)| {
+                        v * portable::complex::exp(c64::new(0.0, w * (n + 1) as f64 * dt))
+                    })
                     .sum()
             };
             let scattered: Vec<f64> = full.iter().zip(&empty).map(|(a, b)| a - b).collect();
             // the grid's wavenumber in vacuum: sin(kΔz/2)/Δz = sin(ωΔt/2)/Δt
-            let k = 2.0 / dz * ((w * dt / 2.0).sin() * dz / dt).asin();
-            dft(&scattered) / dft(&empty) * c64::new(0.0, -2.0 * k * distance).exp()
+            let k = 2.0 / dz * portable::asin(portable::sin(w * dt / 2.0) * dz / dt);
+            dft(&scattered) / dft(&empty)
+                * portable::complex::exp(c64::new(0.0, -2.0 * k * distance))
         })
         .collect()
 }
 
 /// The analytic reflection coefficient, (1 − n)/(1 + n).
 fn analytic(f: f64) -> c64 {
-    let n = medium().permittivity(ghz(f)).sqrt();
+    let n = portable::complex::sqrt(medium().permittivity(ghz(f)));
     (1.0 - n) / (1.0 + n)
 }
 
@@ -293,8 +295,8 @@ pub fn main() -> ExitCode {
         let (mut m, mut p, mut over_m, mut over_p) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
         for (&f, r) in frequencies.iter().zip(r) {
             let exact = analytic(f);
-            let dm = r.norm() - exact.norm();
-            let dp = (r / exact).arg();
+            let dm = portable::complex::abs(*r) - portable::complex::abs(exact);
+            let dp = portable::complex::arg(r / exact);
             let (bm, bp) = bound(f);
             m = m.max(dm.abs());
             p = p.max(dp.abs());
@@ -303,8 +305,8 @@ pub fn main() -> ExitCode {
             if f % 10.0 == 0.0 || f == 2.5 || f == 55.0 {
                 println!(
                     "  {f:5.1}     {:.6}   {:.6}   {dm:+.2e}   {dp:+.2e}",
-                    r.norm(),
-                    exact.norm()
+                    portable::complex::abs(*r),
+                    portable::complex::abs(exact)
                 );
             }
         }

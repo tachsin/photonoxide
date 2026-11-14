@@ -26,10 +26,9 @@
 //! cargo run --release --example y_junction_zhang
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use photonoxide::circuit::Fidelity;
@@ -114,7 +113,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let b = d.component(&values, Fidelity::TwoD)?;
         let figure = |s: &str| b.figure(s).map_or(f64::NAN, |f| f.value);
         let (upper, lower) = (figure("P_o2"), figure("P_o3"));
-        let loss = -10.0 * (upper + lower).log10();
+        let loss = -10.0 * portable::log10(upper + lower);
         println!(
             "  {:.0} nm ({}): arms {upper:.5} and {lower:.5}, insertion loss {loss:.3} dB",
             step * 1e3,

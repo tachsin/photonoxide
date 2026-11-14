@@ -1,6 +1,7 @@
 //! A device's compact models fitted by a `"fit"` job: what the tests and the validation cases
 //! measure of them.
 
+use crate::portable;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -116,7 +117,7 @@ pub(crate) fn largest(a: &SMatrix, b: &SMatrix) -> f64 {
     let mut worst = 0.0f64;
     for q in 0..n {
         for p in 0..n {
-            worst = worst.max((a[(q, p)] - b[(q, p)]).norm());
+            worst = worst.max(portable::complex::abs(a[(q, p)] - b[(q, p)]));
         }
     }
     worst
@@ -154,8 +155,8 @@ pub(crate) fn ring_derivative_error(fitted: &Fitted) -> Result<f64> {
             for q in 0..n {
                 for p in 0..n {
                     let fd = (up[(q, p)] - down[(q, p)]) / (2.0 * h);
-                    worst = worst.max((fd - exact[(q, p)]).norm());
-                    scale = scale.max(exact[(q, p)].norm());
+                    worst = worst.max(portable::complex::abs(fd - exact[(q, p)]));
+                    scale = scale.max(portable::complex::abs(exact[(q, p)]));
                 }
             }
         }

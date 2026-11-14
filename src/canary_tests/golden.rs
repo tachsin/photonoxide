@@ -61,7 +61,13 @@ pub(crate) fn ulp(x: f64) -> f64 {
         return f64::from_bits(1);
     }
     let e = (x.to_bits() >> 52) as i32 - 1023;
-    2f64.powi(e - 52)
+    // 2^p written into the bits: exact, no maths function
+    let p = e - 52;
+    if p >= -1022 {
+        f64::from_bits(((p + 1023) as u64) << 52)
+    } else {
+        f64::from_bits(1u64 << (p + 1074))
+    }
 }
 
 /// How many binary64 numbers apart `x` and `y` are (0 for the same number, ±0 alike): the

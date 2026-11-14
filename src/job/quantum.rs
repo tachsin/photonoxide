@@ -48,6 +48,7 @@
 //!   squeezed: [{ port: in1, squeezing_db: 6.0 }]
 //! ```
 
+use crate::portable;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
@@ -731,7 +732,7 @@ fn squeezed(p: &Prepared) -> Result<QuantumSqueezed> {
             .displaced(m, c64::new(q.displacement[0], q.displacement[1]))?;
     }
     let out = state.through(&p.transfer)?;
-    let db = |v: f64| 10.0 * v.log10();
+    let db = |v: f64| 10.0 * portable::log10(v);
     let mut squeezed_db = Vec::with_capacity(n);
     let mut anti_squeezed_db = Vec::with_capacity(n);
     let mut mean_photons = Vec::with_capacity(n);

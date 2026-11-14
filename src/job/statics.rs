@@ -114,6 +114,7 @@
 //! value, the heat or charge of each held rectangle, what leaves through each side, the
 //! balance's imbalance, and a capacitance matrix or the contacts' currents and Joule power.
 
+use crate::portable;
 use std::collections::BTreeMap;
 
 use schemars::{JsonSchema, SchemaGenerator};
@@ -1442,7 +1443,7 @@ fn in_time(
     })?;
     values.push(value("time step", stepping.step_s, "s"));
     values.push(value("steps", (history.times_s.len() - 1) as f64, ""));
-    let e = 1.0 - (-1.0f64).exp();
+    let e = 1.0 - portable::exp(-1.0f64);
     for (k, (name, shape)) in setup.probes.iter().enumerate() {
         let start = history.watched[k][0];
         if let Some(t) = history.crossing(k, start, ends[k], e) {

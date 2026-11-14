@@ -43,12 +43,10 @@
 //! port's mode over the incident mode's, at the same frequency. The paper's sources and
 //! monitors sit on the ports themselves, 0.3 to 0.6 µm from ours along a straight guide.
 
-#![allow(clippy::disallowed_methods)]
-// until #822 converts it to `photonoxide::portable`
-
 // each example compiles this module on its own and uses only part of it
 #![allow(dead_code)]
 
+use photonoxide::portable;
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
@@ -183,7 +181,14 @@ impl Path {
         );
         self.steps.push(step);
         let (p, a, _) = self.end();
-        self.push([p[0] + length * a.cos(), p[1] + length * a.sin()], a, width);
+        self.push(
+            [
+                p[0] + length * portable::cos(a),
+                p[1] + length * portable::sin(a),
+            ],
+            a,
+            width,
+        );
         self
     }
 
@@ -199,7 +204,7 @@ impl Path {
         );
         self.steps.push(step);
         let (p, a, w0) = self.end();
-        let (s, c) = a.sin_cos();
+        let (s, c) = portable::sin_cos(a);
         let n = 400;
         let mut curve = Vec::with_capacity(n + 1);
         for k in 0..=n {
@@ -211,13 +216,13 @@ impl Path {
             let by = 3.0 * u * t * t * dy + t * t * t * dy;
             let dxdt = 1.5 * dx * (u * u + t * t);
             let dydt = 6.0 * u * t * dy;
-            curve.push(([bx, by], dydt.atan2(dxdt)));
+            curve.push(([bx, by], portable::atan2(dydt, dxdt)));
         }
         // the width goes linearly along the curve's length
         let mut length = vec![0.0];
         for k in 1..=n {
             let (q, r) = (curve[k - 1].0, curve[k].0);
-            length.push(length[k - 1] + (r[0] - q[0]).hypot(r[1] - q[1]));
+            length.push(length[k - 1] + portable::hypot(r[0] - q[0], r[1] - q[1]));
         }
         for k in 1..=n {
             let ([bx, by], angle) = curve[k];
@@ -264,7 +269,7 @@ impl Path {
         for k in 0..fine {
             let (s0, s1) = (k as f64 * ds, (k + 1) as f64 * ds);
             let sm = 0.5 * (s0 + s1);
-            let f = |s: f64| [theta(s).cos(), theta(s).sin()];
+            let f = |s: f64| [portable::cos(theta(s)), portable::sin(theta(s))];
             let (f0, fm, f1) = (f(s0), f(sm), f(s1));
             xy[k + 1] = [
                 xy[k][0] + ds / 6.0 * (f0[0] + 4.0 * fm[0] + f1[0]),
@@ -273,9 +278,9 @@ impl Path {
         }
         // the normal at the end meets the y axis at R_eff
         let e = xy[fine];
-        let reff = e[1] + e[0] / alpha.tan();
+        let reff = e[1] + e[0] / portable::tan(alpha);
         let scale = radius / reff;
-        let (s, c) = a0.sin_cos();
+        let (s, c) = portable::sin_cos(a0);
         // about every 25 nm of the scaled curve
         let samples = ((total * scale / 0.025).ceil() as usize).max(8);
         for m in 1..=samples {
@@ -294,7 +299,7 @@ impl Path {
     pub fn length(&self) -> f64 {
         self.points
             .windows(2)
-            .map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))
+            .map(|w| portable::hypot(w[1][0] - w[0][0], w[1][1] - w[0][1]))
             .sum()
     }
 
@@ -304,12 +309,12 @@ impl Path {
             let mut out: Vec<[f64; 2]> = Vec::new();
             for ((p, a), w) in self.points.iter().zip(&self.angles).zip(&self.widths) {
                 let q = [
-                    p[0] - sign * 0.5 * w * a.sin(),
-                    p[1] + sign * 0.5 * w * a.cos(),
+                    p[0] - sign * 0.5 * w * portable::sin(*a),
+                    p[1] + sign * 0.5 * w * portable::cos(*a),
                 ];
                 if out
                     .last()
-                    .is_none_or(|l| (l[0] - q[0]).hypot(l[1] - q[1]) > 1e-9)
+                    .is_none_or(|l| portable::hypot(l[0] - q[0], l[1] - q[1]) > 1e-9)
                 {
                     out.push(q);
                 }
@@ -426,8 +431,8 @@ fn vertices(points: &[[f64; 2]]) -> String {
 impl Device {
     /// The structure at `wavelength` µm.
     pub fn structure(&self, wavelength: f64) -> Structure {
-        let si = Permittivity::isotropic(silicon(wavelength).powi(2)).expect("silicon");
-        let ox = Permittivity::isotropic(silica(wavelength).powi(2)).expect("silica");
+        let si = Permittivity::isotropic(portable::powi(silicon(wavelength), 2)).expect("silicon");
+        let ox = Permittivity::isotropic(portable::powi(silica(wavelength), 2)).expect("silica");
         let above = self.above.map_or(ox, |e| {
             Permittivity::isotropic(e).expect("the upper cladding")
         });
@@ -581,7 +586,10 @@ fn port_modes(
         order: 3.0,
         real_stretch: 0.0,
     };
-    let (si, ox) = (silicon(wavelength).powi(2), silica(wavelength).powi(2));
+    let (si, ox) = (
+        portable::powi(silicon(wavelength), 2),
+        portable::powi(silica(wavelength), 2),
+    );
     let above = device.above.unwrap_or(ox);
     let centre = port.center[across.ix()];
     let half = 0.5 * port.width;
@@ -1023,7 +1031,7 @@ pub fn within(
         });
     let tolerance = 0.5 * (hi - lo) + margin;
     // the tolerance rounded up to two significant digits, so the output reads well
-    let scale = 10f64.powf(tolerance.log10().floor() - 1.0);
+    let scale = portable::powf(10f64, portable::log10(tolerance).floor() - 1.0);
     let tolerance: f64 = format!("{:.1e}", (tolerance / scale).ceil() * scale)
         .parse()
         .expect("a number");
@@ -1055,7 +1063,7 @@ pub fn coarse(
 }
 
 fn round(v: f64, digits: i32) -> f64 {
-    let s = 10f64.powi(digits);
+    let s = portable::powi(10f64, digits);
     (v * s).round() / s
 }
 
@@ -1112,7 +1120,7 @@ fn rayon_threads() -> usize {
 
 /// 10 log₁₀ of a power.
 pub fn db(p: f64) -> f64 {
-    10.0 * p.log10()
+    10.0 * portable::log10(p)
 }
 
 /// Length in µm (shorthand).

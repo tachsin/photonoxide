@@ -46,10 +46,9 @@
 //! cargo run --release --example l3_akahane -- --full   # 12 and 16 cells, 1000 µm/c records
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 use std::process::ExitCode;
 
@@ -237,7 +236,9 @@ fn resonance(shift: f64, cells: usize, record: f64) -> photonoxide::Result<(f64,
     let best = found
         .iter()
         .filter(|r| r.error < 1e-3)
-        .max_by(|x, y| x.amplitude.norm().total_cmp(&y.amplitude.norm()))
+        .max_by(|x, y| {
+            portable::complex::abs(x.amplitude).total_cmp(&portable::complex::abs(y.amplitude))
+        })
         .ok_or_else(|| photonoxide::Error::InvalidValue {
             what: "resonance",
             reason: "harmonic inversion found none in the window".to_owned(),
@@ -314,7 +315,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             MEASURED[1],
             common::number(100.0 * widened.1),
             common::number(100.0 * widened.0),
-            2f64.powf(factor)
+            portable::powf(2f64, factor)
         ),
     );
     setup.material(&si, lambda);
@@ -380,14 +381,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         // Q/V up tenfold, V the same; and the measured Q, within a factor of 2 (log2)
         checks.compare(
             &format!("log2 of Q's rise, {n} cells"),
-            (q1 / q0).log2(),
-            10f64.log2(),
+            portable::log2(q1 / q0),
+            portable::log2(10f64),
             factor,
         );
         checks.compare(
             &format!("log2 of Q shifted, {n} cells"),
-            q1.log2(),
-            45000f64.log2(),
+            portable::log2(q1),
+            portable::log2(45000f64),
             factor,
         );
     }

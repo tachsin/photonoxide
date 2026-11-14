@@ -30,6 +30,7 @@
 //!   # model_2d: fdfd       # an MMI's 2D model by FDFD in place of its guided modes
 //! ```
 
+use crate::portable;
 use std::time::Instant;
 
 use schemars::{JsonSchema, SchemaGenerator};
@@ -367,8 +368,8 @@ pub(super) fn structure(job: &Job, x: [f64; 2], y: [f64; 2]) -> Result<Option<St
 /// A port's guide led straight on `length` µm from it, the way light leaves by.
 fn lead(p: &crate::device::Port, length: f64) -> Result<Shape> {
     let (c, s) = (
-        p.direction.to_radians().cos(),
-        p.direction.to_radians().sin(),
+        portable::cos(p.direction.to_radians()),
+        portable::sin(p.direction.to_radians()),
     );
     let (x, y, w) = (p.position.x.to_um(), p.position.y.to_um(), p.width.to_um());
     let centre = Point::um(x + c * length / 2.0, y + s * length / 2.0);

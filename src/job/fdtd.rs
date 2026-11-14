@@ -12,6 +12,7 @@
 //! total-field box's face; for beams the paraxial beam's power. Dipoles have no incident power,
 //! and a run with one is referred to the pulse's spectrum instead.
 
+use crate::portable;
 use std::time::Instant;
 
 use num_complex::Complex64 as c64;
@@ -2717,18 +2718,18 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 let largest = resonances
                     .iter()
                     .filter(held)
-                    .map(|r| r.amplitude.norm())
+                    .map(|r| portable::complex::abs(r.amplitude))
                     .fold(0.0, f64::max);
                 let found = resonances
                     .iter()
                     .filter(held)
-                    .filter(|r| r.amplitude.norm() > 1e-6 * largest)
+                    .filter(|r| portable::complex::abs(r.amplitude) > 1e-6 * largest)
                     .map(|r| FoundResonance {
                         wavelength_um: 1.0 / r.frequency,
                         frequency: r.frequency,
                         q: r.q(),
                         decay: r.decay,
-                        amplitude: r.amplitude.norm(),
+                        amplitude: portable::complex::abs(r.amplitude),
                         error: r.error,
                     })
                     .collect();
@@ -2915,6 +2916,7 @@ fn record_solver(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable;
 
     #[test]
     fn base64_is_rfc_4648s() {
@@ -2942,27 +2944,30 @@ mod tests {
         let levels: Vec<f64> = (0..40)
             .map(|n| {
                 if n < 20 {
-                    10f64.powi(-n)
+                    portable::powi(10f64, -n)
                 } else {
-                    10f64.powf(-19.0 + 0.45 * f64::from(n - 19))
+                    portable::powf(10f64, -19.0 + 0.45 * f64::from(n - 19))
                 }
             })
             .collect();
         let (n, factor) = first_growth(4, &levels).unwrap();
         assert_eq!(n, 26);
-        assert!((factor / 10f64.powf(3.15) - 1.0).abs() < 1e-12, "{factor}");
+        assert!(
+            (factor / portable::powf(10f64, 3.15) - 1.0).abs() < 1e-12,
+            "{factor}"
+        );
         // fields that never fell far, growing past their peak, too
         let early = [1.0, 0.1, 1.0, 10.0, 100.0, 1000.0];
         assert_eq!(first_growth(4, &early).map(|g| g.0), Some(5));
         // a pulse returning to a point, rising for fewer checks than needed: no growth
-        let mut returning: Vec<f64> = (0..10).map(|n| 10f64.powi(-n)).collect();
+        let mut returning: Vec<f64> = (0..10).map(|n| portable::powi(10f64, -n)).collect();
         returning.extend([1e-6, 1e-4, 1e-2, 1e-3, 1e-5]);
         assert_eq!(first_growth(4, &returning), None);
         // a slow rise by less than a thousand, and a ripple on a decay: none
-        let slow: Vec<f64> = (0..30).map(|n| 1e-9 * 1.2f64.powi(n)).collect();
+        let slow: Vec<f64> = (0..30).map(|n| 1e-9 * portable::powi(1.2f64, n)).collect();
         assert!(slow[29] / slow[0] > 1e2 && first_growth(4, &slow).is_none());
         let ripple: Vec<f64> = (0..40)
-            .map(|n| 10f64.powi(-n / 4) * (1.0 + 0.5 * f64::from(n % 2)))
+            .map(|n| portable::powi(10f64, -n / 4) * (1.0 + 0.5 * f64::from(n % 2)))
             .collect();
         assert_eq!(first_growth(4, &ripple), None);
         // light reaching a monitor from nothing: the first rise is from a level, not from 0
@@ -3360,7 +3365,7 @@ time_um = 10.0
             .unwrap()
             .re;
         assert_eq!(eps(0.5, 0.0, 2.5), si);
-        assert!((eps(-0.5, 0.0, 2.6) - 1.62f64.powi(2)).abs() < 1e-12);
+        assert!((eps(-0.5, 0.0, 2.6) - portable::powi(1.62f64, 2)).abs() < 1e-12);
         // outside both, the stack: the strip below, the cladding above
         assert_eq!(eps(0.0, 0.0, 2.11), si);
         assert!(eps(0.0, 0.6, 2.6) < 2.2);
@@ -3423,7 +3428,7 @@ size_um = [3.7, 0.5]
             .iter()
             .map(|w| {
                 let omega = std::f64::consts::TAU / w;
-                std::f64::consts::TAU / (2.0 / dt * (0.5 * omega * dt).sin())
+                std::f64::consts::TAU / (2.0 / dt * portable::sin(0.5 * omega * dt))
             })
             .collect();
         let s = super::super::fdfd::fdfd_s_parameters_frozen(
@@ -3511,7 +3516,7 @@ side = "right"
             .iter()
             .map(|w| {
                 let omega = std::f64::consts::TAU / w;
-                std::f64::consts::TAU / (2.0 / dt * (0.5 * omega * dt).sin())
+                std::f64::consts::TAU / (2.0 / dt * portable::sin(0.5 * omega * dt))
             })
             .collect();
         println!("fdtd in {:.1} s", started.elapsed().as_secs_f64());

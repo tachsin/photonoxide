@@ -13,6 +13,7 @@ use crate::nonlinear::guide::{
 };
 use crate::nonlinear::guide_checks as checks;
 use crate::nonlinear::phase::fourier_coefficient;
+use crate::portable;
 use crate::run::{Job, Run, Stop};
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
@@ -355,7 +356,7 @@ pub(super) fn fwm_equal_loss(db: f64, steps: usize) -> [f64; 3] {
     let alpha = crate::nonlinear::pulse::loss_per_m(db);
     let length = 0.01;
     let effective = if alpha > 0.0 {
-        -(-alpha * length).exp_m1() / alpha
+        -portable::exp_m1(-alpha * length) / alpha
     } else {
         length
     };
@@ -373,7 +374,7 @@ pub(super) fn fwm_equal_loss(db: f64, steps: usize) -> [f64; 3] {
         steps,
     )
     .expect(OK);
-    let decay = (-alpha * length).exp();
+    let decay = portable::exp(-alpha * length);
     [
         w.pump.norm_sqr() * decay,
         w.signal.norm_sqr() * decay,
@@ -442,7 +443,7 @@ pub(super) fn ring_against_closed_form(process: &str) -> (f64, f64, f64) {
         .as_ref()
         .unwrap_or_else(|| panic!("no ring: {:?}", s.notes));
     let k2 = RING_COUPLING;
-    let f2 = k2 / (1.0 - (1.0 - k2).sqrt()).powi(2);
+    let f2 = k2 / portable::powi(1.0 - (1.0 - k2).sqrt(), 2);
     let length_um = s.length_mm * 1000.0;
     let (single, resonant) = if process == "shg" {
         // η in 1/(W·µm²), P in W, L in µm; mW out
@@ -450,13 +451,13 @@ pub(super) fn ring_against_closed_form(process: &str) -> (f64, f64, f64) {
         let phase = 0.5 * s.residual_per_um * length_um;
         let single =
             eta * 1e-6 * length_um * length_um * crate::nonlinear::phase::sinc2(phase) * 1e3;
-        (single, f2.powi(3) * single)
+        (single, portable::powi(f2, 3) * single)
     } else {
         let gamma = s.gamma_per_w_m.expect("a gamma");
         let phase = 0.5 * s.mismatch_per_um * length_um;
-        let single =
-            (gamma * 10e-3 * length_um * 1e-6).powi(2) * crate::nonlinear::phase::sinc2(phase);
-        (single, f2.powi(4) * single)
+        let single = portable::powi(gamma * 10e-3 * length_um * 1e-6, 2)
+            * crate::nonlinear::phase::sinc2(phase);
+        (single, portable::powi(f2, 4) * single)
     };
     let gap = |a: f64, b: f64| (a / b - 1.0).abs();
     let worst = ring.build_ups.iter().map(|&b| gap(b, f2)).fold(

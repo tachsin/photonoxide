@@ -4,6 +4,7 @@
 //! GPU before each release (`cargo test --release --features gpu --test gpu_report -- --ignored`),
 //! not checked by CI; docs/validation.md is the same with or without a GPU.
 
+use crate::portable;
 use std::fmt::Write as _;
 use std::time::Instant;
 
@@ -56,7 +57,7 @@ fn walk(u: f64, steps: f64) -> f64 {
 /// largest value) moves by (20 / ln 10) δ / e in dB for a change δ in it, most at the smaller
 /// error, the CFS-PML's.
 fn roden_gedney_rounding() -> f64 {
-    let e = 10f64.powf(RODEN_GEDNEY_CPU[1] / 20.0);
+    let e = portable::powf(10f64, RODEN_GEDNEY_CPU[1] / 20.0);
     20.0 / std::f64::consts::LN_10 * walk(U32, RODEN_GEDNEY_STEPS) / e
 }
 

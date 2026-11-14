@@ -13,6 +13,7 @@
 //! ([`crate::sweep::SweepSet`]), and records S at its points from the interpolant with the
 //! worst entry's estimated error (docs/methods/sweep.md, In an FDFD job).
 
+use crate::portable;
 use num_complex::Complex64 as c64;
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::Deserialize;
@@ -929,7 +930,7 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         // how far S is from reciprocal: the largest |S_qp − S_pq|
         let reciprocity = (0..sm.len())
             .flat_map(|q| (0..q).map(move |p| (q, p)))
-            .map(|(q, p)| (sm[q][p] - sm[p][q]).norm())
+            .map(|(q, p)| portable::complex::abs(sm[q][p] - sm[p][q]))
             .fold(None, |most: Option<f64>, d| {
                 Some(most.map_or(d, |m| m.max(d)))
             });
@@ -1139,7 +1140,7 @@ fn launch(
         .ok()?
         .into_iter()
         .next()?;
-    let same = (mode.effective_index() - at_port.effective_index()).norm() < 1e-8;
+    let same = portable::complex::abs(mode.effective_index() - at_port.effective_index()) < 1e-8;
     same.then_some(mode)
 }
 

@@ -15,6 +15,7 @@
 //! draws the step's last frame: the planar layers, and over them the resist, a film deposited
 //! over an etched step and a film evaporated onto a stencil ([`crate::job::FrameFilm`]).
 
+use crate::portable;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -124,7 +125,7 @@ fn number(v: f64) -> String {
     if v == 0.0 || !v.is_finite() {
         return if v == 0.0 { "0".into() } else { v.to_string() };
     }
-    let digits = (3 - v.abs().log10().floor() as i32).max(0) as usize;
+    let digits = (3 - portable::log10(v.abs()).floor() as i32).max(0) as usize;
     let s = format!("{v:.digits$}");
     if s.contains('.') {
         s.trim_end_matches('0').trim_end_matches('.').to_string()

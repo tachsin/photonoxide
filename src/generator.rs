@@ -38,6 +38,7 @@
 //!
 //! See docs/methods/generators.md for each generator's definition and its validation.
 
+use crate::portable;
 use std::f64::consts::FRAC_PI_2;
 use std::fmt;
 
@@ -142,9 +143,10 @@ impl Port {
     /// layer, within `tolerance` of position and width and 1e-9 degrees of direction.
     pub fn meets(&self, other: &Port, tolerance: Length) -> bool {
         let tol = tolerance.to_um();
-        let d = (self.position.x - other.position.x)
-            .to_um()
-            .hypot((self.position.y - other.position.y).to_um());
+        let d = portable::hypot(
+            (self.position.x - other.position.x).to_um(),
+            (self.position.y - other.position.y).to_um(),
+        );
         let turn = degrees(other.direction - self.direction - 180.0);
         d <= tol
             && (self.width - other.width).to_um().abs() <= tol
@@ -170,7 +172,7 @@ pub(crate) fn sin_cos_deg(d: f64) -> (f64, f64) {
             _ => (-1.0, 0.0),
         }
     } else {
-        d.to_radians().sin_cos()
+        portable::sin_cos(d.to_radians())
     }
 }
 
@@ -181,7 +183,7 @@ pub(crate) fn angle_of(v: [f64; 2]) -> f64 {
         (x, y) if x == 0.0 && y > 0.0 => 90.0,
         (x, y) if y == 0.0 && x < 0.0 => 180.0,
         (x, y) if x == 0.0 && y < 0.0 => 270.0,
-        (x, y) => degrees(y.atan2(x).to_degrees()),
+        (x, y) => degrees(portable::atan2(y, x).to_degrees()),
     }
 }
 

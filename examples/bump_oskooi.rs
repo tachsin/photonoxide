@@ -49,10 +49,9 @@
 //! cargo run --release --example bump_oskooi
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use num_complex::Complex64 as c64;
@@ -203,23 +202,26 @@ fn scattered(resolution: usize, smoothed: bool) -> f64 {
         }
     }
     // the dipole is a current on one value, J = p/h² for a moment p: per unit moment
-    flux * (resolution as f64).powi(4)
+    flux * portable::powi(resolution as f64, 4)
 }
 
 /// The least-squares slope of log y against log x.
 fn slope(points: &[(f64, f64)]) -> f64 {
     let n = points.len() as f64;
-    let (lx, ly): (Vec<f64>, Vec<f64>) = points.iter().map(|&(x, y)| (x.ln(), y.ln())).unzip();
+    let (lx, ly): (Vec<f64>, Vec<f64>) = points
+        .iter()
+        .map(|&(x, y)| (portable::ln(x), portable::ln(y)))
+        .unzip();
     let (mx, my) = (lx.iter().sum::<f64>() / n, ly.iter().sum::<f64>() / n);
     let sxy: f64 = lx.iter().zip(&ly).map(|(x, y)| (x - mx) * (y - my)).sum();
-    let sxx: f64 = lx.iter().map(|x| (x - mx).powi(2)).sum();
+    let sxx: f64 = lx.iter().map(|x| portable::powi(x - mx, 2)).sum();
     sxy / sxx
 }
 
 /// A value rounded to `digits` significant digits, so that what is printed doesn't change with
 /// the last bits of a platform's math library.
 fn rounded(v: f64, digits: i32) -> f64 {
-    let scale = 10f64.powi(digits - 1 - v.abs().log10().floor() as i32);
+    let scale = portable::powi(10f64, digits - 1 - portable::log10(v.abs()).floor() as i32);
     (v * scale).round() / scale
 }
 

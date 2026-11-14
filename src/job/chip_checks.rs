@@ -9,6 +9,7 @@ use super::{Event, SweepAxis};
 use crate::circuit::components::mzi_closed_form;
 use crate::circuit::{SMatrix, objective};
 use crate::device::{Goal, Limit, Spec};
+use crate::portable;
 use crate::run::{Run, Stop, replay};
 use crate::units::Wavelength;
 use crate::validation::{Case, Outcome, Tier};
@@ -112,7 +113,7 @@ pub(crate) fn closed_form_error() -> crate::Result<f64> {
             (3, 0, m[1][0]),
             (3, 1, m[1][1]),
         ] {
-            worst = worst.max((s[(q, p)] - e).norm());
+            worst = worst.max(portable::complex::abs(s[(q, p)] - e));
         }
     }
     Ok(worst)

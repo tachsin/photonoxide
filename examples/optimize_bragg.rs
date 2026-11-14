@@ -26,10 +26,9 @@
 //! cargo run --release --example optimize_bragg
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use genoxide::prelude::*;
@@ -106,8 +105,8 @@ fn quarter_wave(n: usize) -> Vec<f64> {
 
 /// Its reflectance in closed form.
 fn closed_form(n: usize) -> f64 {
-    let y = (HIGH / LOW).powi(n as i32) * SUBSTRATE;
-    ((1.0 - y) / (1.0 + y)).powi(2)
+    let y = portable::powi(HIGH / LOW, n as i32) * SUBSTRATE;
+    portable::powi((1.0 - y) / (1.0 + y), 2)
 }
 
 /// The largest relative difference between the exact gradient at `d` and fourth-order central

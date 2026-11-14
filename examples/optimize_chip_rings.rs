@@ -31,10 +31,9 @@
 //! cargo run --release --example optimize_chip_rings
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::f64::consts::{PI, TAU};
 use std::process::ExitCode;
 
@@ -191,7 +190,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         )?
         .figure("C")
         .map_or(f64::NAN, |f| f.value);
-    let bus_length = (BUS.sqrt()).asin() / c_bus;
+    let bus_length = portable::asin(BUS.sqrt()) / c_bus;
     let db = StripBend::new();
     let half = db.component(
         &Values::new(&db, &[("angle", 180.0), ("radius", FIXED), ("loss", 0.0)])?,
@@ -206,7 +205,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         let s = dc
             .component(&v, photonoxide::circuit::Fidelity::Analytic)?
             .s_matrix(at)?;
-        Ok(s[(2, 1)].arg())
+        Ok(portable::complex::arg(s[(2, 1)]))
     };
     let beta = TAU * n_eff / LAMBDA;
     let rest =

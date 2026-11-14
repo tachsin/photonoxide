@@ -1,5 +1,6 @@
 //! The studio's 3D preview: a job's scene and its ports.
 
+use crate::portable;
 use serde::{Deserialize, Serialize};
 
 use super::check::{check, task_error};
@@ -187,8 +188,8 @@ fn polygon64(center: Point, radius: f64, turn: f64) -> Vec<[f64; 2]> {
         .map(|k| {
             let a = turn * std::f64::consts::TAU * f64::from(k) / 64.0;
             [
-                center.x.to_um() + radius * a.cos(),
-                center.y.to_um() + radius * a.sin(),
+                center.x.to_um() + radius * portable::cos(a),
+                center.y.to_um() + radius * portable::sin(a),
             ]
         })
         .collect()
@@ -477,7 +478,7 @@ fn mitred(ring: &[[f64; 2]], d: f64) -> Vec<[f64; 2]> {
     let n = ring.len();
     let normal = |a: [f64; 2], b: [f64; 2]| {
         let (ex, ey) = (b[0] - a[0], b[1] - a[1]);
-        let l = ex.hypot(ey).max(f64::MIN_POSITIVE);
+        let l = portable::hypot(ex, ey).max(f64::MIN_POSITIVE);
         [ey / l, -ex / l]
     };
     (0..n)

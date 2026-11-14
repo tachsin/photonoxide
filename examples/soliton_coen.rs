@@ -17,10 +17,9 @@
 //! cargo run --release --example soliton_coen
 //! ```
 
-#![allow(clippy::disallowed_methods)] // until #822 converts it to `photonoxide::portable`
-
 mod common;
 
+use photonoxide::portable;
 use std::process::ExitCode;
 
 use common::{Checks, Setup, number};
@@ -52,7 +51,7 @@ fn soliton(ring: &Ring, step: f64) -> photonoxide::Result<(f64, f64)> {
 /// `x` to `decimals` decimals: what the output prints the same on every system (a value's last
 /// bits differ between their maths libraries).
 fn shown(x: f64, decimals: i32) -> f64 {
-    let s = 10f64.powi(decimals);
+    let s = portable::powi(10f64, decimals);
     (x * s).round() / s
 }
 

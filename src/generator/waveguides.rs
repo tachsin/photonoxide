@@ -1,5 +1,6 @@
 //! Waveguides: a straight, a taper, an arc or partial Euler bend, an S-bend and a spiral.
 
+use crate::portable;
 use std::f64::consts::PI;
 
 use super::{Drawing, Generator, Port, degrees, finite, positive, refuse, um};
@@ -262,7 +263,7 @@ impl Bend {
     fn end(&self) -> Point {
         let r = self.radius.to_um();
         let a = self.angle.to_radians();
-        let (s, c) = a.abs().sin_cos();
+        let (s, c) = portable::sin_cos(a.abs());
         Point::um(r * s, a.signum() * (r - r * c))
     }
 }
@@ -380,8 +381,8 @@ impl SBend {
                 if !(0.0..=1.0).contains(&p) {
                     return Err(refuse(k, format!("p must be from 0 to 1, got {p}")));
                 }
-                let theta = 2.0 * (h / l).atan();
-                let r = l / (2.0 * theta.sin().abs());
+                let theta = 2.0 * portable::atan(h / l);
+                let r = l / (2.0 * portable::sin(theta).abs());
                 start.euler(um(r), theta, p).euler(um(r), -theta, p)
             }
             SBendKind::Bezier => start.bezier(vec![

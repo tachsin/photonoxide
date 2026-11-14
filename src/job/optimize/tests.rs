@@ -2,6 +2,7 @@
 //! reductions, the hypervolume, the same bits on any number of threads, and genoxide's
 //! L-BFGS-B (a dev-dependency) taking a coupler to its 3 dB length in closed form.
 
+use crate::portable;
 use genoxide::prelude::{Differentiable, Engine, Lbfgsb, Real, Reals, Stop as GStop};
 
 use super::*;
@@ -307,7 +308,7 @@ fn a_continuation_sets_its_parameter_stage_by_stage() {
         p.set_stage(k).unwrap();
         assert_eq!(p.stage_value(), Some(beta));
         let v = p.evaluate(&x, false).values[0];
-        split.push((v * beta).atanh() / beta);
+        split.push(portable::atanh(v * beta) / beta);
     }
     assert!(split[0].abs() > 1e-3, "{split:?}");
     assert!(
