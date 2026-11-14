@@ -312,7 +312,7 @@ const STALL: usize = 6;
 /// structure the multifrontal analysis declines.
 enum Factors {
     Own(Multifrontal),
-    Faer(Box<faer::sparse::linalg::solvers::Lu<usize, c64>>),
+    Faer(Box<fixed::SparseLu>),
 }
 
 impl Factors {
@@ -320,7 +320,6 @@ impl Factors {
         match self {
             Factors::Own(f) => f.solve(b),
             Factors::Faer(lu) => {
-                use faer::linalg::solvers::Solve;
                 let mut rhs = Mat::<c64>::from_fn(b.len(), 1, |i, _| b[i]);
                 lu.solve_in_place(rhs.as_mut());
                 (0..b.len()).map(|i| rhs[(i, 0)]).collect()
@@ -382,8 +381,7 @@ impl Shifts<'_> {
     fn factor(&self, z: c64) -> Result<Factors> {
         let m = Self::matrix(self.pencil, z)?;
         let Some(analysis) = &self.analysis else {
-            return m
-                .sp_lu()
+            return fixed::SparseLu::new(m.as_ref())
                 .map(|lu| Factors::Faer(Box::new(lu)))
                 .map_err(|e| failed(format!("the shifted matrix at {z} is singular: {e:?}")));
         };

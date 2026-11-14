@@ -32,7 +32,6 @@ pub(crate) mod checks;
 mod tests;
 
 use faer::Mat;
-use faer::linalg::solvers::Solve;
 use num_complex::Complex64 as c64;
 
 use super::solve::Solved;
@@ -224,14 +223,14 @@ impl Circuit {
 /// X of Mᵀ X = `rhs`, with the circuit solve's factorization of M and one step of iterative
 /// refinement.
 fn transposed(solved: &Solved, rhs: &Mat<c64>) -> Mat<c64> {
-    let mut x = solved.lu.solve_transpose(rhs);
+    let mut x = solved.lu.solve_transpose(rhs.as_ref());
     let mut residual = rhs.clone();
     for t in &solved.triplets {
         for c in 0..rhs.ncols() {
             residual[(t.col, c)] -= t.val * x[(t.row, c)];
         }
     }
-    let correction = solved.lu.solve_transpose(&residual);
+    let correction = solved.lu.solve_transpose(residual.as_ref());
     x += &correction;
     x
 }

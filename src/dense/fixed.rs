@@ -42,9 +42,13 @@ use faer::linalg::qr::no_pivoting::factor::{
     qr_in_place, qr_in_place_scratch, recommended_block_size,
 };
 use faer::linalg::svd::{self, ComputeSvdVectors, SvdError};
+use faer::sparse::linalg::LuError;
+use faer::sparse::linalg::lu;
+use faer::sparse::{FaerError, SparseColMatRef, SymbolicSparseColMatRef};
 use faer::traits::ComplexField;
-use faer::{Conj, Mat, MatRef, Par};
+use faer::{Conj, Mat, MatMut, MatRef, Par};
 use num_complex::Complex64 as c64;
+use std::sync::Arc;
 
 /// The parallelism of every decomposition here: sequential, whatever rayon's pool.
 pub(crate) const PAR: Par = Par::Seq;
@@ -329,6 +333,96 @@ pub(crate) fn generalized_eigen(
         Default::default(),
     )?;
     Ok(GeneralizedEigen { s_a, s_b, u })
+}
+
+/// The parallelism of the sparse LU: [`SparseLu`].
+pub(crate) const SPARSE_PAR: Par = Par::Seq;
+
+/// faer's sparse LU with partial pivoting (its `sp_lu`), on [`SPARSE_PAR`] instead of faer's
+/// global parallelism: faer's supernodal factorization takes another path on rayon's threads
+/// than sequentially, and other bits on each number of them (its panels' LU).
+pub(crate) struct SparseLu {
+    symbolic: Arc<lu::SymbolicLu<usize>>,
+    numeric: lu::NumericLu<usize, c64>,
+}
+
+impl SparseLu {
+    /// The symbolic analysis of a pattern, to factorize several matrices of it with
+    /// [`SparseLu::with_symbolic`]. faer's `SymbolicLu::try_new`.
+    pub(crate) fn analyse(
+        pattern: SymbolicSparseColMatRef<'_, usize>,
+    ) -> Result<Arc<lu::SymbolicLu<usize>>, FaerError> {
+        Ok(Arc::new(lu::factorize_symbolic_lu(
+            pattern,
+            Default::default(),
+        )?))
+    }
+
+    /// The LU of `a`. faer's `sp_lu`.
+    pub(crate) fn new(a: SparseColMatRef<'_, usize, c64>) -> Result<SparseLu, LuError> {
+        SparseLu::with_symbolic(SparseLu::analyse(a.symbolic())?, a)
+    }
+
+    /// The LU of `a`, whose pattern `symbolic` analysed. faer's `Lu::try_new_with_symbolic`.
+    pub(crate) fn with_symbolic(
+        symbolic: Arc<lu::SymbolicLu<usize>>,
+        a: SparseColMatRef<'_, usize, c64>,
+    ) -> Result<SparseLu, LuError> {
+        let mut numeric = lu::NumericLu::new();
+        let mut scratch = MemBuffer::try_new(
+            symbolic.factorize_numeric_lu_scratch::<c64>(SPARSE_PAR, Default::default()),
+        )?;
+        symbolic.factorize_numeric_lu(
+            &mut numeric,
+            a,
+            SPARSE_PAR,
+            MemStack::new(&mut scratch),
+            Default::default(),
+        )?;
+        Ok(SparseLu { symbolic, numeric })
+    }
+
+    /// B ← A⁻¹ B.
+    pub(crate) fn solve_in_place(&self, rhs: MatMut<'_, c64>) {
+        let mut scratch = MemBuffer::new(
+            self.symbolic
+                .solve_in_place_scratch::<c64>(rhs.ncols(), SPARSE_PAR),
+        );
+        lu::LuRef::new_unchecked(&self.symbolic, &self.numeric).solve_in_place_with_conj(
+            Conj::No,
+            rhs,
+            SPARSE_PAR,
+            MemStack::new(&mut scratch),
+        );
+    }
+
+    /// B ← A⁻ᵀ B.
+    pub(crate) fn solve_transpose_in_place(&self, rhs: MatMut<'_, c64>) {
+        let mut scratch = MemBuffer::new(
+            self.symbolic
+                .solve_transpose_in_place_scratch::<c64>(rhs.ncols(), SPARSE_PAR),
+        );
+        lu::LuRef::new_unchecked(&self.symbolic, &self.numeric).solve_transpose_in_place_with_conj(
+            Conj::No,
+            rhs,
+            SPARSE_PAR,
+            MemStack::new(&mut scratch),
+        );
+    }
+
+    /// A⁻¹ B, B unchanged.
+    pub(crate) fn solve(&self, rhs: MatRef<'_, c64>) -> Mat<c64> {
+        let mut x = rhs.to_owned();
+        self.solve_in_place(x.as_mut());
+        x
+    }
+
+    /// A⁻ᵀ B, B unchanged.
+    pub(crate) fn solve_transpose(&self, rhs: MatRef<'_, c64>) -> Mat<c64> {
+        let mut x = rhs.to_owned();
+        self.solve_transpose_in_place(x.as_mut());
+        x
+    }
 }
 
 /// The eigenvalues alone of the square complex `a`. faer's `eigenvalues`.
