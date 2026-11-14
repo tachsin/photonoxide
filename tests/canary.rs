@@ -27,6 +27,7 @@
 //! | `canary_portable_functions_bit_for_bit` | `photonoxide::portable` on the libm table's arguments | by construction and exact (mpmath) | bit-exact, per function; and the ulps each one's doc states |
 //! | `canary_dense_lu_and_qr_backward_errors` | faer | self-consistency | backward error ≤ 10·n·ε·‖A‖ |
 //! | `canary_dense_eigen_and_svd` | faer | exact (mpmath) and self-consistency | Weyl: ≤ 10·n·ε·‖A‖₂; residuals ≤ 10·n·ε·‖A‖ |
+//! | `canary_faer_dense_kernels_bit_for_bit` | faer's product, LUs, QR, SVD, eigensolvers, 4 to 256 | self-consistency; the hashes printed (`FAER …`) for comparison between systems by hand | bit-exact computed again; bit-exact over sequential and 1 to 5 threads but for QR, the SVDs and the eigenvectors (they follow the threads) |
 //! | `canary_slab_modes_against_their_exact_roots` | mode::slab (libm's sqrt, atan2) | exact (mpmath) | the condition's rounding over its slope, plus the bisection's last step |
 //! | `canary_fdfd_tiny_solve` | FDFD, sparse LU, threads | self-consistency | residual and reciprocity ≤ 1e-8 (round-off rule); bit-exact over 1, 2, 5 threads |
 //! | `canary_fdtd_2d_bit_hash` | FDTD, threads | by construction | bit-exact, on 1, 2 and 5 threads |
@@ -44,6 +45,7 @@
 //! | `canary_tests::canary_sparse_lu_against_dense` | own multifrontal LU on faer | self-consistency | backward error ≤ 10·n·ε·‖A‖; forward ≤ κ·(both backward errors) |
 //! | `canary_tests::canary_qmr_and_gmres_iterations_are_the_closed_form` | QMR, GMRES | closed form | k iterations for k distinct eigenvalues, within 5 % |
 //! | `canary_tests::canary_least_squares_and_its_jacobi_fallback` | `lstsq` (faer QR, SVD; Jacobi) | self-consistency | forward error ≤ 10·n·ε·κ; Weyl between the two SVDs |
+//! | `canary_tests::canary_faer_least_squares_bit_for_bit` | `lstsq`, 30 × 8 to 400 × 64 | self-consistency; the hashes printed (`FAER r_lstsq …`) | bit-exact computed again (its bits follow faer's threads: printed, not asserted) |
 //! | `expr::tests::canary_erf_to_round_off` | own erf | exact (mpmath) | the series' rounding |
 //! | `geometry::region_tests::canary_gamma_to_fifteen_digits` | own Γ (Lanczos) | exact (mpmath) | its doc's 15 digits for the approximation, plus its arithmetic's running error |
 //! | `nonlinear::fft::tests::canary_fft_against_the_exact_dft` | own FFT, libm twiddles | exact (mpmath) | Higham's bound for the FFT |
@@ -115,6 +117,9 @@
 
 #[path = "../src/canary_tests/golden.rs"]
 mod golden;
+
+#[path = "../src/canary_tests/faer_bits.rs"]
+mod faer_bits;
 
 use std::hint::black_box;
 
@@ -696,6 +701,117 @@ fn canary_dense_eigen_and_svd() {
             res / (ac.norm_l2() * v.norm_l2())
         );
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// (c′) faer's dense kernels, bit for bit
+// ---------------------------------------------------------------------------------------------
+
+/// The square sizes: 4, 8 and 16 take nano-gemm for the product (M·N·K ≤ 4096), 32 to 256
+/// private-gemm-x86 on x86-64 and gemm on ARM; the factorizations block from about 32 on.
+const FAER_SQUARE: [usize; 7] = [4, 8, 16, 32, 64, 128, 256];
+
+/// What the library takes from faer, on one matrix type (`faer_bits::real` or
+/// `faer_bits::complex`), each result's bits hashed: the product, LU with partial and with full
+/// pivoting (a solve with two right-hand sides, the inverse), Householder QR (R, the thin Q), the
+/// singular values alone and the full SVD (U, Σ, V), the eigenvalues alone and with their vectors;
+/// on the square sizes, then on a few shapes either side of nano-gemm's bound and tall and wide.
+macro_rules! faer_items {
+    ($out:expr, $p:literal, $make:path) => {{
+        use faer::linalg::solvers::{DenseSolveCore, Solve};
+        let out: &mut Vec<faer_bits::Item> = $out;
+        let mut push = |name: &str, size: &str, h: &mut faer_bits::Bits| {
+            out.push(faer_bits::Item {
+                name: format!("{}_{name}", $p),
+                size: size.to_owned(),
+                hash: h.finish(),
+            });
+        };
+        let new = faer_bits::Bits::new;
+        for n in FAER_SQUARE {
+            let s = format!("{n}x{n}");
+            let seed = 100 * n as u64;
+            let a = $make(n, n, seed);
+            let b = $make(n, n, seed + 1);
+            let rhs = $make(n, 2, seed + 2);
+            push("matmul", &s, new().mat((&a * &b).as_ref()));
+            let lu = a.partial_piv_lu();
+            push("plu_solve", &s, new().mat(lu.solve(&rhs).as_ref()));
+            push("plu_inverse", &s, new().mat(lu.inverse().as_ref()));
+            let lu = a.full_piv_lu();
+            push("flu_solve", &s, new().mat(lu.solve(&rhs).as_ref()));
+            push("flu_inverse", &s, new().mat(lu.inverse().as_ref()));
+            let qr = a.qr();
+            push("qr_r", &s, new().mat(qr.thin_R()));
+            push("qr_q", &s, new().mat(qr.compute_thin_Q().as_ref()));
+            let sv = a.singular_values().expect("the singular values");
+            push("svd_values", &s, new().values(&sv));
+            let svd = a.svd().expect("the SVD");
+            push(
+                "svd_full",
+                &s,
+                new().mat(svd.U()).col(svd.S().column_vector()).mat(svd.V()),
+            );
+            let ev = a.eigenvalues().expect("the eigenvalues");
+            push("eigenvalues", &s, new().values(&ev));
+            let eig = a.eigen().expect("the eigendecomposition");
+            push(
+                "eigen_full",
+                &s,
+                new().col(eig.S().column_vector()).mat(eig.U()),
+            );
+        }
+        // products either side of nano-gemm's bound (16·17·16 > 4096 ≥ 64·8·8) and larger
+        for (m, k, n) in [(16, 17, 16), (64, 8, 8), (65, 8, 8), (100, 30, 20)] {
+            let seed = (1000 * m + 10 * k + n) as u64;
+            let (a, b) = ($make(m, k, seed), $make(k, n, seed + 1));
+            push(
+                "matmul",
+                &format!("{m}x{k}x{n}"),
+                new().mat((&a * &b).as_ref()),
+            );
+        }
+        for (m, n) in [(100, 30), (30, 100)] {
+            let s = format!("{m}x{n}");
+            let a = $make(m, n, (1000 * m + n) as u64);
+            let qr = a.qr();
+            push("qr_r", &s, new().mat(qr.thin_R()));
+            push("qr_q", &s, new().mat(qr.compute_thin_Q().as_ref()));
+            let sv = a.singular_values().expect("the singular values");
+            push("svd_values", &s, new().values(&sv));
+            let svd = a.thin_svd().expect("the thin SVD");
+            push(
+                "svd_thin",
+                &s,
+                new().mat(svd.U()).col(svd.S().column_vector()).mat(svd.V()),
+            );
+        }
+    }};
+}
+
+fn faer_dense_items() -> Vec<faer_bits::Item> {
+    let mut out = Vec::new();
+    faer_items!(&mut out, "c", faer_bits::complex);
+    faer_items!(&mut out, "r", faer_bits::real);
+    out
+}
+
+/// faer's dense kernels on this system, bit for bit: a hash of every result of
+/// [`faer_items`] (complex and real) on inputs whose bits are the same everywhere, printed as
+/// `FAER <name> <size> <hash>` with the CPU's features and the crates' versions
+/// (`src/canary_tests/faer_bits.rs`). Asserted: what holds on one system, the same bits when
+/// computed again on 5 threads, and the same bits sequential and on 1 to 5 threads but for QR,
+/// the SVDs and the eigenvectors, whose bits follow the number of threads
+/// (`faer_bits::splits_by_threads`: printed, not asserted). Not asserted: the hashes against another system's (#822: faer
+/// chooses its kernels by the CPU).
+#[test]
+fn canary_faer_dense_kernels_bit_for_bit() {
+    let Some(ways) =
+        faer_bits::every_way("canary_faer_dense_kernels_bit_for_bit", faer_dense_items)
+    else {
+        return;
+    };
+    faer_bits::assert_what_holds_on_one_system(&ways);
 }
 
 // ---------------------------------------------------------------------------------------------
