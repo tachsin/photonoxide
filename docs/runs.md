@@ -18,14 +18,33 @@ prints the run's folder on its first line of output (`runs/20261014-120000-strip
 | 2 | wasn't started: the command line was wrong (an unknown command or flag, or no job file named) |
 | 3 | stopped by its timeout: the job's `timeout_minutes` or `--timeout`, whichever is shorter |
 | 4 | stopped on request: its window was closed before it finished |
+| 5 | finished, with `--strict`, and printed a `warning:` or a `convergence:` line (below): a number it says may be wrong, `unchecked` or `not_converged`; the results are written as for 0 |
 
 A stopped run's folder holds what was done before it stopped.
 
-What the run's numbers may not be, it says on stderr, without changing the exit code: a line
-`warning: ...` before it starts for a chip instance's parameter that nothing uses (a misspelled
-name, which leaves the parameter at its default; a device job refuses one), and at its end a
-line `convergence: ...` for each number `results.json` holds as `unchecked` or `not_converged`
-(below), and for a modes sweep, whose points are each solved on one grid.
+What the run's numbers may not be, it says on stderr, without changing the exit code:
+
+- a line `warning: ...` before it starts for a chip instance's parameter that nothing uses (a
+  misspelled name, which leaves the parameter at its default; a device job refuses one), and for
+  a modes job's guide with fewer than two cells across it at the job's step;
+- a line `warning: ...` at its end for each warning the run recorded (an event `warning` in
+  `events.jsonl`), but those said before it started: a modes job's mode whose field reaches the
+  window's edge, a solve or a sweep point that found no mode
+  ([modes jobs' warnings](methods/vector.md#what-a-modes-job-warns-of));
+- a line `scheme: ...` naming the scheme a solver ran, where it says one: a modes job's standard
+  finite differences, first order at the guides' corners;
+- a line `convergence: ...` for each number `results.json` holds as `unchecked` or
+  `not_converged` (below), and for a modes sweep, whose points are each solved on one grid.
+
+A warning names the number behind it and what to change; it is never a refusal, since a job may
+mean what it asks (validation's crossing slabs cut their window through two slabs on purpose).
+`results.json` doesn't hold the warnings yet: the record's `warning` events do.
+
+`--strict` turns those lines into an exit code for a script or CI: a run that finished with any
+`warning:` or `convergence:` line leaves its files as it would have and exits 5 instead of 0,
+saying how many of each on its last line. A run that stopped keeps its 3 or 4, and one that
+failed its 1; without the flag nothing changes. The `scheme:` line doesn't count: it says how
+the numbers were made, not that they may be wrong.
 
 ## The files
 

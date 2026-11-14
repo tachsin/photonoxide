@@ -61,14 +61,33 @@ impl CrossSection {
     ///
     /// [`crate::Error::InvalidValue`] if an edge's slab mode can't be solved.
     pub fn surrounding_index(&self, wavelength: Wavelength) -> Result<f64> {
+        Ok(self
+            .edge_indices(wavelength)?
+            .into_iter()
+            .flatten()
+            .fold(0.0f64, f64::max))
+    }
+
+    /// Each edge's index of [`CrossSection::surrounding_index`], west, east, south and north:
+    /// the highest index a wave travels with along it, `None` for an edge with a wall. A mode
+    /// whose n_eff is above an edge's decays towards it, at k₀ (n_eff² − n²)^½ (a modes job's
+    /// check of its window, `job::modes_trust`).
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Error::InvalidValue`] if an edge's slab mode can't be solved.
+    pub(crate) fn edge_indices(&self, wavelength: Wavelength) -> Result<[Option<f64>; 4]> {
         let b = self.boundaries;
-        let mut highest = 0.0f64;
-        for (edge, boundary, ends) in [
+        let mut indices = [None; 4];
+        for (k, (edge, boundary, ends)) in [
             (Edge::West, b.west, [b.south, b.north]),
             (Edge::East, b.east, [b.south, b.north]),
             (Edge::South, b.south, [b.west, b.east]),
             (Edge::North, b.north, [b.west, b.east]),
-        ] {
+        ]
+        .into_iter()
+        .enumerate()
+        {
             if boundary != Boundary::Zero {
                 continue;
             }
@@ -88,9 +107,9 @@ impl CrossSection {
                 // a guide runs into the edge: its slab mode, if it has one above the corners
                 open.max(self.edge_slab(edge, &cells, wavelength)?)
             };
-            highest = highest.max(along);
+            indices[k] = Some(along);
         }
-        Ok(highest)
+        Ok(indices)
     }
 
     /// The cells along an edge, west to east or south to north.
