@@ -207,10 +207,20 @@ fn cpu_name() -> String {
         std::fs::read_to_string("/proc/cpuinfo")
             .ok()
             .and_then(|t| {
-                t.lines()
-                    .find(|l| l.starts_with("model name") || l.starts_with("Model"))
-                    .and_then(|l| l.split(':').nth(1))
-                    .map(str::to_owned)
+                // x86's model name; ARM's has none, but its implementer and part numbers
+                let field = |key: &str| {
+                    t.lines()
+                        .find(|l| l.starts_with(key))
+                        .and_then(|l| l.split(':').nth(1))
+                        .map(|v| v.trim().to_owned())
+                };
+                field("model name").or_else(|| {
+                    Some(format!(
+                        "implementer {} part {}",
+                        field("CPU implementer")?,
+                        field("CPU part")?
+                    ))
+                })
             })
             .unwrap_or_default()
     } else if cfg!(target_os = "macos") {
@@ -229,15 +239,18 @@ fn cpu_name() -> String {
 /// size, as the library's calls do (it never sets faer's parallelism).
 const THREADS: [usize; 5] = [1, 2, 3, 4, 5];
 
-/// Whether an item goes through faer's blocked Householder code (QR, and the SVDs: Q's
-/// accumulation, and the QR a rectangular SVD starts with), whose bits depend on the number of
-/// threads: faer 0.24's `linalg/householder.rs` divides the columns a block reflector updates
-/// among min(threads, 4) tasks above a size threshold, and its products take the threads that
-/// are left. Measured on Windows x86-64 (November 2026): QR at 100 × 30 and from 128 on, and the
-/// SVDs through it, change with the threads; the product, both LUs and the eigensolvers gave the
-/// same bits on 1 to 5 threads.
+/// Whether an item goes through faer's blocked Householder code (QR; the SVDs, through the QR a
+/// rectangular one starts with and the accumulation of U and V; the eigenvectors, through the
+/// accumulation of the Hessenberg reduction's Q), whose bits depend on the number of threads:
+/// faer 0.24's `linalg/householder.rs` divides the columns a block reflector updates among
+/// min(threads, 4) tasks above a size threshold, and its products take the threads that are
+/// left. Measured in November 2026: QR at 100 × 30 and from 128 on, and the SVDs through it,
+/// change with the threads on Windows x86-64 and Linux ARM, the eigenvectors at 128 on Linux ARM;
+/// the product, both LUs and the eigenvalues alone gave the same bits on 1 to 5 threads.
 pub(crate) fn splits_by_threads(name: &str) -> bool {
-    name.contains("qr") || name.contains("svd") || name.contains("lstsq")
+    ["qr", "svd", "lstsq", "eigen_full"]
+        .iter()
+        .any(|n| name.contains(n))
 }
 
 /// What `compute` gives every way: faer sequential (in a child process, since faer's

@@ -798,9 +798,9 @@ fn faer_dense_items() -> Vec<faer_bits::Item> {
 /// [`faer_items`] (complex and real) on inputs whose bits are the same everywhere, printed as
 /// `FAER <name> <size> <hash>` with the CPU's features and the crates' versions
 /// (`src/canary_tests/faer_bits.rs`). Asserted: what holds on one system, the same bits when
-/// computed again on 5 threads, and the same bits sequential and on 1 to 5 threads but for QR
-/// and the SVDs, whose bits follow the number of threads (`faer_bits::splits_by_threads`:
-/// printed, not asserted). Not asserted: the hashes against another system's (#822: faer
+/// computed again on 5 threads, and the same bits sequential and on 1 to 5 threads but for QR,
+/// the SVDs and the eigenvectors, whose bits follow the number of threads
+/// (`faer_bits::splits_by_threads`: printed, not asserted). Not asserted: the hashes against another system's (#822: faer
 /// chooses its kernels by the CPU).
 #[test]
 fn canary_faer_dense_kernels_bit_for_bit() {
