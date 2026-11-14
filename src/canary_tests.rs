@@ -5,6 +5,7 @@
 //! test (`expr::tests::canary_erf_to_round_off`, `geometry::region_tests::canary_gamma_to_fifteen_digits`,
 //! `nonlinear::fft::tests::canary_fft_against_the_exact_dft`): this module can't reach them.
 
+mod faer_bits;
 pub(crate) mod golden;
 
 use crate::portable;
@@ -419,4 +420,36 @@ fn canary_least_squares_and_its_jacobi_fallback() {
     let allowed = 10.0 * n as f64 * EPS * kappa;
     println!("least squares: κ {kappa:.2e}, forward error {off:.2e} (allowed {allowed:.2e})");
     assert!(off <= allowed, "forward error {off:e} > {allowed:e}");
+}
+
+/// The library's least squares (faer's QR, then faer's thin SVD of R) on exact inputs, bit for
+/// bit: the hash of the solution, printed as `FAER r_lstsq <size> <hash>` beside
+/// `tests/canary.rs`'s `canary_faer_dense_kernels_bit_for_bit` (faer_bits.rs says how). Asserted:
+/// the same bits computed again and on faer sequential, 1, 2 and 5 threads; not asserted: the
+/// hashes against another system's (#822).
+#[test]
+fn canary_faer_least_squares_bit_for_bit() {
+    fn items() -> Vec<faer_bits::Item> {
+        [(30, 8), (100, 30), (400, 64)]
+            .into_iter()
+            .map(|(m, n)| {
+                let seed = (1000 * m + n) as u64;
+                let x = crate::lstsq::least_squares(
+                    faer_bits::real(m, n, seed),
+                    &faer_bits::real(m, 1, seed + 1),
+                );
+                faer_bits::Item {
+                    name: "r_lstsq".to_owned(),
+                    size: format!("{m}x{n}"),
+                    hash: faer_bits::Bits::new().values(&x).finish(),
+                }
+            })
+            .collect()
+    }
+    let Some(ways) =
+        faer_bits::every_way("canary_tests::canary_faer_least_squares_bit_for_bit", items)
+    else {
+        return;
+    };
+    faer_bits::assert_what_holds_on_one_system(&ways);
 }
