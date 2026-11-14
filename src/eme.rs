@@ -132,8 +132,8 @@ pub use modes::Mode;
 pub use periodic::Bloch;
 pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
 pub use spectrum::Spectrum;
-pub use tangent::SectionParameter;
 pub(crate) use spectrum::entries;
+pub use tangent::SectionParameter;
 pub use three::{Eme3d, Section3d};
 
 /// A wall at an edge of the window.

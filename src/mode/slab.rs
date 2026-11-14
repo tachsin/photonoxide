@@ -219,9 +219,17 @@ impl SlabMode {
         };
         let c_core = change(k2 * n2 / h, dr1_core * q, dr3_core * p, 0.0);
         // a cladding's index moves its decay and its ratio
-        let dr1_below = if tm { -2.0 * n2 * n2 / (n1 * n1 * n1) } else { 0.0 };
+        let dr1_below = if tm {
+            -2.0 * n2 * n2 / (n1 * n1 * n1)
+        } else {
+            0.0
+        };
         let c_below = change(0.0, r1 * (-k2 * n1 / q) + dr1_below * q, 0.0, 0.0);
-        let dr3_above = if tm { -2.0 * n2 * n2 / (n3 * n3 * n3) } else { 0.0 };
+        let dr3_above = if tm {
+            -2.0 * n2 * n2 / (n3 * n3 * n3)
+        } else {
+            0.0
+        };
         let c_above = change(0.0, 0.0, r3 * (-k2 * n3 / p) + dr3_above * p, 0.0);
         let c_t = change(0.0, 0.0, 0.0, 1.0);
         SlabDerivatives {
@@ -281,12 +289,16 @@ mod tests {
         // an asymmetric slab, two modes each way, so every term of the derivative is used
         let (t, n1, n2, n3) = (0.6, 1.444, 3.473, 1.2);
         let at = |t: f64, n1: f64, n2: f64, n3: f64, pol: Polarization, m: usize| {
-            Slab::new(n1, n2, n3, Length::um(t)).unwrap().modes(pol, lam(1.31))[m]
+            Slab::new(n1, n2, n3, Length::um(t))
+                .unwrap()
+                .modes(pol, lam(1.31))[m]
                 .effective_index()
         };
         for pol in [Polarization::Te, Polarization::Tm] {
             for m in 0..2 {
-                let d = Slab::new(n1, n2, n3, Length::um(t)).unwrap().modes(pol, lam(1.31))[m]
+                let d = Slab::new(n1, n2, n3, Length::um(t))
+                    .unwrap()
+                    .modes(pol, lam(1.31))[m]
                     .derivatives();
                 let diff = |f: &dyn Fn(f64) -> f64, h: f64| {
                     (8.0 * (f(h) - f(-h)) - (f(2.0 * h) - f(-2.0 * h))) / (12.0 * h)

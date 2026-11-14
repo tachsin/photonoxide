@@ -225,7 +225,9 @@ impl Kerr2d {
             if !accepted {
                 return Err(Error::invalid(
                     "kerr",
-                    format!("no Newton step lowers the residual {r:.2e}: start from a nearer field"),
+                    format!(
+                        "no Newton step lowers the residual {r:.2e}: start from a nearer field"
+                    ),
                 ));
             }
         }
@@ -317,7 +319,8 @@ fn real_linear(
         let b = solve(&dx)?;
         Ok(x.iter().zip(b).map(|(x, b)| x + b).collect())
     };
-    let dot = |a: &[c64], b: &[c64]| -> f64 { a.iter().zip(b).map(|(a, b)| (a.conj() * b).re).sum() };
+    let dot =
+        |a: &[c64], b: &[c64]| -> f64 { a.iter().zip(b).map(|(a, b)| (a.conj() * b).re).sum() };
     let rhs = solve(r)?;
     let size = norm(&rhs);
     let mut x = vec![c64::new(0.0, 0.0); r.len()];
@@ -357,7 +360,11 @@ fn real_linear(
             }
             let (a, b) = (column[j], column[j + 1]);
             let rho = (a * a + b * b).sqrt();
-            let (c, s) = if rho == 0.0 { (1.0, 0.0) } else { (a / rho, b / rho) };
+            let (c, s) = if rho == 0.0 {
+                (1.0, 0.0)
+            } else {
+                (a / rho, b / rho)
+            };
             cs.push(c);
             sn.push(s);
             column[j] = rho;
@@ -400,7 +407,10 @@ fn real_linear(
     } else {
         Err(Error::invalid(
             "kerr",
-            format!("GMRES didn't converge (relative residual {:.1e})", left / size),
+            format!(
+                "GMRES didn't converge (relative residual {:.1e})",
+                left / size
+            ),
         ))
     }
 }
@@ -426,7 +436,8 @@ mod tests {
         let r: Vec<c64> = (0..n)
             .map(|k| c64::new(portable::sin(k as f64), 1.0))
             .collect();
-        let solve = |v: &[c64]| -> Result<Vec<c64>> { Ok(v.iter().zip(&b).map(|(v, b)| v / b).collect()) };
+        let solve =
+            |v: &[c64]| -> Result<Vec<c64>> { Ok(v.iter().zip(&b).map(|(v, b)| v / b).collect()) };
         let x = real_linear(&solve, &d, &r).unwrap();
         for k in 0..n {
             let lhs = b[k] * x[k] + d[k] * x[k].conj();
@@ -471,7 +482,11 @@ mod tests {
         }
         let s = 0.5 * (lo + hi);
         let u = solved.field().at(2, 3);
-        assert!((u.norm_sqr() - s).abs() < 1e-12 * s, "{} against {s}", u.norm_sqr());
+        assert!(
+            (u.norm_sqr() - s).abs() < 1e-12 * s,
+            "{} against {s}",
+            u.norm_sqr()
+        );
         // and the nonlinearity matters: chi s is not small against eps
         assert!(chi * s > 0.25 * eps.re, "{}", chi * s);
         assert!(solved.steps() > 2 && solved.residual() < 1e-12);

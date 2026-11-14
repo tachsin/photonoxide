@@ -138,11 +138,8 @@ impl Eme {
                 .unzip()
         };
         let n = self.modes;
-        let diagonal = |v: &[c64]| {
-            Mat::from_fn(n, n, |i, j| {
-                if i == j { v[i] } else { c64::new(0.0, 0.0) }
-            })
-        };
+        let diagonal =
+            |v: &[c64]| Mat::from_fn(n, n, |i, j| if i == j { v[i] } else { c64::new(0.0, 0.0) });
         let zero = Mat::<c64>::zeros(n, n);
         let (p0, dp0) = advance(0);
         let mut total = Blocks {
@@ -250,12 +247,20 @@ fn overlaps_tangent(a: &[Mode], ta: &[ModeTangent], b: &[Mode], tb: &[ModeTangen
     let e: Vec<Vec<Dual>> = a
         .iter()
         .zip(ta)
-        .map(|(m, t)| pts.iter().map(|q| m.e_h_dual(t, q.layer_a, q.x_a).0).collect())
+        .map(|(m, t)| {
+            pts.iter()
+                .map(|q| m.e_h_dual(t, q.layer_a, q.x_a).0)
+                .collect()
+        })
         .collect();
     let h: Vec<Vec<Dual>> = b
         .iter()
         .zip(tb)
-        .map(|(m, t)| pts.iter().map(|q| m.e_h_dual(t, q.layer_b, q.x_b).1).collect())
+        .map(|(m, t)| {
+            pts.iter()
+                .map(|q| m.e_h_dual(t, q.layer_b, q.x_b).1)
+                .collect()
+        })
         .collect();
     let mut out = Mat::from_fn(a.len(), b.len(), |i, j| {
         pts.iter()
@@ -305,7 +310,10 @@ fn interface_tangent(o: &Mat<c64>, d_o: &Mat<c64>, s: &Blocks) -> Blocks {
     let p_o = solve(&p, o);
     let s21 = scale(&transpose(&solve(&p, &(d_o - &product(&dm, &p_o)))), 2.0);
     let q_ot = solve(&q, &ot);
-    let s12 = scale(&transpose(&solve(&q, &(&d_ot - &product(&dmt, &q_ot)))), 2.0);
+    let s12 = scale(
+        &transpose(&solve(&q, &(&d_ot - &product(&dmt, &q_ot)))),
+        2.0,
+    );
     Blocks { s11, s12, s21, s22 }
 }
 
@@ -354,7 +362,9 @@ fn propagate_tangent(s: &Blocks, ds: &Blocks, p: &[c64], dp: &[c64]) -> Blocks {
             dp[i] * s.s21[(i, j)] + p[i] * ds.s21[(i, j)]
         }),
         s22: Mat::from_fn(n, n, |i, j| {
-            dp[i] * s.s22[(i, j)] * p[j] + p[i] * ds.s22[(i, j)] * p[j] + p[i] * s.s22[(i, j)] * dp[j]
+            dp[i] * s.s22[(i, j)] * p[j]
+                + p[i] * ds.s22[(i, j)] * p[j]
+                + p[i] * s.s22[(i, j)] * dp[j]
         }),
     }
 }
@@ -400,7 +410,11 @@ mod tests {
 
     #[test]
     fn the_tangents_are_the_differences() {
-        for (pol, pml) in [(Polarization::Te, false), (Polarization::Tm, false), (Polarization::Te, true)] {
+        for (pol, pml) in [
+            (Polarization::Te, false),
+            (Polarization::Tm, false),
+            (Polarization::Te, true),
+        ] {
             let mut eme = Eme::new(pol, lam(), 12).unwrap();
             if pml {
                 eme = eme.with_pml(Length::um(0.5), 0.5).unwrap();
@@ -408,8 +422,20 @@ mod tests {
             let (n0, b0, l0) = (3.1, 0.9, 0.7);
             let cases = [
                 (SectionParameter::Length { section: 1 }, 1e-4),
-                (SectionParameter::Index { section: 1, layer: 1 }, 1e-4),
-                (SectionParameter::Boundary { section: 1, layer: 0 }, 1e-4),
+                (
+                    SectionParameter::Index {
+                        section: 1,
+                        layer: 1,
+                    },
+                    1e-4,
+                ),
+                (
+                    SectionParameter::Boundary {
+                        section: 1,
+                        layer: 0,
+                    },
+                    1e-4,
+                ),
             ];
             for (p, h) in cases {
                 let (_, d) = eme.s_matrix_tangent(&structure(n0, b0, l0), p).unwrap();
@@ -422,7 +448,11 @@ mod tests {
                     eme.s_matrix(&structure(n, b, l)).unwrap()
                 };
                 let (a, b, c, e) = (at(h), at(-h), at(2.0 * h), at(-2.0 * h));
-                let top = d.s21.iter().flatten().chain(d.s11.iter().flatten())
+                let top = d
+                    .s21
+                    .iter()
+                    .flatten()
+                    .chain(d.s11.iter().flatten())
                     .map(|v| portable::complex::abs(*v))
                     .fold(0.0, f64::max);
                 for (q, r) in [(0, 0), (1, 0), (0, 1), (2, 1)] {

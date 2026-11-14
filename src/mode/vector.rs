@@ -821,7 +821,12 @@ impl CrossSection {
             i * ny + j
         };
         let (ii, jj) = (i as isize, j as isize);
-        [at(ii - 1, jj), at(ii - 1, jj - 1), at(ii, jj - 1), at(ii, jj)]
+        [
+            at(ii - 1, jj),
+            at(ii - 1, jj - 1),
+            at(ii, jj - 1),
+            at(ii, jj),
+        ]
     }
 }
 

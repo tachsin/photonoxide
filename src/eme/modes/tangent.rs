@@ -139,7 +139,8 @@ impl Mode {
         // along ν alone, and along the change alone
         let (la, ra) = self.sweeps_dual(eme, &still, Dual::variable(self.nu));
         let (lb, rb) = self.sweeps_dual(eme, change, Dual::constant(self.nu));
-        let size = |s: &(Dual, Dual)| portable::complex::abs(s.0.v).max(portable::complex::abs(s.1.v));
+        let size =
+            |s: &(Dual, Dual)| portable::complex::abs(s.0.v).max(portable::complex::abs(s.1.v));
         let top_l = la.iter().map(size).fold(0.0, f64::max);
         let top_r = ra.iter().map(size).fold(0.0, f64::max);
         let meet = (0..=n)

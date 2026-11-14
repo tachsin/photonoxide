@@ -311,7 +311,16 @@ impl Grating {
                 .stripes
                 .iter()
                 .enumerate()
-                .map(|(s, &(_, w))| (if s == stripe { value } else { c64::new(0.0, 0.0) }, w))
+                .map(|(s, &(_, w))| {
+                    (
+                        if s == stripe {
+                            value
+                        } else {
+                            c64::new(0.0, 0.0)
+                        },
+                        w,
+                    )
+                })
                 .collect()
         };
         let index = layer.stripes[stripe].0;
@@ -476,13 +485,24 @@ mod tests {
         for pol in [Polarization::Te, Polarization::Tm] {
             let g = stack(eps, d1);
             let parameters = [
-                GratingParameter::Permittivity { layer: 0, stripe: 0 },
-                GratingParameter::Permittivity { layer: 1, stripe: 1 },
-                GratingParameter::Permittivity { layer: 2, stripe: 0 },
+                GratingParameter::Permittivity {
+                    layer: 0,
+                    stripe: 0,
+                },
+                GratingParameter::Permittivity {
+                    layer: 1,
+                    stripe: 1,
+                },
+                GratingParameter::Permittivity {
+                    layer: 2,
+                    stripe: 0,
+                },
                 GratingParameter::Thickness { layer: 0 },
                 GratingParameter::Thickness { layer: 2 },
             ];
-            let (_, tangents) = g.diffract_tangents(pol, wl(1.3), 0.2, 8, &parameters).unwrap();
+            let (_, tangents) = g
+                .diffract_tangents(pol, wl(1.3), 0.2, 8, &parameters)
+                .unwrap();
             for (p, tangent) in parameters.iter().zip(&tangents) {
                 let at = |h: f64| {
                     let mut g = stack(eps, d1);
@@ -523,8 +543,14 @@ mod tests {
     fn bad_parameters_are_errors() {
         let g = stack(11.0, 0.22);
         let wrong = [
-            GratingParameter::Permittivity { layer: 3, stripe: 0 },
-            GratingParameter::Permittivity { layer: 0, stripe: 2 },
+            GratingParameter::Permittivity {
+                layer: 3,
+                stripe: 0,
+            },
+            GratingParameter::Permittivity {
+                layer: 0,
+                stripe: 2,
+            },
             GratingParameter::Thickness { layer: 5 },
         ];
         for p in wrong {

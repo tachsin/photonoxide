@@ -64,12 +64,6 @@ impl Dual {
         let e = portable::complex::exp(self.v);
         Dual::new(e, e * self.d)
     }
-
-    /// The complex conjugate of the value and of the derivative: the derivative of z̄ along a
-    /// real direction.
-    pub(crate) fn conj(self) -> Dual {
-        Dual::new(self.v.conj(), self.d.conj())
-    }
 }
 
 impl From<c64> for Dual {
@@ -172,9 +166,11 @@ mod tests {
     fn a_rational_function_carries_its_exact_derivative() {
         // f(x) = (3x² + i)/(x − 2) at x = 0.7 + 0.2i: f' = (6x(x − 2) − (3x² + i))/(x − 2)²
         let x = c64::new(0.7, 0.2);
-        let f = |x: Dual| (Dual::from(3.0) * x * x + Dual::from(c64::new(0.0, 1.0))) / (x - 2.0.into());
+        let f =
+            |x: Dual| (Dual::from(3.0) * x * x + Dual::from(c64::new(0.0, 1.0))) / (x - 2.0.into());
         let got = f(Dual::variable(x));
-        let exact = (6.0 * x * (x - 2.0) - (3.0 * x * x + c64::new(0.0, 1.0))) / ((x - 2.0) * (x - 2.0));
+        let exact =
+            (6.0 * x * (x - 2.0) - (3.0 * x * x + c64::new(0.0, 1.0))) / ((x - 2.0) * (x - 2.0));
         assert!(portable::complex::abs(got.d - exact) < 1e-14 * portable::complex::abs(exact));
         let value = (3.0 * x * x + c64::new(0.0, 1.0)) / (x - 2.0);
         assert!(portable::complex::abs(got.v - value) < 1e-15);

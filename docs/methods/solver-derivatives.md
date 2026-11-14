@@ -176,18 +176,22 @@ The sources and the ports must lie where χ = 0, and the cells varied away from 
 
 ## Validation
 
-| Case | What | Measured | Held to |
+Each case's tolerance follows from what limits it. Against differences, it is ten times what the
+differences resolve (the gap between steps δ and 2δ), rounded up; against a closed form with a
+grid or a small parameter, the measured coefficient of its order, rounded up.
+
+| Case | What | Ours | Held to |
 |---|---|---|---|
-| `mode/slab-index-derivative` | the profile's dn/dt against the closed form, 2.5 nm | see the report | 2e-5 (second order) |
-| `mode/profile-index-gradient` | cells and nodes against differences | see the report | 1e-6 |
-| `mode/vector-index-gradient` | cells against differences | see the report | 1e-6 |
-| `mode/rcwa-tangent-multilayer` | uniform films against the transfer matrices | see the report | 1e-12 |
-| `mode/rcwa-tangent-gradient` | lamellar layers against differences | see the report | 1e-8 |
-| `mode/rcwa-tangent-born` | a weak grating against the Born approximation | see the report | 1e-3 (first order in Δ) |
-| `eme/s-matrix-tangent` | length, index and boundary against differences | see the report | 1e-6 |
-| `fdfd/forward-mode` | forward mode against the adjoint | see the report | 1e-9 |
-| `fdfd/kerr-uniform` | a uniform Kerr medium against its scalar root | see the report | 1e-10 |
-| `fdfd/kerr-gradient` | the Kerr adjoint against differences through Newton | see the report | 1e-6 |
+| `mode/slab-index-derivative` | the profile's dn/dt against the closed form, at 2.5 nm | 3.0e-4 (2.0 to 2.3 (h/t)², 20 to 2.5 nm) | 4e-4 (3 (h/t)², rounded up) |
+| `mode/profile-index-gradient` | cells and nodes against differences | 7.3e-11 (they resolve 1.2e-10) | 2e-9 |
+| `mode/vector-index-gradient` | cells against differences | 4.1e-11 (they resolve 6.8e-11) | 1e-9 |
+| `mode/rcwa-tangent-multilayer` | uniform films against the transfer matrices' exact derivatives | round-off | 1e-12 |
+| `mode/rcwa-tangent-gradient` | lamellar layers against differences | 1.9e-9 (they resolve 2.8e-8) | 5e-7 |
+| `mode/rcwa-tangent-born` | a weak grating against the Born approximation, Δ = 2.5e-3 | 6.0e-4 (0.240 Δ) | 0.3 Δ, 7.5e-4 |
+| `eme/s-matrix-tangent` | length, index and boundary against differences | 5.4e-12 (they resolve 5.0e-11) | 5e-10 |
+| `fdfd/forward-mode` | forward mode against the adjoint | 7.6e-14 | 1e-12 |
+| `fdfd/kerr-uniform` | a uniform Kerr medium against its scalar root | 8.9e-15 | 1e-11 |
+| `fdfd/kerr-gradient` | the Kerr adjoint against differences through Newton | 4.3e-10 (they resolve 4.4e-10) | 5e-9 |
 
 ## Limits
 

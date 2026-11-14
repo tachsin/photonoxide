@@ -12,6 +12,9 @@ use crate::validation::{Case, Outcome, Tier};
 
 const OK: &str = "a valid structure";
 
+/// A value read from a solver's result.
+type Read<'a, T> = &'a dyn Fn(&T) -> c64;
+
 /// The cases.
 pub(crate) fn cases() -> Vec<Case> {
     vec![Case {
@@ -103,7 +106,7 @@ pub(crate) fn tangent_agreement() -> (f64, f64) {
             for (q, r) in [(0, 0), (1, 0), (0, 1), (2, 1)] {
                 let s21 = |s: &Scattering| s.s21[q][r];
                 let s11 = |s: &Scattering| s.s11[q][r];
-                let reads: [(c64, &dyn Fn(&Scattering) -> c64); 2] =
+                let reads: [(c64, Read<'_, Scattering>); 2] =
                     [(d.s21[q][r], &s21), (d.s11[q][r], &s11)];
                 for (got, read) in reads {
                     let a = fd(&one, 1e-4, read);
@@ -123,7 +126,7 @@ fn s_matrix_tangent() -> Outcome {
     Outcome {
         measured: error,
         expected: 0.0,
-        tolerance: 1e-6,
+        tolerance: 5e-10,
         error,
     }
 }

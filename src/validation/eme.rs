@@ -507,5 +507,15 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "the expansion's fundamental mode is the exact slab's to exp(-q d) with the walls 15 µm from the core (q about 10 per µm), and both integrals are Gauss-Legendre sums to round-off: round-off, 1e-12",
             ),
         ),
-    ]
+        (
+            "eme/s-matrix-tangent",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-10,
+                Noted,
+                "fourth-order differences of S at δ = 1e-4: what they resolve, the difference between δ and 2δ, is 5.0e-11 of the largest derivative (noted), and forward mode is within 5.4e-12 of them; held to ten times what they resolve, 5e-10",
+            )
+            .varying(),
+        ),    ]
 }

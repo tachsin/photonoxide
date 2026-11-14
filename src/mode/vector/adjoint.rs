@@ -92,9 +92,16 @@ impl VectorMode {
                         ]
                     });
                     let mut change = c64::new(0.0, 0.0);
-                    node_entries(&numbering, (i, j), regions, spacings, k2, |row, q, v: Dual| {
-                        change += y[row] * v.d * x[q];
-                    });
+                    node_entries(
+                        &numbering,
+                        (i, j),
+                        regions,
+                        spacings,
+                        k2,
+                        |row, q, v: Dual| {
+                            change += y[row] * v.d * x[q];
+                        },
+                    );
                     gradient[c] += change;
                 }
             }
@@ -202,7 +209,13 @@ mod tests {
             .fold(0.0, f64::max);
         let delta = 1e-3;
         // in the core, at its edge, in the cladding and in the PML
-        for c in [14 * 22 + 11, 10 * 22 + 11, 14 * 22 + 8, 14 * 22 + 20, 26 * 22 + 11] {
+        for c in [
+            14 * 22 + 11,
+            10 * 22 + 11,
+            14 * 22 + 8,
+            14 * 22 + 20,
+            26 * 22 + 11,
+        ] {
             let f = |d: f64| {
                 let mut delta_cells = vec![Permittivity::isotropic(c64::new(0.0, 0.0)); g.len()];
                 delta_cells[c] = Permittivity::isotropic(c64::new(d, 0.0));

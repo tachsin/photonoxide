@@ -116,15 +116,16 @@ impl Profile {
             .map(|m| {
                 let moved = c64::new(1.0, self.stretch(self.nodes[m]).1);
                 let at = |j: usize| {
-                    Dual::new(
-                        coords[j],
-                        if j == m { moved } else { c64::new(0.0, 0.0) },
-                    )
+                    Dual::new(coords[j], if j == m { moved } else { c64::new(0.0, 0.0) })
                 };
                 let mut change = c64::new(0.0, 0.0);
                 for i in m - 1..=m + 1 {
                     // the spacings as `spacings` takes them, on duals
-                    let w = if i > 0 { at(i) - at(i - 1) } else { at(1) - at(0) };
+                    let w = if i > 0 {
+                        at(i) - at(i - 1)
+                    } else {
+                        at(1) - at(0)
+                    };
                     let e = if i < n - 1 {
                         at(i + 1) - at(i)
                     } else {

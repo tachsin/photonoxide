@@ -107,7 +107,7 @@ pub(crate) fn forward_mode_error(polarization: Polarization) -> f64 {
 
 fn forward_mode() -> Outcome {
     let error = forward_mode_error(Polarization::Ez).max(forward_mode_error(Polarization::Hz));
-    zero(error, 1e-9)
+    zero(error, 1e-12)
 }
 
 /// The uniform medium's |u|² against the scalar equation's root, relative.
@@ -154,14 +154,12 @@ pub(crate) fn kerr_uniform_error() -> f64 {
 }
 
 fn kerr_uniform() -> Outcome {
-    zero(kerr_uniform_error(), 1e-10)
+    zero(kerr_uniform_error(), 1e-11)
 }
 
 /// The Kerr problem of fdfd/kerr-gradient, its region's permittivities changed at `cell` by
 /// `change`: (the problem, its source, the output port's mode, the region's cells).
-fn kerr_problem(
-    change: Option<(usize, f64)>,
-) -> (Kerr2d, Vec<c64>, super::PortMode, Vec<usize>) {
+fn kerr_problem(change: Option<(usize, f64)>) -> (Kerr2d, Vec<c64>, super::PortMode, Vec<usize>) {
     let (h, pml) = (0.05, 15);
     let grid = Grid {
         nx: (3.0 / h) as usize + 2 * pml,
@@ -203,8 +201,16 @@ fn kerr_problem(
         .with_chi_slope(&slope)
         .expect(OK);
     let column = |x: f64| ((x - grid.x0) / h) as usize;
-    let input = kerr.linear().port_modes(column(0.4), 1).expect(OK).remove(0);
-    let output = kerr.linear().port_modes(column(2.6), 1).expect(OK).remove(0);
+    let input = kerr
+        .linear()
+        .port_modes(column(0.4), 1)
+        .expect(OK)
+        .remove(0);
+    let output = kerr
+        .linear()
+        .port_modes(column(2.6), 1)
+        .expect(OK)
+        .remove(0);
     let unit = kerr.linear().mode_source(&input, Direction::Forward);
     // the source's amplitude that makes the largest Δε 0.05 in the linear field, fixed
     let linear = kerr.linear().solve_system(&unit).expect(OK);
@@ -233,10 +239,15 @@ pub(crate) fn kerr_agreement() -> (f64, f64) {
         f.field().mode_amplitudes(&out).0.norm_sqr()
     };
     let (mut error, mut resolution) = (0.0f64, 0.0f64);
-    let picks = [region[0], region[region.len() / 2 + 10], region[region.len() - 1]];
+    let picks = [
+        region[0],
+        region[region.len() / 2 + 10],
+        region[region.len() - 1],
+    ];
     for cell in picks {
         let diff = |h: f64| {
-            (8.0 * (power(cell, h) - power(cell, -h)) - (power(cell, 2.0 * h) - power(cell, -2.0 * h)))
+            (8.0 * (power(cell, h) - power(cell, -h))
+                - (power(cell, 2.0 * h) - power(cell, -2.0 * h)))
                 / (12.0 * h)
         };
         let (one, two) = (diff(1e-3), diff(2e-3));
@@ -249,7 +260,7 @@ pub(crate) fn kerr_agreement() -> (f64, f64) {
 fn kerr_gradient() -> Outcome {
     let (error, resolution) = kerr_agreement();
     crate::verdict::note_numerical(resolution);
-    zero(error, 1e-6)
+    zero(error, 5e-9)
 }
 
 #[cfg(test)]
@@ -260,8 +271,14 @@ mod tests {
     #[test]
     #[ignore = "a study, printed: cargo test --release --lib the_kerr_study -- --ignored --nocapture"]
     fn the_kerr_study() {
-        println!("forward mode Ez {:.3e}", forward_mode_error(Polarization::Ez));
-        println!("forward mode Hz {:.3e}", forward_mode_error(Polarization::Hz));
+        println!(
+            "forward mode Ez {:.3e}",
+            forward_mode_error(Polarization::Ez)
+        );
+        println!(
+            "forward mode Hz {:.3e}",
+            forward_mode_error(Polarization::Hz)
+        );
         println!("kerr uniform {:.3e}", kerr_uniform_error());
         println!("kerr (error, resolution) {:?}", kerr_agreement());
     }

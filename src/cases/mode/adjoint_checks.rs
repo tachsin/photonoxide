@@ -18,6 +18,9 @@ use crate::validation::{Case, Outcome, Tier};
 
 const OK: &str = "a valid problem";
 
+/// A value read from a solver's result.
+type Read<'a, T> = &'a dyn Fn(&T) -> c64;
+
 fn wl(um: f64) -> Wavelength {
     Wavelength::um(um).expect(OK)
 }
@@ -74,6 +77,13 @@ pub(crate) fn cases() -> Vec<Case> {
     ]
 }
 
+/// The slab's dn_eff/dt error at 2.5 nm, held: 2.0 to 2.3 (h/t)² measured at 20 to 2.5 nm
+/// (`the_mode_adjoint_study`), the coefficient rounded up to 3, 3.9e-4, and that to 4e-4.
+pub(crate) const SLAB_TOLERANCE: f64 = 4e-4;
+
+/// The weak grating's gap over Δ, held: 0.239 to 0.240 measured at Δ = 0.02 to 0.0025.
+pub(crate) const BORN_ORDER: f64 = 0.3;
+
 fn zero(error: f64, tolerance: f64) -> Outcome {
     Outcome {
         measured: error,
@@ -113,7 +123,7 @@ pub(crate) fn slab_derivative_error(h: f64) -> [f64; 2] {
 
 fn slab_index_derivative() -> Outcome {
     let [te, tm] = slab_derivative_error(0.0025);
-    zero(te.max(tm), 2e-5)
+    zero(te.max(tm), SLAB_TOLERANCE)
 }
 
 /// A leaky, lossy, graded profile on uneven nodes, with PMLs.
@@ -159,24 +169,37 @@ pub(crate) fn profile_agreement() -> (f64, f64) {
         resolution: 0.0,
     };
     for pol in [Polarization::Te, Polarization::Tm] {
-        let index = |q: &Profile| q.modes(pol, wl(1.55), 1, Some(3.2)).expect(OK)[0].effective_index;
+        let index =
+            |q: &Profile| q.modes(pol, wl(1.55), 1, Some(3.2)).expect(OK)[0].effective_index;
         let mode = &p.modes(pol, wl(1.55), 1, Some(3.2)).expect(OK)[0];
         let g = p.index_gradient(pol, wl(1.55), mode).expect(OK);
-        let top = |v: &[c64]| v.iter().map(|x| portable::complex::abs(*x)).fold(0.0, f64::max);
+        let top = |v: &[c64]| {
+            v.iter()
+                .map(|x| portable::complex::abs(*x))
+                .fold(0.0, f64::max)
+        };
         let (cells_top, nodes_top) = (top(&g.cells), top(&g.nodes));
         for c in [0, 45, 80, 100, 159] {
             let f = |d: f64| index(&p.with_cell_changed(c, d));
             let one = differences(&f, 1e-3, &|v| *v);
             let two = differences(&f, 2e-3, &|v| *v);
-            a.error = a.error.max(portable::complex::abs(one - g.cells[c]) / cells_top);
-            a.resolution = a.resolution.max(portable::complex::abs(one - two) / cells_top);
+            a.error = a
+                .error
+                .max(portable::complex::abs(one - g.cells[c]) / cells_top);
+            a.resolution = a
+                .resolution
+                .max(portable::complex::abs(one - two) / cells_top);
         }
         for m in [1, 40, 75, 120, 159] {
             let f = |d: f64| index(&p.with_node_moved(m, d));
             let one = differences(&f, 1e-4, &|v| *v);
             let two = differences(&f, 2e-4, &|v| *v);
-            a.error = a.error.max(portable::complex::abs(one - g.nodes[m - 1]) / nodes_top);
-            a.resolution = a.resolution.max(portable::complex::abs(one - two) / nodes_top);
+            a.error = a
+                .error
+                .max(portable::complex::abs(one - g.nodes[m - 1]) / nodes_top);
+            a.resolution = a
+                .resolution
+                .max(portable::complex::abs(one - two) / nodes_top);
         }
     }
     (a.error, a.resolution)
@@ -185,7 +208,7 @@ pub(crate) fn profile_agreement() -> (f64, f64) {
 fn profile_index_gradient() -> Outcome {
     let (error, resolution) = profile_agreement();
     crate::verdict::note_numerical(resolution);
-    zero(error, 1e-6)
+    zero(error, 2e-9)
 }
 
 /// An asymmetric, lossy ridge: an electric wall west, PMLs east and north.
@@ -235,7 +258,13 @@ pub(crate) fn vector_agreement() -> (f64, f64) {
         .map(|v| portable::complex::abs(*v))
         .fold(0.0, f64::max);
     let (mut error, mut resolution) = (0.0f64, 0.0f64);
-    for c in [14 * 22 + 11, 10 * 22 + 11, 14 * 22 + 15, 14 * 22 + 4, 26 * 22 + 11] {
+    for c in [
+        14 * 22 + 11,
+        10 * 22 + 11,
+        14 * 22 + 15,
+        14 * 22 + 4,
+        26 * 22 + 11,
+    ] {
         let f = |d: f64| {
             let mut delta = vec![Permittivity::isotropic(re(0.0)); g.len()];
             delta[c] = Permittivity::isotropic(re(d));
@@ -253,7 +282,7 @@ pub(crate) fn vector_agreement() -> (f64, f64) {
 fn vector_index_gradient() -> Outcome {
     let (error, resolution) = vector_agreement();
     crate::verdict::note_numerical(resolution);
-    zero(error, 1e-6)
+    zero(error, 1e-9)
 }
 
 fn rcwa_tangent_multilayer() -> Outcome {
@@ -327,9 +356,18 @@ fn stack(parameter: Option<(GratingParameter, f64)>) -> Grating {
 /// RCWA's forward mode against its differences: (largest difference, what they resolve).
 pub(crate) fn rcwa_agreement() -> (f64, f64) {
     let parameters = [
-        GratingParameter::Permittivity { layer: 0, stripe: 0 },
-        GratingParameter::Permittivity { layer: 1, stripe: 1 },
-        GratingParameter::Permittivity { layer: 2, stripe: 0 },
+        GratingParameter::Permittivity {
+            layer: 0,
+            stripe: 0,
+        },
+        GratingParameter::Permittivity {
+            layer: 1,
+            stripe: 1,
+        },
+        GratingParameter::Permittivity {
+            layer: 2,
+            stripe: 0,
+        },
         GratingParameter::Thickness { layer: 0 },
         GratingParameter::Thickness { layer: 2 },
     ];
@@ -339,12 +377,18 @@ pub(crate) fn rcwa_agreement() -> (f64, f64) {
             .diffract_tangents(pol, wl(1.3), 0.2, 8, &parameters)
             .expect(OK);
         for (p, t) in parameters.iter().zip(&tangents) {
-            let f = |h: f64| stack(Some((*p, h))).diffract(pol, wl(1.3), 0.2, 8).expect(OK);
+            let f = |h: f64| {
+                stack(Some((*p, h)))
+                    .diffract(pol, wl(1.3), 0.2, 8)
+                    .expect(OK)
+            };
             for i in [7, 8, 9] {
                 let transmitted = |d: &Diffraction| re(d.transmitted[i]);
                 let reflected = |d: &Diffraction| re(d.reflected[i]);
-                let reads: [(f64, &dyn Fn(&Diffraction) -> c64); 2] =
-                    [(t.transmitted[i], &transmitted), (t.reflected[i], &reflected)];
+                let reads: [(f64, Read<'_, Diffraction>); 2] = [
+                    (t.transmitted[i], &transmitted),
+                    (t.reflected[i], &reflected),
+                ];
                 for (got, read) in reads {
                     let one = differences(&f, 1e-4, read).re;
                     let two = differences(&f, 2e-4, read).re;
@@ -360,7 +404,7 @@ pub(crate) fn rcwa_agreement() -> (f64, f64) {
 fn rcwa_tangent_gradient() -> Outcome {
     let (error, resolution) = rcwa_agreement();
     crate::verdict::note_numerical(resolution);
-    zero(error, 1e-8)
+    zero(error, 5e-7)
 }
 
 /// The weak grating's first transmitted order: forward mode's dη₁/dΔ against the Born
@@ -375,7 +419,10 @@ pub(crate) fn born_gap(delta: f64) -> f64 {
         Length::um(d),
     );
     let g = Grating::new(Length::um(period), re(nb), &[layer], re(nb)).expect(OK);
-    let p = GratingParameter::Permittivity { layer: 0, stripe: 0 };
+    let p = GratingParameter::Permittivity {
+        layer: 0,
+        stripe: 0,
+    };
     let (_, t) = g
         .diffract_tangents(Polarization::Te, wl(lambda), angle, 8, &[p])
         .expect(OK);
@@ -393,7 +440,7 @@ pub(crate) fn born_gap(delta: f64) -> f64 {
 }
 
 fn rcwa_tangent_born() -> Outcome {
-    zero(born_gap(2.5e-3), 1e-3)
+    zero(born_gap(2.5e-3), BORN_ORDER * 2.5e-3)
 }
 
 #[cfg(test)]
