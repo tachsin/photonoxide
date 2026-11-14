@@ -35,6 +35,7 @@
 //!   gives them. It doesn't say how many entries the factors have.
 //! - **Threads** are Accelerate's own. Not declared deterministic.
 
+use photonoxide::portable;
 use std::ffi::{CStr, c_char, c_int, c_void};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -402,7 +403,7 @@ impl Pattern<'_> {
         let n = self.starts.len() - 1;
         let (mut by_row, mut by_column) = (vec![0.0f64; n], vec![0.0f64; n]);
         for (i, j, e) in self.entries() {
-            let modulus = values[e].norm();
+            let modulus = portable::complex::abs(values[e]);
             by_row[i] += modulus;
             by_column[j] += modulus;
             if self.symmetric && i != j {
@@ -576,12 +577,16 @@ impl Engine {
         reported("solve")?;
         // a zero pivot isn't a failed status to Accelerate, and its L D Lᵀ takes it as zero
         // and goes on: the solution is checked against its system
-        let largest = |v: &[c64]| v.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let largest = |v: &[c64]| {
+            v.iter()
+                .map(|z| portable::complex::abs(*z))
+                .fold(0.0, f64::max)
+        };
         let product = self.columns.pattern().product(&self.values, &x, transpose);
         let residual = product
             .iter()
             .zip(rhs)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max);
         let norm = if transpose {
             self.norms.1

@@ -1,6 +1,7 @@
 //! The check a backend passes before it is offered: a small complex system solved and compared
 //! with photonoxide's own answer.
 
+use photonoxide::portable;
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
@@ -89,11 +90,14 @@ pub fn smoke_test(solver: &dyn DirectSolver) -> Result<f64> {
                     theirs.len()
                 )));
             }
-            let scale = ours.iter().map(|v| v.norm()).fold(0.0, f64::max);
+            let scale = ours
+                .iter()
+                .map(|v| portable::complex::abs(*v))
+                .fold(0.0, f64::max);
             let difference = theirs
                 .iter()
                 .zip(&ours)
-                .map(|(a, b)| (a - b).norm())
+                .map(|(a, b)| portable::complex::abs(a - b))
                 .fold(0.0, f64::max)
                 / scale;
             // NaN fails too
@@ -169,11 +173,14 @@ pub fn smoke_test_iterative(solver: &dyn IterativeSolver) -> Result<f64> {
             .ok_or_else(|| error("photonoxide's own solver refused the smoke test's matrix"))?
             .factorize(&general)?
             .solve(&b)?;
-        let scale = ours.iter().map(|v| v.norm()).fold(0.0, f64::max);
+        let scale = ours
+            .iter()
+            .map(|v| portable::complex::abs(*v))
+            .fold(0.0, f64::max);
         let difference = theirs
             .iter()
             .zip(&ours)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max)
             / scale;
         // NaN fails too

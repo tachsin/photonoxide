@@ -29,6 +29,7 @@
 //!   with the CPU's to rounding, and a repeated run on one GPU gives the same bits, which the
 //!   tests check.
 
+use photonoxide::portable;
 use std::sync::{Arc, Mutex};
 
 use num_complex::Complex64 as c64;
@@ -661,8 +662,8 @@ impl Prepared {
                 rotations.push((c, sn));
                 h.truncate(j + 1);
                 columns.push(h);
-                history.push(g[j + 1].norm() / rho0);
-                if g[j + 1].norm() <= target || next == 0.0 {
+                history.push(portable::complex::abs(g[j + 1]) / rho0);
+                if portable::complex::abs(g[j + 1]) <= target || next == 0.0 {
                     break;
                 }
                 if v.len() == j + 1 {
@@ -727,6 +728,7 @@ impl PreparedMultigrid for Prepared {
 
 #[cfg(all(test, any(windows, target_os = "linux")))]
 mod tests {
+    use photonoxide::portable;
     use std::sync::{Arc, Mutex};
 
     use num_complex::Complex64 as c64;
@@ -754,10 +756,13 @@ mod tests {
     }
 
     fn off(a: &[c64], b: &[c64]) -> f64 {
-        let scale = b.iter().map(|z| z.norm()).fold(0.0, f64::max);
+        let scale = b
+            .iter()
+            .map(|z| portable::complex::abs(*z))
+            .fold(0.0, f64::max);
         a.iter()
             .zip(b)
-            .map(|(p, q)| (p - q).norm())
+            .map(|(p, q)| portable::complex::abs(p - q))
             .fold(0.0, f64::max)
             / scale
     }
@@ -796,7 +801,10 @@ mod tests {
             let v: Vec<c64> = (0..n)
                 .map(|r| {
                     let t = r as f64;
-                    c64::new((0.37 * t).sin() + 0.2, (0.11 * t * t).cos() - 0.4)
+                    c64::new(
+                        portable::sin(0.37 * t) + 0.2,
+                        portable::cos(0.11 * t * t) - 0.4,
+                    )
                 })
                 .collect();
             let (x, y) = (s.vector(&v)?, s.vector(&vec![ZERO; n])?);
@@ -1055,7 +1063,12 @@ mod tests {
             let s = &prepared.s;
             let stencil = prepared.stencil.as_ref().unwrap();
             let v: Vec<c64> = (0..n)
-                .map(|r| c64::new((0.37 * r as f64).sin(), (0.11 * r as f64).cos()))
+                .map(|r| {
+                    c64::new(
+                        portable::sin(0.37 * r as f64),
+                        portable::cos(0.11 * r as f64),
+                    )
+                })
                 .collect();
             let (x, y) = (s.vector(&v)?, s.vector(&vec![ZERO; n])?);
             let shared = fastest(10, || stencil.product(s, 0, &x, &y).unwrap());

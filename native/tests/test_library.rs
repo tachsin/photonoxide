@@ -1,8 +1,7 @@
 //! Discovery, loading, versions, errors and the smoke test, against the workspace's test
 //! library (`native/testlib`), so that CI tests them with no real library installed.
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -302,8 +301,8 @@ fn against_faer(kernels: &dyn DenseKernels) -> f64 {
         (0..rows * columns)
             .map(|k| {
                 c64::new(
-                    (k as f64 * 0.37 + seed).sin(),
-                    (k as f64 * 0.21 - seed).cos(),
+                    portable::sin(k as f64 * 0.37 + seed),
+                    portable::cos(k as f64 * 0.21 - seed),
                 )
             })
             .collect()
@@ -311,11 +310,14 @@ fn against_faer(kernels: &dyn DenseKernels) -> f64 {
     let (m, n, r) = (13, 9, 6);
     let mut worst: f64 = 0.0;
     let mut differ = |a: &[c64], b: &[c64]| {
-        let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+        let scale = b
+            .iter()
+            .map(|x| portable::complex::abs(*x))
+            .fold(0.0, f64::max);
         let d = a
             .iter()
             .zip(b)
-            .map(|(a, b)| (a - b).norm())
+            .map(|(a, b)| portable::complex::abs(a - b))
             .fold(0.0, f64::max)
             / scale;
         worst = worst.max(d);

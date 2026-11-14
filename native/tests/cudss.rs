@@ -1,8 +1,7 @@
 //! cuDSS against photonoxide's own solver, on this machine's GPU. Skipped, and saying so, where
 //! cuDSS or a GPU isn't found (CI has neither).
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::sync::{Arc, Mutex};
 
 use num_complex::Complex64 as c64;
@@ -201,10 +200,13 @@ fn system(form: Form) -> (Vec<usize>, Vec<usize>, Vec<c64>) {
 
 /// The largest difference, relative to `b`'s largest entry.
 fn relative(a: &[c64], b: &[c64]) -> f64 {
-    let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+    let scale = b
+        .iter()
+        .map(|x| portable::complex::abs(*x))
+        .fold(0.0, f64::max);
     a.iter()
         .zip(b)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max)
         / scale
 }

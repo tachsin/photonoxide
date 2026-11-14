@@ -22,7 +22,6 @@
 
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
 
 pub mod accelerate;
 pub mod blas;

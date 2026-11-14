@@ -13,8 +13,7 @@
 //! - `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds of OpenBLAS's calls checked while it is loaded
 //!   again (default 3; the OpenBLAS loop workflow sets more).
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -77,10 +76,13 @@ impl Random {
 
 /// The largest difference, relative to `b`'s largest entry.
 fn relative(a: &[c64], b: &[c64]) -> f64 {
-    let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+    let scale = b
+        .iter()
+        .map(|x| portable::complex::abs(*x))
+        .fold(0.0, f64::max);
     a.iter()
         .zip(b)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max)
         / scale
 }
@@ -219,7 +221,10 @@ fn check_kernels(library: &dyn DenseKernels, sizes: &[usize]) -> f64 {
             assert!(d < 1e-11, "{name} LU n {n}: {d:e}");
             // partial pivoting: LAPACK takes the entry largest in |re| + |im|, which leaves no
             // entry of L larger than that of 1, and so none beyond √2 in modulus
-            let largest = l.iter().map(|v| v.norm()).fold(0.0, f64::max);
+            let largest = l
+                .iter()
+                .map(|v| portable::complex::abs(*v))
+                .fold(0.0, f64::max);
             assert!(
                 largest <= 2f64.sqrt() + 1e-12,
                 "{name} LU n {n}: |L| to {largest}"

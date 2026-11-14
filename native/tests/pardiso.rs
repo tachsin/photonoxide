@@ -1,8 +1,7 @@
 //! oneMKL's PARDISO against photonoxide's own solver, on this machine. Skipped, and saying so,
 //! where oneMKL isn't found (CI has none).
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::sync::Arc;
 
 use num_complex::Complex64 as c64;
@@ -161,10 +160,13 @@ fn helmholtz(cells: [usize; 3], form: Form) -> (Vec<usize>, Vec<usize>, Vec<c64>
 
 /// The largest difference, relative to `b`'s largest entry.
 fn relative(a: &[c64], b: &[c64]) -> f64 {
-    let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+    let scale = b
+        .iter()
+        .map(|x| portable::complex::abs(*x))
+        .fold(0.0, f64::max);
     a.iter()
         .zip(b)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max)
         / scale
 }

@@ -14,8 +14,7 @@
 //! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got. On
 //! macOS with conda-forge's OpenMP OpenBLAS the whole test stalled (#595).
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
@@ -47,10 +46,13 @@ impl Random {
 
 /// The largest difference, relative to `b`'s largest entry.
 fn relative(a: &[c64], b: &[c64]) -> f64 {
-    let scale = b.iter().map(|x| x.norm()).fold(0.0, f64::max);
+    let scale = b
+        .iter()
+        .map(|x| portable::complex::abs(*x))
+        .fold(0.0, f64::max);
     a.iter()
         .zip(b)
-        .map(|(a, b)| (a - b).norm())
+        .map(|(a, b)| portable::complex::abs(a - b))
         .fold(0.0, f64::max)
         / scale
 }

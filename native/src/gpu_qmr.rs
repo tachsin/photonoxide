@@ -20,6 +20,7 @@
 //!   on a symmetric similar matrix ([`photonoxide::backend::IterativeSolver`]).
 //! - **Threads:** one call at a time in the process, as cuDSS's ([`crate::cuda::serial`]).
 
+use photonoxide::portable;
 use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::sync::Arc;
@@ -1034,8 +1035,12 @@ impl GpuQmr {
         let mut tau = c64::new(rho0, 0.0);
         let mut history = Vec::new();
         for iteration in 1..=stopping.max_iterations {
-            if d.norm() < 1e-14 {
-                return Ok(QmrRun::Broken(x.read()?, history, d.norm()));
+            if portable::complex::abs(d) < 1e-14 {
+                return Ok(QmrRun::Broken(
+                    x.read()?,
+                    history,
+                    portable::complex::abs(d),
+                ));
             }
             op.apply(&s, &v, &av)?;
             if let (Some(w), Some(atw)) = (&w, &atw) {
@@ -1068,8 +1073,8 @@ impl GpuQmr {
                 (epsilon, mu) = rotate(g, epsilon, mu);
             }
             let nu = c64::new(rho_next, 0.0);
-            let (c, sn) = if mu.norm() > 0.0 {
-                let c = mu.norm() / (mu.norm_sqr() + rho_next * rho_next).sqrt();
+            let (c, sn) = if portable::complex::abs(mu) > 0.0 {
+                let c = portable::complex::abs(mu) / (mu.norm_sqr() + rho_next * rho_next).sqrt();
                 (c, (c * nu / mu).conj())
             } else {
                 (0.0, ONE)
@@ -1147,6 +1152,7 @@ impl GpuQmr {
 
 #[cfg(test)]
 mod tests {
+    use photonoxide::portable;
     use std::time::Instant;
 
     use super::*;
@@ -1184,7 +1190,12 @@ mod tests {
         s.algorithm = algorithm;
         let m = DeviceMatrix::new(api, rows, values).unwrap();
         let x: Vec<c64> = (0..n)
-            .map(|k| c64::new((k as f64 * 0.618).sin(), (k as f64 * 0.414).cos()))
+            .map(|k| {
+                c64::new(
+                    portable::sin(k as f64 * 0.618),
+                    portable::cos(k as f64 * 0.414),
+                )
+            })
             .collect();
         let (x, y) = (s.vector(&x).unwrap(), s.vector(&vec![ZERO; n]).unwrap());
         s.prepare(&m, &x, &y).unwrap();
