@@ -156,21 +156,21 @@ V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversio
 
 P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling", SIAM J. Matrix Anal. Appl. 23, 15 (2001). [doi:10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
 
-- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:39](../native/tests/mumps.rs#L39), [src/bench/export.rs:5](../src/bench/export.rs#L5)
+- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [700](../native/src/mumps.rs#L700), [709](../native/src/mumps.rs#L709), [native/tests/mumps.rs:39](../native/tests/mumps.rs#L39), [src/bench/export.rs:5](../src/bench/export.rs#L5)
 - Other documents: [docs/baselines.md:6](baselines.md?plain=1#L6), [docs/plans/performance.md:595](plans/performance.md?plain=1#L595)
 
 #### Amestoy et al. 2015
 
 P. Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, "Improving Multifrontal Methods by Means of Block Low-Rank Representations", SIAM J. Sci. Comput. 37, A1451 (2015). [doi:10.1137/120903476](https://doi.org/10.1137/120903476)
 
-- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:299](../native/tests/mumps.rs#L299)
+- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [709](../native/src/mumps.rs#L709), [native/tests/mumps.rs:299](../native/tests/mumps.rs#L299)
 - Other documents: [docs/baselines.md:405](baselines.md?plain=1#L405), [docs/plans/performance.md:596](plans/performance.md?plain=1#L596)
 
 #### Amestoy et al. 2019
 
 P. R. Amestoy, A. Buttari, J.-Y. L'Excellent, T. Mary, "Performance and Scalability of the Block Low-Rank Multifrontal Factorization on Multicore Architectures", ACM Trans. Math. Softw. 45, 1 (2019). [doi:10.1145/3242094](https://doi.org/10.1145/3242094)
 
-- Code: [native/src/mumps.rs:6](../native/src/mumps.rs#L6), [698](../native/src/mumps.rs#L698), [708](../native/src/mumps.rs#L708)
+- Code: [native/src/mumps.rs:6](../native/src/mumps.rs#L6), [700](../native/src/mumps.rs#L700), [710](../native/src/mumps.rs#L710)
 - Other documents: [docs/baselines.md:8](baselines.md?plain=1#L8), [docs/plans/performance.md:597](plans/performance.md?plain=1#L597)
 
 #### Amestoy et al. 2023

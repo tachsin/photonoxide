@@ -484,6 +484,8 @@ impl Engine {
         let mut info: c_int = 0;
         {
             let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
+            // not during a threaded OpenBLAS call of ours: SuperLU may call the same OpenBLAS
+            let _beside = crate::blas::openblas_shared();
             let api = &engine.api;
             // SAFETY: the buffers are zeroed and larger than SuperLU's structures; the arrays
             // have the lengths its documentation asks (n for the permutations, the tree and
@@ -605,6 +607,8 @@ impl Engine {
             .set_int(options::TRANS, if transpose { TRANS } else { NOTRANS });
         {
             let _one = CALLS.lock().unwrap_or_else(|p| p.into_inner());
+            // not during a threaded OpenBLAS call of ours: SuperLU may call the same OpenBLAS
+            let _beside = crate::blas::openblas_shared();
             let api = &self.api;
             // SAFETY: the factors, permutations and scalings are the ones the factorization
             // left, A the matrix it equilibrated; B and X are n by 1 over arrays of n

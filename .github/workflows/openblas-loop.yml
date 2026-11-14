@@ -3,7 +3,10 @@ name: OpenBLAS loop
 # photonoxide's BLAS tests with OpenBLAS required, again and again, on each kind of build: an
 # intermittent wrong answer (#557, conda-forge's OpenMP build on macOS) shows as a count of
 # failed runs out of many. Each job prints the packages' build strings and what OpenBLAS says
-# of itself (its configuration, OpenMP or pthreads, its count of threads) first. By hand only.
+# of itself (its configuration, OpenMP or pthreads, its count of threads) first. The shared job
+# runs the shared-OpenBLAS test (MUMPS and SuperLU from one conda environment calling the same
+# OpenBLAS beside photonoxide's threaded calls) again and again, and a run that stalls prints
+# every thread's stack (#812). By hand only.
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +19,15 @@ on:
       whole:
         description: Runs of the whole BLAS test binary
         default: '10'
+      blas:
+        description: Run the BLAS loops above (yes or no)
+        default: 'yes'
+      shared:
+        description: Runs of the shared-OpenBLAS test on each of its rows (0 skips them)
+        default: '0'
+      shared_seconds:
+        description: Seconds after which a shared-OpenBLAS run counts as stalled (PHOTONOXIDE_SHARED_SECONDS)
+        default: '120'
 
 permissions:
   contents: read
@@ -29,6 +41,7 @@ env:
 jobs:
   loop:
     name: ${{ matrix.name }}
+    if: (inputs.blas || 'yes') == 'yes'
     strategy:
       fail-fast: false
       matrix:
@@ -130,3 +143,64 @@ jobs:
           echo "the whole binary: $failed of $WHOLE runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
           stress=$(cat stress-failed.txt 2>/dev/null || echo 0)
           [ "$failed" = 0 ] && [ "$stress" = 0 ]
+
+  shared:
+    name: shared ${{ matrix.name }}
+    if: (inputs.shared || '0') != '0'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the Libraries workflow's two Linux rows of the test, and the macOS one it leaves out
+          - { name: 'conda-forge OpenBLAS OpenMP, MUMPS, SuperLU (ubuntu-latest)', os: ubuntu-latest, conda: 'libblas=*=*openblas libopenblas=*=*openmp* mumps-seq superlu' }
+          - { name: 'conda-forge OpenBLAS, MUMPS, SuperLU (ubuntu-latest)', os: ubuntu-latest, conda: 'libblas=*=*openblas libopenblas mumps-seq superlu' }
+          - { name: 'conda-forge OpenBLAS, MUMPS, SuperLU (macos-latest)', os: macos-latest, conda: 'libblas=*=*openblas libopenblas mumps-seq superlu' }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      SHARED: ${{ inputs.shared || '0' }}
+      PHOTONOXIDE_SHARED_SECONDS: ${{ inputs.shared_seconds || '120' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          activate-environment: libraries
+      - name: Install
+        run: |
+          conda install -y -c conda-forge ${{ matrix.conda }}
+          conda list | grep -i -E "openblas|openmp|blas|mumps|superlu" || true
+          nproc 2>/dev/null || sysctl -n hw.ncpu
+      - name: A debugger for a stalled run's stacks
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            command -v gdb || { bash .github/apt-get-update.sh -q && sudo apt-get install -y gdb; }
+            # gdb attaches to the test's own process: Ubuntu lets a process be traced only by its parent
+            sudo sysctl -w kernel.yama.ptrace_scope=0
+            gdb --version | head -1
+          else
+            command -v sample lldb || true
+          fi
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@v2
+      - name: What photonoxide finds
+        run: cargo run -p photonoxide-native --example libraries | grep -E '^(OpenBLAS|MUMPS|SuperLU)'
+      - name: Build the test
+        run: cargo test -p photonoxide-native --release --test shared_openblas --no-run
+      - name: The shared-OpenBLAS test, ${{ env.SHARED }} runs
+        run: |
+          failed=0
+          start=$(date +%s)
+          for k in $(seq 1 "$SHARED"); do
+            if PHOTONOXIDE_REQUIRE_BLAS=openblas PHOTONOXIDE_REQUIRE_MUMPS=1 PHOTONOXIDE_REQUIRE_SUPERLU=1 \
+                cargo test -q -p photonoxide-native --release --test shared_openblas -- --nocapture \
+                > run.txt 2>&1; then :; else failed=$((failed + 1)); echo "::group::run $k failed"; cat run.txt; echo "::endgroup::"; fi
+            grep -E 'STALLED|OpenBLAS .* wrong' run.txt || true
+            now=$(date +%s)
+            echo "step $k/$SHARED ($((100 * k / SHARED))%), $failed failed, $((now - start)) s, ETA $(((now - start) * (SHARED - k) / k)) s"
+          done
+          echo "the shared-OpenBLAS test (${{ matrix.name }}): $failed of $SHARED runs failed" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$failed" = 0 ]
