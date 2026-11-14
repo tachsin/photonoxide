@@ -148,9 +148,16 @@ schema:
 example name:
     cargo run --release --example {{name}}
 
-# rewrite an example's output, which CI compares with what the example prints
+# rewrite an example's output, which CI compares with what the example prints. On Windows the
+# redirection is cmd's, which keeps the bytes the example prints (UTF-8, LF): Windows PowerShell
+# 5.1's `>` would re-encode them as UTF-16 with a BOM and CRLF (#829)
+[unix]
 example-output name:
     cargo run --release --quiet --example {{name}} > examples/output/{{name}}.txt
+
+[windows]
+example-output name:
+    cmd /c "cargo run --release --quiet --example {{name}} > examples\output\{{name}}.txt"
 
 # --- GPU and external libraries ---
 
