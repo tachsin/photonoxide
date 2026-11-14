@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3962 places in 468 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3968 places in 468 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -268,7 +268,7 @@ R. Arrieta, G. Romano, S. G. Johnson, "Hyperparameter-free minimum-lengthscale c
 - Methods pages: [topology.md:22](methods/topology.md?plain=1#L22)
 - Validation cases: [`topology/constraint-arrieta`](validation.md?plain=1#L973)
 - Code: [src/cases/topology/checks.rs:117](../src/cases/topology/checks.rs#L117), [src/topology/constraints.rs:28](../src/topology/constraints.rs#L28)
-- Other documents: [ROADMAP.md:847](../ROADMAP.md?plain=1#L847), [docs/plans/inverse-design.md:483](plans/inverse-design.md?plain=1#L483)
+- Other documents: [ROADMAP.md:847](../ROADMAP.md?plain=1#L847), [docs/plans/inverse-design.md:510](plans/inverse-design.md?plain=1#L510)
 
 #### Aryana et al. 2021
 
@@ -435,7 +435,8 @@ P. Bienstman, R. Baets, "Optical modelling of photonic crystals and VCSELs using
 
 - Methods pages: [eme.md:8](methods/eme.md?plain=1#L8), [solver-derivatives.md:14](methods/solver-derivatives.md?plain=1#L14)
 - Academy lessons: [crossings-and-converters.md:30](../academy/crossings-and-converters.md?plain=1#L30), [200](../academy/crossings-and-converters.md?plain=1#L200), [651](../academy/crossings-and-converters.md?plain=1#L651)
-- Code: [src/cases/eme/tangent_checks.rs:21](../src/cases/eme/tangent_checks.rs#L21), [src/eme.rs:6](../src/eme.rs#L6)
+- Validation cases: [`eme/s-matrix-tangent`](validation.md?plain=1#L997)
+- Code: [src/cases/eme/tangent_checks.rs:24](../src/cases/eme/tangent_checks.rs#L24), [src/eme.rs:6](../src/eme.rs#L6)
 - Jobs and circuits: [jobs/eme-mmi-sweep.yaml:2](../jobs/eme-mmi-sweep.yaml#L2), [jobs/eme-taper-3d.yaml:2](../jobs/eme-taper-3d.yaml#L2), [jobs/eme-taper.yaml:3](../jobs/eme-taper.yaml#L3)
 - Other documents: [ROADMAP.md:751](../ROADMAP.md?plain=1#L751)
 
@@ -566,7 +567,7 @@ M. Born, E. Wolf, A. B. Bhatia, P. C. Clemmow, D. Gabor, A. R. Stokes, A. M. Tay
 
 B. Bourdin, "Filters in topology optimization", Numerical Meth Engineering 50, 2143 (2001). [doi:10.1002/nme.116](https://doi.org/10.1002/nme.116)
 
-- Other documents: [docs/plans/inverse-design.md:507](plans/inverse-design.md?plain=1#L507)
+- Other documents: [docs/plans/inverse-design.md:534](plans/inverse-design.md?plain=1#L534)
 
 #### Boyd 2020
 
@@ -1141,7 +1142,7 @@ V. M. Donnelly, A. Kornblit, "Plasma etching: Yesterday, today, and tomorrow", J
 
 V. Donzella, A. Sherwali, J. Flueckiger, S. Talebi Fard, S. M. Grist, L. Chrostowski, "Sub-wavelength grating components for integrated optics applications on SOI chips", Opt. Express 22, 21037 (2014). [doi:10.1364/OE.22.021037](https://doi.org/10.1364/OE.22.021037)
 
-- Other documents: [docs/plans/inverse-design.md:531](plans/inverse-design.md?plain=1#L531)
+- Other documents: [docs/plans/inverse-design.md:558](plans/inverse-design.md?plain=1#L558)
 
 #### Dörfler 1996
 
@@ -1267,8 +1268,8 @@ A. B. Fallahkhair, K. S. Li, T. E. Murphy, "Vector Finite Difference Modesolver 
 
 - Methods pages: [devices.md:14](methods/devices.md?plain=1#L14), [fields.md:8](methods/fields.md?plain=1#L8), [slab-fd.md:8](methods/slab-fd.md?plain=1#L8), [solver-derivatives.md:12](methods/solver-derivatives.md?plain=1#L12), [stacks.md:10](methods/stacks.md?plain=1#L10), [vector.md:8](methods/vector.md?plain=1#L8)
 - Academy lessons: [slab-waveguide.md:78](../academy/slab-waveguide.md?plain=1#L78), [520](../academy/slab-waveguide.md?plain=1#L520), [576](../academy/slab-waveguide.md?plain=1#L576), [strip-waveguide.md:118](../academy/strip-waveguide.md?plain=1#L118), [199](../academy/strip-waveguide.md?plain=1#L199), [628](../academy/strip-waveguide.md?plain=1#L628), [693](../academy/strip-waveguide.md?plain=1#L693), [726](../academy/strip-waveguide.md?plain=1#L726)
-- Validation cases: [`device/coupler-3d-order`](validation.md?plain=1#L321), [`job/leaky-film-grid-order`](validation.md?plain=1#L480)
-- Code: [src/cases/mode/adjoint_checks.rs:50](../src/cases/mode/adjoint_checks.rs#L50), [src/circuit/components/waveguide.rs:367](../src/circuit/components/waveguide.rs#L367), [src/device/checks.rs:139](../src/device/checks.rs#L139), [src/device/fit.rs:11](../src/device/fit.rs#L11), [src/device/pcm.rs:1004](../src/device/pcm.rs#L1004), [src/device/tfln.rs:1261](../src/device/tfln.rs#L1261), [src/device/thermo.rs:976](../src/device/thermo.rs#L976), [src/device/waveguide.rs:33](../src/device/waveguide.rs#L33), [src/job/leaky_checks.rs:44](../src/job/leaky_checks.rs#L44), [src/mode/slab_fd.rs:16](../src/mode/slab_fd.rs#L16), [src/mode/vector.rs:5](../src/mode/vector.rs#L5)
+- Validation cases: [`device/coupler-3d-order`](validation.md?plain=1#L321), [`job/leaky-film-grid-order`](validation.md?plain=1#L480), [`mode/vector-index-gradient`](validation.md?plain=1#L993)
+- Code: [src/cases/mode/adjoint_checks.rs:53](../src/cases/mode/adjoint_checks.rs#L53), [src/circuit/components/waveguide.rs:367](../src/circuit/components/waveguide.rs#L367), [src/device/checks.rs:139](../src/device/checks.rs#L139), [src/device/fit.rs:11](../src/device/fit.rs#L11), [src/device/pcm.rs:1004](../src/device/pcm.rs#L1004), [src/device/tfln.rs:1261](../src/device/tfln.rs#L1261), [src/device/thermo.rs:976](../src/device/thermo.rs#L976), [src/device/waveguide.rs:33](../src/device/waveguide.rs#L33), [src/job/leaky_checks.rs:44](../src/job/leaky_checks.rs#L44), [src/mode/slab_fd.rs:16](../src/mode/slab_fd.rs#L16), [src/mode/vector.rs:5](../src/mode/vector.rs#L5)
 - Other documents: [ROADMAP.md:743](../ROADMAP.md?plain=1#L743)
 
 #### Farjadpour et al. 2006
@@ -1370,7 +1371,7 @@ J. A. Frantz, J. D. Myers, A. Clabeau, R. Y. Bekele, N. Hong, M. A. Vincenti, M.
 
 L. F. Frellsen, Y. Ding, O. Sigmund, L. H. Frandsen, "Topology optimized mode multiplexing in silicon-on-insulator photonic wire waveguides", Opt. Express 24, 16866 (2016). [doi:10.1364/OE.24.016866](https://doi.org/10.1364/OE.24.016866)
 
-- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782), [docs/plans/inverse-design.md:498](plans/inverse-design.md?plain=1#L498)
+- Other documents: [ROADMAP.md:782](../ROADMAP.md?plain=1#L782), [docs/plans/inverse-design.md:525](plans/inverse-design.md?plain=1#L525)
 
 #### Freund 1992
 
@@ -1602,7 +1603,7 @@ F. Goos, H. Hänchen, "Ein neuer und fundamentaler Versuch zur Totalreflexion", 
 
 D. Gostimirovic, D.-X. Xu, O. Liboiron-Ladouceur, Y. Grinberg, "Deep Learning-Based Prediction of Fabrication-Process-Induced Structural Variations in Nanophotonic Devices", ACS Photonics 9, 2623 (2022). [doi:10.1021/acsphotonics.1c01973](https://doi.org/10.1021/acsphotonics.1c01973), open access.
 
-- Other documents: [ROADMAP.md:795](../ROADMAP.md?plain=1#L795), [docs/plans/inverse-design.md:522](plans/inverse-design.md?plain=1#L522)
+- Other documents: [ROADMAP.md:795](../ROADMAP.md?plain=1#L795), [docs/plans/inverse-design.md:549](plans/inverse-design.md?plain=1#L549)
 
 #### Gottesman et al. 2001
 
@@ -1638,7 +1639,7 @@ W. P. Grice, I. A. Walmsley, "Spectral information and distinguishability in typ
 
 J. K. Guest, J. H. Prévost, T. Belytschko, "Achieving minimum length scale in topology optimization using nodal design variables and projection functions", Numerical Meth Engineering 61, 238 (2004). [doi:10.1002/nme.1064](https://doi.org/10.1002/nme.1064)
 
-- Other documents: [docs/plans/inverse-design.md:511](plans/inverse-design.md?plain=1#L511)
+- Other documents: [docs/plans/inverse-design.md:538](plans/inverse-design.md?plain=1#L538)
 
 #### Gummel 1964
 
@@ -1787,7 +1788,7 @@ A. M. Hammond, A. Oskooi, I. M. Hammond, M. Chen, S. E. Ralph, S. G. Johnson, "U
 - Validation cases: [`topology/ssp-plane`](validation.md?plain=1#L978), [`topology/litho-print-edge`](validation.md?plain=1#L989)
 - Examples: [README.md:64](../examples/README.md?plain=1#L64), [optimize_crossing_ssp.rs:8](../examples/optimize_crossing_ssp.rs#L8)
 - Code: [src/cases/topology/checks.rs:152](../src/cases/topology/checks.rs#L152), [229](../src/cases/topology/checks.rs#L229), [src/topology/smoothed.rs:7](../src/topology/smoothed.rs#L7)
-- Other documents: [docs/plans/inverse-design.md:480](plans/inverse-design.md?plain=1#L480)
+- Other documents: [docs/plans/inverse-design.md:507](plans/inverse-design.md?plain=1#L507)
 
 #### Han et al. 2023
 
@@ -2021,6 +2022,7 @@ T. W. Hughes, M. Minkov, I. A. D. Williamson, S. Fan, "Adjoint Method and Invers
 
 - Methods pages: [fdfd-adjoint.md:12](methods/fdfd-adjoint.md?plain=1#L12), [fdtd-adjoint.md:12](methods/fdtd-adjoint.md?plain=1#L12), [solver-derivatives.md:8](methods/solver-derivatives.md?plain=1#L8)
 - Academy lessons: [fdfd-and-adjoints.md:121](../academy/fdfd-and-adjoints.md?plain=1#L121), [568](../academy/fdfd-and-adjoints.md?plain=1#L568), [783](../academy/fdfd-and-adjoints.md?plain=1#L783)
+- Validation cases: [`fdfd/kerr-uniform`](validation.md?plain=1#L999)
 - Code: [src/cases/fdfd/kerr_checks.rs:29](../src/cases/fdfd/kerr_checks.rs#L29), [src/fdfd/adjoint.rs:9](../src/fdfd/adjoint.rs#L9), [src/fdfd/kerr.rs:3](../src/fdfd/kerr.rs#L3), [src/fdtd/adjoint.rs:30](../src/fdtd/adjoint.rs#L30)
 - Other documents: [ROADMAP.md:785](../ROADMAP.md?plain=1#L785)
 
@@ -2037,8 +2039,9 @@ T. W. Hughes, M. Minkov, Y. Shi, S. Fan, "Training of photonic neural networks t
 T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, "Forward-Mode Differentiation of Maxwell’s Equations", ACS Photonics 6, 3010 (2019). [doi:10.1021/acsphotonics.9b01238](https://doi.org/10.1021/acsphotonics.9b01238)
 
 - Methods pages: [solver-derivatives.md:10](methods/solver-derivatives.md?plain=1#L10)
-- Code: [src/cases/eme/tangent_checks.rs:21](../src/cases/eme/tangent_checks.rs#L21), [src/cases/fdfd/kerr_checks.rs:22](../src/cases/fdfd/kerr_checks.rs#L22), [src/cases/mode/adjoint_checks.rs:57](../src/cases/mode/adjoint_checks.rs#L57), [src/eme/tangent.rs:4](../src/eme/tangent.rs#L4), [src/fdfd/adjoint.rs:148](../src/fdfd/adjoint.rs#L148), [src/mode/rcwa/tangent.rs:4](../src/mode/rcwa/tangent.rs#L4)
-- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/inverse-design.md:494](plans/inverse-design.md?plain=1#L494)
+- Validation cases: [`mode/rcwa-tangent-multilayer`](validation.md?plain=1#L994), [`eme/s-matrix-tangent`](validation.md?plain=1#L997), [`fdfd/forward-mode`](validation.md?plain=1#L998)
+- Code: [src/cases/eme/tangent_checks.rs:24](../src/cases/eme/tangent_checks.rs#L24), [src/cases/fdfd/kerr_checks.rs:22](../src/cases/fdfd/kerr_checks.rs#L22), [src/cases/mode/adjoint_checks.rs:60](../src/cases/mode/adjoint_checks.rs#L60), [src/eme/tangent.rs:4](../src/eme/tangent.rs#L4), [src/fdfd/adjoint.rs:148](../src/fdfd/adjoint.rs#L148), [src/mode/rcwa/tangent.rs:4](../src/mode/rcwa/tangent.rs#L4)
+- Other documents: [ROADMAP.md:786](../ROADMAP.md?plain=1#L786), [docs/plans/inverse-design.md:521](plans/inverse-design.md?plain=1#L521)
 
 #### Hughes et al. 2021
 
@@ -2584,7 +2587,7 @@ B. S. Lazarov, O. Sigmund, "Filters in topology optimization based on Helmholtz�
 - Validation cases: [`topology/helmholtz-residual`](validation.md?plain=1#L974)
 - Examples: [optimize_demux_robust.rs:9](../examples/optimize_demux_robust.rs#L9)
 - Code: [src/cases/topology/checks.rs:124](../src/cases/topology/checks.rs#L124), [src/topology/helmholtz.rs:6](../src/topology/helmholtz.rs#L6)
-- Other documents: [docs/plans/inverse-design.md:489](plans/inverse-design.md?plain=1#L489)
+- Other documents: [docs/plans/inverse-design.md:516](plans/inverse-design.md?plain=1#L516)
 
 #### Lee 2001
 
@@ -2701,7 +2704,7 @@ Q. Lin, O. J. Painter, G. P. Agrawal, "Nonlinear optical phenomena in silicon wa
 
 S. Lin, M. Hammood, H. Yun, E. Luan, N. A. F. Jaeger, L. Chrostowski, "Computational Lithography for Silicon Photonics Design", IEEE J. Select. Topics Quantum Electron. 26, 1 (2020). [doi:10.1109/JSTQE.2019.2958931](https://doi.org/10.1109/JSTQE.2019.2958931)
 
-- Other documents: [docs/plans/inverse-design.md:519](plans/inverse-design.md?plain=1#L519)
+- Other documents: [docs/plans/inverse-design.md:546](plans/inverse-design.md?plain=1#L546)
 
 #### Lindhard et al. 1963
 
@@ -3475,7 +3478,7 @@ A. Y. Piggott, J. Petykiewicz, L. Su, J. Vučković, "Fabrication-constrained na
 
 A. Y. Piggott, E. Y. Ma, L. Su, G. H. Ahn, N. V. Sapra, D. Vercruysse, A. M. Netherton, A. S. P. Khope, J. E. Bowers, J. Vučković, "Inverse-Designed Photonics for Semiconductor Foundries", ACS Photonics 7, 569 (2020). [doi:10.1021/acsphotonics.9b01540](https://doi.org/10.1021/acsphotonics.9b01540)
 
-- Other documents: [ROADMAP.md:789](../ROADMAP.md?plain=1#L789), [docs/plans/inverse-design.md:504](plans/inverse-design.md?plain=1#L504)
+- Other documents: [ROADMAP.md:789](../ROADMAP.md?plain=1#L789), [docs/plans/inverse-design.md:531](plans/inverse-design.md?plain=1#L531)
 
 #### Ploeg et al. 2021
 
@@ -3591,7 +3594,7 @@ X. Qian, O. Sigmund, "Topological design of electromechanical actuators with rob
 - Methods pages: [topology.md:16](methods/topology.md?plain=1#L16)
 - Validation cases: [`topology/robust-length`](validation.md?plain=1#L967)
 - Code: [src/cases/topology/checks.rs:75](../src/cases/topology/checks.rs#L75), [src/topology/robust.rs:13](../src/topology/robust.rs#L13)
-- Other documents: [docs/plans/inverse-design.md:486](plans/inverse-design.md?plain=1#L486)
+- Other documents: [docs/plans/inverse-design.md:513](plans/inverse-design.md?plain=1#L513)
 
 #### Quesada et al. 2018
 
@@ -4164,7 +4167,7 @@ R. Storn, K. Price, "Differential Evolution – A Simple and Efficient Heuristic
 
 L. Su, R. Trivedi, N. V. Sapra, A. Y. Piggott, D. Vercruysse, J. Vučković, "Fully-automated optimization of grating couplers", Opt. Express 26, 4023 (2018). [doi:10.1364/OE.26.004023](https://doi.org/10.1364/OE.26.004023)
 
-- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/inverse-design.md:500](plans/inverse-design.md?plain=1#L500)
+- Other documents: [ROADMAP.md:783](../ROADMAP.md?plain=1#L783), [docs/plans/inverse-design.md:527](plans/inverse-design.md?plain=1#L527)
 
 #### Su et al. 2020
 
@@ -4481,7 +4484,7 @@ D. Vercruysse, N. V. Sapra, L. Su, R. Trivedi, J. Vučković, "Analytical level 
 - Methods pages: [topology.md:32](methods/topology.md?plain=1#L32)
 - Validation cases: [`topology/penalty-gap`](validation.md?plain=1#L984)
 - Code: [src/cases/topology/checks.rs:194](../src/cases/topology/checks.rs#L194), [src/topology/level.rs:330](../src/topology/level.rs#L330)
-- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787), [docs/plans/inverse-design.md:491](plans/inverse-design.md?plain=1#L491)
+- Other documents: [ROADMAP.md:787](../ROADMAP.md?plain=1#L787), [docs/plans/inverse-design.md:518](plans/inverse-design.md?plain=1#L518)
 
 #### Vermeulen et al. 2010
 
@@ -4909,7 +4912,7 @@ H.-S. Zhong, H. Wang, Y.-H. Deng, M.-C. Chen, L.-C. Peng, Y.-H. Luo, J. Qin, D. 
 
 M. Zhou, B. S. Lazarov, O. Sigmund, "Topology optimization for optical projection lithography with manufacturing uncertainties", Appl. Opt. 53, 2720 (2014). [doi:10.1364/AO.53.002720](https://doi.org/10.1364/AO.53.002720)
 
-- Other documents: [docs/plans/inverse-design.md:526](plans/inverse-design.md?plain=1#L526)
+- Other documents: [docs/plans/inverse-design.md:553](plans/inverse-design.md?plain=1#L553)
 
 #### Zhou et al. 2015
 
@@ -4918,7 +4921,7 @@ M. Zhou, B. S. Lazarov, F. Wang, O. Sigmund, "Minimum length scale in topology o
 - Methods pages: [topology.md:18](methods/topology.md?plain=1#L18)
 - Validation cases: [`topology/constraint-gradient`](validation.md?plain=1#L972)
 - Code: [src/cases/topology/checks.rs:110](../src/cases/topology/checks.rs#L110), [src/topology/constraints.rs:6](../src/topology/constraints.rs#L6)
-- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779), [docs/plans/inverse-design.md:477](plans/inverse-design.md?plain=1#L477)
+- Other documents: [ROADMAP.md:779](../ROADMAP.md?plain=1#L779), [docs/plans/inverse-design.md:504](plans/inverse-design.md?plain=1#L504)
 
 #### Zhu et al. 2021
 
