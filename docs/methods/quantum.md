@@ -142,6 +142,10 @@ validation:
   - quantum/detector-stack-joule
   - quantum/detector-film-slab
   - quantum/detector-film-order
+  - quantum/probability-gradient
+  - quantum/fidelity-gradient
+  - quantum/visibility-coupler
+  - quantum/purity-gradient
 ---
 
 A linear circuit does to photons what it does to light: it mixes the ports' modes by its
@@ -772,6 +776,49 @@ with its caveats (the materials catalogue page). So is MoSi: `mosi`, Reddy et al
 that it is one film's fit and not a measurement of the material alone. WSi and low-temperature
 GaAs are not, as their papers are not in hand (GaAs's index from 103 K up is in the catalogue).
 
+## Objectives and their gradients (Q4)
+
+An optimizer of a quantum device needs its figure of merit's gradient. `quantum::objective`
+gives four, each with its sensitivity to the matrix it is computed from: the matrix G of
+Wirtinger derivatives, $G_{qp} = \partial F/\partial X_{qp}$, so that
+$dF = 2\thinspace\mathrm{Re}\sum G_{qp}\thinspace dX_{qp}$. That is the form the
+[circuit adjoint](circuit-adjoint.md) takes: a circuit's parameters then get the gradient from
+one more solve with its transposed system, however many there are.
+
+- **A pattern's probability** (`probability_gradient`). The permanent is linear in each
+  entry, so $\partial\thinspace\mathrm{Per}\thinspace M/\partial M_{ab} = \mathrm{Per}\thinspace M^{(ab)}$,
+  the minor without row a and column b. For indistinguishable photons
+  $G_{ab} = \overline{\mathrm{Per}\thinspace M}\thinspace\mathrm{Per}\thinspace M^{(ab)}/\prod m!$; for
+  distinguishable ones $G_{ab} = \mathrm{Per}(|M|^2)^{(ab)}\thinspace\bar M_{ab}/\prod m_\mathrm{out}!$.
+  Where photons share a mode, an entry of T is several entries of M, and their terms add.
+- **A unitary's fidelity** (`fidelity_gradient`, Clements et al.'s Eq. 6): with
+  $o = \mathrm{tr}(U^\dagger U_\mathrm{exp})$ and $p = \mathrm{tr}(U_\mathrm{exp}^\dagger U_\mathrm{exp})$,
+  $F = |o|^2/Np$ and $G = \bar o\thinspace\bar U/(Np) - F\thinspace\bar U_\mathrm{exp}/p$.
+- **Two photons' visibility** (`visibility_gradient`): $V = 1 - P_\mathrm{ind}/P_\mathrm{dist}$
+  for a coincidence, by the quotient rule on the two probabilities' gradients. On a coupler of
+  power splitting R it is $1 - (1 - 2R)^2/(R^2 + (1 - R)^2)$, 1 at $R = 1/2$.
+- **A source's purity** (`purity_gradient`): with F the joint spectral amplitude on a grid and
+  $A = FF^\dagger$, $\gamma = \mathrm{tr}\thinspace A^2/(\mathrm{tr}\thinspace A)^2$, the Schmidt
+  decomposition's $\sum\lambda^4/(\sum\lambda^2)^2$ without computing one. Then
+  $G = 2(F^\dagger A)^{\mathsf T}/(\mathrm{tr}\thinspace A)^2 - 2\thinspace\mathrm{tr}A^2\thinspace\bar F/(\mathrm{tr}\thinspace A)^3$.
+  A ring's amplitude moves with its couplings and the pump: `ring_spectrum_derivative` gives
+  dF along a parameter that moves the rings' field enhancements (a coupling, or Vernon et al.'s
+  second channel at the pump) or the pump's bandwidth, by the product rule on
+  $F_P(\nu_s + \nu_i) F_s(\nu_s) F_i(\nu_i)$ and on $F_P$'s integral, on the same grid.
+
+The heralding efficiency of a ring is its escape efficiency, $\kappa_\mathrm{c}/(\kappa_\mathrm{c} + \kappa_\mathrm{i})$,
+whose derivative needs no machinery. A waveguide source's dispersion moves with its
+cross-section through the mode solver's derivatives ([solver-derivatives](solver-derivatives.md)).
+
+The example `optimize_quantum` uses these gradients to recover four known optima with
+genoxide's L-BFGS-B and with Newton's method: a coupler's R = ½ for a perfect HOM dip (from
+R = 0.15 in 10 evaluations), a 4-mode Clements mesh programmed to a Haar-random unitary
+(1 − F at round-off in 146), and a ring with equal linewidths, whose purity rises with the
+pump's bandwidth to the broad-pump limit, K = 1.0904 (Vernon et al.'s Fig. 2(a): 1.09). Vernon
+et al.'s dual coupling is not reproduced: for K = 1.0009 ours needs the pump's resonance about
+14 times the signal's (12.8 on ±40 linewidths, rising with the window as the Lorentzians'
+tails count), where their Fig. 2(b) has 6.6; at 6.6 ours gives K = 1.0034. The gap is kept
+open in #595.
 ## What it is checked against
 
 The analytic cases hold to round-off: the permanent of the all-ones matrix is $n!$ and that of
@@ -1226,6 +1273,18 @@ the gap is explained, without a looser tolerance.
   (planar) and `print_reddy_patterned` (RCWA). Not a case: no number agrees with the paper's to
   its printed digits.
 
+### Objectives and their gradients (Q4)
+
+Each objective's sensitivity is checked against the objective itself. Against differences, the
+tolerance is ten times what the differences resolve (the gap between steps h and 2h), rounded
+up:
+
+| Case | What | Ours | Held to |
+|---|---|---|---|
+| `quantum/probability-gradient` | three photons, bunched and spread, indistinguishable and distinguishable, along two directions | 2.0e-10 (they resolve 3.0e-9) | 5e-8 |
+| `quantum/fidelity-gradient` | a lossy 4 × 4 matrix's fidelity to a Haar-random unitary | 1.3e-10 (they resolve 2.0e-9) | 5e-8 |
+| `quantum/visibility-coupler` | dV/dR through the coupler's matrix against the closed form | 8.9e-16 | 1e-12 |
+| `quantum/purity-gradient` | a ring's purity in the pump's extra loss and bandwidth | 2.7e-9 (they resolve 9.1e-10) | 1e-8 |
 ## Limits
 
 - Permanents up to $n = 40$ (hours), the definition up to 10, partly distinguishable photons up

@@ -604,6 +604,21 @@ impl Results {
         lines
     }
 
+    /// What a console says of the schemes its solvers ran, a line each: a grid's `"scheme"`
+    /// detail with its solver (a modes job's, the standard finite differences, #783's A7).
+    pub fn scheme_lines(&self) -> Vec<String> {
+        let mut lines: Vec<String> = Vec::new();
+        for g in &self.grids {
+            for [name, value] in &g.details {
+                let line = format!("scheme: {} solved by {value}", g.module);
+                if name == "scheme" && !lines.contains(&line) {
+                    lines.push(line);
+                }
+            }
+        }
+        lines
+    }
+
     /// The `results.json` in `dir`.
     ///
     /// # Errors
@@ -654,6 +669,29 @@ pub(crate) fn events_in(dir: &Path) -> Result<Vec<Event>> {
         }
     }
     Ok(events)
+}
+
+/// The warnings of the run directory `dir`'s record ([`Event::Warning`]), in their order: what
+/// its numbers may not mean, though it ran (`photonoxide run` prints them on stderr). Only the
+/// warnings' lines are read as events, so a large record (an FDTD run's frames) costs a scan.
+///
+/// # Errors
+///
+/// [`Error::Io`] if the record can't be read.
+pub fn warnings_in(dir: &Path) -> Result<Vec<String>> {
+    let path = dir.join("events.jsonl");
+    let text = std::fs::read_to_string(&path).map_err(|e| Error::Io {
+        path: path.display().to_string(),
+        reason: e.to_string(),
+    })?;
+    Ok(text
+        .lines()
+        .filter(|l| l.contains(r#""type":"warning""#))
+        .filter_map(|l| match serde_json::from_str(l) {
+            Ok(Event::Warning { text }) => Some(text),
+            _ => None,
+        })
+        .collect())
 }
 
 /// Writes `run`'s `results.json` from its record, if it has a directory, and the tables its

@@ -229,7 +229,7 @@ area circuit \
 area quantum \
   "src/quantum.rs src/quantum/* src/validation/quantum.rs src/validation/quantum_light.rs src/validation/quantum_real.rs" \
   "circuit device nonlinear mode fdtd fdfd compact" \
-  "quantum::" "quantum/" ""
+  "quantum::" "quantum/" "optimize_quantum"
 
 # the devices: components that know their geometry, built from the circuit's components on the
 # mode solvers' cross-sections and by FDFD of their own drawings (through the 2D jobs' plane);

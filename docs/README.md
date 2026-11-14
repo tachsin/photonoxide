@@ -125,6 +125,9 @@ The pages are grouped as the project site groups them.
   with the density of every cell of a 3D design region, from a forward and an adjoint run.
 - [circuit-adjoint](methods/circuit-adjoint.md): how a circuit's response changes with every
   parameter of every component, from one more back-substitution with the transposed system.
+- [solver-derivatives](methods/solver-derivatives.md): the mode solvers' effective index
+  against every cell and node, RCWA's and eigenmode expansion's outputs by forward mode, FDFD's
+  forward mode, and a Kerr medium in 2D FDFD with its nonlinear adjoint.
 - [optimization](methods/optimization.md): a device's objectives and constraints, their
   derivatives, and the `optimize` job that moves its parameters with genoxide's optimizers.
 - [topology](methods/topology.md): a design region's densities, filtered and projected to the

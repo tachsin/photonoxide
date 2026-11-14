@@ -17,7 +17,7 @@ use super::scene::{scene, scene_shapes};
 use super::structure::{
     CircleSpec, EtchSpec, RectSpec, RingSpec, StackField, draw, tensor_stack, window_z,
 };
-use super::{device, in_flight, params, schema, sweep_points};
+use super::{device, in_flight, modes_trust, params, schema, sweep_points};
 use crate::geometry::Point;
 use crate::raster::Raster;
 use crate::run::{Job, Run, Stop};
@@ -1493,6 +1493,65 @@ pub(super) fn modes_z(task: &ModesTask, s: &Structure) -> Result<[f64; 2]> {
     window_z(task.z_um, &task.layer, s, task.step_nm)
 }
 
+/// A modes job's window as its warnings name it ([`modes_trust::Window`]), `z` its height.
+fn window_of(task: &ModesTask, z: [f64; 2]) -> Result<modes_trust::Window> {
+    let along = task.along()?;
+    Ok(modes_trust::Window {
+        across: along.across(),
+        field: match along {
+            Along::X => "y_um",
+            Along::Y => "x_um",
+        },
+        across_um: task.across()?,
+        z_um: z,
+    })
+}
+
+/// What a modes job's own grid says before it runs, for [`super::warnings`]: its guides with
+/// fewer than two cells across them ([`modes_trust::thin_guides`]), which its run records too.
+/// None for a job whose grid a `[task.convergence]` drives (the run warns of the grid it stops
+/// at), nor for one [`check`] refuses (it says why).
+pub(super) fn warnings(job: &Job) -> Vec<String> {
+    let thin = || -> Result<Vec<String>> {
+        let task = modes_task(job, None)?;
+        task.validate()?;
+        if task
+            .convergence
+            .as_ref()
+            .is_some_and(ConvergenceSpec::drives)
+        {
+            return Ok(Vec::new());
+        }
+        let stack = || tensor_stack(&task.stack, task.core_nm, task.bottom_oxide_um);
+        let s = draw(stack()?, &task.rect, &task.circle, &task.ring)?;
+        let z = modes_z(&task, &s)?;
+        let (along, across, cut) = (task.along()?, task.across()?, task.cut()?);
+        let lam = Wavelength::um(task.wavelength_um)?;
+        let frame = Frame::new(along, &task.rect, &task.circle, &task.ring, cut);
+        let fs = frame.draw(stack()?)?;
+        let cs = cross_section(
+            &fs,
+            &frame.rect,
+            &frame.circle,
+            &frame.ring,
+            frame.cut,
+            across,
+            z,
+            task.step_nm / 1000.0,
+            lam,
+            along,
+        )?;
+        let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
+        Ok(modes_trust::thin_guides(
+            &cs,
+            edge,
+            task.step_nm,
+            &window_of(&task, z)?,
+        ))
+    };
+    thin().unwrap_or_default()
+}
+
 /// A modes job's scene: a block behind the cut along the guide, as deep as the window across it
 /// is wide.
 pub(super) fn modes_scene(task: &ModesTask, s: &Structure) -> Result<Event> {
@@ -1796,6 +1855,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
     }
     let cs = section(step)?;
     let edge = window_edge_highest(&task, &s, z, lam.to_um())?;
+    let window = window_of(&task, z)?;
     // what an open window keeps of the modes it solves, and how it names them
     let kept = || -> Result<String> {
         Ok(format!(
@@ -1854,6 +1914,7 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 .into(),
         ]);
     }
+    details.push(["scheme".into(), modes_trust::SCHEME.into()]);
     run.record(&Event::Solver {
         module: "mode::vector".into(),
         cells: [cs.x().len() - 1, cs.y().len() - 1],
@@ -1861,12 +1922,41 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         unknowns: cs.unknowns(),
         details,
     })?;
+    // a guide the grid has too few cells across (the grid a drive stopped at)
+    for text in modes_trust::thin_guides(&cs, edge, step * 1000.0, &window) {
+        run.record(&Event::Warning { text })?;
+    }
     // the solve itself heeds the stop and the time limit, at each of its steps
     let Some(found) = solve(&cs, lam)? else {
         return Ok(());
     };
     let mut sorted: Vec<_> = found.iter().collect();
     sorted.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
+    if sorted.is_empty() {
+        let what = match (task.modes_above, open) {
+            (Some(above), _) => format!("none has n_eff above modes_above = {above}"),
+            (None, false) => format!(
+                "of the {count} modes solved none has n_eff above {edge:.4}, the highest index \
+                 of the media around the guides, so none is guided"
+            ),
+            (None, true) => format!(
+                "of the {count} modes solved each is the PML's own or radiates into every \
+                 medium around the guides"
+            ),
+        };
+        run.record(&Event::Warning {
+            text: modes_trust::no_modes(&cs, edge, &what, &window),
+        })?;
+    }
+    // each edge's own index, for how the window holds each mode (none if an edge's slab mode
+    // can't be solved: the run goes on without the check)
+    let indices = if sorted.is_empty() {
+        None
+    } else {
+        cs.edge_indices(lam).ok()
+    };
+    let n_core = modes_trust::highest_index(&cs);
+    let mut held = Vec::new();
     // the quantities asked for, from the one-sided fields, as the library takes them
     let quantities = match task.quantities {
         Some(q) => {
@@ -1891,6 +1981,33 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         let n = m.effective_index();
         let fields = m.fields(&cs)?;
         let label = format!("mode {} of {}", k + 1, sorted.len());
+        if let Some(indices) = indices {
+            // the accuracy asked for, or the grid's own error at its step
+            let limit = match &task.convergence {
+                Some(c) => (
+                    c.tolerance,
+                    format!("the tolerance of [task.convergence], {:e}", c.tolerance),
+                ),
+                None => {
+                    let g = modes_trust::grid_error(n.re, n_core, step, lam);
+                    (
+                        g,
+                        format!(
+                            "the grid's own error at its step, about {g:.1e} (the scheme's \
+                             dispersion where the field is smooth)"
+                        ),
+                    )
+                }
+            };
+            let holds = modes_trust::window_shift(&cs, &fields, n.re, indices, lam);
+            held.extend(modes_trust::window_warning(
+                &label,
+                n.re,
+                &holds,
+                (limit.0, &limit.1),
+                &window,
+            ));
+        }
         run.record(&Event::Mode {
             label: label.clone(),
             wavelength_um: lam.to_um(),
@@ -1948,6 +2065,9 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             measure: format!("eigen-residual, mode {} of {}", k + 1, sorted.len()),
             error: m.residual(&cs)?,
         })?;
+    }
+    for text in held {
+        run.record(&Event::Warning { text })?;
     }
     // the grid study: each mode's Re n_eff on grids twice, then four times, as coarse, the
     // run's grid's checked by it; a mode a coarser grid doesn't find hasn't converged
@@ -2137,6 +2257,17 @@ pub(super) fn modes(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         found.sort_by(|a, b| b.effective_index().re.total_cmp(&a.effective_index().re));
         if let Some(previous) = previous {
             found = follow(previous, found)?;
+        }
+        if found.is_empty() {
+            events.push(Event::Warning {
+                text: format!(
+                    "no mode found at the sweep's point {} of {}, {} = {value}: its row of the \
+                     sweep is empty",
+                    k + 1,
+                    sweep.points,
+                    sweep.parameter
+                ),
+            });
         }
         events.push(Event::SweepPoint {
             parameter: sweep.parameter.clone(),

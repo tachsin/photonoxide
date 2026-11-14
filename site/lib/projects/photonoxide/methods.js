@@ -57,7 +57,7 @@ export const CATEGORIES = [
     id: "gradients",
     title: "Gradients",
     blurb: "A response's derivative with respect to every parameter at the cost of one more solve, by adjoints, each checked against finite differences; and a device's objectives and constraints, optimized on them by genoxide's methods.",
-    groups: [{ title: null, slugs: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "optimization", "topology"] }],
+    groups: [{ title: null, slugs: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "solver-derivatives", "optimization", "topology"] }],
   },
   {
     id: "static",
@@ -107,7 +107,7 @@ const MORE = { id: "more", title: "More", blurb: "Write-ups added since this pag
  */
 export const ALGORITHMS = [
   { name: "AAA rational approximation", does: "a response from few samples as a barycentric rational function, with its error estimated between them", methods: ["sweep"] },
-  { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "averaging"] },
+  { name: "Adjoint variable method", does: "every parameter's gradient from one more solve", methods: ["fdfd-adjoint", "fdtd-adjoint", "circuit-adjoint", "averaging", "solver-derivatives"] },
   { name: "Anisotropic averaging from fill fractions", does: "a cell's permittivity from its materials' exact shares and the interface's normal", methods: ["averaging"] },
   { name: "Arnoldi, shift and invert", does: "the eigenvalues nearest a shift", methods: ["eigen"] },
   { name: "Auxiliary differential equations", does: "Drude and Lorentz media stepped in time", methods: ["fdtd"] },
@@ -121,6 +121,7 @@ export const ALGORITHMS = [
   { name: "Finite volumes, conductances in series", does: "heat, potential and current on a graded grid, exact for layered media", methods: ["static"] },
   { name: "Eigenmode expansion", does: "a structure cut into uniform sections, joined by their modes' S-matrices", methods: ["eme"] },
   { name: "Elliptical slices of quadrics", does: "a sphere's, an ellipsoid's or a cone's exact share of a cell", methods: ["bodies"] },
+  { name: "Forward-mode differentiation", does: "every output's derivative along one parameter from one more pass, exactly, on dual numbers or one more solve", methods: ["solver-derivatives"] },
   { name: "GCRO-DR", does: "Krylov recycling across a sequence of solves", methods: ["recycling"] },
   { name: "GMRES-based iterative refinement", does: "single-precision factors refined to a double-precision solution, or an error that says why not", methods: ["mixed-precision"] },
   { name: "Hadley's interface and corner equations", does: "high-order differences across interfaces and corners", methods: ["hadley"] },

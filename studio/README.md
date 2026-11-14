@@ -9,7 +9,7 @@ program runs jobs headless, replays runs, runs the built-in examples and checks 
 
 ```sh
 photonoxide                      # the studio
-photonoxide run <job.yaml> [--out <dir>] [--headless] [--linger <seconds>]
+photonoxide run <job.yaml> [--out <dir>] [--headless] [--linger <seconds>] [--strict]
                  [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
 photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
 photonoxide view <run directory>

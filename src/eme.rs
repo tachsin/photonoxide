@@ -116,6 +116,9 @@ mod scattering;
 mod spectrum;
 #[path = "cases/eme/spectrum_checks.rs"]
 pub(crate) mod spectrum_checks;
+mod tangent;
+#[path = "cases/eme/tangent_checks.rs"]
+pub(crate) mod tangent_checks;
 mod three;
 #[path = "cases/eme/three_checks.rs"]
 pub(crate) mod three_checks;
@@ -130,6 +133,7 @@ pub use periodic::Bloch;
 pub use plane::{Mode3d, Plane, PlaneGrid, Pml3d, Walls};
 pub use spectrum::Spectrum;
 pub(crate) use spectrum::entries;
+pub use tangent::SectionParameter;
 pub use three::{Eme3d, Section3d};
 
 /// A wall at an edge of the window.

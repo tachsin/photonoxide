@@ -26,8 +26,11 @@
 //!   mode, by first-order perturbation and by re-solve.
 //! - [`vector`]: the full-vector modes of any cross-section, by finite differences.
 
+#[path = "../cases/mode/adjoint_checks.rs"]
+pub(crate) mod adjoint_checks;
 pub mod bend;
 pub mod dispersion;
+pub(crate) mod dual;
 pub mod eim;
 pub mod fields;
 pub mod hadley;
