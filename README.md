@@ -50,7 +50,7 @@ It is released milestone by milestone ([changelog](CHANGELOG.md), [roadmap](ROAD
   it; 56 processes on 5 platforms, every flow executed back to its design and shown step by step
   in the studio. New platforms and exports are in progress.
 - **[The library, the Python package and the studio](#install):** the code that runs a design,
-  with 60 examples that each compute a published result and print it beside the paper's, 45 job files ready to run, and 992 validation
+  with 61 examples that each compute a published result and print it beside the paper's, 45 job files ready to run, and 996 validation
   cases that check it.
 
 ## What it computes
@@ -250,7 +250,7 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 Nothing is merged without an analytic test, a reproduction of a published result and a
 convergence test; adjoint gradients are checked against finite differences. The
-[report](docs/validation.md) has 992 cases: 686 against closed forms, 293 against published
+[report](docs/validation.md) has 996 cases: 690 against closed forms, 293 against published
 results and 13 against a second method of photonoxide's own on a shared problem. Each states its source,
 tolerance and grid; a published case is a number a paper prints or a formula re-implemented from its
 equations, and a few are bounds, not equalities. The comparisons with other codes (Elmer for the static
