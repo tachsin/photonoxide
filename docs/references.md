@@ -156,14 +156,14 @@ V. R. Almeida, R. R. Panepucci, M. Lipson, "Nanotaper for compact mode conversio
 
 P. R. Amestoy, I. S. Duff, J.-Y. L'Excellent, J. Koster, "A Fully Asynchronous Multifrontal Solver Using Distributed Dynamic Scheduling", SIAM J. Matrix Anal. Appl. 23, 15 (2001). [doi:10.1137/S0895479899358194](https://doi.org/10.1137/S0895479899358194)
 
-- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:40](../native/tests/mumps.rs#L40), [src/bench/export.rs:5](../src/bench/export.rs#L5)
+- Code: [native/src/mumps.rs:3](../native/src/mumps.rs#L3), [698](../native/src/mumps.rs#L698), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:39](../native/tests/mumps.rs#L39), [src/bench/export.rs:5](../src/bench/export.rs#L5)
 - Other documents: [docs/baselines.md:6](baselines.md?plain=1#L6), [docs/plans/performance.md:595](plans/performance.md?plain=1#L595)
 
 #### Amestoy et al. 2015
 
 P. Amestoy, C. Ashcraft, O. Boiteau, A. Buttari, J.-Y. L'Excellent, C. Weisbecker, "Improving Multifrontal Methods by Means of Block Low-Rank Representations", SIAM J. Sci. Comput. 37, A1451 (2015). [doi:10.1137/120903476](https://doi.org/10.1137/120903476)
 
-- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:297](../native/tests/mumps.rs#L297)
+- Code: [native/src/mumps.rs:51](../native/src/mumps.rs#L51), [707](../native/src/mumps.rs#L707), [native/tests/mumps.rs:299](../native/tests/mumps.rs#L299)
 - Other documents: [docs/baselines.md:405](baselines.md?plain=1#L405), [docs/plans/performance.md:596](plans/performance.md?plain=1#L596)
 
 #### Amestoy et al. 2019
@@ -346,7 +346,7 @@ S. Bartolucci, P. Birchall, H. Bombín, H. Cable, C. Dawson, M. Gimeno-Segovia, 
 - Methods pages: [quantum.md:57](methods/quantum.md?plain=1#L57), [699](methods/quantum.md?plain=1#L699)
 - Academy lessons: [quantum-light.md:285](../academy/quantum-light.md?plain=1#L285), [635](../academy/quantum-light.md?plain=1#L635), [889](../academy/quantum-light.md?plain=1#L889), [1018](../academy/quantum-light.md?plain=1#L1018)
 - Validation cases: [`quantum/bartolucci-fusion`](validation.md?plain=1#L945)
-- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1447](../src/quantum/real_checks.rs#L1447), [studio/src-tauri/src/circuits/quantum.rs:594](../studio/src-tauri/src/circuits/quantum.rs#L594)
+- Code: [src/quantum/budget.rs:13](../src/quantum/budget.rs#L13), [src/quantum/real_checks.rs:1447](../src/quantum/real_checks.rs#L1447), [studio/src-tauri/src/circuits/quantum.rs:603](../studio/src-tauri/src/circuits/quantum.rs#L603)
 - Other documents: [docs/plans/quantum.md:493](plans/quantum.md?plain=1#L493)
 
 #### Barwicz and Haus 2005
@@ -878,7 +878,7 @@ L. Chrostowski, M. Hochberg, "Silicon Photonics Design: From Devices to Systems"
 - Academy lessons: [crossings-and-converters.md:66](../academy/crossings-and-converters.md?plain=1#L66), [240](../academy/crossings-and-converters.md?plain=1#L240), [568](../academy/crossings-and-converters.md?plain=1#L568), [661](../academy/crossings-and-converters.md?plain=1#L661), [directional-coupler.md:88](../academy/directional-coupler.md?plain=1#L88), [130](../academy/directional-coupler.md?plain=1#L130), [507](../academy/directional-coupler.md?plain=1#L507), [material-dispersion.md:68](../academy/material-dispersion.md?plain=1#L68), [349](../academy/material-dispersion.md?plain=1#L349), [slab-waveguide.md:84](../academy/slab-waveguide.md?plain=1#L84), [114](../academy/slab-waveguide.md?plain=1#L114), [583](../academy/slab-waveguide.md?plain=1#L583), [strip-waveguide.md:130](../academy/strip-waveguide.md?plain=1#L130), [160](../academy/strip-waveguide.md?plain=1#L160)
 - Validation cases: [`mode/slab-te-book`](validation.md?plain=1#L99), [`mode/slab-tm-book`](validation.md?plain=1#L100), [`mode/strip-book`](validation.md?plain=1#L103), [`mode/strip-group-index-book`](validation.md?plain=1#L109), [`mode/eim-strip-book`](validation.md?plain=1#L120), [`components/directional-coupler-power`](validation.md?plain=1#L301), [`device/coupler-closed-forms`](validation.md?plain=1#L312), [`device/strip-chrostowski`](validation.md?plain=1#L325), [`device/coupler-chrostowski`](validation.md?plain=1#L326), [`device/study-coupler-chrostowski`](validation.md?plain=1#L350)
 - Examples: [README.md:37](../examples/README.md?plain=1#L37), [41](../examples/README.md?plain=1#L41), [66](../examples/README.md?plain=1#L66), [directional_coupler.rs:4](../examples/directional_coupler.rs#L4), [43](../examples/directional_coupler.rs#L43), [effective_index_method.rs:4](../examples/effective_index_method.rs#L4), [group_index.rs:4](../examples/group_index.rs#L4), [49](../examples/group_index.rs#L49), [slab_soi.rs:4](../examples/slab_soi.rs#L4), [strip_waveguide.rs:5](../examples/strip_waveguide.rs#L5), [62](../examples/strip_waveguide.rs#L62), [python/examples/README.md:27](../python/examples/README.md?plain=1#L27), [python/examples/output/strip_waveguide.txt:15](../python/examples/output/strip_waveguide.txt#L15), [16](../python/examples/output/strip_waveguide.txt#L16), [python/examples/slab_soi.py:5](../python/examples/slab_soi.py#L5), [python/examples/strip_waveguide.py:5](../python/examples/strip_waveguide.py#L5), [66](../python/examples/strip_waveguide.py#L66), [71](../python/examples/strip_waveguide.py#L71)
-- Code: [python/tests/test_api.py:29](../python/tests/test_api.py#L29), [src/cases/device/cut_checks.rs:40](../src/cases/device/cut_checks.rs#L40), [src/circuit/components/coupler.rs:200](../src/circuit/components/coupler.rs#L200), [253](../src/circuit/components/coupler.rs#L253), [src/circuit/components/waveguide.rs:20](../src/circuit/components/waveguide.rs#L20), [327](../src/circuit/components/waveguide.rs#L327), [src/device/bend.rs:250](../src/device/bend.rs#L250), [src/device/checks.rs:76](../src/device/checks.rs#L76), [167](../src/device/checks.rs#L167), [174](../src/device/checks.rs#L174), [722](../src/device/checks.rs#L722), [src/device/fit.rs:12](../src/device/fit.rs#L12), [src/device/rib.rs:298](../src/device/rib.rs#L298), [src/device/tests.rs:354](../src/device/tests.rs#L354), [491](../src/device/tests.rs#L491), [src/device/waveguide.rs:22](../src/device/waveguide.rs#L22), [src/facade/device.rs:286](../src/facade/device.rs#L286), [src/job/study_checks.rs:44](../src/job/study_checks.rs#L44), [src/mode/dispersion.rs:5](../src/mode/dispersion.rs#L5), [src/mode/eim.rs:4](../src/mode/eim.rs#L4), [src/mode/slab.rs:13](../src/mode/slab.rs#L13), [src/stack.rs:135](../src/stack.rs#L135), [src/validation.rs:724](../src/validation.rs#L724), [731](../src/validation.rs#L731), [752](../src/validation.rs#L752), [794](../src/validation.rs#L794), [871](../src/validation.rs#L871), [2138](../src/validation.rs#L2138), [4791](../src/validation.rs#L4791), [studio/src-tauri/src/charts/coupler.rs:7](../studio/src-tauri/src/charts/coupler.rs#L7), [studio/src-tauri/src/charts/leaky.rs:36](../studio/src-tauri/src/charts/leaky.rs#L36), [studio/src-tauri/src/charts/slab.rs:8](../studio/src-tauri/src/charts/slab.rs#L8), [studio/src-tauri/src/circuits/library.rs:136](../studio/src-tauri/src/circuits/library.rs#L136), [studio/src-tauri/src/examples.rs:710](../studio/src-tauri/src/examples.rs#L710)
+- Code: [python/tests/test_api.py:29](../python/tests/test_api.py#L29), [src/cases/device/cut_checks.rs:40](../src/cases/device/cut_checks.rs#L40), [src/circuit/components/coupler.rs:200](../src/circuit/components/coupler.rs#L200), [253](../src/circuit/components/coupler.rs#L253), [src/circuit/components/waveguide.rs:20](../src/circuit/components/waveguide.rs#L20), [327](../src/circuit/components/waveguide.rs#L327), [src/device/bend.rs:250](../src/device/bend.rs#L250), [src/device/checks.rs:76](../src/device/checks.rs#L76), [167](../src/device/checks.rs#L167), [174](../src/device/checks.rs#L174), [722](../src/device/checks.rs#L722), [src/device/fit.rs:12](../src/device/fit.rs#L12), [src/device/rib.rs:298](../src/device/rib.rs#L298), [src/device/tests.rs:354](../src/device/tests.rs#L354), [491](../src/device/tests.rs#L491), [src/device/waveguide.rs:22](../src/device/waveguide.rs#L22), [src/facade/device.rs:286](../src/facade/device.rs#L286), [src/job/study_checks.rs:44](../src/job/study_checks.rs#L44), [src/mode/dispersion.rs:5](../src/mode/dispersion.rs#L5), [src/mode/eim.rs:4](../src/mode/eim.rs#L4), [src/mode/slab.rs:13](../src/mode/slab.rs#L13), [src/stack.rs:135](../src/stack.rs#L135), [src/validation.rs:724](../src/validation.rs#L724), [731](../src/validation.rs#L731), [752](../src/validation.rs#L752), [794](../src/validation.rs#L794), [871](../src/validation.rs#L871), [2138](../src/validation.rs#L2138), [4791](../src/validation.rs#L4791), [studio/src-tauri/src/charts/coupler.rs:7](../studio/src-tauri/src/charts/coupler.rs#L7), [studio/src-tauri/src/charts/leaky.rs:37](../studio/src-tauri/src/charts/leaky.rs#L37), [studio/src-tauri/src/charts/slab.rs:8](../studio/src-tauri/src/charts/slab.rs#L8), [studio/src-tauri/src/circuits/library.rs:136](../studio/src-tauri/src/circuits/library.rs#L136), [studio/src-tauri/src/examples.rs:710](../studio/src-tauri/src/examples.rs#L710)
 - Other documents: [CONTRIBUTING.md:26](../CONTRIBUTING.md?plain=1#L26), [72](../CONTRIBUTING.md?plain=1#L72), [74](../CONTRIBUTING.md?plain=1#L74), [ROADMAP.md:765](../ROADMAP.md?plain=1#L765), [docs/plans/carrier-modulators.md:550](plans/carrier-modulators.md?plain=1#L550)
 
 #### Clements et al. 2016
@@ -1525,7 +1525,7 @@ G. Ghione, C. Naldi, "Analytical formulas for coplanar lines in hybrid and monol
 
 - Methods pages: [devices.md:58](methods/devices.md?plain=1#L58), [static.md:18](methods/static.md?plain=1#L18), [travelling-wave.md:12](methods/travelling-wave.md?plain=1#L12)
 - Validation cases: [`static/coplanar-wen`](validation.md?plain=1#L526), [`line/ghione-naldi-thick`](validation.md?plain=1#L567), [`device/tfln-analytic-line`](validation.md?plain=1#L739)
-- Code: [crosscode/src/cpw.rs:6](../crosscode/src/cpw.rs#L6), [crosscode/tests/openems.rs:241](../crosscode/tests/openems.rs#L241), [src/cases/device/tfln_checks.rs:307](../src/cases/device/tfln_checks.rs#L307), [src/cases/electro/line_checks.rs:952](../src/cases/electro/line_checks.rs#L952), [src/cases/statics/checks.rs:1004](../src/cases/statics/checks.rs#L1004), [src/device/tfln.rs:1202](../src/device/tfln.rs#L1202)
+- Code: [crosscode/src/cpw.rs:6](../crosscode/src/cpw.rs#L6), [crosscode/tests/openems.rs:240](../crosscode/tests/openems.rs#L240), [src/cases/device/tfln_checks.rs:307](../src/cases/device/tfln_checks.rs#L307), [src/cases/electro/line_checks.rs:952](../src/cases/electro/line_checks.rs#L952), [src/cases/statics/checks.rs:1004](../src/cases/statics/checks.rs#L1004), [src/device/tfln.rs:1202](../src/device/tfln.rs#L1202)
 - Other documents: [ROADMAP.md:811](../ROADMAP.md?plain=1#L811), [docs/validation-openems.md:9](validation-openems.md?plain=1#L9)
 
 #### Ghysels and Vanroose 2014
@@ -1766,7 +1766,7 @@ C. S. Hamilton, R. Kruse, L. Sansoni, S. Barkhofen, C. Silberhorn, I. Jex, "Gaus
 
 E. Hammerstad, O. Jensen, "Accurate Models for Microstrip Computer-Aided Design", 1980 IEEE MTT-S International Microwave symposium Digest (1980). [doi:10.1109/MWSYM.1980.1124303](https://doi.org/10.1109/MWSYM.1980.1124303)
 
-- Code: [crosscode/src/microstrip.rs:100](../crosscode/src/microstrip.rs#L100)
+- Code: [crosscode/src/microstrip.rs:101](../crosscode/src/microstrip.rs#L101)
 
 #### Hammond et al. 2021
 
@@ -3067,7 +3067,7 @@ G. Mie, "Beiträge zur Optik trüber Medien, speziell kolloidaler Metallösungen
 - Methods pages: [fdtd.md:8](methods/fdtd.md?plain=1#L8), [936](methods/fdtd.md?plain=1#L936)
 - Academy lessons: [plasmonics.md:40](../academy/plasmonics.md?plain=1#L40), [71](../academy/plasmonics.md?plain=1#L71), [326](../academy/plasmonics.md?plain=1#L326), [545](../academy/plasmonics.md?plain=1#L545)
 - Validation cases: [`fdtd/mie-table`](validation.md?plain=1#L254), [`fdtd/mie-sphere`](validation.md?plain=1#L257)
-- Code: [src/fdtd.rs:60](../src/fdtd.rs#L60), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1809](../src/validation.rs#L1809), [1830](../src/validation.rs#L1830), [studio/src-tauri/src/charts/plasmon.rs:880](../studio/src-tauri/src/charts/plasmon.rs#L880)
+- Code: [src/fdtd.rs:60](../src/fdtd.rs#L60), [src/fdtd/mie.rs:2](../src/fdtd/mie.rs#L2), [src/validation.rs:1809](../src/validation.rs#L1809), [1830](../src/validation.rs#L1830), [studio/src-tauri/src/charts/plasmon.rs:884](../studio/src-tauri/src/charts/plasmon.rs#L884)
 - Other documents: [ROADMAP.md:757](../ROADMAP.md?plain=1#L757)
 
 #### Miller 1964
@@ -4457,7 +4457,7 @@ M. Varnava, D. E. Browne, T. Rudolph, "How Good Must Single Photon Sources and D
 - Methods pages: [quantum.md:55](methods/quantum.md?plain=1#L55), [692](methods/quantum.md?plain=1#L692)
 - Academy lessons: [quantum-light.md:99](../academy/quantum-light.md?plain=1#L99), [627](../academy/quantum-light.md?plain=1#L627), [993](../academy/quantum-light.md?plain=1#L993)
 - Validation cases: [`quantum/varnava-threshold`](validation.md?plain=1#L944)
-- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1440](../src/quantum/real_checks.rs#L1440), [studio/src-tauri/src/circuits/quantum.rs:589](../studio/src-tauri/src/circuits/quantum.rs#L589)
+- Code: [src/quantum/budget.rs:11](../src/quantum/budget.rs#L11), [src/quantum/real_checks.rs:1440](../src/quantum/real_checks.rs#L1440), [studio/src-tauri/src/circuits/quantum.rs:598](../studio/src-tauri/src/circuits/quantum.rs#L598)
 - Other documents: [docs/plans/quantum.md:491](plans/quantum.md?plain=1#L491)
 
 #### Vassilevski 2018
