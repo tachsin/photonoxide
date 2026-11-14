@@ -163,12 +163,13 @@ and none is a threshold of our own choosing:
   curvature of its field, which sets its modes, is the interfaces'. A guide fewer than four
   cells across, or up, is warned of before the run starts, with the step that gives it four.
   On `photonoxide new modes`'s strip a 200 nm step leaves 2 cells up the 220 nm film and 3
-  across the 500 nm, and $n_\text{eff}$ comes out 2.3347 against 2.4498 on the template's 20 nm (4.7 % low).
+  across the 500 nm, and $n_\text{eff}$ comes out 2.3347 against 2.4498 on the template's
+  20 nm (4.7 % low).
 - **A mode the window holds.** Along each edge a wave travels at the edge's own index (its
   medium's, or the slab mode of a guide that runs into it, as for the guided modes above). A
   mode not above it doesn't decay towards that edge: the window, not the guide, holds it, and
   its $n_\text{eff}$ is the window's. The same strip in a window 0.4 µm wide gives 2.2354
-  where 2.44 is right. In an open window (a `[task.pml]`) a leaky mode lies below the index it
+  where the template's 2.4 µm window gives 2.4498. In an open window (a `[task.pml]`) a leaky mode lies below the index it
   leaks into by design, so this isn't asked there.
 - **A mode whose field reaches the edge.** Beyond a closed edge the field is zero one step past
   the edge's nodes. To first order that wall lowers $\beta^2$ by $2\gamma\,\psi(x_0)^2 / \int
@@ -182,8 +183,8 @@ and none is a threshold of our own choosing:
   the interfaces. On the book's strip at 20 nm, 0.81 µm of window either side gives an
   estimate of 4.75e-6 against the 5.93e-6 it moves $n_\text{eff}$ (0.80), and 0.81 µm above
   and below 3.67e-6 against 4.09e-6 (0.90); narrower windows are overestimated, which warns
-  the sooner. It is warned of when it exceeds
-  the tolerance of the job's `[task.convergence]`, the accuracy the job asks for, or, without
+  the sooner. It is warned of when it exceeds the tolerance of the job's
+  `[task.convergence]`, the accuracy the job asks for, or, without
   one, the grid's own error at its step, $k_0^2 (n^2 - n_\text{eff}^2)^2 h^2 / (24\,
   n_\text{eff})$ with $n$ the guide's index: the three-point difference's
   $-k^2 (1 - (kh)^2/12)$ for a field varying at $k^2 = k_0^2 (n^2 - n_\text{eff}^2)$. That is
@@ -191,7 +192,7 @@ and none is a threshold of our own choosing:
   grid's error is larger and the warning comes early rather than late. The window's error is
   then the larger of the two, and widening it is what the number needs: a convergence check
   refines the grid, not the window, and doesn't see it. At 20 nm the book's strip has a grid
-  error of about 4.2e-3 by this estimate; with 1.5 µm of oxide above and below, a window
+  error of 4.1e-3 to 4.2e-3 by this estimate; with 1.5 µm of oxide above and below, a window
   0.41 µm either side (0.16 µm of oxide beside the strip) estimates 4.0e-3, just under it
   (its shift is 4.4e-3), and one 0.35 µm either side 1.2e-2, over it (shift 1.1e-2).
 - **No mode found:** none above the highest index of the media around the guides (or above
