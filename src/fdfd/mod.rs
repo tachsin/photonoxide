@@ -1044,6 +1044,8 @@ mod fill;
 #[path = "../cases/fdfd/fill_checks.rs"]
 pub(crate) mod fill_checks;
 mod kerr;
+#[path = "../cases/fdfd/kerr_checks.rs"]
+pub(crate) mod kerr_checks;
 mod ports;
 #[cfg(test)]
 mod tests;

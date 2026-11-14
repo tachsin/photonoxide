@@ -133,6 +133,21 @@ impl Profile {
         &self.nodes
     }
 
+    /// The same profile with cell `c`'s permittivity changed by `d`: for the differences that
+    /// check [`Profile::index_gradient`].
+    pub(crate) fn with_cell_changed(&self, c: usize, d: f64) -> Profile {
+        let mut p = self.clone();
+        p.cells[c] += d;
+        p
+    }
+
+    /// The same profile with node `m` moved by `d` µm.
+    pub(crate) fn with_node_moved(&self, m: usize, d: f64) -> Profile {
+        let mut p = self.clone();
+        p.nodes[m] += d;
+        p
+    }
+
     /// The `count` modes with effective indices nearest `near` (the highest index in the
     /// profile when `None`), nearest first.
     ///

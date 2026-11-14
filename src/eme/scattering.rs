@@ -152,7 +152,7 @@ pub(crate) fn product(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
 }
 
 /// a⁻¹ b, by Gaussian elimination with partial pivoting.
-fn solve(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
+pub(crate) fn solve(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
     let n = a.nrows();
     let mut m = a.clone();
     let mut x = b.clone();
@@ -203,7 +203,7 @@ fn solve(a: &Mat<c64>, b: &Mat<c64>) -> Mat<c64> {
     x
 }
 
-fn identity(n: usize) -> Mat<c64> {
+pub(crate) fn identity(n: usize) -> Mat<c64> {
     Mat::from_fn(n, n, |i, j| {
         if i == j {
             c64::new(1.0, 0.0)
@@ -217,7 +217,7 @@ fn scaled(a: &Mat<c64>, f: f64) -> Mat<c64> {
     Mat::from_fn(a.nrows(), a.ncols(), |i, j| f * a[(i, j)])
 }
 
-fn transpose(a: &Mat<c64>) -> Mat<c64> {
+pub(crate) fn transpose(a: &Mat<c64>) -> Mat<c64> {
     Mat::from_fn(a.ncols(), a.nrows(), |i, j| a[(j, i)])
 }
 

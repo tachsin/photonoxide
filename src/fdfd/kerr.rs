@@ -454,7 +454,7 @@ mod tests {
         };
         let eps = c64::new(2.0, 0.3);
         let chi = 0.8;
-        let b = c64::new(9.0, 4.0);
+        let b = c64::new(25.0, 10.0);
         let n = grid.nx * grid.ny;
         let kerr = Kerr2d::new(grid, lam(), &vec![eps; n], &vec![chi; n], boundaries).unwrap();
         let solved = kerr.solve(&vec![b; n], None).unwrap();
@@ -473,6 +473,7 @@ mod tests {
         let u = solved.field().at(2, 3);
         assert!((u.norm_sqr() - s).abs() < 1e-12 * s, "{} against {s}", u.norm_sqr());
         // and the nonlinearity matters: chi s is not small against eps
-        assert!(chi * s > 0.1 * eps.re, "{}", chi * s);
+        assert!(chi * s > 0.25 * eps.re, "{}", chi * s);
+        assert!(solved.steps() > 2 && solved.residual() < 1e-12);
     }
 }
