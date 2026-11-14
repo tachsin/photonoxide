@@ -1,9 +1,12 @@
-//! OpenBLAS called by other libraries while photonoxide's calls into it thread: MUMPS and
-//! SuperLU, installed from one conda environment with the OpenBLAS, link the same one and call
-//! it outside photonoxide's lock (#557, #595). A threaded call of ours sets OpenBLAS's count of
-//! threads around itself, and OpenBLAS built with OpenMP frees the buffers of the threads above
-//! a lower count; a MUMPS or SuperLU call running meanwhile may be using them. Every product of
-//! ours and every solve of theirs must stay right.
+//! OpenBLAS called by other libraries beside photonoxide's calls into it: MUMPS and SuperLU,
+//! installed from one conda environment with the OpenBLAS, link the same one (#557, #595). A
+//! threaded call of ours sets OpenBLAS's count of threads around itself, and OpenBLAS built with
+//! OpenMP frees the buffers of the threads above a lower count, and (0.3.34) threads a call made
+//! inside an OpenMP region, as MUMPS's are, by that count: one of MUMPS's made during a threaded
+//! call of ours waited for good, and the whole test with it (#812). So photonoxide's MUMPS and
+//! SuperLU backends call them on the shared side of its lock, beside its calls on one thread and
+//! never during a threaded one. Every product of ours and every solve of theirs must stay right,
+//! and the test must end.
 //!
 //! Skipped, and saying so, where OpenBLAS, MUMPS or SuperLU isn't found; with
 //! `PHOTONOXIDE_REQUIRE_BLAS` (`openblas`), `PHOTONOXIDE_REQUIRE_MUMPS` and
@@ -12,8 +15,7 @@
 //! of products (default 10); `PHOTONOXIDE_SHARED_CASE` (`all`, `mumps`, `superlu` or `foreign`,
 //! the two libraries without the products) picks the pieces that run, and
 //! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got and
-//! printing every thread's stack (gdb on Linux, `sample` or lldb on macOS; #812). On
-//! macOS with conda-forge's OpenMP OpenBLAS the whole test stalled (#595).
+//! printing every thread's stack (gdb on Linux, `sample` or lldb on macOS; #812).
 
 use photonoxide::portable;
 use std::io::Write;

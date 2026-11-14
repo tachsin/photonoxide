@@ -46,7 +46,11 @@
 //!   cores where the thread never set it, and makes it the process's (0.3.33 and before; 0.3.34
 //!   keeps a count set by `openblas_set_num_threads`): each thread's OpenMP count is set to one
 //!   before its first call, by the OpenMP runtime's `omp_set_num_threads`, and to rayon's
-//!   around a threaded call.
+//!   around a threaded call. Once `openblas_set_num_threads` has been called, 0.3.34 threads a
+//!   call made inside an OpenMP region by the process's count too; MUMPS factorizes in OpenMP
+//!   regions, and one of its calls made during a threaded call of ours waited for good (#812).
+//!   So photonoxide's MUMPS and SuperLU backends, which may call the same OpenBLAS, call them on
+//!   the shared side of the lock: never during a threaded call or a load.
 //!   Without an OpenMP runtime, AOCL-BLAS is held to one thread by
 //!   `bli_thread_set_num_threads`; Accelerate has no control photonoxide sets, and is left to
 //!   itself.
@@ -1220,6 +1224,20 @@ thread_local! {
     /// Whether this thread's OpenMP count is one, for OpenBLAS built with OpenMP: set before
     /// its first call, and left at one by a threaded call when it ends.
     static OPENMP_ONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// [`OPENBLAS_CALLS`] shared, by a call into a library that may call the same OpenBLAS
+/// (MUMPS, SuperLU): it runs beside photonoxide's calls on one thread and beside each other,
+/// never during a threaded call or a load (#812). OpenBLAS 0.3.34 built with OpenMP threads a
+/// call from inside an OpenMP region by the process's count once `openblas_set_num_threads`
+/// has been called; MUMPS factorizes in OpenMP regions, so a call of its during a threaded call
+/// of ours (the count above one) started a parallel region of one thread inside its own, whose
+/// one thread waited for the others for good, holding OpenBLAS's lock of level-3 calls, which
+/// ours then waited on.
+pub(crate) fn openblas_shared() -> std::sync::RwLockReadGuard<'static, ()> {
+    OPENBLAS_CALLS
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// [`OPENBLAS_CALLS`] held alone: by a threaded call, or a load.
