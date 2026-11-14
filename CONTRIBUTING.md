@@ -225,7 +225,9 @@ code on every system; a canary that fails points at a primitive, not at a method
   (exp, ln, sin, cos, tan, atan2, hypot, the hyperbolic functions, powf, cbrt, complex sqrt, exp
   and ln, and more) at about 50 arguments each, and `photonoxide::portable`'s functions, bit for
   bit, against what they give on every system and within their stated ulps; photonoxide's own erf, Bessel, Hankel, E₁ and Γ;
-  faer's dense LU, QR, SVD and eigensolvers on ill-conditioned matrices; the sparse LU; QMR and
+  faer's dense LU, QR, SVD and eigensolvers on ill-conditioned matrices, and the bits of faer's
+  results on matrices from 4 × 4 to 256 × 256 (printed as `FAER <name> <size> <hash>` lines, to
+  compare between systems by hand: faer picks its kernels by the CPU); the sparse LU; QMR and
   GMRES; the FFT; a slab's modes; a small FDFD solve; threads; the bits of a 2D FDTD run; a job
   file with CRLF line endings in a folder with spaces and non-ASCII letters. `tests/canary.rs`
   holds those the public API reaches, `src/canary_tests.rs` (and three `canary_` tests beside the

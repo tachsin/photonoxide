@@ -27,6 +27,7 @@
 //! | `canary_portable_functions_bit_for_bit` | `photonoxide::portable` on the libm table's arguments | by construction and exact (mpmath) | bit-exact, per function; and the ulps each one's doc states |
 //! | `canary_dense_lu_and_qr_backward_errors` | faer | self-consistency | backward error ≤ 10·n·ε·‖A‖ |
 //! | `canary_dense_eigen_and_svd` | faer | exact (mpmath) and self-consistency | Weyl: ≤ 10·n·ε·‖A‖₂; residuals ≤ 10·n·ε·‖A‖ |
+//! | `canary_faer_dense_kernels_bit_for_bit` | faer's product, LUs, QR, SVD, eigensolvers, 4 to 256 | self-consistency; the hashes printed (`FAER …`) for comparison between systems by hand | bit-exact computed again; bit-exact over sequential and 1 to 5 threads but for QR, the SVDs and the eigenvectors (they follow the threads) |
 //! | `canary_slab_modes_against_their_exact_roots` | mode::slab (libm's sqrt, atan2) | exact (mpmath) | the condition's rounding over its slope, plus the bisection's last step |
 //! | `canary_fdfd_tiny_solve` | FDFD, sparse LU, threads | self-consistency | residual and reciprocity ≤ 1e-8 (round-off rule); bit-exact over 1, 2, 5 threads |
 //! | `canary_fdtd_2d_bit_hash` | FDTD, threads | by construction | bit-exact, on 1, 2 and 5 threads |
@@ -44,6 +45,7 @@
 //! | `canary_tests::canary_sparse_lu_against_dense` | own multifrontal LU on faer | self-consistency | backward error ≤ 10·n·ε·‖A‖; forward ≤ κ·(both backward errors) |
 //! | `canary_tests::canary_qmr_and_gmres_iterations_are_the_closed_form` | QMR, GMRES | closed form | k iterations for k distinct eigenvalues, within 5 % |
 //! | `canary_tests::canary_least_squares_and_its_jacobi_fallback` | `lstsq` (faer QR, SVD; Jacobi) | self-consistency | forward error ≤ 10·n·ε·κ; Weyl between the two SVDs |
+//! | `canary_tests::canary_faer_least_squares_bit_for_bit` | `lstsq`, 30 × 8 to 400 × 64 | self-consistency; the hashes printed (`FAER r_lstsq …`) | bit-exact computed again (its bits follow faer's threads: printed, not asserted) |
 //! | `expr::tests::canary_erf_to_round_off` | own erf | exact (mpmath) | the series' rounding |
 //! | `geometry::region_tests::canary_gamma_to_fifteen_digits` | own Γ (Lanczos) | exact (mpmath) | its doc's 15 digits for the approximation, plus its arithmetic's running error |
 //! | `nonlinear::fft::tests::canary_fft_against_the_exact_dft` | own FFT, libm twiddles | exact (mpmath) | Higham's bound for the FFT |
