@@ -35,6 +35,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(native)* MUMPS and SuperLU never run during a threaded OpenBLAS call, which deadlocked in OpenBLAS 0.3.34's OpenMP build (closes #812) ([#837](https://github.com/tachsin/photonoxide/pull/837))
 - *(bench)* the reference of guide-qmr-44 and guide-qmr-free-44 is the direct solve (closes #819) ([#841](https://github.com/tachsin/photonoxide/pull/841))
 - *(cases)* the Kerr gradient case's math renders on GitHub; the PR path checks every case's math ([#842](https://github.com/tachsin/photonoxide/pull/842))
+- site-check reads the roadmap timeline's progress counts ([#782](https://github.com/tachsin/photonoxide/pull/782))
+- *(studio)* typing commits before the click, units shown in fields, honest labels (part of #783) ([#785](https://github.com/tachsin/photonoxide/pull/785))
+- the studio's tests stay under the Windows runner's memory (a followup of #795) ([#797](https://github.com/tachsin/photonoxide/pull/797))
 
 ### <!-- 4 -->Documentation
 
