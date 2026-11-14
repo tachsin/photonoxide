@@ -3,6 +3,7 @@
 //! reflection against its thickness for σ graded as (x/L)^m, from 1D runs of photonoxide's
 //! FDTD (`fdtd::Simulation` with `Edges::Pml`).
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
@@ -141,7 +142,7 @@ pub fn dispersion(courant: f64, dims: f64) -> photonoxide::Result<ChartData> {
         series.push(curve(label, points, false, k));
     }
     let axis = |n: f64| shortfall(n, courant, dims, [1.0, 0.0, 0.0]).unwrap_or(f64::NAN);
-    let order = (axis(20.0) / axis(40.0)).log2();
+    let order = portable::log2(axis(20.0) / axis(40.0));
     let mut figures = vec![
         figure(
             "along an axis, 10 cells",
@@ -206,7 +207,7 @@ pub fn growth(ratio: f64, dims: usize) -> f64 {
     for v in k.iter_mut().take(dims) {
         *v = PI;
     }
-    (grid_frequency(k, [1.0; 3], dt, 1.0).im * dt).exp()
+    portable::exp(grid_frequency(k, [1.0; 3], dt, 1.0).im * dt)
 }
 
 /// The fastest wave's growth per step against cΔt/Δ, in 1, 2 and 3 dimensions.
@@ -232,7 +233,7 @@ pub fn stability(step: f64) -> photonoxide::Result<ChartData> {
             &if g > 1.0 {
                 format!(
                     "a millionfold in {} steps; the limit is $c\\Delta t/\\Delta$ = {}",
-                    sig(1e6_f64.ln() / g.ln(), 3),
+                    sig(portable::ln(1e6_f64) / portable::ln(g), 3),
                     sig(limit, 4)
                 )
             } else {
@@ -325,7 +326,7 @@ pub fn reflection(
         series
             .iter()
             .enumerate()
-            .map(|(n, v)| v * c64::new(0.0, w * (n + 1) as f64 * dt).exp())
+            .map(|(n, v)| v * portable::complex::exp(c64::new(0.0, w * (n + 1) as f64 * dt)))
             .sum()
     };
     let len = with.len().min(reference.len());
@@ -335,7 +336,7 @@ pub fn reflection(
         .map(|(a, b)| a - b)
         .collect();
     let incident = dft(&reference[..len]);
-    if incident.norm() == 0.0 {
+    if portable::complex::abs(incident) == 0.0 {
         return Err(invalid("fdtd-pml", "no incident wave at the probe"));
     }
     Ok((dft(&difference) / incident).norm_sqr())
@@ -347,12 +348,12 @@ const THICKNESSES: [usize; 12] = [2, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32, 40];
 /// The slope of log |r|² against log L from `a` to `b` cells: −(the rate).
 fn rate(points: &[[f64; 2]], a: f64, b: f64) -> f64 {
     let at = |l: f64| points.iter().find(|p| p[0] == l).map_or(f64::NAN, |p| p[1]);
-    -(at(b) / at(a)).ln() / (b / a).ln()
+    -portable::ln(at(b) / at(a)) / portable::ln(b / a)
 }
 
 /// A CPML's reflection against its thickness for m = 1, 2, 3.
 pub fn pml(target_exponent: f64, per_wavelength: f64) -> photonoxide::Result<ChartData> {
-    let target = 10f64.powf(-target_exponent);
+    let target = portable::powf(10f64, -target_exponent);
     let orders = [1.0, 2.0, 3.0];
     let curves: Vec<Vec<[f64; 2]>> = orders
         .iter()
@@ -416,6 +417,7 @@ pub fn evaluate(id: &str, at: impl Fn(&str) -> f64) -> Option<photonoxide::Resul
 
 #[cfg(test)]
 mod tests {
+    use photonoxide::portable;
     use std::f64::consts::TAU;
 
     use super::*;
@@ -438,7 +440,7 @@ mod tests {
         assert!(fig(&data, "along an axis, 10 cells") > fig(&data, "diagonal, 10 cells"));
         for n in [10.0, 20.0, 40.0] {
             let e = shortfall(n, 0.5, 1, [1.0, 0.0, 0.0]).unwrap();
-            let leading = (TAU / n).powi(2) * (1.0 - 0.25) / 24.0;
+            let leading = portable::powi(TAU / n, 2) * (1.0 - 0.25) / 24.0;
             assert!(
                 (e / leading - 1.0).abs() < 0.05,
                 "{n}: {e} against {leading}"
@@ -455,7 +457,7 @@ mod tests {
         for dims in [1, 2, 3] {
             assert!((growth(0.99, dims) - 1.0).abs() < 1e-12);
             let s: f64 = 1.05;
-            let g = (s + (s * s - 1.0).sqrt()).powi(2);
+            let g = portable::powi(s + (s * s - 1.0).sqrt(), 2);
             assert!((growth(s, dims) / g - 1.0).abs() < 1e-12);
         }
     }

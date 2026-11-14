@@ -2,6 +2,7 @@
 // mirrored, the wires between them, names for new instances and ports, and what is connected.
 
 import type { Chip, External, KindInfo, Pin, Placed, SpectrumData, Sweep } from "./api";
+import { atan2, log10 } from "./portable";
 
 /** The chip view's grid: everything snaps to it. */
 export const GRID = 10;
@@ -184,9 +185,9 @@ export function curve(s: SpectrumData, q: number, p: number, quantity: Quantity)
     const power = re[k] * re[k] + im[k] * im[k];
     let y: number;
     if (quantity === "power") y = power;
-    else if (quantity === "db") y = Math.max(-100, 10 * Math.log10(power));
+    else if (quantity === "db") y = Math.max(-100, 10 * log10(power));
     else {
-      const phase = Math.atan2(im[k], re[k]);
+      const phase = atan2(im[k], re[k]);
       if (k > 0) {
         const jump = phase + offset - last;
         if (jump > Math.PI) offset -= 2 * Math.PI * Math.round(jump / (2 * Math.PI));

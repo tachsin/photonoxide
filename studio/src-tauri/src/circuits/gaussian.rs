@@ -6,6 +6,7 @@
 //! chip, its mean photon number, one port's photon-number distribution (by hafnians) and its
 //! Wigner function on a grid ([`chip_gaussian`]).
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 use std::path::Path;
 use std::time::Instant;
@@ -176,10 +177,12 @@ pub(crate) fn gaussian(
             return Err(format!("the angle at {} isn't a number", i.port));
         }
         let alpha = c64::new(i.displacement[0], i.displacement[1]);
-        if !alpha.norm().is_finite() || alpha.norm() > MOST_DISPLACEMENT {
+        if !portable::complex::abs(alpha).is_finite()
+            || portable::complex::abs(alpha) > MOST_DISPLACEMENT
+        {
             return Err(format!(
                 "a displacement |α| is at most {MOST_DISPLACEMENT}, not {:.3} at {}",
-                alpha.norm(),
+                portable::complex::abs(alpha),
                 i.port
             ));
         }
@@ -191,7 +194,7 @@ pub(crate) fn gaussian(
             .map_err(|e| e.to_string())?;
     }
     let out = input.through(&transfer).map_err(|e| e.to_string())?;
-    let db = |v: f64| 10.0 * v.log10();
+    let db = |v: f64| 10.0 * portable::log10(v);
     let mut states = Vec::with_capacity(n);
     for (m, port) in ports.iter().enumerate() {
         let (low, high) = out.quadrature_extremes(m).map_err(|e| e.to_string())?;
@@ -202,7 +205,7 @@ pub(crate) fn gaussian(
             v[(m + n) * 2 * n + m + n],
             v[m * 2 * n + m + n],
         );
-        let theta = 0.5 * (2.0 * c).atan2(a - b) + PI / 2.0;
+        let theta = 0.5 * portable::atan2(2.0 * c, a - b) + PI / 2.0;
         states.push(PortState {
             port: port.clone(),
             given_db: given[m],

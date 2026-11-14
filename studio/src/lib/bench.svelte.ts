@@ -198,10 +198,10 @@ export function backendShape(name: string): number {
 export function sci(n: number): string {
   if (!Number.isFinite(n)) return "—";
   if (Math.abs(n) < 1e4) return String(Math.round(n));
-  const e = Math.floor(Math.log10(Math.abs(n)));
-  const m = n / 10 ** e;
-  const sup = String(e).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
-  return `${m.toFixed(1)}·10${sup}`;
+  // the mantissa and exponent as toExponential rounds them, exactly, with no Math.log10 or 10 ** e (#822)
+  const [m, e] = n.toExponential(1).split("e");
+  const sup = String(Number(e)).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
+  return `${m}·10${sup}`;
 }
 
 export function seconds(s: number | null | undefined): string {

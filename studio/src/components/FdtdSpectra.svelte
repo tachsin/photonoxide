@@ -4,13 +4,14 @@
   import { run } from "../lib/app.svelte";
   import { monitorKind, timeText } from "../lib/fdtd";
   import type { Series } from "../lib/plot";
+  import { log10 } from "../lib/portable";
   import { len } from "../lib/units";
   import Plot from "./Plot.svelte";
   import UnitChip from "./UnitChip.svelte";
 
   /** Spectra as values (linear, the default) or in dB (small values show). */
   let decibels = $state(false);
-  const db = (v: number) => 10 * Math.log10(Math.max(Math.abs(v), 1e-30));
+  const db = (v: number) => 10 * log10(Math.max(Math.abs(v), 1e-30));
 
   const spectra = $derived(Object.values(run.spectra));
   const series = (s: (typeof spectra)[number]): Series[] =>

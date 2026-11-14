@@ -14,6 +14,7 @@
 //! The library does the physics; this module checks what the view asks against its limits,
 //! hands it to the library, and returns what comes back as the view draws it.
 
+use photonoxide::portable;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 use std::path::Path;
@@ -233,10 +234,18 @@ pub(crate) fn statistics(
     Ok(Statistics {
         wavelength_um,
         magnitude: (0..size)
-            .map(|q| (0..size).map(|p| s[(q, p)].norm()).collect())
+            .map(|q| {
+                (0..size)
+                    .map(|p| portable::complex::abs(s[(q, p)]))
+                    .collect()
+            })
             .collect(),
         phase: (0..size)
-            .map(|q| (0..size).map(|p| s[(q, p)].arg()).collect())
+            .map(|q| {
+                (0..size)
+                    .map(|p| portable::complex::arg(s[(q, p)]))
+                    .collect()
+            })
             .collect(),
         ports,
         loss_modes: transfer.loss_modes(),
@@ -480,7 +489,7 @@ pub struct BudgetView {
 
 /// −10 log₁₀ t: a transmission as a loss in dB.
 fn db(t: f64) -> f64 {
-    -10.0 * t.log10()
+    -10.0 * portable::log10(t)
 }
 
 /// The loss budget of photons through `chip`: each one's routes, stage by stage.

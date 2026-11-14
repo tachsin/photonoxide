@@ -2,6 +2,8 @@
 //! hole joined to the polygon by a bridge to a vertex it sees, then ears clipped. Every
 //! triangle's corners are the rings' own vertices, so the caps meet the walls edge for edge.
 
+use photonoxide::portable;
+
 /// A point of the plane, µm.
 pub type P2 = [f64; 2];
 
@@ -42,7 +44,7 @@ fn crosses(p: P2, q: P2, a: P2, b: P2) -> bool {
 
 /// The angle from `b` to `v` counterclockwise, in [0, 2π).
 fn turn(b: P2, v: P2) -> f64 {
-    let a = cross(b, v).atan2(dot(b, v));
+    let a = portable::atan2(cross(b, v), dot(b, v));
     if a < 0.0 {
         a + std::f64::consts::TAU
     } else {

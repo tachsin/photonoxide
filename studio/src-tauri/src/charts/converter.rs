@@ -19,6 +19,7 @@
 //! them, growing to at most 100 nm), every edge of silicon on a node, with mirror walls on the
 //! planes of symmetry each problem keeps.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::{Mutex, OnceLock};
@@ -645,7 +646,7 @@ impl Converter {
         let k = 2.0 * PI / AT;
         let (mut a, mut b) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
         for m in 0..2 {
-            let amp = self.launch[m] * c64::from_polar(1.0, k * self.modes[m] * z);
+            let amp = self.launch[m] * portable::complex::from_polar(1.0, k * self.modes[m] * z);
             a += amp * self.into[j][m];
             b += amp.conj() * self.back[j][m];
         }
@@ -664,7 +665,7 @@ impl Converter {
     /// Coupled-mode theory's largest share crossed, κ²/(κ² + δ²) = 1 − (δ/S)².
     pub fn largest(&self) -> f64 {
         let (d, s) = self.delta_and_s();
-        (1.0 - (d / s).powi(2)).max(0.0)
+        (1.0 - portable::powi(d / s, 2)).max(0.0)
     }
 }
 
@@ -681,7 +682,7 @@ pub fn coupler_chart(width: f64, gap: f64) -> photonoxide::Result<ChartData> {
         narrow.push([z, c.power(0, z)]);
         te1.push([z, c.power(1, z)]);
         te0.push([z, c.power(2, z)]);
-        cmt.push([z, f * (s * z).sin().powi(2)]);
+        cmt.push([z, f * portable::powi(portable::sin(s * z), 2)]);
     }
     let kappa = (s * s - d * d).max(0.0).sqrt();
     let figures = vec![
@@ -1023,7 +1024,7 @@ pub fn gaussian_coupling(m: &Fields, cs: &CrossSection, n: f64, w0: f64, te: boo
         for j in 0..y.len() - 1 {
             let area = (x[i + 1] - x[i]) * (y[j + 1] - y[j]);
             let (xc, yc) = (m.x()[i], m.y()[j]);
-            let g = (-(xc * xc + yc * yc) / (w0 * w0)).exp();
+            let g = portable::exp(-(xc * xc + yc * yc) / (w0 * w0));
             let (e, h) = (m.e(i, j), m.h(i, j));
             // the beam: E = (g, 0) and H = (0, n g) for TE; E = (0, g) and H = (−n g, 0) for TM
             let (egx, egy, hgx, hgy) = if te {
@@ -1056,7 +1057,7 @@ pub fn spot_chart(tip: f64, polarization: f64) -> photonoxide::Result<ChartData>
             let w0 = 1.55 / (PI * na);
             [
                 na,
-                10.0 * gaussian_coupling(&fields, &cs, n, w0, te).log10(),
+                10.0 * portable::log10(gaussian_coupling(&fields, &cs, n, w0, te)),
             ]
         })
         .collect();

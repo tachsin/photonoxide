@@ -2,6 +2,7 @@
 //! one wavelength.
 
 use photonoxide::material::catalogue::{self, Axis, Coming, Conditions, Entry, IndexModel, Tag};
+use photonoxide::portable;
 use photonoxide::units::Wavelength;
 use serde::Serialize;
 
@@ -88,7 +89,7 @@ pub fn material_curves(
             let (lo, hi) = material.range();
             let (lo, hi) = (lo.to_um(), hi.to_um());
             let wavelength: Vec<f64> = (0..points)
-                .map(|i| lo * (hi / lo).powf(i as f64 / (points - 1) as f64))
+                .map(|i| lo * portable::powf(hi / lo, i as f64 / (points - 1) as f64))
                 .map(|w: f64| w.clamp(lo, hi))
                 .collect();
             let mut curve = Curve {

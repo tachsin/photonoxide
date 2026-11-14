@@ -11,6 +11,7 @@
 //! section's length costs one solve, and the field inside (`MmiModes::field`) is the guided
 //! modes' sum.
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 
 use photonoxide::circuit::components::{Mmi, MmiKind, MmiModes, Planar};
@@ -54,7 +55,7 @@ pub fn indices(thickness_nm: f64, l: f64) -> photonoxide::Result<(f64, f64)> {
 /// Soldano and Pennings's effective width, their Eq. 4 with σ = 1 (TM across the section):
 /// W_e = W + (λ/π)(n_c/n_r)² (n_r² − n_c²)^(−1/2).
 pub fn effective_width(width: f64, l: f64, nr: f64, nc: f64) -> f64 {
-    width + l / PI * (nc / nr).powi(2) / (nr * nr - nc * nc).sqrt()
+    width + l / PI * portable::powi(nc / nr, 2) / (nr * nr - nc * nc).sqrt()
 }
 
 /// The kind a chart's `kind` (1 or 2) names.
@@ -122,7 +123,7 @@ fn split(a: &MmiModes, kind: MmiKind, length: f64) -> (f64, f64, f64) {
     (
         sp.norm_sqr(),
         sq.norm_sqr(),
-        tidy((sp / sq).arg().to_degrees()),
+        tidy(portable::complex::arg(sp / sq).to_degrees()),
     )
 }
 
@@ -132,11 +133,11 @@ fn tidy(x: f64) -> f64 {
 }
 
 fn excess_db(pa: f64, pb: f64) -> f64 {
-    -10.0 * (pa + pb).log10()
+    -10.0 * portable::log10(pa + pb)
 }
 
 fn imbalance_db(pa: f64, pb: f64) -> f64 {
-    tidy(10.0 * (pa / pb).log10())
+    tidy(10.0 * portable::log10(pa / pb))
 }
 
 fn curve(label: &str, points: Vec<[f64; 2]>, dashed: bool, colour: usize) -> Curve {
@@ -781,6 +782,7 @@ pub fn tolerance(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -907,7 +909,10 @@ mod tests {
                 .find(|p| (p[0] - 1.55).abs() < 1e-9)
                 .unwrap()[1];
             let loss = fig(&d, "Excess loss at the best");
-            assert!((-10.0 * at.log10() - loss).abs() < 1e-9, "kind {k}");
+            assert!(
+                (-10.0 * portable::log10(at) - loss).abs() < 1e-9,
+                "kind {k}"
+            );
             assert!(fig(&s, "Band under 1 dB") > 0.0, "kind {k}");
         }
     }

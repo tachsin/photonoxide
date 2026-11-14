@@ -13,6 +13,7 @@
 //!   formula (Bell Syst. Tech. J. 50, 2551 (1971), doi:10.1002/j.1538-7305.1971.tb02620.x,
 //!   Eqs. 32–33) by `mode::bend::marcuse_loss`.
 
+use photonoxide::portable;
 use std::f64::consts::LOG10_E;
 
 use num_complex::Complex64 as c64;
@@ -90,7 +91,7 @@ pub fn chilwell_te() -> photonoxide::Result<Vec<MultilayerMode>> {
 /// mode, as Chilwell and Hodgkinson choose them (Section 3.C).
 fn substrate_alpha(mode: &MultilayerMode) -> c64 {
     let beta = mode.effective_index();
-    (c64::new(CHILWELL_SUBSTRATE * CHILWELL_SUBSTRATE, 0.0) - beta * beta).sqrt()
+    portable::complex::sqrt(c64::new(CHILWELL_SUBSTRATE * CHILWELL_SUBSTRATE, 0.0) - beta * beta)
 }
 
 /// The field of Chilwell and Hodgkinson's TE mode `order` across the guide, from 1 µm into the
@@ -115,13 +116,13 @@ pub fn field(order: usize) -> photonoxide::Result<ChartData> {
         .zip(&values)
         .filter(|(x, _)| (0.0..=total).contains(*x))
         .map(|(_, v)| *v)
-        .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+        .max_by(|a, b| portable::complex::abs(*a).total_cmp(&portable::complex::abs(*b)))
         .unwrap_or(c64::new(1.0, 0.0));
     let scaled: Vec<c64> = values.iter().map(|v| v / peak).collect();
     let abs: Vec<[f64; 2]> = xs
         .iter()
         .zip(&scaled)
-        .map(|(&x, v)| [x, v.norm()])
+        .map(|(&x, v)| [x, portable::complex::abs(*v)])
         .collect();
     let re: Vec<[f64; 2]> = xs.iter().zip(&scaled).map(|(&x, v)| [x, v.re]).collect();
     let n_eff = mode.effective_index();
@@ -129,7 +130,9 @@ pub fn field(order: usize) -> photonoxide::Result<ChartData> {
     let alpha = substrate_alpha(mode);
     // |E_y| ∝ e^(−k Im α (x − x_s)) in the substrate: a rate per µm, growth positive
     let growth = -k * alpha.im;
-    let at_end = scaled.last().map_or(f64::NAN, |v| v.norm());
+    let at_end = scaled
+        .last()
+        .map_or(f64::NAN, |v| portable::complex::abs(*v));
     let mut figures = vec![
         figure("Re $n_\\text{eff}$", n_eff.re, 7, "", "exact"),
         figure(
@@ -171,7 +174,7 @@ pub fn field(order: usize) -> photonoxide::Result<ChartData> {
     ];
     if leaky {
         // the outgoing plane wave's direction in the substrate, from the faces' normal
-        let angle = n_eff.re.atan2(alpha.re).to_degrees();
+        let angle = portable::atan2(n_eff.re, alpha.re).to_degrees();
         figures.push(figure(
             "leaves at",
             angle,
@@ -288,7 +291,10 @@ pub fn substrate(h: f64, l: f64) -> photonoxide::Result<ChartData> {
     let estimate: Vec<[f64; 2]> = (0..=28)
         .map(|j| {
             let x = lo + (hi - lo) * f64::from(j) / 28.0;
-            [x, reference[1] * (2.0 * gamma * (reference[0] - x)).exp()]
+            [
+                x,
+                reference[1] * portable::exp(2.0 * gamma * (reference[0] - x)),
+            ]
         })
         .collect();
     series.push(curve("e^(−2γh), TE", estimate, true, Some(GREY)));
@@ -306,7 +312,7 @@ pub fn substrate(h: f64, l: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             "each µm more of oxide divides the TE loss by",
-            (2.0 * gamma).exp(),
+            portable::exp(2.0 * gamma),
             3,
             "",
             "e^(2γ · 1 µm)",
@@ -371,7 +377,7 @@ impl BentSlab {
         let beta = k * self.straight(Polarization::Te)?;
         let gamma = (beta * beta - k * k * self.cladding * self.cladding).sqrt();
         let t = gamma / beta;
-        Ok((((1.0 + t) / (1.0 - t)).ln() / t - 2.0) * gamma)
+        Ok((portable::ln((1.0 + t) / (1.0 - t)) / t - 2.0) * gamma)
     }
 
     /// Marcuse's Im n_eff at `r` µm.
@@ -424,7 +430,7 @@ pub fn bend_loss(slab: BentSlab, r: f64) -> photonoxide::Result<ChartData> {
     let hi = (30.0 / u).max(1.5 * lo);
     let n = 40;
     let mut rs: Vec<f64> = (0..=n)
-        .map(|j| lo * (hi / lo).powf(f64::from(j) / f64::from(n)))
+        .map(|j| lo * portable::powf(hi / lo, f64::from(j) / f64::from(n)))
         .collect();
     rs.push(r);
     let te = slab.sweep(Polarization::Te, &rs)?;
@@ -533,6 +539,7 @@ pub fn bend_loss(slab: BentSlab, r: f64) -> photonoxide::Result<ChartData> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn fig(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -567,8 +574,8 @@ mod tests {
             // the curve is the mode's field, scaled: |E| at two depths in their ratio
             let abs = &data.series[0].points;
             let (a, b) = (abs[100], abs[1000]);
-            let ratio =
-                modes[m].field(Length::um(b[0])).norm() / modes[m].field(Length::um(a[0])).norm();
+            let ratio = portable::complex::abs(modes[m].field(Length::um(b[0])))
+                / portable::complex::abs(modes[m].field(Length::um(a[0])));
             close(b[1] / a[1], ratio, 1e-12 * ratio);
         }
         // a bound mode decays into the substrate, a leaky wave grows
@@ -592,13 +599,14 @@ mod tests {
             let data = field(m).unwrap();
             let beta = mode.effective_index();
             let (a, b) = (2.1, 2.1001);
-            let alpha = (mode.field(Length::um(b)) / mode.field(Length::um(a))).ln()
-                / ((b - a) * k * c64::new(0.0, 1.0));
+            let alpha =
+                portable::complex::ln(mode.field(Length::um(b)) / mode.field(Length::um(a)))
+                    / ((b - a) * k * c64::new(0.0, 1.0));
             assert!(alpha.re > 0.0 && alpha.im < 0.0, "{m}: {alpha}");
             close(fig(&data, "into the substrate"), -k * alpha.im, 1e-6);
             close(
                 fig(&data, "leaves at"),
-                beta.re.atan2(alpha.re).to_degrees(),
+                portable::atan2(beta.re, alpha.re).to_degrees(),
                 1e-4,
             );
         }
@@ -628,7 +636,7 @@ mod tests {
         // the slope of ln(loss) between 0.8 and 1.2 µm against 2γ, within 2 %
         let te = &data.series[0].points;
         let at = |h: f64| te.iter().find(|p| (p[0] - h).abs() < 1e-9).unwrap()[1];
-        let slope = (at(0.8).ln() - at(1.2).ln()) / 0.4;
+        let slope = (portable::ln(at(0.8)) - portable::ln(at(1.2))) / 0.4;
         let gamma = fig(&data, "TE decay");
         close(slope / (2.0 * gamma), 1.0, 0.02);
         // every point resolved, the loss falling with the oxide
@@ -699,7 +707,7 @@ mod tests {
         let beta = k * slab.straight(Polarization::Te).unwrap();
         let gamma = (beta * beta - k * k * 2.25).sqrt();
         let t = gamma / beta;
-        let series = 2.0 / 3.0 * gamma.powi(3) / (beta * beta) * (1.0 + 0.6 * t * t);
+        let series = 2.0 / 3.0 * portable::powi(gamma, 3) / (beta * beta) * (1.0 + 0.6 * t * t);
         let u = fig(&bend_loss(slab, 40.0).unwrap(), "Marcuse's exponent") / 40.0;
         close(u / series, 1.0, 5e-3);
         close(u, slab.exponent_per_um().unwrap(), 1e-12);

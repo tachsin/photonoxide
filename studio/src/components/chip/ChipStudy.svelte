@@ -9,6 +9,7 @@
   import { panels } from "../../lib/chip.svelte";
   import type { ChipPoint } from "../../lib/events";
   import { label, type Series } from "../../lib/plot";
+  import { log10 } from "../../lib/portable";
   import Plot from "../Plot.svelte";
 
   let { chip, info, height = 240 }: { chip: Chip; info: ChipOptimizeInfo | null; height?: number } = $props();
@@ -66,7 +67,7 @@
         label: pointName(pt),
         points: study.wavelengths_um.map((w, k) => {
           const [re, im] = pt.s[k][qi][pi];
-          return [w, 10 * Math.log10(Math.max(re * re + im * im, 1e-30))] as [number, number];
+          return [w, 10 * log10(Math.max(re * re + im * im, 1e-30))] as [number, number];
         }),
       }));
   });

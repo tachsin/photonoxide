@@ -7,8 +7,6 @@
 //! It is also a small BLAS and LAPACK (`blas`), for the tests of how a library's interface is
 //! found: Fortran's names with 64-bit integers, and the C interfaces with 32-bit ones.
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
 use std::os::raw::c_int;
 
 mod blas;
@@ -67,11 +65,14 @@ pub unsafe extern "C" fn pxtest_dense_solve(n: i64, a: *const f64, b: *mut f64) 
     };
     let mut m: Vec<c64> = a.chunks(2).map(|p| c64::new(p[0], p[1])).collect();
     let mut x: Vec<c64> = b.chunks(2).map(|p| c64::new(p[0], p[1])).collect();
+    // the pivot by |re| + |im|, as LAPACK's zgetrf (through izamax) and `blas` here choose it:
+    // exact, with no maths function whose rounding differs between systems (#822)
+    let magnitude = |z: c64| z.re.abs() + z.im.abs();
     for k in 0..n {
         let p = (k..n)
-            .max_by(|&i, &j| m[k * n + i].norm().total_cmp(&m[k * n + j].norm()))
+            .max_by(|&i, &j| magnitude(m[k * n + i]).total_cmp(&magnitude(m[k * n + j])))
             .unwrap_or(k);
-        if m[k * n + p].norm() == 0.0 {
+        if magnitude(m[k * n + p]) == 0.0 {
             return 2;
         }
         for j in 0..n {

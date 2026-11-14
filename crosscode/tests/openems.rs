@@ -9,8 +9,7 @@
 //! to `progress.log` in their folders under `crosscode/target/tmp/openems/`; a finished run of
 //! the same model is taken again.
 
-#![allow(clippy::disallowed_methods)] // until P3 of #822 converts it to `photonoxide::portable`
-
+use photonoxide::portable;
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -44,9 +43,9 @@ fn at_zero(values: &[(f64, f64)]) -> f64 {
     let (sx, sy) = values
         .iter()
         .fold((0.0, 0.0), |(a, b), &(f, v)| (a + f * f, b + v));
-    let (sxx, sxy) = values
-        .iter()
-        .fold((0.0, 0.0), |(a, b), &(f, v)| (a + f.powi(4), b + f * f * v));
+    let (sxx, sxy) = values.iter().fold((0.0, 0.0), |(a, b), &(f, v)| {
+        (a + portable::powi(f, 4), b + f * f * v)
+    });
     let slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
     (sy - slope * sx) / n
 }
@@ -59,8 +58,8 @@ fn extrapolated(v: &[f64]) -> (f64, f64) {
     if ratio.is_nan() || ratio <= 1.0 {
         return (c, f64::NAN);
     }
-    let p = ratio.log2();
-    (c + (c - b) / (2f64.powf(p) - 1.0), p)
+    let p = portable::log2(ratio);
+    (c + (c - b) / (portable::powf(2f64, p) - 1.0), p)
 }
 
 /// openEMS's threads: `PHOTONOXIDE_OPENEMS_THREADS`, or 8 (the fastest of 4, 8 and 16 on a

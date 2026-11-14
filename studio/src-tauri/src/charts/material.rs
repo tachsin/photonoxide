@@ -639,6 +639,7 @@ fn at_d_at(m: &Material, l: f64) -> photonoxide::Result<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn close(a: f64, b: f64, tol: f64) {
         assert!((a - b).abs() <= tol, "{a} against {b}");
@@ -673,7 +674,7 @@ mod tests {
             for (p, q) in n.iter().zip(k).step_by(13) {
                 let w = p[0];
                 let eps = b + s / c64::new(1.0 - w * w, -g * w);
-                let z = eps.sqrt();
+                let z = portable::complex::sqrt(eps);
                 close(p[1], z.re, 1e-12);
                 close(q[1], z.im, 1e-12);
                 assert!(q[1] >= 0.0);

@@ -19,6 +19,7 @@
 //!   by the transfer matrices of `mode::multilayer` (Chilwell and Hodgkinson 1984): the upward share
 //!   |1 + r_b|²(1 − |r_t|²) over the sum with |1 + r_t|²(1 − |r_b|²).
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
@@ -87,7 +88,7 @@ impl Grating {
 
 /// How far the band moves per degree of the fibre's tilt, nm: dλ/dθ = λ n_c cos θ/(n_g − n_c sin θ).
 pub fn nm_per_degree(l: f64, n_g: f64, cladding: f64, theta: f64) -> f64 {
-    1e3 * l * cladding * theta.cos() / (n_g - cladding * theta.sin()) * PI / 180.0
+    1e3 * l * cladding * portable::cos(theta) / (n_g - cladding * portable::sin(theta)) * PI / 180.0
 }
 
 /// A figure that may have no value, shown as "none" then.
@@ -179,7 +180,7 @@ fn couple(
     let dz = w / STEPS;
     // the Gaussian normalized on the whole line: ∫ G² dz = 1
     let norm = (2.0 / PI).sqrt() / w;
-    let g = |z: f64| norm.sqrt() * (-((z - c) / w).powi(2)).exp();
+    let g = |z: f64| norm.sqrt() * portable::exp(-portable::powi((z - c) / w, 2));
     let (mut p, mut sum, mut z, mut k) = (1.0f64, 0.0, 0.5 * dz, 0usize);
     let mut rates = Vec::new();
     while p > 1e-9 && z < c + 8.0 * w {
@@ -189,8 +190,8 @@ fn couple(
             rates.push([z, a]);
         }
         // the field the step leaves, √(2αP), with P at the step's middle: P e^(−α dz)
-        sum += (2.0 * a * p * (-a * dz).exp()).sqrt() * gz * dz;
-        p *= (-2.0 * a * dz).exp();
+        sum += (2.0 * a * p * portable::exp(-a * dz)).sqrt() * gz * dz;
+        p *= portable::exp(-2.0 * a * dz);
         z += dz;
         k += 1;
     }
@@ -233,7 +234,7 @@ fn apodized(w: f64, c: f64, cap: f64, every: usize) -> (f64, Vec<[f64; 2]>) {
 
 /// The fibre's footprint half-width on the surface, µm: the waist MFD/2 over cos θ.
 fn footprint(mfd: f64, theta: f64) -> f64 {
-    0.5 * mfd / theta.cos()
+    0.5 * mfd / portable::cos(theta)
 }
 
 /// The specs of the grating coupler's charts.
@@ -406,7 +407,7 @@ pub fn angle(
     let p = period_nm * 1e-3;
     let theta = |l: f64| -> photonoxide::Result<Option<f64>> {
         let s = (g.index(l)? - l / p) / cladding;
-        Ok((s.abs() < 1.0).then(|| s.asin().to_degrees()))
+        Ok((s.abs() < 1.0).then(|| portable::asin(s).to_degrees()))
     };
     let (from, to) = (1.45, 1.65);
     let mut points = Vec::new();
@@ -455,7 +456,7 @@ pub fn angle(
         ),
         figure(
             "period for 10° at 1.55 µm",
-            1e3 * CENTRE / (n - cladding * ten.sin()),
+            1e3 * CENTRE / (n - cladding * portable::sin(ten)),
             4,
             "nm",
             "",
@@ -515,7 +516,7 @@ pub fn overlap(mfd: f64, angle_deg: f64, leakage: f64) -> photonoxide::Result<Ch
         figure("at α", best, 4, "1/µm", ""),
         figure(
             "$\\alpha\\,\\mathrm{MFD}\\sec\\theta$",
-            best * mfd / theta.cos(),
+            best * mfd / portable::cos(theta),
             3,
             "",
             "Tamir and Peng's Eq. 6a: 1.36",
@@ -625,7 +626,7 @@ pub fn upward(
 ) -> photonoxide::Result<(f64, f64)> {
     let l = Wavelength::um(CENTRE)?;
     let n = |x: f64| c64::new(x, 0.0);
-    let inside = (s / SILICON).asin();
+    let inside = portable::asin(s / SILICON);
     let top = Multilayer::new(
         n(SILICON),
         &[(n(SILICON), Length::um(0.5 * etch))],
@@ -656,7 +657,7 @@ pub fn directionality(
     etch_nm: f64,
     pairs: usize,
 ) -> photonoxide::Result<ChartData> {
-    let s = cladding * angle_deg.to_radians().sin();
+    let s = cladding * portable::sin(angle_deg.to_radians());
     let e = etch_nm * 1e-3;
     let curve = |m: usize| -> photonoxide::Result<Vec<[f64; 2]>> {
         span(0.2, 3.0, 280)
@@ -752,7 +753,7 @@ pub fn band(
         cladding,
     };
     let theta = angle_deg.to_radians();
-    let s = cladding * theta.sin();
+    let s = cladding * portable::sin(theta);
     let n = g.index(CENTRE)?;
     let period = CENTRE / (n - s);
     let w = footprint(mfd, theta);
@@ -841,6 +842,7 @@ pub fn band(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn close(a: f64, b: f64, tol: f64) {
         assert!((a - b).abs() <= tol, "{a} against {b}");
@@ -888,7 +890,7 @@ mod tests {
         let mut fg = 0.0;
         for k in 0..n {
             let z = lo + (f64::from(k) + 0.5) * dz;
-            fg += (-a * z).exp() * (-((z - c) / w).powi(2)).exp() * dz;
+            fg += portable::exp(-a * z) * portable::exp(-portable::powi((z - c) / w, 2)) * dz;
         }
         let exact = fg * fg / ((0.5 / a) * w * (PI / 2.0).sqrt());
         close(uniform(a, w, c), exact, 2e-4);
@@ -915,7 +917,7 @@ mod tests {
     fn directionality_reproduces_taillaerts_table() {
         let est = |h: f64, nc: f64, deg: f64, pairs: usize| {
             0.801
-                * upward(h, nc, nc * deg.to_radians().sin(), 0.07, pairs)
+                * upward(h, nc, nc * portable::sin(deg.to_radians()), 0.07, pairs)
                     .unwrap()
                     .0
         };
@@ -929,7 +931,9 @@ mod tests {
         // the share never exceeds 1, and the period is half a wavelength in the oxide
         close(
             value(&data, "period in h"),
-            1.55 / (2.0 * (OXIDE * OXIDE - (1.46 * 8f64.to_radians().sin()).powi(2)).sqrt()),
+            1.55 / (2.0
+                * (OXIDE * OXIDE - portable::powi(1.46 * portable::sin(8f64.to_radians()), 2))
+                    .sqrt()),
             1e-9,
         );
     }
@@ -946,7 +950,11 @@ mod tests {
         };
         let data = angle(630.0, 70.0, 0.5, 1.0).unwrap();
         for &[l, t] in &data.series[0].points {
-            close(t.to_radians().sin(), g.index(l).unwrap() - l / 0.63, 1e-12);
+            close(
+                portable::sin(t.to_radians()),
+                g.index(l).unwrap() - l / 0.63,
+                1e-12,
+            );
         }
         close(value(&data, "θ at 1.55 µm"), 10.0, 2.5);
         close(value(&data, "band shift per degree"), 9.0, 1.5);

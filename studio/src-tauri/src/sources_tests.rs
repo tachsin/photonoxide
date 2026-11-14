@@ -1,3 +1,4 @@
+use photonoxide::portable;
 use std::f64::consts::{LN_2, PI, TAU};
 
 use photonoxide::circuit::components::{AllPassRing, Dispersion};
@@ -51,7 +52,7 @@ fn a_gaussian_amplitude_has_its_closed_form_schmidt_weights() {
     // ΔkL/2 = πL((n_gp − n_gs)Δs + (n_gp − n_gi)Δi)
     let dnu = bandwidth_nm * 1e-3 / (0.775f64 * 0.775);
     let p = 4.0 * LN_2 / (dnu * dnu);
-    let q = 2.0 * gaussian_gamma() * (PI * 1e4).powi(2);
+    let q = 2.0 * gaussian_gamma() * portable::powi(PI * 1e4, 2);
     let (a_, b_) = (ng[0] - ng[1], ng[0] - ng[2]);
     let (a, b, c) = (p + q * a_ * a_, p + q * b_ * b_, p + q * a_ * b_);
     let purity = gaussian_purity(a, b, c);
@@ -63,7 +64,7 @@ fn a_gaussian_amplitude_has_its_closed_form_schmidt_weights() {
     assert!((d.schmidt_number - 1.0 / purity).abs() < 1e-8);
     let mu2 = (1.0 - purity) / (1.0 + purity);
     for (k, w) in d.weights.iter().take(5).enumerate() {
-        let closed = (1.0 - mu2) * mu2.powi(k as i32);
+        let closed = (1.0 - mu2) * portable::powi(mu2, k as i32);
         assert!((w - closed).abs() < 1e-9, "λ_{k} = {w} against {closed}");
     }
     assert!(d.notes.is_empty(), "{:?}", d.notes);
@@ -83,7 +84,7 @@ fn group_velocity_matching_makes_the_pairs_pure() {
     let bandwidth_nm = 1.0;
     let dnu = bandwidth_nm * 1e-3 / (0.775f64 * 0.775);
     let p = 4.0 * LN_2 / (dnu * dnu);
-    let q = 2.0 * gaussian_gamma() * (PI * 1e4).powi(2);
+    let q = 2.0 * gaussian_gamma() * portable::powi(PI * 1e4, 2);
     let x = (p / q).sqrt();
     let ng = [2.3, 2.3 - x, 2.3 + x];
     let d = designed(&guide(ng, bandwidth_nm, 8.0, 161)).unwrap();

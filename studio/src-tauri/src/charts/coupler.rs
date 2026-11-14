@@ -17,6 +17,7 @@
 //! The solves are cached by their geometry and wavelength, so a chart asked again with only a
 //! length or a window changed is drawn from the cache.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::{Mutex, OnceLock};
@@ -50,7 +51,7 @@ pub const GRID: &str =
 /// Chrostowski and Hochberg's fit to their cross-over lengths against the gap at 1550 nm, their
 /// Eq. 4.14: L_x = 10^(0.0037645 g[nm] + 0.799434) µm.
 pub fn book_fit(gap_nm: f64) -> f64 {
-    10f64.powf(0.003_764_5 * gap_nm + 0.799_434)
+    portable::powf(10f64, 0.003_764_5 * gap_nm + 0.799_434)
 }
 
 fn wavelength(um: f64) -> photonoxide::Result<Wavelength> {
@@ -155,9 +156,9 @@ fn profile(mode: &VectorMode, cs: &CrossSection, even: bool) -> Vec<[f64; 2]> {
     let peak = values
         .iter()
         .copied()
-        .max_by(|a, b| a.norm().total_cmp(&b.norm()))
+        .max_by(|a, b| portable::complex::abs(*a).total_cmp(&portable::complex::abs(*b)))
         .unwrap_or(c64::new(1.0, 0.0));
-    let unit = peak.conj() / (peak.norm() * peak.norm());
+    let unit = peak.conj() / (portable::complex::abs(peak) * portable::complex::abs(peak));
     let right: Vec<[f64; 2]> = x
         .iter()
         .zip(&values)
@@ -441,10 +442,13 @@ fn log_slope(points: &[[f64; 2]]) -> f64 {
     let n = points.len() as f64;
     let (sx, sy) = points
         .iter()
-        .fold((0.0, 0.0), |(a, b), p| (a + p[0], b + p[1].ln()));
+        .fold((0.0, 0.0), |(a, b), p| (a + p[0], b + portable::ln(p[1])));
     let (mx, my) = (sx / n, sy / n);
     let (num, den) = points.iter().fold((0.0, 0.0), |(a, b), p| {
-        (a + (p[0] - mx) * (p[1].ln() - my), b + (p[0] - mx).powi(2))
+        (
+            a + (p[0] - mx) * (portable::ln(p[1]) - my),
+            b + portable::powi(p[0] - mx, 2),
+        )
     });
     num / den
 }
@@ -496,7 +500,7 @@ pub fn gap_chart(l: f64) -> photonoxide::Result<ChartData> {
         ),
         figure(
             "The book's e-fold length",
-            1.0 / (0.003_764_5 * 10f64.ln()),
+            1.0 / (0.003_764_5 * portable::ln(10f64)),
             3,
             "nm",
             "Eq. 4.14, at 1550 nm",
@@ -731,7 +735,7 @@ impl Unequal {
         let k = 2.0 * PI / UNEQUAL_AT;
         let (mut a, mut b) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
         for m in 0..2 {
-            let amp = self.launch[m] * c64::from_polar(1.0, k * self.modes[m] * z);
+            let amp = self.launch[m] * portable::complex::from_polar(1.0, k * self.modes[m] * z);
             a += amp * self.into[j][m];
             b += amp.conj() * self.back[j][m];
         }
@@ -751,7 +755,7 @@ impl Unequal {
     /// The largest share coupled-mode theory lets cross, κ²/(κ² + δ²) = 1 − (δ/S)².
     pub fn largest(&self) -> f64 {
         let (d, s) = self.delta_and_s();
-        (1.0 - (d / s).powi(2)).max(0.0)
+        (1.0 - portable::powi(d / s, 2)).max(0.0)
     }
 }
 
@@ -768,7 +772,7 @@ pub fn mismatch(other_nm: f64, gap_nm: f64) -> photonoxide::Result<ChartData> {
         let z = end * f64::from(k) / f64::from(steps);
         one.push([z, u.power(0, z)]);
         two.push([z, u.power(1, z)]);
-        cmt.push([z, f * (s * z).sin().powi(2)]);
+        cmt.push([z, f * portable::powi(portable::sin(s * z), 2)]);
     }
     let most = two.iter().map(|p| p[1]).fold(0.0, f64::max);
     let kappa = (s * s - d * d).max(0.0).sqrt();
@@ -828,6 +832,7 @@ pub fn mismatch(other_nm: f64, gap_nm: f64) -> photonoxide::Result<ChartData> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn close(a: f64, b: f64, tol: f64) {
         assert!((a - b).abs() <= tol * b.abs(), "{a} against {b}");
@@ -885,7 +890,7 @@ mod tests {
         let kappa = PI * (p.even - p.odd) / 1.55;
         for pt in &data.series[1].points {
             assert!(
-                (pt[1] - (kappa * pt[0]).sin().powi(2)).abs() < 1e-9,
+                (pt[1] - portable::powi(portable::sin(kappa * pt[0]), 2)).abs() < 1e-9,
                 "{pt:?}"
             );
         }
@@ -974,7 +979,7 @@ mod tests {
         close(s, PI * (p.even - p.odd) / 1.55, 0.01);
         for k in 0..=40 {
             let z = 2.0 * p.cross_over(1.55) * f64::from(k) / 40.0;
-            let want = (s * z).sin().powi(2);
+            let want = portable::powi(portable::sin(s * z), 2);
             assert!(
                 (equal.power(1, z) - want).abs() < 0.02,
                 "{z}: {}",

@@ -16,6 +16,7 @@
 //! stack's bottom.
 
 use photonoxide::job::{Event, FrameFilm, SceneEtched, SceneLayer};
+use photonoxide::portable;
 
 use super::triangulate::{P2, triangulate, twice_area};
 
@@ -149,7 +150,7 @@ impl Rings {
                 (0..r.len())
                     .map(|i| {
                         let (a, b) = (r[i], r[(i + 1) % r.len()]);
-                        (b[0] - a[0]).hypot(b[1] - a[1])
+                        portable::hypot(b[0] - a[0], b[1] - a[1])
                     })
                     .sum::<f64>()
             })
@@ -284,7 +285,7 @@ fn mitre(ring: &[P2], d: f64) -> Vec<P2> {
     let n = ring.len();
     let normal = |p: P2, q: P2| {
         let (ex, ey) = (q[0] - p[0], q[1] - p[1]);
-        let l = ex.hypot(ey).max(f64::MIN_POSITIVE);
+        let l = portable::hypot(ex, ey).max(f64::MIN_POSITIVE);
         [ey / l, -ex / l]
     };
     (0..n)
@@ -508,7 +509,7 @@ pub fn solids(scene: &Event, etched: &[SceneEtched], detail: Detail) -> Vec<Soli
                 let run = if e.sidewall_deg >= 90.0 {
                     0.0
                 } else {
-                    depth / e.sidewall_deg.to_radians().tan()
+                    depth / portable::tan(e.sidewall_deg.to_radians())
                 };
                 if base.film.0 != "air" {
                     out.push(Solid {

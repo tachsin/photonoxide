@@ -31,9 +31,9 @@
   const SUP: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻" };
   /** A dose as a power of ten: 1.76×10¹⁸. */
   function sci(v: number): string {
-    const e = Math.floor(Math.log10(v));
-    const m = Math.round((v / 10 ** e) * 1000) / 1000;
-    return `${num(m)}×10${String(e).replace(/./g, (c) => SUP[c] ?? c)}`;
+    // the mantissa to three decimals and the exponent as toExponential rounds them, exactly (#822)
+    const [m, e] = v.toExponential(3).split("e");
+    return `${num(Number(m))}×10${String(Number(e)).replace(/./g, (c) => SUP[c] ?? c)}`;
   }
   /** The library's reason, without the error's own heading. */
   const reason = $derived(refused ? refused.replace(/^[^:]*simox[^:]*:\s*/i, "") : null);

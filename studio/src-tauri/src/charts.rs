@@ -10,6 +10,7 @@
 //! ::chart ring-spectrum{radius=10um, coupling=0.05, loss=3dB/cm}
 //! ```
 
+use photonoxide::portable;
 use std::collections::BTreeMap;
 use std::f64::consts::{PI, TAU};
 use std::sync::Arc;
@@ -1573,20 +1574,20 @@ pub fn sig(x: f64, digits: usize) -> String {
     if x == 0.0 {
         return "0".to_owned();
     }
-    let mut e = x.abs().log10().floor() as i32;
+    let mut e = portable::log10(x.abs()).floor() as i32;
     // a mantissa that rounds up to 10 at these digits belongs to the next power: 9.99999e-3 is
     // 1.000×10⁻², not 10.000×10⁻³
     let rounded: f64 = format!("{:.*e}", digits.saturating_sub(1), x)
         .parse()
         .unwrap_or(x);
-    if rounded.abs() >= 10f64.powi(e + 1) {
+    if rounded.abs() >= portable::powi(10f64, e + 1) {
         e += 1;
     }
     if (-2..4).contains(&e) {
         let decimals = (digits as i32 - 1 - e).max(0) as usize;
         format!("{x:.decimals$}")
     } else {
-        let mantissa = x / 10f64.powi(e);
+        let mantissa = x / portable::powi(10f64, e);
         let sup: String = e
             .to_string()
             .chars()
@@ -1712,7 +1713,7 @@ impl Ring {
     /// The single-pass amplitude a over a round trip of `length`: e^(−Im γ L), from the guide's
     /// propagation constant.
     fn single_pass(&self, w: Wavelength, length: f64) -> f64 {
-        (-self.guide().propagation(w).im * length).exp()
+        portable::exp(-self.guide().propagation(w).im * length)
     }
 }
 
@@ -1771,7 +1772,7 @@ fn ring_spectrum(
             let width = ring.fwhm(res, &values).unwrap_or(fwhm);
             for k in -per..=per {
                 // tangent spacing: fine at the centre of the line, coarse in its wings
-                let t = (f64::from(k) / f64::from(per) * 1.45).tan() * 4.0;
+                let t = portable::tan(f64::from(k) / f64::from(per) * 1.45) * 4.0;
                 xs.push(res.to_um() + t * width);
             }
         }
@@ -1864,7 +1865,7 @@ fn ring_spectrum(
             regime(coupling, crit),
         ),
     ];
-    let extinction = 10.0 * (off / on).log10();
+    let extinction = 10.0 * portable::log10(off / on);
     figures.push(Figure {
         label: "Through extinction".to_owned(),
         value: extinction.is_finite().then_some(extinction),
@@ -1981,7 +1982,7 @@ const EXTINCTION_CAP: f64 = 40.0;
 /// The through port's extinction, off over on resonance, in dB (infinite at critical coupling).
 fn extinction(ring: &Ring, w: Wavelength, values: &[f64]) -> photonoxide::Result<f64> {
     let (off, on, _) = ring.extremes(w, values)?;
-    Ok(10.0 * (off / on).log10())
+    Ok(10.0 * portable::log10(off / on))
 }
 
 /// The input coupling on the other side of critical coupling with the same extinction as
@@ -2051,7 +2052,7 @@ fn ring_extinction(
             cap(extinction(&ring, w, &ring.values(length, kappa2, drop))?),
         ]);
         // small losses: T_on = ((1 − x)/(1 + x))², T_off = 1 (derived in the lesson)
-        limit.push([x, cap(20.0 * ((1.0 + x) / (1.0 - x).abs()).log10())]);
+        limit.push([x, cap(20.0 * portable::log10((1.0 + x) / (1.0 - x).abs()))]);
     }
     let values = ring.values(length, coupling, drop);
     let mine = extinction(&ring, w, &values)?;
@@ -2168,23 +2169,23 @@ fn measured_fwhm(
 /// ring_q_factor example's search.
 fn peak(f: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
     let g = (5f64.sqrt() - 1.0) / 2.0;
-    let (mut lo, mut hi) = (lo.ln(), hi.ln());
+    let (mut lo, mut hi) = (portable::ln(lo), portable::ln(hi));
     let (mut a, mut b) = (hi - g * (hi - lo), lo + g * (hi - lo));
-    let (mut fa, mut fb) = (f(a.exp()), f(b.exp()));
+    let (mut fa, mut fb) = (f(portable::exp(a)), f(portable::exp(b)));
     while hi - lo > 1e-9 {
         if fa > fb {
             hi = b;
             (b, fb) = (a, fa);
             a = hi - g * (hi - lo);
-            fa = f(a.exp());
+            fa = f(portable::exp(a));
         } else {
             lo = a;
             (a, fa) = (b, fb);
             b = lo + g * (hi - lo);
-            fb = f(b.exp());
+            fb = f(portable::exp(b));
         }
     }
-    ((lo + hi) / 2.0).exp()
+    portable::exp((lo + hi) / 2.0)
 }
 
 /// An all-pass ring held at critical coupling as its length changes: Bogaerts et al.'s Fig. 5.
@@ -2198,12 +2199,13 @@ struct Critical {
 impl Critical {
     /// The single-pass amplitude over `length` µm, the fixed loss included.
     fn a(&self, length: f64) -> f64 {
-        (-self.ring.guide().propagation(self.w).im * length).exp() * 10f64.powf(-self.fixed / 20.0)
+        portable::exp(-self.ring.guide().propagation(self.w).im * length)
+            * portable::powf(10f64, -self.fixed / 20.0)
     }
 
     /// `[length, κ²]` at critical coupling, r = a.
     fn values(&self, length: f64) -> [f64; 2] {
-        [length, 1.0 - self.a(length).powi(2)]
+        [length, 1.0 - portable::powi(self.a(length), 2)]
     }
 
     /// The loaded Q by Bogaerts et al.'s Eq. 20.
@@ -2226,7 +2228,8 @@ impl Critical {
     /// The Q of the stored energy's decay: (ra)² per round trip of n_g L/c, so
     /// Q = π n_g L/(λ |ln ra|), with ra = a² at critical coupling.
     fn decay(&self, length: f64) -> f64 {
-        PI * self.group_index * length / (self.w.to_um() * (self.a(length).powi(2)).ln().abs())
+        PI * self.group_index * length
+            / (self.w.to_um() * portable::ln(portable::powi(self.a(length), 2)).abs())
     }
 }
 
@@ -2357,19 +2360,19 @@ fn fitted_ring(
     // the resonance's pole: the term that dominates the response there (a surplus pole the fit
     // doesn't need can sit nearer, with a residue near zero)
     let at = laplace(centre);
-    let weight = |(p, c): (&c64, &c64)| (c / (at - p)).norm();
+    let weight = |(p, c): (&c64, &c64)| portable::complex::abs(c / (at - p));
     let (pole, residue) = fit
         .poles
         .iter()
         .zip(&fit.residues[0])
         .max_by(|p, q| weight(*p).total_cmp(&weight(*q)))
         .ok_or_else(|| invalid("the fit", "no poles"))?;
-    let scale = centre.to_um().powi(2) / ring.fsr(centre, length)?; // n_g L
-    let ra = (pole.re * scale).exp();
-    let u = residue.norm() * scale; // 1/r − r
+    let scale = portable::powi(centre.to_um(), 2) / ring.fsr(centre, length)?; // n_g L
+    let ra = portable::exp(pole.re * scale);
+    let u = portable::complex::abs(*residue) * scale; // 1/r − r
     let r = (-u + (u * u + 4.0).sqrt()) / 2.0;
     let a = ra / r;
-    Ok((1.0 - r * r, -20.0 * a.log10() / (length * 1e-4)))
+    Ok((1.0 - r * r, -20.0 * portable::log10(a) / (length * 1e-4)))
 }
 
 /// A phase curve unwrapped: no jump between neighbours larger than π.
@@ -2397,9 +2400,9 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
     let ring = AllPassRing::new(guide)?;
     let values = [length, coupling];
     let r = (1.0 - coupling).sqrt();
-    let a = (-guide.propagation(w).im * length).exp();
+    let a = portable::exp(-guide.propagation(w).im * length);
     // the twin: its coupler keeps a, its round trip keeps r
-    let twin_loss = -20.0 * r.log10() / (length * 1e-4);
+    let twin_loss = -20.0 * portable::log10(r) / (length * 1e-4);
     let twin = AllPassRing::new(Dispersion::new(w, RING_INDEX, 4.2).with_loss(twin_loss))?;
     let twin_values = [length, 1.0 - a * a];
 
@@ -2416,8 +2419,8 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
         let u = twin.s_matrix(at, &twin_values)?[(1, 0)];
         curves[0].push([pm, t.norm_sqr()]);
         curves[1].push([pm, u.norm_sqr()]);
-        curves[2].push([pm, t.arg()]);
-        curves[3].push([pm, u.arg()]);
+        curves[2].push([pm, portable::complex::arg(t)]);
+        curves[3].push([pm, portable::complex::arg(u)]);
     }
     let [power, twin_power, phase, twin_phase] = curves;
     let over_pi = |c: Vec<[f64; 2]>| {
@@ -2432,11 +2435,11 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
     let q = ring.q_factor(centre, &values)?;
     let (off, on) = ring.extremes(centre, &values)?;
     let f = finesse / PI; // √p/(1 − p) with p = ra
-    let p = ((-1.0 + (1.0 + 4.0 * f * f).sqrt()) / (2.0 * f)).powi(2);
+    let p = portable::powi((-1.0 + (1.0 + 4.0 * f * f).sqrt()) / (2.0 * f), 2);
     let d = on.sqrt() * (1.0 - p);
     let sum = (d * d + 4.0 * p).sqrt();
     let (big, small) = ((sum + d) / 2.0, (sum - d) / 2.0);
-    let db_per_cm = |amplitude: f64| -20.0 * amplitude.log10() / (length * 1e-4);
+    let db_per_cm = |amplitude: f64| -20.0 * portable::log10(amplitude) / (length * 1e-4);
     // under-coupled: r the larger, a the smaller; over-coupled: the other way
     let reading = |r: f64, a: f64| (1.0 - r * r, db_per_cm(a));
     let (under, over) = (reading(big, small), reading(small, big));
@@ -2489,7 +2492,7 @@ fn ring_identify(radius: f64, coupling: f64, loss: f64) -> photonoxide::Result<C
             figure("Loaded $Q$", q, 4, "", "Eq. 20"),
             figure(
                 "Extinction",
-                10.0 * (off / on).log10(),
+                10.0 * portable::log10(off / on),
                 3,
                 "dB",
                 "the same for both",
@@ -2564,7 +2567,7 @@ fn reflectance(stack: &Multilayer, nm: f64) -> photonoxide::Result<f64> {
 /// The infinite quarter-wave stack's stop band, as a share of its centre frequency:
 /// (4/π) arcsin(|n_H − n_L|/(n_H + n_L)), derived in academy/bragg-gratings.md.
 pub fn band_width(high: f64, low: f64) -> f64 {
-    4.0 / PI * ((high - low).abs() / (high + low)).asin()
+    4.0 / PI * portable::asin((high - low).abs() / (high + low))
 }
 
 fn bragg_reflectance(s: &Stack, (from, to): (f64, f64)) -> photonoxide::Result<ChartData> {
@@ -2584,8 +2587,8 @@ fn bragg_reflectance(s: &Stack, (from, to): (f64, f64)) -> photonoxide::Result<C
     let (dh, dl) = s.thicknesses();
     let peak = reflectance(&stack, bragg)?;
     // the quarter-wave stack's closed form, from its admittance (the validation case's)
-    let q = s.substrate / s.cover * (s.high / s.low).powi(2 * s.pairs as i32);
-    let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+    let q = s.substrate / s.cover * portable::powi(s.high / s.low, 2 * s.pairs as i32);
+    let closed = portable::powi((1.0 - q) / (1.0 + q), 2);
     // the endless stack's band, from one period's Bloch phase
     let width = bloch_band(s.high, s.low)?;
     let (short, long) = (bragg / (1.0 + width / 2.0), bragg / (1.0 - width / 2.0));
@@ -2826,7 +2829,9 @@ impl Mzi {
         let w = Wavelength::um(RING_CENTRE)?;
         let loss = self.loss;
         let amplitude = |length: f64| -> photonoxide::Result<f64> {
-            Ok(wire.s_matrix(w, &[length, loss])?[(1, 0)].norm())
+            Ok(portable::complex::abs(
+                wire.s_matrix(w, &[length, loss])?[(1, 0)],
+            ))
         };
         Ok((amplitude(MZI_ARM + self.delta)?, amplitude(MZI_ARM)?))
     }
@@ -2862,7 +2867,7 @@ fn mzi_extremes(
 
 /// The extinction of `[max, min]`, dB, as a figure: unbounded when the darkest is dark.
 fn extinction_figure(label: &str, [max, min]: [f64; 2]) -> Figure {
-    let db = 10.0 * (max / min).log10();
+    let db = 10.0 * portable::log10(max / min);
     Figure {
         label: label.to_owned(),
         value: db.is_finite().then_some(db),
@@ -3081,21 +3086,21 @@ fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<Ch
     };
     let (upper, lower) = m.arms()?;
     let capped = |[max, min]: [f64; 2]| {
-        let db = 10.0 * (max / min).log10();
+        let db = 10.0 * portable::log10(max / min);
         if db.is_nan() { 0.0 } else { db.min(MZI_CAP) }
     };
     let (mut bar, mut crossed) = (Vec::new(), Vec::new());
     // denser near the middle, where the dips are narrow
     for k in 0..=800 {
         let u = f64::from(k) / 800.0;
-        let kappa2 = 0.5 - 0.5 * (PI * u).cos();
+        let kappa2 = 0.5 - 0.5 * portable::cos(PI * u);
         let [b, c] = mzi_extremes(kappa2, combine, upper, lower)?;
         bar.push([kappa2, capped(b)]);
         crossed.push([kappa2, capped(c)]);
     }
     let (r2, k2) = {
         let (t, x) = coupler_fields(combine)?;
-        (t.norm(), x.norm())
+        (portable::complex::abs(t), portable::complex::abs(x))
     };
     let bar_dark = balance(r2 * lower, k2 * upper);
     let cross_dark = balance(k2 * lower, r2 * upper);
@@ -3159,6 +3164,7 @@ fn mzi_extinction(combine: f64, loss: f64, delta: f64) -> photonoxide::Result<Ch
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn none() -> BTreeMap<String, f64> {
         BTreeMap::new()
@@ -3363,7 +3369,7 @@ mod tests {
             1e-15,
         );
         // a, from the loss: 4 dB/cm over 2π·12 µm
-        let a = 10f64.powf(-loss * TAU * radius * 1e-4 / 20.0);
+        let a = portable::powf(10f64, -loss * TAU * radius * 1e-4 / 20.0);
         close(fig(&data, "Single-pass").value.unwrap(), a, 1e-12);
         close(fig(&data, "Critical").value.unwrap(), 1.0 - a * a, 1e-12);
         // the line is sampled well: its dip reaches the on-resonance power
@@ -3446,7 +3452,7 @@ mod tests {
             .unwrap();
             let guide = Dispersion::new(w, 2.4, 4.2).with_loss(5.0);
             let length = TAU * 20.0;
-            let a = 10f64.powf(-5.0 * length * 1e-4 / 20.0);
+            let a = portable::powf(10f64, -5.0 * length * 1e-4 / 20.0);
             let crit = 1.0 - (1.0 - drop) * a * a;
             close(fig(&data, "Critical").value.unwrap(), crit, 1e-12);
             assert_eq!(data.marker, Some(1.0));
@@ -3466,7 +3472,7 @@ mod tests {
                 }
             };
             for p in data.series[0].points.iter().step_by(37) {
-                let db = 10.0 * ratio(p[0] * crit).log10();
+                let db = 10.0 * portable::log10(ratio(p[0] * crit));
                 assert_eq!(p[1], db.min(EXTINCTION_CAP), "{drop}: {p:?}");
             }
             // the small-loss limit is close away from x = 1, to first order in the losses, κc² and κ₁² = x κc²
@@ -3485,7 +3491,7 @@ mod tests {
                 "{drop}: {other} on the same side as 0.01 of {crit}"
             );
             close(
-                10.0 * ratio(other).log10(),
+                10.0 * portable::log10(ratio(other)),
                 fig(&data, "Its extinction").value.unwrap(),
                 1e-9,
             );
@@ -3539,7 +3545,7 @@ mod tests {
             .unwrap()
             .with_round_trip_loss(0.075)
             .unwrap();
-        let a = |l: f64| 10f64.powf(-(2.7 * l * 1e-4 + 0.075) / 20.0);
+        let a = |l: f64| portable::powf(10f64, -(2.7 * l * 1e-4 + 0.075) / 20.0);
         let (eq20, decay, intrinsic) = (&data.series[0], &data.series[2], &data.series[3]);
         for k in (0..eq20.points.len()).step_by(23) {
             let l = eq20.points[k][0] * 1e3;
@@ -3557,7 +3563,7 @@ mod tests {
             // the decay Q from (ra)² per round trip
             close(
                 decay.points[k][1] * 1e5,
-                PI * 4.3 * l / (1.55 * (a(l) * a(l)).ln().abs()),
+                PI * 4.3 * l / (1.55 * portable::ln(a(l) * a(l)).abs()),
                 1e-9,
             );
         }
@@ -3608,8 +3614,8 @@ mod tests {
                     || (twin.abs() - 2.0).abs() < 0.2 && mine.abs() < 0.2,
                 "{mine} and {twin}"
             );
-            let a = 10f64.powf(-loss * length * 1e-4 / 20.0);
-            let twin_loss = -20.0 * (1.0 - coupling).sqrt().log10() / (length * 1e-4);
+            let a = portable::powf(10f64, -loss * length * 1e-4 / 20.0);
+            let twin_loss = -20.0 * portable::log10((1.0 - coupling).sqrt()) / (length * 1e-4);
             let truth = [(coupling, loss), (1.0 - a * a, twin_loss)];
             let read = |label: &str| {
                 let f = fig(&data, label);
@@ -3677,8 +3683,8 @@ mod tests {
             1e-12,
         );
         close(data.marker.unwrap(), 0.55, 1e-12);
-        let q = 1.52 * (2.3f64 / 1.38).powi(16);
-        let closed = ((1.0 - q) / (1.0 + q)).powi(2);
+        let q = 1.52 * portable::powi(2.3f64 / 1.38, 16);
+        let closed = portable::powi((1.0 - q) / (1.0 + q), 2);
         close(
             fig(&data, "$R$ at $\\lambda_B$, transfer").value.unwrap(),
             closed,
@@ -3790,7 +3796,7 @@ mod tests {
         {
             let w = Wavelength::um(c[0]).unwrap();
             let arm = |l: f64| wire.s_matrix(w, &[l, loss]).unwrap()[(1, 0)];
-            let shifter = c64::from_polar(1.0, phase * PI);
+            let shifter = portable::complex::from_polar(1.0, phase * PI);
             let m = mzi_closed_form(
                 fields(split),
                 fields(combine),
@@ -3871,7 +3877,7 @@ mod tests {
             let phi = TAU * 2.4 * 50.0 / c[0]
                 + TAU * (2.4 - 4.2) / 1.55 * (c[0] - 1.55) * 50.0 / c[0]
                 + 0.5 * PI;
-            close(c[1], (phi / 2.0).cos().powi(2), 1e-9);
+            close(c[1], portable::powi(portable::cos(phi / 2.0), 2), 1e-9);
             close(b[1] + c[1], 1.0, 1e-12);
         }
         assert_eq!(fig(&data, "Extinction, cross").text, "> 99");
@@ -3908,7 +3914,7 @@ mod tests {
         );
         close(
             fig(&data, "Bar, a 55:45").value.unwrap(),
-            20.0 * ((a + b) / (b - a)).log10(),
+            20.0 * portable::log10((a + b) / (b - a)),
             1e-9,
         );
         // the curve is capped, rises to its cap at the dark point, and is 0 dB at either end

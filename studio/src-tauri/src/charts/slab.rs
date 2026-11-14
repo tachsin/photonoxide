@@ -14,6 +14,7 @@
 //! decay rate p is zero and the transverse resonance h d = mπ + atan(q̄/h) + atan(p̄/h) leaves
 //! V = mπ + atan(r √a), r = 1 for TE and (n₂/n₁)² for TM.
 
+use photonoxide::portable;
 use std::f64::consts::PI;
 
 use num_complex::Complex64 as c64;
@@ -61,13 +62,13 @@ impl Film {
     fn factor(&self, pol: Polarization) -> f64 {
         match pol {
             Polarization::Te => 1.0,
-            Polarization::Tm => (self.core / self.cover).powi(2),
+            Polarization::Tm => portable::powi(self.core / self.cover, 2),
         }
     }
 
     /// The V below which mode `m` of `pol` isn't guided: mπ + atan(r √a).
     pub fn cutoff_v(&self, pol: Polarization, m: usize) -> f64 {
-        m as f64 * PI + (self.factor(pol) * self.asymmetry().sqrt()).atan()
+        m as f64 * PI + portable::atan(self.factor(pol) * self.asymmetry().sqrt())
     }
 
     /// The thickness, µm, below which mode `m` isn't guided at `l` µm.
@@ -281,7 +282,7 @@ fn transverse(film: &Film, mode: &SlabMode, d: f64, x: f64) -> f64 {
     let (v, _) = mode.field(Length::um(d - x));
     match mode.polarization() {
         Polarization::Te => v,
-        Polarization::Tm => v / film.index_at(x, d).powi(2),
+        Polarization::Tm => v / portable::powi(film.index_at(x, d), 2),
     }
 }
 
@@ -600,6 +601,7 @@ pub fn confinement(core: f64, cover: f64, l: f64, at_nm: f64) -> photonoxide::Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn close(a: f64, b: f64, tol: f64) {
         assert!((a - b).abs() <= tol, "{a} against {b}");
@@ -626,15 +628,18 @@ mod tests {
                     continue;
                 };
                 let (rc, rs) = if c.dashed {
-                    ((core / cover).powi(2), (core / OXIDE).powi(2))
+                    (
+                        portable::powi(core / cover, 2),
+                        portable::powi(core / OXIDE, 2),
+                    )
                 } else {
                     (1.0, 1.0)
                 };
                 for &[v, b] in c.points.iter().skip(1) {
                     let lhs = v * (1.0 - b).sqrt();
                     let rhs = m as f64 * PI
-                        + (rs * (b / (1.0 - b)).sqrt()).atan()
-                        + (rc * ((b + a) / (1.0 - b)).sqrt()).atan();
+                        + portable::atan(rs * (b / (1.0 - b)).sqrt())
+                        + portable::atan(rc * ((b + a) / (1.0 - b)).sqrt());
                     close(lhs, rhs, 1e-9);
                 }
             }
@@ -748,8 +753,8 @@ mod tests {
             side[0] / side[1]
         };
         // E_x outside over E_x in the film: (n₂/n_out)²
-        close(jump(0.0), (SILICON / OXIDE).powi(2), 1e-9);
-        close(1.0 / jump(0.22), (SILICON / 1.0).powi(2), 1e-9);
+        close(jump(0.0), portable::powi(SILICON / OXIDE, 2), 1e-9);
+        close(1.0 / jump(0.22), portable::powi(SILICON / 1.0, 2), 1e-9);
     }
 
     /// Γ from the transfer matrices' power is the slab's exact field integrated: |E_y|² for TE
@@ -780,7 +785,7 @@ mod tests {
                             } else {
                                 2.0
                             };
-                            c * f(h * f64::from(j)).powi(2)
+                            c * portable::powi(f(h * f64::from(j)), 2)
                         })
                         .sum::<f64>()
                         * h
@@ -788,8 +793,8 @@ mod tests {
                         * w(SILICON);
                     let (_, q, p) = mode.wavenumbers();
                     // the slab's x = 0 is the cover's face, x = d the substrate's
-                    let tails =
-                        f(0.0).powi(2) * w(cover) / (2.0 * q) + f(d).powi(2) * w(OXIDE) / (2.0 * p);
+                    let tails = portable::powi(f(0.0), 2) * w(cover) / (2.0 * q)
+                        + portable::powi(f(d), 2) * w(OXIDE) / (2.0 * p);
                     let (g, _, _) = confinement_of(&film, d, 1.55, &mode).unwrap();
                     close(g, core / (core + tails), 1e-6);
                 }

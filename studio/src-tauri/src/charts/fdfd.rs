@@ -16,6 +16,7 @@
 //!   gradient at one cell against second- and fourth-order central differences of the power at
 //!   steps from 10⁻⁶ to 0.3: truncation falling as δ² and δ⁴, round-off rising as 1/δ.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
@@ -259,7 +260,7 @@ pub fn errors(pol: Polarization, t: f64) -> photonoxide::Result<([Vec<f64>; 3], 
 pub fn finest_order(errors: &[f64]) -> f64 {
     let k = ACROSS.len() - 1;
     let step = |n: usize| 1.0 / (n as f64 + 0.4);
-    (errors[HALF] / errors[k]).ln() / (step(ACROSS[HALF]) / step(ACROSS[k])).ln()
+    portable::ln(errors[HALF] / errors[k]) / portable::ln(step(ACROSS[HALF]) / step(ACROSS[k]))
 }
 
 pub fn convergence(code: f64, thickness_nm: f64) -> photonoxide::Result<ChartData> {
@@ -277,7 +278,7 @@ pub fn convergence(code: f64, thickness_nm: f64) -> photonoxide::Result<ChartDat
         let points = ACROSS
             .iter()
             .zip(e)
-            .map(|(&n, &err)| [(1e3 * t / (n as f64 + 0.4)).log10(), err])
+            .map(|(&n, &err)| [portable::log10(1e3 * t / (n as f64 + 0.4)), err])
             .collect();
         series.push(curve(labels[f], points, false, f));
         let short = ["8 × 8 samples", "staircasing", "the mean"][f];
@@ -484,8 +485,8 @@ pub fn gradient_data(pol: Polarization, bump: f64) -> photonoxide::Result<Gradie
                 .collect(),
         }
     };
-    let forward = raster(&|i, j| field.at(i, j).norm(), false);
-    let backward = raster(&|i, j| back.at(i, j).norm(), false);
+    let forward = raster(&|i, j| portable::complex::abs(field.at(i, j)), false);
+    let backward = raster(&|i, j| portable::complex::abs(back.at(i, j)), false);
     let in_window = |i: usize, j: usize| {
         if inside(i, j) {
             gradient[j * g.nx + i]
@@ -686,7 +687,7 @@ pub fn steps(pol: Polarization, probe: usize) -> photonoxide::Result<Steps> {
     let found: Vec<(f64, f64)> = STEPS
         .par_iter()
         .map(|&e| {
-            let delta = 10f64.powf(e);
+            let delta = portable::powf(10f64, e);
             let (fourth, [_, m1, p1, _]) = fourth_order(&p, k, delta)?;
             Ok(((p1 - m1) / (2.0 * delta), fourth))
         })
@@ -709,7 +710,7 @@ pub fn steps(pol: Polarization, probe: usize) -> photonoxide::Result<Steps> {
 /// twice the solve's relative residual rounded up to a power of ten, through the formula's
 /// weights, (1 + 8 + 8 + 1)/12 · u · P / (δ |g|).
 pub fn resolution(s: &Steps, delta: f64) -> f64 {
-    let u = 10f64.powf((2.0 * s.residual).log10().ceil());
+    let u = portable::powf(10f64, portable::log10(2.0 * s.residual).ceil());
     18.0 / 12.0 * u * s.power.abs() / (delta * s.gradient.abs())
 }
 
@@ -730,7 +731,7 @@ pub fn difference_step(code: f64, probe: f64) -> photonoxide::Result<ChartData> 
         .collect();
     let bound: Vec<[f64; 2]> = STEPS
         .iter()
-        .map(|&e| [e, resolution(&s, 10f64.powf(e))])
+        .map(|&e| [e, resolution(&s, portable::powf(10f64, e))])
         .collect();
     let best = fourth
         .iter()
@@ -755,7 +756,10 @@ pub fn difference_step(code: f64, probe: f64) -> photonoxide::Result<ChartData> 
             best[1],
             2,
             "",
-            &format!("relative, at δ = {}", sig(10f64.powf(best[0]), 2)),
+            &format!(
+                "relative, at δ = {}",
+                sig(portable::powf(10f64, best[0]), 2)
+            ),
         ),
         figure(
             "the forward solve's relative residual",
@@ -782,7 +786,7 @@ pub fn difference_step(code: f64, probe: f64) -> photonoxide::Result<ChartData> 
                 2,
             ),
         ],
-        marker: Some((4e-3f64).log10()),
+        marker: Some(portable::log10(4e-3f64)),
         figures,
         note: format!(
             "2D FDFD, {}, the slab and bump of the gradient chart (ε = 6, 20 nm cells): the power's \
@@ -800,6 +804,7 @@ pub fn difference_step(code: f64, probe: f64) -> photonoxide::Result<ChartData> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     /// The port modes converge to the exact slab: with the mean over each cell at second order
     /// for E along z (`fdfd/fill-slab-te-mean`'s 2.00), staircased at first order
@@ -849,7 +854,7 @@ mod tests {
         let rel = |d: f64| (d - s.gradient).abs() / s.gradient.abs();
         // the second order's slope from δ = 10⁻¹·⁵ to 10⁻⁰·⁵, a decade: its truncation, δ²
         let n = STEPS.len();
-        let two = (rel(s.second[n - 1]) / rel(s.second[n - 3])).log10();
+        let two = portable::log10(rel(s.second[n - 1]) / rel(s.second[n - 3]));
         assert!((two - 2.0).abs() < 0.3, "second order: {two}");
         // the fourth order truncates far less at the largest step
         assert!(
@@ -860,7 +865,7 @@ mod tests {
         );
         // at δ = 10⁻² · 10^0.5 ≈ 3.2e-3, near the cases' 4e-3: within the round-off bound
         let k = STEPS.iter().position(|&e| e == -2.5).unwrap();
-        let delta = 10f64.powf(-2.5);
+        let delta = portable::powf(10f64, -2.5);
         assert!(
             rel(s.fourth[k]) <= resolution(&s, delta),
             "{} against {}",

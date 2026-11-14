@@ -14,6 +14,7 @@
 //!   are removed by adding each probe to its copy one lattice vector a₂ away, times
 //!   e^(−ik·a₂), which cancels every field that isn't Bloch-periodic over a₂ with k.
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::{PI, TAU};
 use std::sync::{Mutex, OnceLock};
@@ -236,7 +237,7 @@ fn ratio((lo, hi): (f64, f64)) -> f64 {
 /// (Joannopoulos et al. 2008, p. 52, Eq. 5).
 pub fn quarter_wave(high: f64, low: f64) -> f64 {
     let (n1, n2) = (high.sqrt(), low.sqrt());
-    400.0 / PI * ((n1 - n2).abs() / (n1 + n2)).asin()
+    400.0 / PI * portable::asin((n1 - n2).abs() / (n1 + n2))
 }
 
 /// The bands of the 1D crystal of ε₁ = `high` for `fill` of the period and ε₂ = `low`.
@@ -247,7 +248,7 @@ pub fn stack(high: f64, low: f64, fill: f64) -> photonoxide::Result<ChartData> {
     for (n, b) in bands.iter().enumerate() {
         let points = b
             .iter()
-            .map(|&(u, c)| [c.clamp(-1.0, 1.0).acos() / TAU, u])
+            .map(|&(u, c)| [portable::acos(c.clamp(-1.0, 1.0)) / TAU, u])
             .collect();
         series.push(curve(&format!("band {}", n + 1), points, false, 0));
     }
@@ -341,7 +342,7 @@ pub fn group_index(
         let mut points = Vec::new();
         for i in 1..800 {
             let s = i as f64 / 800.0;
-            let u = lo + (hi - lo) * (1.0 - (PI * s).cos()) / 2.0;
+            let u = lo + (hi - lo) * (1.0 - portable::cos(PI * s)) / 2.0;
             if let Some(ng) = group_index_at(&cell, u)? {
                 points.push([u, ng]);
             }
@@ -528,7 +529,7 @@ impl Crystal {
         along.push(0.0);
         for w in corners.windows(2) {
             let (a, b) = (w[0].1, w[1].1);
-            let length = ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+            let length = (portable::powi(b[0] - a[0], 2) + portable::powi(b[1] - a[1], 2)).sqrt();
             let steps = (length / 0.04).ceil().max(2.0) as usize;
             for i in 1..=steps {
                 let t = i as f64 / steps as f64;
@@ -597,7 +598,13 @@ impl Crystal {
                 values: sources
                     .iter()
                     .enumerate()
-                    .map(|(i, &(x, y))| (Axis::Z, at(x, y), c64::from_polar(1.0, 1.3 * i as f64)))
+                    .map(|(i, &(x, y))| {
+                        (
+                            Axis::Z,
+                            at(x, y),
+                            portable::complex::from_polar(1.0, 1.3 * i as f64),
+                        )
+                    })
                     .collect(),
                 waveform: pulse,
             })?;
@@ -623,7 +630,8 @@ impl Crystal {
                         }
                         // the projection's weight e^(−ik·a₂), times the wrap's phase
                         let a2 = [0.5, 0.5 * 3f64.sqrt()];
-                        let weight = c64::from_polar(1.0, phase - (kx * a2[0] + ky * a2[1]));
+                        let weight =
+                            portable::complex::from_polar(1.0, phase - (kx * a2[0] + ky * a2[1]));
                         Some((s.add_probe(field, Axis::Z, q)?, weight))
                     }
                 };
@@ -654,7 +662,7 @@ impl Crystal {
             let good: Vec<(f64, f64)> = found
                 .iter()
                 .filter(|r| r.error < 1e-3 && r.decay.abs() * record < 1.0)
-                .map(|r| (r.frequency, r.amplitude.norm()))
+                .map(|r| (r.frequency, portable::complex::abs(r.amplitude)))
                 .collect();
             let largest = good.iter().map(|t| t.1).fold(0.0, f64::max);
             Ok(good.into_iter().filter(|t| t.1 > 1e-4 * largest).collect())
@@ -990,6 +998,7 @@ pub fn bands(lattice: usize, kind: usize, eps: f64, radius: f64) -> photonoxide:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     fn value(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -1052,8 +1061,8 @@ mod tests {
     /// its step from 24 cells.
     fn against_the_book(crystal: &Crystal, which: usize, book: f64) {
         let ((coarse, edges), (fine, _)) = (gap_on(crystal, 24, which), gap_on(crystal, 32, which));
-        let extrapolated =
-            (32f64.powi(2) * fine - 24f64.powi(2) * coarse) / (32f64.powi(2) - 24f64.powi(2));
+        let extrapolated = (portable::powi(32f64, 2) * fine - portable::powi(24f64, 2) * coarse)
+            / (portable::powi(32f64, 2) - portable::powi(24f64, 2));
         eprintln!(
             "{crystal:?}: {coarse:.3} % at 24 cells (from {:.4} to {:.4}), {fine:.3} % at 32, \
              extrapolated {extrapolated:.3} %, the book {book} %",

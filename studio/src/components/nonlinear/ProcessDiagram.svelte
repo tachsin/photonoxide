@@ -70,12 +70,12 @@
     ["Hz", "Each photon's frequency"],
   ];
 
-  /** The SI prefixes, largest first. */
-  const PREFIXES: [number, string][] = [[12, "T"], [9, "G"], [6, "M"], [3, "k"], [0, ""], [-3, "m"], [-6, "µ"], [-9, "n"], [-12, "p"]];
+  /** The SI prefixes, largest first, with their powers of ten as literals (exact, where 10 ** e is the engine's own pow: #822). */
+  const PREFIXES: [number, string][] = [[1e12, "T"], [1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"], [1e-12, "p"]];
   /** A value as the number in front of its prefix (1 to 999, four figures) and the prefix. */
   function prefixed(v: number): [number, string] {
-    const [e, prefix] = PREFIXES.find(([e]) => Math.abs(v) >= 10 ** e) ?? PREFIXES[PREFIXES.length - 1];
-    return [Number((v / 10 ** e).toPrecision(4)), prefix];
+    const [scale, prefix] = PREFIXES.find(([scale]) => Math.abs(v) >= scale) ?? PREFIXES[PREFIXES.length - 1];
+    return [Number((v / scale).toPrecision(4)), prefix];
   }
   /** A value in its base unit with its prefix: 1.064 µm, 362 meV, 281.8 THz. */
   function si(v: number, base: string): string {

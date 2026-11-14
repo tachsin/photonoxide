@@ -5,6 +5,7 @@
 //! two offset Gaussians is the check.
 
 use photonoxide::eme::Beam;
+use photonoxide::portable;
 use photonoxide::units::{Length, Wavelength};
 
 use super::{ChartData, ChartSpec, Curve, figure, invalid, param, sig};
@@ -114,11 +115,11 @@ fn coupling(a: f64, b: f64, d: f64, tilt: f64) -> photonoxide::Result<f64> {
 /// `d` and parallel: (2w₁w₂/(w₁² + w₂²))² exp(−2d²/(w₁² + w₂²)).
 fn marcuse(wa: f64, wb: f64, d: f64) -> f64 {
     let s = wa * wa + wb * wb;
-    (2.0 * wa * wb / s).powi(2) * (-2.0 * d * d / s).exp()
+    portable::powi(2.0 * wa * wb / s, 2) * portable::exp(-2.0 * d * d / s)
 }
 
 fn db(x: f64) -> f64 {
-    10.0 * x.log10()
+    10.0 * portable::log10(x)
 }
 
 /// The coupling against the offset, from −4 to 4 µm.
@@ -164,7 +165,7 @@ pub fn overlap(
     let here = coupling(chip, fibre, offset, tilt)?;
     let best = coupling(chip, fibre, 0.0, 0.0)?;
     // the offset that costs 1 dB more than the best: exp(−2d²/(w₁² + w₂²)) = 10^(−0.1)
-    let s = (chip / 2.0).powi(2) + (fibre / 2.0).powi(2);
+    let s = portable::powi(chip / 2.0, 2) + portable::powi(fibre / 2.0, 2);
     let one_db = (s * 0.1 * std::f64::consts::LN_10 / 2.0).sqrt();
     Ok(ChartData {
         maps: Vec::new(),

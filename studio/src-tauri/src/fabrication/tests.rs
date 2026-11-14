@@ -15,6 +15,7 @@
 use photonoxide::fabrication::Start;
 use photonoxide::geometry::{Point, Region};
 use photonoxide::job::{self, Event, FabricationView, FrameFilm, SceneEtched};
+use photonoxide::portable;
 use photonoxide::run::{Format, Job};
 
 use super::mesh::{Detail, Rings, Role, film_solids, loft, solids};
@@ -38,7 +39,7 @@ fn ngon(r: f64, n: usize, turn: f64) -> Vec<[f64; 2]> {
     (0..n)
         .map(|k| {
             let a = turn * std::f64::consts::TAU * k as f64 / n as f64;
-            [r * a.cos(), r * a.sin()]
+            [r * portable::cos(a), r * portable::sin(a)]
         })
         .collect()
 }
@@ -83,7 +84,7 @@ fn a_ring_is_closed_and_has_its_outlines_area() {
         (64, 1, 64)
     );
     let n = 64.0;
-    let area = |r: f64| 0.5 * n * r * r * (std::f64::consts::TAU / n).sin();
+    let area = |r: f64| 0.5 * n * r * r * portable::sin(std::f64::consts::TAU / n);
     let want = area(10.25) - area(9.75);
     assert!(close(r.area(), want, ROUND_OFF), "{} {want}", r.area());
     let m = loft(&r, 2.0, &r, 2.22);
@@ -97,7 +98,7 @@ fn a_ring_is_closed_and_has_its_outlines_area() {
 fn a_sloped_wall_is_the_frustum_of_its_mitred_outline() {
     // a 0.5 × 3 µm rib, 0.3 µm deep, walls at 70°: its floor 0.3 / tan 70° wider on each side
     let (w, l, d) = (0.5, 3.0, 0.3);
-    let run = d / 70f64.to_radians().tan();
+    let run = d / portable::tan(70f64.to_radians());
     let top = Rings::rect([-w / 2.0, w / 2.0], [-l / 2.0, l / 2.0]);
     let m = loft(&top.mitred(run), 0.3, &top, 0.6);
     assert!(m.watertight());
@@ -207,7 +208,7 @@ fn outlined_volume(scene: &Event, etched: &[SceneEtched], layer: &str) -> f64 {
             let run = if e.sidewall_deg >= 90.0 {
                 0.0
             } else {
-                d / e.sidewall_deg.to_radians().tan()
+                d / portable::tan(e.sidewall_deg.to_radians())
             };
             d / 6.0 * (r.area() + 4.0 * r.mitred(run / 2.0).area() + r.mitred(run).area())
         })

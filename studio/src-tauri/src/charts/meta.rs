@@ -23,6 +23,7 @@
 //!   numerical aperture NA and thickness L in air can keep its focus, for resonant meta-atoms,
 //!   for waveguides (Tucker's delay-bandwidth product) and for any structure (Miller's).
 
+use photonoxide::portable;
 use std::collections::HashMap;
 use std::f64::consts::{PI, TAU};
 use std::sync::{Mutex, OnceLock};
@@ -50,7 +51,7 @@ pub fn sinc(x: f64) -> f64 {
     if x.abs() < 1e-12 {
         1.0
     } else {
-        (PI * x).sin() / (PI * x)
+        portable::sin(PI * x) / (PI * x)
     }
 }
 
@@ -59,7 +60,7 @@ pub fn sinc(x: f64) -> f64 {
 pub fn staircase_efficiency(levels: usize, m: i64) -> f64 {
     let n = levels as i64;
     if (m - 1).rem_euclid(n) == 0 {
-        sinc(m as f64 / levels as f64).powi(2)
+        portable::powi(sinc(m as f64 / levels as f64), 2)
     } else {
         0.0
     }
@@ -75,8 +76,8 @@ pub fn order_angle(
     theta_in: f64,
     m: i64,
 ) -> Option<f64> {
-    let s = (n_in * theta_in.to_radians().sin() + m as f64 * wavelength / gamma) / n_out;
-    (s.abs() <= 1.0).then(|| s.asin().to_degrees())
+    let s = (n_in * portable::sin(theta_in.to_radians()) + m as f64 * wavelength / gamma) / n_out;
+    (s.abs() <= 1.0).then(|| portable::asin(s).to_degrees())
 }
 
 pub fn orders(
@@ -126,7 +127,7 @@ pub fn orders(
             });
         }
     }
-    let lattice_ok = p < wavelength / (n_out + n_in * angle.to_radians().sin().abs());
+    let lattice_ok = p < wavelength / (n_out + n_in * portable::sin(angle.to_radians()).abs());
     let plus = order_angle(wavelength, gamma, n_in, n_out, angle, 1);
     let mut figures = vec![
         figure("supercell $\\Gamma = Np$", gamma, 4, "µm", ""),
@@ -167,7 +168,7 @@ pub fn orders(
         note: format!(
             "p < λ/(n_t + n_i|sin θ_i|) = {} nm",
             sig(
-                1e3 * wavelength / (n_out + n_in * angle.to_radians().sin().abs()),
+                1e3 * wavelength / (n_out + n_in * portable::sin(angle.to_radians()).abs()),
                 4
             )
         ),
@@ -315,14 +316,14 @@ pub fn waveguide_phase(w: f64, height: f64, wavelength: f64) -> photonoxide::Res
 
 /// The power transmittance of the bare silica–air face at normal incidence.
 pub fn bare_face() -> f64 {
-    4.0 * OXIDE / (1.0 + OXIDE).powi(2)
+    4.0 * OXIDE / portable::powi(1.0 + OXIDE, 2)
 }
 
 /// Each element's phase, unwrapped along the list.
 fn unwrap(values: &[c64]) -> Vec<f64> {
     let mut out: Vec<f64> = Vec::with_capacity(values.len());
     for v in values {
-        let mut a = v.arg();
+        let mut a = portable::complex::arg(*v);
         if let Some(&last) = out.last() {
             while a - last > PI {
                 a -= TAU;
@@ -505,7 +506,7 @@ pub struct Lens {
 impl Lens {
     /// The half-aperture R = f tan(arcsin NA), µm.
     pub fn radius(&self) -> f64 {
-        self.focal * self.na.asin().tan()
+        self.focal * portable::tan(portable::asin(self.na))
     }
 
     /// The lens's samples: (centre x µm, width µm, phase at the design wavelength in [0, 2π)).
@@ -543,12 +544,15 @@ impl Lens {
         for &(xc, width, phi) in samples {
             let sub = (width / (wavelength / 20.0)).ceil().max(1.0) as usize;
             let dx = width / sub as f64;
-            let a = c64::from_polar(1.0, phi * scale);
+            let a = portable::complex::from_polar(1.0, phi * scale);
             let mut cell = c64::new(0.0, 0.0);
             for j in 0..sub {
                 let xs = xc - 0.5 * width + (j as f64 + 0.5) * dx;
-                let rho = ((x - xs).powi(2) + z * z).sqrt();
-                cell += c64::from_polar((z / rho) * (k / (TAU * rho)).sqrt(), k * rho - PI / 4.0);
+                let rho = (portable::powi(x - xs, 2) + z * z).sqrt();
+                cell += portable::complex::from_polar(
+                    (z / rho) * (k / (TAU * rho)).sqrt(),
+                    k * rho - PI / 4.0,
+                );
             }
             u += a * cell * dx;
         }
@@ -623,7 +627,7 @@ pub fn focus(na: f64, focal: f64, period_nm: f64, levels: usize) -> photonoxide:
         figure(
             "sinc²(1/N)",
             if levels > 0 {
-                sinc(1.0 / levels as f64).powi(2)
+                portable::powi(sinc(1.0 / levels as f64), 2)
             } else {
                 1.0
             },
@@ -743,7 +747,7 @@ pub fn axis(na: f64, focal: f64, wavelength: f64) -> photonoxide::Result<ChartDa
         figure("peak at λ against the design's", top / peak, 3, "", ""),
         figure(
             "sinc²(1 − λ₀/λ)",
-            sinc(1.0 - DESIGN / wavelength).powi(2),
+            portable::powi(sinc(1.0 - DESIGN / wavelength), 2),
             3,
             "",
             "the main focus's share, scalar",
@@ -1099,6 +1103,7 @@ pub fn specs() -> Vec<ChartSpec> {
 mod tests {
     use super::*;
     use photonoxide::mode::multilayer::Multilayer;
+    use photonoxide::portable;
 
     fn value(data: &ChartData, label: &str) -> f64 {
         data.figures
@@ -1125,7 +1130,7 @@ mod tests {
     fn order_plus_one_is_the_generalized_law() {
         // Elsawy et al.'s supercell: 1.5 µm at 600 nm, normal incidence into air: sin θ = 0.4
         let a = order_angle(0.6, 1.5, 1.0, 1.0, 0.0, 1).unwrap();
-        assert!((a - 0.4f64.asin().to_degrees()).abs() < 1e-12);
+        assert!((a - portable::asin(0.4f64).to_degrees()).abs() < 1e-12);
         let data = orders(0.6, 375.0, 4, 0.0, 1.0, 1.0).unwrap();
         assert!((value(&data, "order +1 leaves at") - 23.578).abs() < 1e-3);
         // too steep a gradient: λ/Γ > 2 from glancing incidence
@@ -1158,9 +1163,9 @@ mod tests {
             .unwrap()
             .t;
         let k0 = TAU / 1.55;
-        let expected =
-            film * c64::from_polar(1.0, -k0 * 0.3) / (bare * c64::from_polar(1.0, -k0 * d));
-        let err = (fdtd - expected).norm() / expected.norm();
+        let expected = film * portable::complex::from_polar(1.0, -k0 * 0.3)
+            / (bare * portable::complex::from_polar(1.0, -k0 * d));
+        let err = portable::complex::abs(fdtd - expected) / portable::complex::abs(expected);
         assert!(
             err < 0.02,
             "FDTD {fdtd}, transfer matrices {expected}, {err}"
@@ -1182,7 +1187,7 @@ mod tests {
         };
         let a = coarse.relative(&[0.3]).unwrap()[0];
         let b = fine.relative(&[0.3]).unwrap()[0];
-        let dphase = (a / b).arg().abs();
+        let dphase = portable::complex::arg(a / b).abs();
         assert!(
             dphase < 0.05 * TAU,
             "20 nm against 10 nm cells: {dphase} rad"
@@ -1194,7 +1199,10 @@ mod tests {
             ..coarse
         };
         let c = longer.relative(&[0.3]).unwrap()[0];
-        assert!((a - c).norm() < 2e-3 * c.norm(), "{a} against {c}");
+        assert!(
+            portable::complex::abs(a - c) < 2e-3 * portable::complex::abs(c),
+            "{a} against {c}"
+        );
     }
 
     #[test]

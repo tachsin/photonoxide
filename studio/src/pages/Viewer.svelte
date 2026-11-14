@@ -165,9 +165,10 @@
     const what = wave.signed && component ? `Re E_${component.slice(1)}` : "|E| (magnitude only: an older run)";
     // the light's frequency c/λ against the shown one, speed/PERIOD
     const slower = (2.998e8 / (m.wavelength_um * 1e-6)) * (PERIOD / run.waveSpeed);
-    const exp = Math.floor(Math.log10(slower));
-    const mantissa = Math.round(slower / 10 ** exp);
-    const sup = String(exp).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
+    // one figure and the power of ten as toExponential rounds them, exactly (#822)
+    const [digit, power] = slower.toExponential(0).split("e");
+    const mantissa = Number(digit);
+    const sup = String(Number(power)).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]);
     return { what, velocity: (1 / m.effective_index[0]).toFixed(2), slower: `${mantissa === 1 ? "" : `${mantissa} × `}10${sup}` };
   });
 

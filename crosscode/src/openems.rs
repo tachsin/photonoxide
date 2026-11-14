@@ -14,6 +14,7 @@
 //! `PATH`; [`OpenEms::find`] says what it looked for when it finds nothing, and the tests that
 //! need it skip with that message.
 
+use photonoxide::portable;
 use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::fs;
@@ -163,7 +164,7 @@ impl OpenEms {
         });
         let stdout = child.stdout.take().ok_or("openEMS's stdout")?;
         let start = Instant::now();
-        let target = 10.0 * model.end_energy.log10();
+        let target = 10.0 * portable::log10(model.end_energy);
         let mut tracker = Tracker::new(model.max_steps, target);
         let mut steps = 0;
         let mut ended = false;
@@ -584,7 +585,7 @@ impl Signal {
         self.time
             .iter()
             .zip(&self.value)
-            .map(|(&t, &v)| v * c64::from_polar(1.0, w * t))
+            .map(|(&t, &v)| v * portable::complex::from_polar(1.0, w * t))
             .sum::<c64>()
             * dt
     }
@@ -856,6 +857,7 @@ impl Model {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use photonoxide::portable;
 
     #[test]
     fn the_banner_gives_the_versions() {
@@ -972,7 +974,7 @@ mod tests {
         let f = 1e11;
         let x = s.spectrum(f);
         let w = 2.0 * std::f64::consts::PI * f * 1e-12;
-        assert!((x - c64::from_polar(1e-12, w)).norm() < 1e-25);
+        assert!(portable::complex::abs(x - portable::complex::from_polar(1e-12, w)) < 1e-25);
         assert!(Signal::parse("% nothing\n").is_err());
         assert!(Signal::parse("1 x\n").is_err());
     }
