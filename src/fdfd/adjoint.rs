@@ -141,6 +141,49 @@ impl Solver2d {
         Ok(c)
     }
 
+    /// The derivative of `field` (a field of this problem) along a change `delta` of the cells'
+    /// relative permittivities (one per cell, `[j * nx + i]`, real), by forward-mode
+    /// differentiation: du = −A⁻¹ (∂A/∂ε · δε) u, one more solve with the factors whatever is
+    /// measured of it (T. W. Hughes, I. A. D. Williamson, M. Minkov, S. Fan, ACS Photonics 6,
+    /// 3010 (2019), doi:10.1021/acsphotonics.9b01238, Eqs. 5–9, in the frequency domain). It is
+    /// the adjoint turned around: the adjoint gives one measure's derivative along every cell,
+    /// this every measure's along one direction. Any linear measure of the result
+    /// ([`Field2d::mode_amplitudes`], [`Field2d::at`]) is that measure's derivative; quadratic
+    /// ones (a flux) take the product rule with the field itself. As for the adjoint, the source
+    /// must not depend on the cells that change.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::functional_power_gradient`], and [`Error::InvalidValue`] for a change
+    /// that isn't one finite value per cell.
+    pub fn field_tangent(&self, field: &Field2d, delta: &[f64]) -> Result<Field2d> {
+        let g = self.grid;
+        if self.polarization == Polarization::Hz && !self.cellwise {
+            return Err(Error::invalid(
+                "fdfd tangent",
+                "with H along z the tangent is for a problem given cell by cell (from_cells)",
+            ));
+        }
+        if delta.len() != g.nx * g.ny
+            || field.values.len() != g.nx * g.ny
+            || delta.iter().any(|d| !d.is_finite())
+        {
+            return Err(Error::invalid(
+                "fdfd tangent",
+                "the field and the change must be one finite value per cell of this problem",
+            ));
+        }
+        let u = &field.values;
+        let change: Vec<c64> = match self.polarization {
+            Polarization::Ez => {
+                let k2 = self.k0 * self.k0;
+                u.iter().zip(delta).map(|(u, d)| -(u * k2 * d)).collect()
+            }
+            Polarization::Hz => self.hz_change(u, delta).into_iter().map(|v| -v).collect(),
+        };
+        self.solve_system(&change)
+    }
+
     /// |cᵀu|² and its gradient, from the adjoint field λ of Aᵀ λ = conj(a) c, a = cᵀ u.
     fn power_gradient(&self, field: &Field2d, c: &[c64]) -> Result<(f64, Vec<f64>)> {
         let (nx, ny) = (self.grid.nx, self.grid.ny);
@@ -211,6 +254,29 @@ impl Solver2d {
 
     /// −2 Re(λᵀ (∂A/∂ε_cell) u) with H along z, face by face, as `assemble` couples them.
     fn hz_gradient(&self, lambda: &[c64], u: &[c64], gradient: &mut [f64]) {
+        self.hz_face_terms(u, |k, slope, difference, shares| {
+            let term = -2.0 * (lambda[k] * slope * difference).re;
+            for (cell, w) in shares {
+                gradient[cell] += w * term;
+            }
+        });
+    }
+
+    /// (∂A/∂ε · δε) u with H along z: what the cells' changes `delta` do to the matrix's product
+    /// with `u`, face by face.
+    fn hz_change(&self, u: &[c64], delta: &[f64]) -> Vec<c64> {
+        let mut out = vec![c64::new(0.0, 0.0); u.len()];
+        self.hz_face_terms(u, |k, slope, difference, shares| {
+            let face: f64 = shares.iter().map(|&(cell, w)| w * delta[cell]).sum();
+            out[k] += slope * difference * face;
+        });
+        out
+    }
+
+    /// Every face term of A u with H along z: for row k, a face's coupling c = 1/(ε_f s s Δ²)
+    /// times the difference of u across it, handed to `each` as (k, ∂c/∂ε_f = −c/ε_f, the
+    /// difference, the cells ε_f is the mean of with their shares).
+    fn hz_face_terms(&self, u: &[c64], mut each: impl FnMut(usize, c64, c64, [(usize, f64); 2])) {
         let g = self.grid;
         let (nx, ny) = (g.nx, g.ny);
         let b = &self.boundaries;
@@ -298,15 +364,12 @@ impl Solver2d {
                     };
                     let difference = neighbour.unwrap_or(c64::new(0.0, 0.0)) - u[k];
                     // ∂(coupling)/∂ε_face = −coupling/ε_face, on both its entries in row k
-                    let term = -2.0 * (lambda[k] * (-coupling / eps) * difference).re;
                     let shares = if axis == 0 {
                         owners(face, nx, bloch(b.x)).map(|(n, w)| (j * nx + n, w))
                     } else {
                         owners(face, ny, bloch(b.y)).map(|(n, w)| (n * nx + i, w))
                     };
-                    for (cell, w) in shares {
-                        gradient[cell] += w * term;
-                    }
+                    each(k, -coupling / eps, difference, shares);
                 }
             }
         }

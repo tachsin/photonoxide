@@ -773,5 +773,35 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             "fdfd3d/fill-seam",
             Rule::new(Absolute, RoundOff, 1e-12, Exact, "as fdfd/fill-seam"),
         ),
-    ]
+        (
+            "fdfd/forward-mode",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-12,
+                Exact,
+                "forward mode and the adjoint are the same Jacobian in two orders, each one solve with the same factors and a sum over 100 cells: they differ by round-off, 7.6e-14 (E along z) and 2.0e-14 (H along z); held to 1e-12",
+            ),
+        ),
+        (
+            "fdfd/kerr-uniform",
+            Rule::new(
+                Relative,
+                RoundOff,
+                1e-11,
+                Exact,
+                "Newton's method stops at a residual of 1e-12 of the source, and the scalar root is bisected to the last bit: their difference is the stop's, 8.9e-15 here; held to ten times the stopping residual, 1e-11",
+            ),
+        ),
+        (
+            "fdfd/kerr-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-9,
+                Noted,
+                "fourth-order differences through Newton's method at δ = 1e-3: what they resolve, the difference between δ and 2δ, is 4.4e-10 of the derivative (noted), and the adjoint is within 4.3e-10 of them; held to ten times what they resolve, rounded up, 5e-9",
+            )
+            .varying(),
+        ),    ]
 }
