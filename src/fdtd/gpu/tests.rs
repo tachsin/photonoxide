@@ -109,7 +109,8 @@ fn a_run_on_the_gpu_repeats_bit_for_bit() {
 /// The repeat above many times over, `GPU_REPEATS` runs of each (200 by default), in f32 and
 /// f64: a run that differs once in many shows here, not in one repeat. In f64 the CPML's
 /// derivatives, divided by Δ in the kernels, gave one of two results from run to run (the 3D
-/// problem differed in most of 1200 runs); they multiply by 1/Δ now, and no run differs. By
+/// problem differed in most of 1200 runs; why: the test of a quotient under load, below); they
+/// multiply by 1/Δ now, and no run differs. By
 /// hand, on a computer with a GPU:
 /// `cargo test --release --features gpu --lib repeats_bit_for_bit_many_times -- --ignored`.
 #[test]
@@ -247,5 +248,242 @@ fn roden_and_gedneys_plate_on_the_gpu() {
     assert!(
         (a - -48.620087).abs() < 0.05 && (b - -70.474859).abs() < 0.05,
         "{a} {b}"
+    );
+}
+
+/// The CPML's recursion in f64, ψ ← b ψ + a d with d a difference times 1/Δ, as the minimal
+/// kernel of #818: `QUOTIENT` is how d is taken, and each invocation writes d − x·fl(1/Δ) to
+/// `record` where it isn't zero.
+const RECURSION: &str = "
+@group(0) @binding(0) var<storage, read> x: array<f64>;
+@group(0) @binding(1) var<storage, read> coefs: array<f64>;
+@group(0) @binding(2) var<storage, read_write> psi: array<f64>;
+// Δ, then 1/Δ rounded, from the host
+@group(0) @binding(3) var<storage, read> reals: array<f64>;
+@group(0) @binding(4) var<storage, read_write> record: array<f64>;
+
+@compute @workgroup_size(64)
+fn step(@builtin(global_invocation_id) g: vec3<u32>) {
+    let i = g.x;
+    let n = arrayLength(&psi);
+    if (i >= n) {
+        return;
+    }
+    let h = reals[0];
+    let num = x[i + 1u] - x[i];
+    let d = QUOTIENT;
+    psi[i] = coefs[i] * psi[i] + coefs[n + i] * d;
+    // 1/Δ rounded is 20 exactly
+    if (d != num * 20.0) {
+        record[i] = d - num * 20.0;
+    }
+}
+";
+
+/// What [`division_under_load`] saw: the runs, those whose ψ differs from the first run's,
+/// the invocations whose d isn't x·fl(1/Δ) (the most in a run), and whether every such d
+/// was the correctly rounded x/Δ.
+#[derive(Debug)]
+struct UnderLoad {
+    runs: usize,
+    differ: usize,
+    off: usize,
+    only_the_quotient: bool,
+    windows: Vec<(f64, f64)>,
+}
+
+/// The recursion with d taken as `quotient`, over 65 536 values and 50 dispatches a run, run
+/// after run for `seconds` on `gpu` (f64).
+fn division_under_load(gpu: &Gpu, quotient: &str, seconds: f64) -> UnderLoad {
+    use wgpu::util::DeviceExt;
+    let c = gpu.context();
+    let (device, queue) = (&c.device, &c.queue);
+    let n = 65_536usize;
+    let h = 0.05f64;
+    assert_eq!(1.0 / h, 20.0, "the kernel's x · fl(1/Δ)");
+    let mut seed = 0x2545_f491_4f6c_dd1du64;
+    let mut unit = || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let x: Vec<f64> = (0..=n).map(|_| (unit() - 0.5) * 1e-2).collect();
+    let coefs: Vec<f64> = (0..2 * n)
+        .map(|k| {
+            if k < n {
+                0.3 + 0.6 * unit()
+            } else {
+                -0.4 * unit()
+            }
+        })
+        .collect();
+    let bytes = |v: &[f64]| -> Vec<u8> { v.iter().flat_map(|x| x.to_le_bytes()).collect() };
+    let init = |v: &[f64], usage: wgpu::BufferUsages| {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("division under load"),
+            contents: &bytes(v),
+            usage,
+        })
+    };
+    use wgpu::BufferUsages as U;
+    let zeros = vec![0.0; n];
+    let buffers = [
+        init(&x, U::STORAGE),
+        init(&coefs, U::STORAGE),
+        init(&zeros, U::STORAGE | U::COPY_SRC | U::COPY_DST),
+        init(&[h, 1.0 / h], U::STORAGE),
+        init(&zeros, U::STORAGE | U::COPY_SRC | U::COPY_DST),
+    ];
+    let read = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("division under load, read back"),
+        size: (16 * n) as u64,
+        usage: U::MAP_READ | U::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("division under load"),
+        source: wgpu::ShaderSource::Wgsl(RECURSION.replace("QUOTIENT", quotient).into()),
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("division under load"),
+        layout: None,
+        module: &module,
+        entry_point: Some("step"),
+        compilation_options: Default::default(),
+        cache: None,
+    });
+    let entries: Vec<wgpu::BindGroupEntry> = buffers
+        .iter()
+        .zip(0u32..)
+        .map(|(b, binding)| wgpu::BindGroupEntry {
+            binding,
+            resource: b.as_entire_binding(),
+        })
+        .collect();
+    let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("division under load"),
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &entries,
+    });
+    let run = || -> Vec<u64> {
+        queue.write_buffer(&buffers[2], 0, &bytes(&zeros));
+        queue.write_buffer(&buffers[4], 0, &bytes(&zeros));
+        let mut encoder = device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(&pipeline);
+            pass.set_bind_group(0, &group, &[]);
+            for _ in 0..50 {
+                pass.dispatch_workgroups(n.div_ceil(64) as u32, 1, 1);
+            }
+        }
+        let size = (8 * n) as u64;
+        encoder.copy_buffer_to_buffer(&buffers[2], 0, &read, 0, size);
+        encoder.copy_buffer_to_buffer(&buffers[4], 0, &read, size, size);
+        queue.submit([encoder.finish()]);
+        read.slice(..)
+            .map_async(wgpu::MapMode::Read, |r| r.unwrap());
+        device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+        let out = read
+            .slice(..)
+            .get_mapped_range()
+            .unwrap()
+            .as_chunks::<8>()
+            .0
+            .iter()
+            .map(|b| u64::from_le_bytes(*b))
+            .collect();
+        read.unmap();
+        out
+    };
+    // the correctly rounded x/Δ less x·fl(1/Δ), exact (they are within an ulp)
+    let second: Vec<u64> = (0..n)
+        .map(|i| {
+            let num = x[i + 1] - x[i];
+            (num / h - num * (1.0 / h)).to_bits()
+        })
+        .collect();
+    let start = std::time::Instant::now();
+    let first = run();
+    let mut seen = UnderLoad {
+        runs: 1,
+        differ: 0,
+        off: 0,
+        only_the_quotient: true,
+        windows: Vec::new(),
+    };
+    let mut open: Option<f64> = None;
+    while start.elapsed().as_secs_f64() < seconds {
+        let v = run();
+        let t = start.elapsed().as_secs_f64();
+        seen.runs += 1;
+        let differs = v[..n] != first[..n];
+        seen.differ += usize::from(differs);
+        let off: Vec<usize> = (0..n).filter(|&i| v[n + i] != 0).collect();
+        seen.off = seen.off.max(off.len());
+        seen.only_the_quotient &= off.iter().all(|&i| v[n + i] == second[i]);
+        match (differs, open) {
+            (true, None) => open = Some(t),
+            (false, Some(from)) => {
+                seen.windows.push((from, t));
+                open = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(from) = open {
+        seen.windows.push((from, start.elapsed().as_secs_f64()));
+    }
+    seen
+}
+
+/// The cause of f64 division's two results (#818), seen in the CPML's recursion alone: the
+/// driver may run two compiled forms of a kernel and switch between them under load, and a
+/// division is one thing WGSL lets the two evaluate differently (§15.7; f64 division is
+/// accurate to 2.5 ulp, not correctly rounded). On an RTX 4060 (driver 616.56), d = x · (1/Δ)
+/// is x · fl(1/Δ) but for 0.2 s at a time about 4 s into the load (3.8 to 4.0 and 4.6 to
+/// 4.8 s, or 4.0 to 4.4 s, the same in every process), when it is the correctly rounded x/Δ
+/// (19 480 of 65 536 values an ulp apart, ψ after 50 steps in 25 975 by up to 4 ulp). It fails if a quotient is ever anything else, or if the form photonoxide's
+/// kernels use, d = x · inv with inv from the host, ever gives another result. By hand, on a
+/// computer with a GPU (`GPU_LOAD_SECONDS`, 15 by default, each):
+/// `cargo test --release --features gpu --lib under_load_a_quotient -- --ignored --nocapture`.
+#[test]
+#[ignore = "seconds of load on a GPU: by hand"]
+fn under_load_a_quotient_takes_two_forms_a_product_one() {
+    let Some(gpu) = for_tests(Precision::Double) else {
+        return;
+    };
+    let seconds = std::env::var("GPU_LOAD_SECONDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(15.0);
+    let divided = division_under_load(&gpu, "num * (1.0 / h)", seconds);
+    println!(
+        "{}: d = x · (1/Δ) in the kernel: {} runs, {} differ from the first, in {:.2?} s; at most {} quotients in a run are the correctly rounded x/Δ rather than x · fl(1/Δ)",
+        gpu.name(),
+        divided.runs,
+        divided.differ,
+        divided.windows,
+        divided.off
+    );
+    assert!(
+        divided.only_the_quotient,
+        "a quotient was neither x · fl(1/Δ) nor x/Δ: {divided:?}"
+    );
+    assert_eq!(
+        divided.differ > 0,
+        divided.off > 0,
+        "runs differ only where a quotient changes form: {divided:?}"
+    );
+    let multiplied = division_under_load(&gpu, "num * reals[1]", seconds);
+    println!(
+        "d = x · inv, inv from the host: {} runs, {} differ",
+        multiplied.runs, multiplied.differ
+    );
+    assert_eq!(
+        (multiplied.differ, multiplied.off),
+        (0, 0),
+        "{multiplied:?}"
     );
 }
