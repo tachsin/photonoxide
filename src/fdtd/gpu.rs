@@ -24,9 +24,13 @@
 //! value is computed by one invocation in a fixed order, so a run repeats bit for bit on the same
 //! device and driver. The kernels don't divide either: in f64 a division by Δ in the CPML's
 //! derivatives gave one of two results from run to run on an RTX 4060, so they multiply by 1/Δ,
-//! computed on the CPU. WGSL lets a compiler fuse and reorder arithmetic (§15.7), so the GPU's
-//! fields aren't the CPU's bits: they agree to a tolerance stated per quantity (see the method's
-//! write-up, docs/methods/fdtd.md).
+//! computed on the CPU. The driver runs two compiled forms of a kernel and switches between
+//! them in the first seconds of load, and a quotient is one thing the two may evaluate
+//! differently: x/Δ, or x times 1/Δ rounded, an ulp apart where 1/Δ isn't exact (seen in a
+//! kernel of the recursion alone, `under_load_a_quotient_takes_two_forms_a_product_one`, #818).
+//! A product of values from the host has one form. WGSL lets a compiler fuse and reorder
+//! arithmetic (§15.7), so the GPU's fields aren't the CPU's bits: they agree to a tolerance
+//! stated per quantity (see the method's write-up, docs/methods/fdtd.md).
 //!
 //! **Precision.** [`Precision::Single`], f32, on any wgpu backend (Vulkan, DirectX 12, Metal);
 //! [`Precision::Double`], f64, on Vulkan where the adapter has `SHADER_F64`, for checking
