@@ -586,8 +586,8 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
 
 ## 6. Where the work stands
 
-*2026-11-14: I1 to I7 are merged (pull request #796), I8 (#806) too; I9 is on
-`feat/inverse-design-i9`. Each later phase is its own branch and pull request from main.*
+*2026-11-14: I1 to I7 are merged (pull request #796), I8 (#806) and I9 (#835) too; I10 is on
+`feat/inverse-design-i10`. Each later phase is its own branch and pull request from main.*
 
 **Done** (each phase's *Done* paragraph above has its numbers):
 - I1 to I3: densities, filters, projections, robust designs, length scales;
@@ -599,10 +599,12 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
   the SWG-to-strip converter designed printed; Table 1's comparison left open (I8 above);
 - I9 (2026-11-14, its own pull request): the mode solvers', RCWA's and eigenmode expansion's
   derivatives, FDFD's forward mode and a Kerr FDFD with its adjoint; Hughes et al.'s switches left
-  open (I9 above).
+  open (I9 above);
+- I10 (2026-11-14, its own pull request): quantum objectives with their gradients and
+  `optimize_quantum`; Vernon et al.'s dual-coupling condition left open (I10 above).
 
 The validation report has 31 topology cases (27 from I1 to I7, 4 from I8),
-`fdfd/adjoint-gradient-row`, and I9's ten (six `mode/`, one `eme/`, three `fdfd/`).
+`fdfd/adjoint-gradient-row`, I9's ten (six `mode/`, one `eme/`, three `fdfd/`) and I10's four `quantum/`.
 
 **Settled with #796:**
 
@@ -619,7 +621,6 @@ The validation report has 31 topology cases (27 from I1 to I7, 4 from I8),
 
 **Left of the plan** (each its own pull request, part of #761; the phases above say what each
 holds and how it is validated):
-- I10: quantum objectives;
 - I11: device and circuit co-design;
 - I12: explore in 2D, verify in 3D;
 - the Academy lesson `academy/inverse-design.md`, written last.
