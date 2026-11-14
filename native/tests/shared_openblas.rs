@@ -1,9 +1,12 @@
-//! OpenBLAS called by other libraries while photonoxide's calls into it thread: MUMPS and
-//! SuperLU, installed from one conda environment with the OpenBLAS, link the same one and call
-//! it outside photonoxide's lock (#557, #595). A threaded call of ours sets OpenBLAS's count of
-//! threads around itself, and OpenBLAS built with OpenMP frees the buffers of the threads above
-//! a lower count; a MUMPS or SuperLU call running meanwhile may be using them. Every product of
-//! ours and every solve of theirs must stay right.
+//! OpenBLAS called by other libraries beside photonoxide's calls into it: MUMPS and SuperLU,
+//! installed from one conda environment with the OpenBLAS, link the same one (#557, #595). A
+//! threaded call of ours sets OpenBLAS's count of threads around itself, and OpenBLAS built with
+//! OpenMP frees the buffers of the threads above a lower count, and (0.3.34) threads a call made
+//! inside an OpenMP region, as MUMPS's are, by that count: one of MUMPS's made during a threaded
+//! call of ours waited for good, and the whole test with it (#812). So photonoxide's MUMPS and
+//! SuperLU backends call them on the shared side of its lock, beside its calls on one thread and
+//! never during a threaded one. Every product of ours and every solve of theirs must stay right,
+//! and the test must end.
 //!
 //! Skipped, and saying so, where OpenBLAS, MUMPS or SuperLU isn't found; with
 //! `PHOTONOXIDE_REQUIRE_BLAS` (`openblas`), `PHOTONOXIDE_REQUIRE_MUMPS` and
@@ -11,8 +14,8 @@
 //! together set them, not finding one is a failure. `PHOTONOXIDE_BLAS_ROUNDS` sets the rounds
 //! of products (default 10); `PHOTONOXIDE_SHARED_CASE` (`all`, `mumps`, `superlu` or `foreign`,
 //! the two libraries without the products) picks the pieces that run, and
-//! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got. On
-//! macOS with conda-forge's OpenMP OpenBLAS the whole test stalled (#595).
+//! `PHOTONOXIDE_SHARED_SECONDS` (default 300) ends a run that stalls, saying how far it got and
+//! printing every thread's stack (gdb on Linux, `sample` or lldb on macOS; #812).
 
 use photonoxide::portable;
 use std::io::Write;
@@ -129,9 +132,66 @@ fn say(started: Instant, what: &str) {
     );
 }
 
-/// Ends the process, saying how far the test got, if it isn't `finished` within `seconds`
-/// (`PHOTONOXIDE_SHARED_SECONDS`, default 300: a run takes seconds): calls that block each
-/// other would hold a CI row for its whole timeout, and say nothing.
+/// Every thread's stack, by a debugger attached to this process, on stderr: gdb on Linux (it
+/// needs `kernel.yama.ptrace_scope` 0, which the OpenBLAS loop workflow sets), `sample` and
+/// then lldb on macOS; nothing elsewhere. For a stalled run (#812), to see who waits on whom.
+fn dump_stacks(started: Instant) {
+    let pid = std::process::id().to_string();
+    let file = std::env::temp_dir().join(format!("shared-openblas-{pid}.sample.txt"));
+    let file = file.to_string_lossy().into_owned();
+    let tries: Vec<(&str, Vec<&str>)> = if cfg!(target_os = "linux") {
+        vec![(
+            "gdb",
+            vec![
+                "-p",
+                &pid,
+                "-batch",
+                "-nx",
+                "-ex",
+                "set pagination off",
+                "-ex",
+                "info threads",
+                "-ex",
+                "thread apply all bt",
+            ],
+        )]
+    } else if cfg!(target_os = "macos") {
+        vec![
+            ("sample", vec![&pid, "3", "-file", &file]),
+            (
+                "lldb",
+                vec!["-p", &pid, "--batch", "-o", "thread backtrace all"],
+            ),
+        ]
+    } else {
+        Vec::new()
+    };
+    for (program, args) in tries {
+        say(started, &format!("every thread's stack, by {program}:"));
+        match std::process::Command::new(program).args(&args).output() {
+            Ok(out) => {
+                let mut err = std::io::stderr();
+                let _ = err.write_all(&out.stdout);
+                let _ = err.write_all(&out.stderr);
+                if program == "sample"
+                    && let Ok(text) = std::fs::read_to_string(&file)
+                {
+                    let _ = err.write_all(text.as_bytes());
+                }
+                say(started, &format!("{program} ended: {}", out.status));
+                if out.status.success() {
+                    return;
+                }
+            }
+            Err(e) => say(started, &format!("{program} didn't start: {e}")),
+        }
+    }
+}
+
+/// Ends the process, saying how far the test got and every thread's stack, if it isn't
+/// `finished` within `seconds` (`PHOTONOXIDE_SHARED_SECONDS`, default 300: a run takes
+/// seconds): calls that block each other would hold a CI row for its whole timeout, and say
+/// nothing.
 fn watchdog(started: Instant, finished: &'static AtomicBool, rounds: usize) {
     let seconds: u64 = std::env::var("PHOTONOXIDE_SHARED_SECONDS")
         .ok()
@@ -153,6 +213,7 @@ fn watchdog(started: Instant, finished: &'static AtomicBool, rounds: usize) {
                 SUPERLU_SOLVES.load(Ordering::Relaxed)
             ),
         );
+        dump_stacks(started);
         std::process::exit(2);
     });
 }

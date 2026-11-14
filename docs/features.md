@@ -46,6 +46,7 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 | Every mode in a region of n_eff, by contour integrals | ✅ | — | [contour](methods/contour.md) |
 | Every guided mode above an n_eff threshold, no count | ✅ | ◐ a modes job's `modes_above` | [contour](methods/contour.md) |
 | Dispersion: group index and D | ✅ | ◐ effective indices over a wavelength sweep: a job | [dispersion](methods/dispersion.md) |
+| The effective index's derivatives: the slab's in closed form, the profile's and the full-vector solver's against every cell (and node) by the eigenproblem's adjoint; RCWA's orders by forward mode | ✅ | — | [solver-derivatives](methods/solver-derivatives.md) |
 
 ## FDFD
 
@@ -55,6 +56,7 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 | 3D | ✅ | — | [fdfd-3d](methods/fdfd-3d.md) |
 | Mode ports and S-parameters | ✅ | ◐ 2D, a job: [`fdfd_s_parameters`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#fdfd_s_parameters) | [ports](methods/fdfd-ports.md) |
 | Adjoint gradients | ✅ | — | [fdfd-adjoint](methods/fdfd-adjoint.md) |
+| Forward mode, and a Kerr medium in 2D with Newton's method and its nonlinear adjoint | ✅ | — | [solver-derivatives](methods/solver-derivatives.md#fdfd) |
 | Solvers: direct (multifrontal) | ✅ | ◐ a job's `[solver] direct` | [backends](methods/backends.md) |
 | Solvers: QMR, block QMR, multigrid, recycling | ✅ | — | [block-qmr](methods/block-qmr.md), [fdfd-3d](methods/fdfd-3d.md), [multigrid-stencil](methods/multigrid-stencil.md), [recycling](methods/recycling.md) |
 
@@ -65,6 +67,7 @@ Rust-only names (`device_fabrication_from` and the like) have no entry there.
 | 2D sections: straights, tapers (adaptive steps), bends by the conformal map, periodic sections with Bloch modes | ✅ | ✅ an `"eme"` job: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme) (its sections, S at each wavelength, its convergence studies and errors) | [eme](methods/eme.md) |
 | 3D sections on a plane: strips, a device's geometry or a job's own drawing cut into planes | ✅ | ✅ an `"eme"` job with `[task.plane]`: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme) | [eme](methods/eme.md#sections-in-3d) |
 | S over wavelength from a few solves, with its error | ✅ | ✅ `[task.interpolate]`: [`eme`](https://tachsin.gr/projects/photonoxide/docs/python/reference/photonoxide.html#eme)'s points and errors | [eme](methods/eme.md#s-over-wavelength) |
+| S's derivative in a section's length, a layer's index or a boundary, by forward mode | ✅ | — | [solver-derivatives](methods/solver-derivatives.md#eigenmode-expansion) |
 
 ## FDTD
 
