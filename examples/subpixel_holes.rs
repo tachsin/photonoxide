@@ -23,8 +23,10 @@
 //! error, the frame's ticks consistent to a pixel; the filled markers found by colour and
 //! eroded clear of the lines): the new method at $2\Delta x$ is 1.96e-3 at 20 pixels a period,
 //! 3.80e-4 at 40 and 4.25e-5 at 100, a least-squares slope of −2.43 over 20 to 100; the mean
-//! $\varepsilon$ is 2.83e-3, 1.12e-3 and 3.34e-4, a slope of −1.33. Their $s = 1$ and unsmoothed
-//! curves are too erratic for a slope.
+//! $\varepsilon$ is 2.83e-3, 1.12e-3 and 3.34e-4, a slope of −1.33. Over all their markers, every
+//! two pixels from 20 to 100 (41 a curve, found by colour), the slopes are −2.44 ± 0.04 and
+//! −1.29 ± 0.02 (−1.33 ± 0.03 from 20 to 64), each with its fit's standard error (issue #816).
+//! Their $s = 1$ and unsmoothed curves are too erratic for a slope.
 //!
 //! What the paper leaves open, and how it is set here:
 //!
@@ -39,23 +41,36 @@
 //!   Speech Signal Process. 38, 814 (1990)) on three probes over $80\,a/c$ after the pulse, in
 //!   place of filter diagonalization; it finds a sum of two sinusoids to 1e-10.
 //! - **The reference:** Richardson's extrapolation of the new method at $2\Delta x$ from 64 and 96
-//!   pixels, which converges smoothly as $h^2$, in place of a plane-wave calculation; for the
-//!   lowest mode it agrees with the $s = 1$ method's from 96 and 128 pixels to 8e-6 (relative),
-//!   a fifth of the new method's error at 64 pixels.
+//!   pixels as $h^2$, in place of a plane-wave calculation. That method converges faster than
+//!   $h^2$ here (at an order of about 2.4 for the lowest mode and 3 for the next), so the
+//!   extrapolation falls short. Against a plane-wave calculation with the same tensor (384 and 512
+//!   points a period, issue #816) it is 3e-6 low for the lowest mode, a twentieth of the mean's
+//!   error at 64 pixels, and 9e-5 low for the next, which steepens that mode's slopes.
 //!
 //! What reproduces, for the lowest mode: the new method's slope at $2\Delta x$ (−2.26 against the
 //! paper's −2.43), its quadratic convergence at $s = 1$ (−2.12, "asymptotically quadratic"), and
 //! its error below the mean's at every resolution. For the second mode, the mean's first order
-//! (−1.40 against −1.33), the new method's erratic convergence at $s = 1$ and quadratic at
-//! $2\Delta x$. What doesn't: for the lowest mode the mean $\varepsilon$ converges at −1.84, not
-//! −1.33, and the new method's margin over it is a factor of 2 to 3, not 10 to 30; the mean's
-//! first-order error is the mode's $D$ across the holes' surfaces, which at this $k$ is weak (the
-//! paper doesn't give its $k$). Over the paper's own resolutions the slope is still −1.81 (20 to
-//! 64), and $A/N + B/N^2$ fitted to ours gives −1.91 from 20 to 100. At the M point,
-//! $k = (\tfrac12, \tfrac12)\,2\pi/a$, oblique to the grid (a 2 × 2 supercell, the same smoothing
-//! and reference), the two lowest bands (0.205663 and 0.208027 $c/a$) fall at −2.02 and −1.62.
+//! (−1.40 against −1.33; −1.33 against the plane waves), the new method's erratic convergence at
+//! $s = 1$ and quadratic at $2\Delta x$. What doesn't: for the lowest mode the mean
+//! $\varepsilon$ converges at −1.84, not −1.29, and the new method's margin over it is a factor
+//! of 2 to 3, not 10 to 30; the mean's first-order error is the mode's $D$ across the holes'
+//! surfaces, which at this $k$ is weak (the paper doesn't give its $k$). Over the paper's own
+//! resolutions the slope is still −1.81 (20 to 64), and $A/N + B/N^2$ fitted to ours gives −1.91
+//! from 20 to 100. At the M point, $k = (\tfrac12, \tfrac12)\,2\pi/a$, oblique to the grid (a
+//! 2 × 2 supercell, the same smoothing and reference), the two lowest bands (0.205663 and
+//! 0.208042 $c/a$ by plane waves) fall at −2.02 and −1.62, or −2.01 and −1.46 against the plane
+//! waves (the second band's extrapolation is 7e-5 low).
+//!
+//! Issue #816 swept $k$ over the Brillouin zone (34 Bloch vectors, the Yee grid's own eigenvalue
+//! problem, whose leapfrog frequency is this example's, against plane waves). The lowest band's
+//! mean $\varepsilon$ slope from 20 to 100 pixels runs from −1.0 near Γ to −1.9 at M and reaches
+//! the paper's −1.29 near $(\tfrac12, \tfrac38)\,2\pi/a$. There the mean's error is 0.4 of the
+//! paper's, while the new method's at $2\Delta x$ is the paper's size. At every $k$, the lowest
+//! band's ratio of the mean's error to the new method's at $2\Delta x$ is 0.22 to 0.69 of the
+//! paper's, so the gap is not the unstated $k$ alone.
+//!
 //! Werner and Cary's placement of the off-diagonal entries (`Coupling::Nodes`, stable,
-//! photonoxide's default) is printed beside them: no better than the mean, as at any oblique
+//! photonoxide's default) is printed beside the others: no better than the mean, as at any oblique
 //! interface (docs/methods/fdtd.md).
 //!
 //! ```sh
