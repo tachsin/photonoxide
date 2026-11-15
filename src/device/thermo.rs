@@ -1042,11 +1042,30 @@ const STATED_METAL_MEASURED: f64 = 15.0;
 const STATED_DOPED_MEASURED: f64 = 15.0;
 const STATED_IN_GUIDE_MEASURED: f64 = 15.0;
 
-/// The largest pitch, µm, at which a thermo-optic shifter's crosstalk at `fidelity` is checked,
-/// and what checks it; `None` for another device.
+/// The largest pitch, µm (a neighbour's centre from the guide's), at which the analytic and 2D
+/// models' crosstalk is checked against a measurement: Jacques et al.'s N++ heater beside a
+/// victim at a 5 µm gap, its centre 7.3 µm away (`shifter/jacques-crosstalk-5`'s design).
+/// There the doped device's crosstalk is 0.133 (2D) and 0.154 (analytic) against the measured
+/// 0.141, inside that case's 40 % (0.056); at their 15 µm gap, 17.3 µm, it is 0.0106 and
+/// 0.0084 against 0.0435, 4.1 and 5.2 times low, far outside its 0.017 (#783's A14; the test
+/// `jacques_crosstalk_holds_at_5_um_and_not_at_15`). The models' region is the cause: 18 µm
+/// of it held at its bottom (the analytic slab the same), where the chip's 725 µm substrate
+/// carries the heat farther (docs/methods/phase-shifter.md, the crosstalk). The metal heater sits
+/// in the same region and slab, so the limit is its too; the heater in the guide has Harris et
+/// al.'s region and no measured crosstalk, and none.
+pub(crate) const CROSSTALK_PITCH: f64 = 7.3;
+
+/// [`CROSSTALK_PITCH`] for a device of `kind` at `fidelity`, with what checks it: `None` for a
+/// device, or a fidelity, it doesn't hold for (the measured fidelity is the paper's own design).
 pub(crate) fn crosstalk_pitch(kind: &str, fidelity: Fidelity) -> Option<(f64, &'static str)> {
-    let _ = (kind, fidelity);
-    None
+    let shares = [kind_of(Heater::Metal), kind_of(Heater::Doped)].contains(&kind)
+        && matches!(fidelity, Fidelity::Analytic | Fidelity::TwoD);
+    shares.then_some((
+        CROSSTALK_PITCH,
+        "it agrees with Jacques et al. 2019's measured 0.141 at 7.3 um (their 5 um gap) and is 4 \
+         to 5 times below their 0.0435 at 17.3 um (their 15 um gap), its region 18 um high held \
+         at the bottom where the chip's substrate carries the heat farther",
+    ))
 }
 
 /// Where the analytic models are checked against the 2D model.

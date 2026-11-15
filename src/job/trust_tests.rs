@@ -613,3 +613,63 @@ fn a_shifter_without_its_guide_s_propagation_is_warned_of() {
     let share = brighter_share(&fixed);
     assert!(share > 1.0 - 1e-12, "{share}");
 }
+
+#[test]
+fn a_heater_s_neighbour_beyond_the_measured_crosstalk_is_warned_of() {
+    // #783's A14: the designer's 20 µm pitch, where the 2D crosstalk is about 3 times below the
+    // measured; 7.3 µm is the largest pitch it is checked at (device::thermo::CROSSTALK_PITCH)
+    let shifter = |kind: &str, fidelity: &str, pitch: &str| {
+        yaml(&format!(
+            "name: h\ndevice:\n  kind: {kind}\n  fidelity: {fidelity}\n  parameters:\n    pitch: \"{pitch}\"\ntask:\n  kind: spectrum\n"
+        ))
+    };
+    let w = warnings(&shifter("thermo-optic phase shifter", "2D", "20"));
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with(
+            "the thermo-optic phase shifter's pitch, 20 um, is beyond 7.3 um, where its 2D \
+             model's crosstalk on the neighbour is checked: it agrees with Jacques et al. 2019's \
+             measured 0.141 at 7.3 um"
+        ),
+        "{}",
+        w[0]
+    );
+    assert_eq!(
+        warnings(&shifter(
+            "doped thermo-optic phase shifter",
+            "analytic",
+            "10"
+        ))
+        .len(),
+        1
+    );
+    // the default 5 µm and the measured 7.3 µm: nothing; the heater in the guide has no
+    // measured crosstalk to hold it to
+    assert!(warnings(&shifter("thermo-optic phase shifter", "2D", "5")).is_empty());
+    assert!(warnings(&shifter("doped thermo-optic phase shifter", "2D", "7.3")).is_empty());
+    assert!(warnings(&shifter("in-guide thermo-optic phase shifter", "2D", "20")).is_empty());
+}
+
+#[test]
+fn the_built_in_jobs_warn_of_nothing() {
+    // jobs/ and its components: each a sound setup, as the studio opens them
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let mut seen = 0;
+    for dir in [root.clone(), root.join("components")] {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+                continue;
+            }
+            let job = Job::load(&path).unwrap();
+            assert!(
+                warnings(&job).is_empty(),
+                "{}: {:?}",
+                path.display(),
+                warnings(&job)
+            );
+            seen += 1;
+        }
+    }
+    assert!(seen > 40, "{seen}");
+}

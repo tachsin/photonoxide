@@ -506,18 +506,23 @@ fn drives_are_one_at_a_time_and_a_film_s_range_is_kept() {
 }
 
 #[test]
-#[ignore = "a measurement for #783's A14, printed"]
-fn print_crosstalk_against_pitch() {
-    for (name, d) in [
-        ("doped", ThermoShifter::doped()),
-        ("metal", ThermoShifter::metal()),
-    ] {
-        for pitch in [5.0, 7.3, 10.0, 12.5, 15.0, 17.3, 20.0] {
-            let v = Values::new(&d, &[("pitch", pitch)]).unwrap();
-            for f in [Fidelity::Analytic, Fidelity::TwoD] {
-                let x = d.component(&v, f).unwrap().figure("X").unwrap().value;
-                println!("{name} {f} pitch {pitch}: X = {x:.5}");
-            }
-        }
+fn jacques_crosstalk_holds_at_5_um_and_not_at_15() {
+    // #783's A14, thermo::CROSSTALK_PITCH's basis: the doped device at Jacques et al.'s N++
+    // design, its neighbour at their 5 and 15 µm gaps (7.3 and 17.3 µm centre to centre),
+    // against their measured 0.141 and 0.0435 to shifter/jacques-crosstalk-5's and -15's 0.056
+    // and 0.017 (40 %): inside at 7.3 µm, 4 to 5 times low at 17.3 µm, at both fidelities
+    let d = ThermoShifter::doped();
+    let x = |pitch: f64, f: Fidelity| {
+        let v = Values::new(&d, &[("pitch", pitch)]).unwrap();
+        d.component(&v, f).unwrap().figure("X").unwrap().value
+    };
+    assert_eq!(super::thermo::CROSSTALK_PITCH, 7.3);
+    for f in [Fidelity::Analytic, Fidelity::TwoD] {
+        let (near, far) = (x(7.3, f), x(17.3, f));
+        assert!((near - 0.141).abs() <= 0.056, "{f}: {near}");
+        assert!(
+            (far - 0.0435).abs() > 0.017 && far < 0.0435 / 4.0,
+            "{f}: {far}"
+        );
     }
 }

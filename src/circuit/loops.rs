@@ -7,11 +7,12 @@
 //! I − M. M is zero but on the connected ports, and among those its nonzero entries join the
 //! ports a wave can reach from each other: the loops are the strongly connected parts of that
 //! graph (each a ring of instances, or rings coupled), and M's nonzero eigenvalues are their
-//! blocks' (M is block triangular in them). A resonance is where an eigenvalue μ reaches 1. Near
+//! blocks' (M is block triangular in them). A reciprocal loop is two parts, its waves going round each way,
+//! reported once. A resonance is where an eigenvalue μ reaches 1. Near
 //! it the response goes as 1/(1 − μ), with μ = |μ| e^(iθ): |1 − μ|² doubles from its least at
 //! θ = ±(1 − |μ|)/√|μ| to first order in 1 − |μ|, so the resonance's full width at half depth
 //! is Δλ = 2(1 − |μ|)/(√|μ| |dθ/dλ|). On one all-pass ring that is Bogaerts et al.'s
-//! λ²(1 − ra)/(π n_g L √(ra)) (Laser Photonics Rev. 6, 47 (2012), doi:10.1002/lpor.201100017,
+//! λ²(1 − ra)/(π n_g L √(ra)) (Laser Photonics Rev. 6, 47 (2011), doi:10.1002/lpor.201100017,
 //! Eq. 9 through Q = λ/Δλ), whatever the number m of instances the ring is made of: its m
 //! eigenvalues are the m-th roots of the round trip ra e^(iφ), their modulus (ra)^(1/m) and
 //! their phase φ/m, and m(1 − (ra)^(1/m)) is 1 − ra to first order (the tests check both

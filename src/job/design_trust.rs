@@ -416,20 +416,22 @@ pub(super) fn record(run: &mut Run, warnings: Vec<String>) -> Result<()> {
 
 // ---- A14: a heater's neighbour beyond where the 2D crosstalk is checked ----
 
-/// The largest neighbour's distance (centre to centre, µm) at which a thermo-optic shifter's
-/// crosstalk is checked against a measurement ([`crate::device::crosstalk_pitch`]).
+/// What a thermo-optic shifter of `kind` at `fidelity` gives when its neighbour's `pitch` (µm,
+/// centre to centre) is beyond where its crosstalk is checked against a measurement
+/// ([`crate::device::crosstalk_pitch`], a measured basis: 7.3 µm, where the models agree with
+/// Jacques et al.'s measured crosstalk, against 4 to 5 times low at 17.3 µm).
 fn pitch_warning(kind: &str, fidelity: Fidelity, pitch: Option<f64>) -> Option<String> {
-    let limit = crate::device::crosstalk_pitch(kind, fidelity)?;
+    let (limit, basis) = crate::device::crosstalk_pitch(kind, fidelity)?;
     let pitch = pitch?;
-    (pitch > limit.0).then(|| {
+    (pitch > limit).then(|| {
         format!(
-            "the {kind}'s pitch, {pitch} um, is beyond {} um, where its {} model's crosstalk on \
-             the neighbour is checked: {}; take the crosstalk at this pitch as a lower bound, or \
-             the pitch at most {} um",
-            limit.0,
+            "the {kind}'s pitch, {} um, is beyond {} um, where its {} model's crosstalk on the \
+             neighbour is checked: {basis}; its crosstalk at this pitch is likely below the \
+             chip's, so take it as a floor, or keep the pitch at most {} um",
+            num(pitch),
+            num(limit),
             fidelity_name(fidelity),
-            limit.1,
-            limit.0
+            num(limit)
         )
     })
 }

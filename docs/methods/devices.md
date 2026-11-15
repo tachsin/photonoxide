@@ -1603,6 +1603,42 @@ materials, take none: a temperature corner of SOI needs a stack with Leviton and
 and silicon's thermo-optic coefficient comes with the thermal devices (0.6). A study runs by the
 device's models only, not by FDTD, which computes one design at a time.
 
+### What a device or chip job warns of
+
+A device's or a chip's job that gives a number it may not mean runs, and says so: a `warning`
+event in its record, and `warning: ...` on stderr from `photonoxide run` (whose `--strict` exits
+5 on one, [runs.md](../runs.md)). Each threshold is a model's own or a measured one:
+
+- **A band that steps over a resonance.** A dip is at half its depth or more only within its
+  full width at half depth, so a band whose step is coarser than that width can put every
+  sample outside it, and the spectrum shows the dip shallower than it is or not at all. The
+  width is a ring device's λ/Q (its loaded Q at its resonance), and on a chip the narrowest of
+  its ring devices' and of its loops'. A loop's width comes from its round trip at the band's
+  centre, which is smooth in wavelength where the response isn't
+  ([circuits.md](circuits.md#a-loops-resonance-width)). The warning names the count of points
+  that makes the step the width. The default ring's own band, 100 nm at 101 points, warns. So
+  did `photonoxide new chip`'s 201 points over 20 nm: a 0.1 nm step against a 0.081 nm dip,
+  which showed T = 0.812 where the dip goes to 0.712. It now takes 2001 points.
+- **A design outside its model's ranges** (`Method::validity`, the table's "Holds over"): a
+  study's points together, a chip's device instances by name, and an optimization's variable
+  whose range leaves them. A ring below 5 µm in radius is one: both its models take the
+  straight strip's mode round the ring ([Ring](#ring)). The ranges of the wavelength stay the
+  band's check, which refuses.
+- **A heater's neighbour beyond 7.3 µm**, for the metal and doped heaters at the analytic and
+  2D fidelities. At Jacques et al.'s N++ design the doped device's crosstalk is 0.133 (2D) and
+  0.154 (analytic) at 7.3 µm against their measured 0.141, and 0.0106 and 0.0084 at 17.3 µm
+  against 0.0435: 4 to 5 times low. The region the models solve is 18 µm high and held at its
+  bottom, and it carries less heat sideways than the chip's substrate does
+  ([phase-shifter.md](phase-shifter.md)). The metal heater sits in the same region and takes
+  the same limit. The heater in the guide has no measured crosstalk and no limit.
+- **A chip's phase shifter with no waveguide joined to it.** A shifter's component is the phase
+  it adds and its loss, not its guide's propagation, so an arm of it alone lacks the
+  2π n_eff L/λ that an arm of a waveguide has, and an interferometer of the two is off balance
+  without power. A waveguide, rib or bend joined to either port is taken as its guide.
+- **An optimum on a variable's bound**, to within 1e-8 of the range (round-off), when the run
+  ends. The method's stop reason says that it stopped moving, not that the objective is
+  stationary there.
+
 ## Fitted as a compact model
 
 A device solved at 2D or 3D takes seconds to minutes a design; a chip of it wants thousands of
