@@ -724,8 +724,7 @@ fn db(p: f64) -> f64 {
 fn compare_3d(checks: &mut common::Checks, results: &[Results3d]) {
     let h = LAYER_CELLS.map(|n| THICKNESS / n as f64);
     let modes = ["TE₀ to TE₀", "TE₀ to TE₁"];
-    for m in 0..2 {
-        let [stay, other] = results[0][0][m];
+    for (m, &[stay, other]) in results[0][0].iter().enumerate() {
         println!(
             "  the straight wire on {:.1} nm cells, TE{m} in: {stay:.5} stays in it ({:.4} dB), {other:.1e} goes to the other mode",
             1e3 * h[0],
@@ -899,8 +898,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         println!("  recorded: {results:?}");
         if coarse {
             for (p, name) in [(1, "their design"), (2, "our design")] {
-                for m in 0..2 {
-                    let [t, x] = results[0][p][m];
+                for (m, &[t, x]) in results[0][p].iter().enumerate() {
                     println!(
                         "  {name}, TE{m} in, {:.1} nm cells: {:.3} dB, other {:.1} dB",
                         1e3 * THICKNESS / LAYER_CELLS[0] as f64,
