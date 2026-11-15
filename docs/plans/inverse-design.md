@@ -492,7 +492,16 @@ The pipeline's last step and ROADMAP's 3D validation set, as examples with a pla
 compares and a `--full` run that solves in 3D (decision 4): Chen 2024's 3D mode converter, Piggott
 2015's demultiplexer, Shen 2015's polarization beamsplitter (with tachsin/genoxide#426's scan),
 Frellsen 2016's mode multiplexer, Su 2018's grating coupler and Piggott 2020's foundry designs.
-The performance plan's Phase D (mixed precision and the GPU's QMR) is decision 3.
+The performance plan's Phase D (mixed precision and the GPU's QMR) is decision 3. One pull
+request a device, in that order.
+
+*Chen 2024 (#846):* the "3d mode converter" of Chen et al.'s abstract is their 3D metagrating
+(Section 3.F), `optimize_metagrating`. Meep's stripes, Fig. 8(e): 83.46 % in 2D and
+83.96 ± 0.49 % in 3D, against 83.0 % (RCWA) and 84.3 % (FDTD), checked. The four 2D patterns in
+3D (`--full`, 23.2 to 14.6 nm, 34 minutes, 39 GB) are inside the codes' ranges on the finest grid,
+but our grids' spread is above a third of the tolerance: reported, not checked (#595). Our own
+stripes, designed in 2D by Meep's schedule, reach 74.97 % (75.36 % in 3D), below the paper's
+typical 80 % (#595).
 
 ## 4. Decisions
 

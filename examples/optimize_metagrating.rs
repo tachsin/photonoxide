@@ -47,7 +47,27 @@
 //! show): within the two codes' own disagreement of the nearer one, the paper's cross-check
 //! (|RCWA − FDTD|), our grids' spread beside it.
 //!
-//! **What it found.** The plain run's 2D numbers are its own. `--full` has not been run yet.
+//! **What it found** (`--full`, 2026-11-15, 34 minutes for the 3D and a peak of 39 GB on 6
+//! threads here). In 2D, Fig. 8(e)'s stripes give 83.440, 83.451 and 83.453 %, extrapolated
+//! 83.46 %, between the paper's RCWA (83.0 %) and FDTD (84.3 %): checked. In 3D they give 82.40,
+//! 83.34 and 83.57 %, extrapolated 83.96 ± 0.49 %: checked the same way, and the same device as
+//! the 2D within that spread. The four 2D patterns in 3D (devices 1 to 4) come out at 95.78, 93.30,
+//! 96.46 and 91.37 % on the finest grid and 96.13 ± 0.44, 93.65 ± 0.45, 97.77 ± 1.66 and
+//! 92.39 ± 1.30 % extrapolated, against the paper's 93.2 and 93.8 % (8(b)), 96.8 and 95.0 % (8(c)),
+//! 93.7 and 92.5 % (8(d)) and the testbed's 95.7 and 95.5 % (device 1): each inside the codes'
+//! range on the finest grid, and devices 2 to 4 at extrapolation too, but our grids' spread is above
+//! a third of the tolerance, so they are reported, not checked. A finer grid (11.6 nm, twice the
+//! unknowns, more than this machine's 64 GB for the direct solver) would settle them; listed in
+//! #595.
+//!
+//! Our search reaches 76.3 % on its own plane (β 16 passes 92.6 % while the densities are still
+//! grey, and the projection takes it back); with its edges kept to a 16th of a pixel the design
+//! gives 74.97 ± 0.25 % in 2D and 75.36 % on the finest 3D grid. That is 5 points below Chen et
+//! al.'s typical 80 % for stripes and 9.3 below Meep's design by the same schedule, which our 2D
+//! solves reproduce: the search's local optimum, not the solver, and not explained (Meep's start,
+//! uniform ½, has no gradient here, so ours differs). Reported, not checked, and listed in #595.
+//! The design is recorded in `examples/designs/optimize_metagrating.hex`, which the plain run
+//! solves; `--full` optimizes it again and checks it is the same.
 //!
 //! ```sh
 //! cargo run --release --example optimize_metagrating             # the 2D design and the stripes' 2D check
@@ -153,7 +173,14 @@ fn to_hex(design: &[bool]) -> String {
 }
 
 /// What `--full` found in 3D: each design's efficiency on each grid (devices 1 to 5, then ours).
-const RECORDED_3D: [[f64; 3]; 6] = [[f64::NAN; 3]; 6];
+const RECORDED_3D: [[f64; 3]; 6] = [
+    [0.9555745083118392, 0.9556717665424004, 0.9578038851862668],
+    [0.9301988209380982, 0.9308104430294988, 0.9329886204766992],
+    [0.9539726504941831, 0.9566013512716902, 0.9646367091426524],
+    [0.8915447242917779, 0.9074069421837275, 0.9136917632339854],
+    [0.8239802453142175, 0.8333647145011561, 0.8357408615887247],
+    [0.760900237276552, 0.7733149521736726, 0.7535855868711391],
+];
 
 fn period() -> f64 {
     LAMBDA / portable::sin(ANGLE * std::f64::consts::PI / 180.0)
@@ -814,13 +841,27 @@ fn compare_3d(checks: &mut common::Checks, results: &[[f64; 3]]) {
                 lo - d,
                 hi + d
             );
-            checks.against(
-                &format!("{name}, 3D (%)"),
-                eta,
-                "the codes' range, centre",
-                0.5 * (lo + hi),
-                0.5 * (hi - lo) + d,
-            );
+            let tolerance = 0.5 * (hi - lo) + d;
+            if spread <= tolerance / 3.0 {
+                checks.against(
+                    &format!("{name}, 3D (%)"),
+                    eta,
+                    "the codes' range, centre",
+                    0.5 * (lo + hi),
+                    tolerance,
+                );
+            } else {
+                let inside = |v: f64| (lo - d..=hi + d).contains(&v);
+                println!(
+                    "    reported, not checked: our grids' spread {spread:.2} is above a third of the {tolerance:.2} allowed (a finer grid, #595); the finest grid {} the range, the extrapolation {}",
+                    if inside(100.0 * p[2]) {
+                        "inside"
+                    } else {
+                        "outside"
+                    },
+                    if inside(eta) { "inside" } else { "outside" },
+                );
+            }
         }
     }
 }

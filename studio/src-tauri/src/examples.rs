@@ -339,7 +339,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_swg_converter" => 60.0,
         "optimize_quantum" => 30.0,
         "optimize_codesign_ring" => 60.0,
-        "optimize_metagrating" => 30.0,
+        "optimize_metagrating" => 60.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
