@@ -503,6 +503,15 @@ but our grids' spread is above a third of the tolerance: reported, not checked (
 stripes, designed in 2D by Meep's schedule, reach 74.97 % (75.36 % in 3D), below the paper's
 typical 80 % (#595).
 
+*Piggott 2015 (`optimize_demux_soi`):* their design isn't published, so ours is designed to their
+specification and compared with Fig. 4(a)'s 3D FDTD of theirs. In the plane by the effective
+index method, with air beside the silicon (silica there let the search carry light across gaps
+that the air-clad layer radiates from: 91 % in 2D, 1.5 % in 3D), ten wavelengths, both bounds
+of the specification in one epigraph: 93.0 % and 88.3 % in 2D at the centres. In 3D (`--full`,
+36.7 to 27.5 nm, GMRES and the multigrid, 34 minutes, 13 GB): −3.11 ± 0.13 and −4.45 ± 0.06 dB
+against their −1.7 and −2.0 dB, a gap (#595); into the other port −24.8 and −34 dB, below
+theirs, checked.
+
 ## 4. Decisions
 
 *I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*

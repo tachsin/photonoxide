@@ -1,0 +1,38 @@
+Setup
+  device: a 2.8 × 2.8 µm region of 220 nm silicon on silica, air above; an input and two outputs 500 nm wide, the outputs' centres 0.54 µm above and below the input's axis (Fig. 1(b))
+  wavelengths: 1300 nm to port 2 (above) and 1550 nm to port 3 (below), each with four more at ±1 and ±2 % of its frequency; the input's fundamental TE mode
+  2D: the effective index method: the 220 nm slab's TE index in the silicon and air's outside, H along z; 20 nm cells, 10 nm beside; PMLs of 0.3 µm
+  design: 140 × 140 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations; genoxide's MMA on the worst of the ten 1 − T and of the ten shares into the other port times 10
+  3D (--full): the design extruded through the layer; cells of 36.7, 31.4 and 27.5 nm, stretched PMLs of 16 cells, GMRES and the multigrid to 1e-9
+  tolerance: 2D: their specification (T ≥ 90 %, the other port ≤ 1 %) reported beside ours; 3D: our loss and our other port's share at most Fig. 4(a)'s, read to ±0.1 and ±0.5 dB, where our grids' spread decides it
+  materials:
+    silicon: n 3.490000
+    silica: n 1.450000
+
+The slab's TE index at 1300 nm: 2.9710
+The slab's TE index at 1550 nm: 2.8453
+The recorded design: 53.8 % silicon
+In 2D (not the device's performance), binarized: the wanted port, the other and the reflection, each of the input's power:
+  1326.5 nm → port 2: T 0.9034 (-0.0190 from 20 nm), other 1.59e-4, R 6.50e-3
+  1313.1 nm → port 2: T 0.9291 (-0.0110 from 20 nm), other 6.00e-4, R 6.72e-3
+  1300.0 nm → port 2: T 0.9302 (-0.0047 from 20 nm), other 1.35e-3, R 1.09e-2
+  1287.1 nm → port 2: T 0.9159 (-0.0030 from 20 nm), other 6.49e-4, R 1.25e-2
+  1274.5 nm → port 2: T 0.8977 (-0.0059 from 20 nm), other 4.50e-3, R 4.54e-3
+  1581.6 nm → port 3: T 0.8936 (-0.0158 from 20 nm), other 2.50e-3, R 1.07e-2
+  1565.7 nm → port 3: T 0.9034 (-0.0057 from 20 nm), other 1.23e-2, R 1.49e-2
+  1550.0 nm → port 3: T 0.8832 (-0.0082 from 20 nm), other 2.38e-2, R 2.61e-2
+  1534.7 nm → port 3: T 0.8828 (-0.0129 from 20 nm), other 2.79e-2, R 1.83e-2
+  1519.6 nm → port 3: T 0.8966 (-0.0058 from 20 nm), other 2.53e-2, R 1.66e-3
+  1300 nm against their specification, reported: T 93.0 % (above 90 %: met), the other port 0.14 % (below 1 %: met)
+  1550 nm against their specification, reported: T 88.3 % (above 90 %: short (#595)), the other port 2.38 % (below 1 %: short (#595))
+3D FDFD of the design at the two centres:
+  what --full found (recorded):
+  1300 nm: wanted port -3.053, -2.961, -2.995 dB on the three grids, -3.11 ± 0.13 dB extrapolated (order none); Fig. 4(a): -1.7 dB
+    other port -24.0, -24.9, -24.9 dB, -24.8 ± 0.1 dB extrapolated; Fig. 4(a): -23.8 dB
+    reported, not checked: 1.41 dB more loss than their design's, beyond our grids' spread and the reading (a gap, #595)
+  1300 nm, 3D other port (dB)          -24.819321   paper below -23.3            ok
+  1550 nm: wanted port -4.602, -4.517, -4.502 dB on the three grids, -4.45 ± 0.06 dB extrapolated (order none); Fig. 4(a): -2 dB
+    other port -29.7, -27.7, -29.3 dB, -34.3 ± 5.7 dB extrapolated; Fig. 4(a): -23 dB
+    reported, not checked: 2.45 dB more loss than their design's, beyond our grids' spread and the reading (a gap, #595)
+  1550 nm, 3D other port (dB)          -34.263319   paper below -22.5            ok
+all 2 within tolerance of the paper

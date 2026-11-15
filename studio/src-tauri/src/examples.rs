@@ -74,6 +74,7 @@ examples!(
     optimize_quantum: "../../../examples/optimize_quantum.rs",
     optimize_codesign_ring: "../../../examples/optimize_codesign_ring.rs",
     optimize_metagrating: "../../../examples/optimize_metagrating.rs",
+    optimize_demux_soi: "../../../examples/optimize_demux_soi.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -237,6 +238,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A ring's coupler designed for the ring",
             "Mason et al. 2025",
         ),
+        "optimize_demux_soi" => (
+            "A wavelength demultiplexer, explored in 2D and verified in 3D",
+            "Piggott et al. 2015",
+        ),
         "optimize_metagrating" => (
             "A metagrating deflector, explored in 2D and verified in 3D",
             "Chen et al. 2024",
@@ -340,6 +345,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_quantum" => 30.0,
         "optimize_codesign_ring" => 60.0,
         "optimize_metagrating" => 60.0,
+        "optimize_demux_soi" => 15.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,

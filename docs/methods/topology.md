@@ -461,6 +461,13 @@ again. [`optimize_metagrating`](../../examples/optimize_metagrating.rs) explores
 verifies in 3D: the testbed's metagrating, stripes designed on a periodic cell (the conic filter
 made periodic by wrapping the pattern, Meep's damping below β = 32, the smoothed projection
 above), then the testbed's published designs and ours solved in 3D FDFD.
+[`optimize_demux_soi`](../../examples/optimize_demux_soi.rs) does the same for Piggott et al.'s
+silicon demultiplexer: designed in the plane by the effective index method, its slab index taken
+at each of the ten wavelengths and air beside the silicon, with both bounds of their
+specification (the wanted port's share and the other's) in one epigraph; then the design
+extruded through the 220 nm layer and solved in 3D FDFD by GMRES and the multigrid. With silica
+beside the silicon instead, the plane carried light across gaps that the air-clad layer
+radiates from, and the design kept a few percent in 3D.
 
 ## The job
 
