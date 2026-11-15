@@ -371,12 +371,17 @@ photonoxide's smoothed reflection matches Airy's to $6.9 \times 10^{-4}$ on cell
 Farjadpour et al.'s lattice of tilted elliptical air holes in $\varepsilon = 12$: the lowest
 bands' errors against pixels a period fall with slopes of −2.26 and −2.11 with their smoothing,
 against their −2.43 and quadratic, from 16 to 64 pixels. With the plain mean ε, band 2's slope is
-−1.40 against their −1.33; band 1's is −1.84 against their −1.33, which photonoxide prints and
-does not reproduce. Over their own resolutions it stays steep: −1.81 from 20 to 64 pixels. A fit
-of $A/N + B/N^2$ to ours gives −1.91 from 20 to 100. The plain mean's first-order error depends on
-the mode and on $k$, which the paper doesn't give: at the M point, oblique to the grid, the two
-lowest bands fall at −2.02 and −1.62. None of these is their −1.33, and their mean's error at 20
-pixels, 2.83 × 10⁻³, is three times ours:
+−1.40 against their −1.33. Against a plane-wave reference it is −1.33, because the example's
+extrapolated reference is 9 × 10⁻⁵ low for band 2. Band 1's slope is −1.84 against their −1.29
+(every marker from 20 to 100 pixels; −1.33 from 20 to 64), which photonoxide prints and does not
+reproduce. Over their own resolutions it stays steep: −1.81 from 20 to 64 pixels. A fit of
+$A/N + B/N^2$ to ours gives −1.91 from 20 to 100. The plain mean's first-order error depends on
+the mode and on $k$, which the paper doesn't give. Over the Brillouin zone, band 1's slope runs
+from −1.0 near Γ to −1.9 at M and reaches theirs near $(\tfrac12, \tfrac38)\,2\pi/a$. There the
+mean's error is 0.4 of theirs, while their smoothing's at $2\Delta x$ matches theirs in size. At no
+$k$ is band 1's ratio of the two errors theirs, so the unstated $k$ does not explain the gap (issue
+#816). Their mean's error at 20 pixels,
+2.83 × 10⁻³, is three times ours:
 
 ::example subpixel_holes
 

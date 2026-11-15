@@ -585,7 +585,11 @@ coupling across the side would need the phase). Where nothing couples, all three
 - Farjadpour et al.'s Fig. 1, the `subpixel_holes` example: elliptical air holes in ε = 12, TE,
   12 to 64 pixels a period. The lowest mode converges at −2.26 with s = 2 (their −2.43, read
   at 600 dpi) and −2.12 with s = 1, below the mean at every resolution; the next mode's mean
-  at −1.40 (their −1.33). The lowest mode's mean converges at −1.84, not −1.33.
+  at −1.40 (their −1.33; −1.33 against a plane-wave reference, the example's extrapolated one
+  being 9e-5 low for that mode). The lowest mode's mean converges at −1.84, not their −1.29
+  (every marker from 20 to 100 pixels). Over the Brillouin zone its slope runs from −1.0 to
+  −1.9 with k, but at no k does the ratio of the mean's error to the new method's at 2Δx come
+  out as theirs, so their unstated k does not explain the gap (issue #816).
 
 The smoothing is computed once, four cells' averages a Yee cell, in parallel; a coupling tensor
 adds a pass over E each step, and D's storage.
