@@ -803,5 +803,15 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 "fourth-order differences through Newton's method at δ = 1e-3: what they resolve, the difference between δ and 2δ, is 4.4e-10 of the derivative (noted), and the adjoint is within 4.3e-10 of them; held to ten times what they resolve, rounded up, 5e-9",
             )
             .varying(),
+        ),        (
+            "fdfd/s-matrix-gradient",
+            Rule::new(
+                Relative,
+                Discretisation,
+                5e-8,
+                Noted,
+                "fourth-order differences of the S-matrix's function at δ = 1e-3: they resolve 2.4e-9 of the largest derivative (noted), and the adjoint is within 1.3e-9 of them; held to ten times what they resolve, rounded up, 5e-8",
+            )
+            .varying(),
         ),    ]
 }

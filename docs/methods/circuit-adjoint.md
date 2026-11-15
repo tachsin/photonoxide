@@ -12,6 +12,8 @@ papers:
     doi: 10.1364/OPTICA.3.001460
   - cite: "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the January 2012 issue)"
     doi: 10.1002/lpor.201100017
+  - cite: "A. Yariv, Electron. Lett. 36, 321 (2000)"
+    doi: 10.1049/el:20000340
 validation:
   - circuit/adjoint-mzi
   - circuit/adjoint-ring
@@ -19,10 +21,13 @@ validation:
   - circuit/adjoint-nested
   - circuit/adjoint-differences
   - circuit/component-differences
+  - circuit/instance-sensitivity
+  - device/codesign-gradient
 examples:
   - circuit_splitter
   - circuit_ring_critical
   - circuit_fit
+  - optimize_codesign_ring
 ---
 
 Optimizing a circuit moves its components' parameters (couplings, phases, lengths, a ring's
@@ -123,6 +128,26 @@ position in the values, and `Component::parameters` gives every range, the bound
 optimizer. The optimizers are genoxide's: the examples run L-BFGS-B and CMA-ES on these
 gradients.
 
+## A device inside a circuit
+
+A component whose S-matrix comes from a solver of its own, such as a coupler solved in 2D FDFD,
+can't hand the circuit its derivatives in each of its cells: there are thousands. The circuit
+hands the device its sensitivity instead. `Circuit::instance_sensitivity` gives, for one named
+instance, the matrix $H_{ab} = \partial F/\partial S_{ab}$ (Wirtinger, so that
+$dF = 2\thinspace\mathrm{Re}\sum H_{ab}\thinspace dS_{ab}$) from the same adjoint fields as
+the gradient: $H_{ab} = \sum_c \lambda_{a,c} A_{b,c}$, with λ the transposed system's solution at
+the instance's ports and A the waves going into them, over the inputs F depends on. The device's
+solver carries H to its own parameters: for 2D FDFD, `Solver2d::s_matrix_gradient` takes H and
+gives F's gradient in every cell, one more solve per port ([fdfd-adjoint](fdfd-adjoint.md), "A
+function of the S-matrix"). The chain is exact, and the whole costs one circuit adjoint and one
+device adjoint per port (Mason et al. 2025 co-optimize devices and circuits this way, the plan's
+target).
+
+`optimize_codesign_ring` designs a ring's coupler in 2D FDFD for critical coupling: L-BFGS-B
+moves five bands of densities in the coupler's gap, the loop held on resonance, until the through
+port carries nothing. At critical coupling a coupler with loss has $|t| = a|tt' - \kappa\kappa'|$
+(Yariv 2000; $|t| = a$ when lossless), which the example prints beside the coupler's
+reflections.
 ## Validation
 
 Each case compares the adjoint gradient with fourth-order central finite differences of the whole
@@ -137,6 +162,8 @@ closed-form derivatives, except in the fifth case.
 | 4 × 4 Clements mesh, $\sum_{qp} \lvert S_{qp} - T_{qp} \rvert^2$, complex T | 12 couplings, 12 phases | $10^{-3}$ | 7.1e-12 |
 | Circuits as instances (a ring, an MZI), a loop, 3 wavelengths | 9, through the inner Jacobians | $10^{-4}$, $10^{-5}$ µm | 4.8e-10 |
 | The circuit solve's 11-instance netlist, no component derivatives | 11, by component differences | $10^{-4}$, $10^{-5}$ µm | 4.5e-10 |
+| A ring's coupler as a fixed 4 × 4 S: F's sensitivity to that S along two directions (`circuit/instance-sensitivity`) | the S's 16 entries | $10^{-4}$ | 2.2e-13 (they resolve 1.4e-12) |
+| The same ring with a 2D FDFD coupler, the chain through FDFD's adjoint (`device/codesign-gradient`) | 3 cells and the loop's phase | $10^{-3}$ | 3.6e-10 (they resolve 5.4e-9) |
 
 That is the finite differences' own limit, which the step sets. Their truncation falls as
 $\delta^4$, their round-off rises as $1/\delta$. Ten times the step gives

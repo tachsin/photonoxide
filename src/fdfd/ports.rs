@@ -415,6 +415,96 @@ impl Solver2d {
     }
 }
 
+impl Solver2d {
+    /// The S-matrix of `ports` ([`Solver2d::s_matrix`]) and the gradient of a real function F of
+    /// it with respect to every cell's relative permittivity, given F's Wirtinger sensitivity
+    /// `h` (h_qp = ∂F/∂S_qp, so that dF = 2 Re Σ h_qp dS_qp: what a circuit's adjoint gives for a
+    /// device inside it, [`crate::circuit::Circuit::instance_sensitivity`]). With A the incoming
+    /// and B the outgoing amplitudes (S A = B), dS = (dB − S dA) A⁻¹, so
+    /// Σ h dS = Σ_p w_pᵀ du_p: for each source p one linear functional of its field,
+    /// w_p = Σ_q (h A⁻ᵀ)_qp √P_q c_q^out − Σ_q (Sᵀ h A⁻ᵀ)_qp √P_q c_q^in, and its derivative
+    /// −λ_pᵀ (∂A/∂ε) u_p with Aᵀλ_p = w_p: one more solve per port, whatever F is.
+    ///
+    /// # Errors
+    ///
+    /// As [`Solver2d::s_matrix`] and [`Solver2d::functional_gradient`], and
+    /// [`Error::InvalidValue`] for a sensitivity that isn't one entry per pair of ports.
+    pub fn s_matrix_gradient(
+        &self,
+        ports: &[Port],
+        h: &[Vec<c64>],
+    ) -> Result<(Vec<Vec<c64>>, Vec<f64>)> {
+        use faer::linalg::solvers::Solve;
+        let n = ports.len();
+        if h.len() != n || h.iter().any(|row| row.len() != n) {
+            return Err(Error::invalid(
+                "fdfd s-matrix gradient",
+                "the sensitivity must be one entry per pair of ports",
+            ));
+        }
+        let roots: Vec<c64> = ports
+            .iter()
+            .map(|p| portable::complex::sqrt(p.mode.reciprocal_power(self.grid.dy)))
+            .collect();
+        let mut fields = Vec::with_capacity(n);
+        let mut incoming = faer::Mat::<c64>::zeros(n, n);
+        let mut outgoing = faer::Mat::<c64>::zeros(n, n);
+        for (p, port) in ports.iter().enumerate() {
+            let field = self.solve_system(&self.mode_source(&port.mode, port.incoming()))?;
+            for (q, at) in ports.iter().enumerate() {
+                let (forward, backward) = field.mode_amplitudes(&at.mode);
+                let (a, b) = match at.side {
+                    Side::Left => (forward, backward),
+                    Side::Right => (backward, forward),
+                };
+                incoming[(q, p)] = a * roots[q];
+                outgoing[(q, p)] = b * roots[q];
+            }
+            fields.push(field);
+        }
+        let st = incoming
+            .transpose()
+            .to_owned()
+            .partial_piv_lu()
+            .solve(outgoing.transpose().to_owned());
+        let s = faer::Mat::<c64>::from_fn(n, n, |q, p| st[(p, q)]);
+        // A⁻¹ (n × n)
+        let a_inv = incoming
+            .partial_piv_lu()
+            .solve(faer::Mat::<c64>::identity(n, n));
+        let hm = faer::Mat::<c64>::from_fn(n, n, |i, j| h[i][j]);
+        // W_B = h A⁻ᵀ, W_A = −Sᵀ h A⁻ᵀ
+        let wb = &hm * a_inv.transpose();
+        let wa = -(s.transpose() * &wb);
+        let mut gradient = vec![0.0; self.grid.nx * self.grid.ny];
+        for (p, field) in fields.iter().enumerate() {
+            let mut w = vec![c64::new(0.0, 0.0); gradient.len()];
+            for (q, at) in ports.iter().enumerate() {
+                let (into, out) = match at.side {
+                    Side::Left => (Direction::Forward, Direction::Backward),
+                    Side::Right => (Direction::Backward, Direction::Forward),
+                };
+                let c_in = self.mode_coefficients(field, &at.mode, into)?;
+                let c_out = self.mode_coefficients(field, &at.mode, out)?;
+                let (kb, ka) = (wb[(q, p)] * roots[q], wa[(q, p)] * roots[q]);
+                for (k, wk) in w.iter_mut().enumerate() {
+                    *wk += kb * c_out[k] + ka * c_in[k];
+                }
+            }
+            let (_, g) = self.functional_gradient(field, &w)?;
+            for (acc, v) in gradient.iter_mut().zip(g) {
+                *acc += 2.0 * v.re;
+            }
+        }
+        Ok((
+            (0..n)
+                .map(|q| (0..n).map(|p| s[(q, p)]).collect())
+                .collect(),
+            gradient,
+        ))
+    }
+}
+
 impl Field2d {
     /// The forward and backward amplitudes of `mode` at its column (see the module's docs): the
     /// backward one is that of the mode's backward twin, which has the same tangential E (with H

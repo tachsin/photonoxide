@@ -15,6 +15,7 @@ validation:
   - fdfd/adjoint-gradient-hz
   - fdfd/adjoint-gradient-row
   - fdfd3d/adjoint-gradient
+  - fdfd/s-matrix-gradient
 ---
 
 Inverse design changes a device's permittivity cell by cell to improve what it does. Each step
@@ -93,6 +94,25 @@ corner, one in the vertical guide and one in the cladding, against fourth-order 
 (the cladding's gradient is 3.4e-8), with no truncation showing up to $6.4 \times 10^{-2}$. With H
 along z a turned guide's fields are not the same components, and the row's functional is refused.
 
+## A function of the S-matrix
+
+`Solver2d::s_matrix_gradient` takes a real function F of a device's S-matrix through its
+Wirtinger sensitivity $h_{qp} = \partial F/\partial S_{qp}$ (so $dF = 2\thinspace\mathrm{Re}\sum h\thinspace dS$)
+and gives F's gradient in every cell. With A and B the ports' incoming and outgoing amplitudes,
+$SA = B$, so $dS = (dB - S\thinspace dA)A^{-1}$ and
+
+$$
+\sum_{qp} h_{qp}\thinspace dS_{qp} = \sum_p w_p^{\mathsf T}\thinspace du_p,
+\qquad w_p = \sum_q (hA^{-\mathsf T})_{qp}\thinspace\sqrt{P_q}\thinspace c_q^\mathrm{out} - \sum_q (S^{\mathsf T}hA^{-\mathsf T})_{qp}\thinspace\sqrt{P_q}\thinspace c_q^\mathrm{in}:
+$$
+
+one linear functional of each source's field. Each functional's derivative is one adjoint solve
+(`Solver2d::functional_gradient`, $-\lambda^{\mathsf T}(\partial A/\partial\varepsilon)u$ with
+$A^{\mathsf T}\lambda = w$), so the whole gradient costs one more solve per port, whatever F is.
+This is how a device's cells get the sensitivity of a circuit around it
+([circuit-adjoint](circuit-adjoint.md), "A device inside a circuit"). `fdfd/s-matrix-gradient`
+checks it against differences on a four-port coupler with a region of varied permittivity in its
+gap: within 1.3e-9 of the largest derivative, where the differences resolve 2.4e-9.
 ## In 3D
 
 `Solver3d::mode_power_gradient(field, mode, direction)` does the same for a [3D](fdfd-3d.md)

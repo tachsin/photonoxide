@@ -470,6 +470,22 @@ derivatives carried through the circuit adjoint (Mason 2025, arXiv 2509.07233, a
 *Validation:* the composed gradient against differences; a closed-form chip (a ring with a
 designed coupler at critical coupling).
 
+*Done 2026-11-14:* the chain across two solvers rather than a device's differenced parameters:
+`Circuit::instance_sensitivity` gives a real objective's sensitivity to one instance's own S-matrix,
+H = ∂F/∂S (from the circuit adjoint's fields, λ_a A_b), and `Solver2d::s_matrix_gradient` carries a
+sensitivity to a device's S into every cell (SA = B, so dS = (dB − S dA)A⁻¹: one linear functional
+of each source's field, one adjoint solve per port, `Solver2d::functional_gradient`);
+docs/methods/circuit-adjoint.md, `A device inside a circuit`, and fdfd-adjoint.md, `A function of the
+S-matrix`. Cases, each with its Rule: `circuit/instance-sensitivity` (2.2e-13 against differences of
+the circuit solve), `fdfd/s-matrix-gradient` (1.3e-9) and `device/codesign-gradient` (the whole
+chain, 3.6e-10). `optimize_codesign_ring`, the closed-form chip: a 2D FDFD coupler (two 0.3 µm
+guides of 2.85 brought to 0.3 µm apart over 1 µm by S-bends, five bands of densities in the gap)
+inside an all-pass ring (a = 0.95); L-BFGS-B, the loop on resonance, reaches zero through power
+(critical coupling) in 5 evaluations, where |t| = 0.9026 and a|tt′ − κκ′| = 0.9029 (Yariv 2000's
+condition for a coupler with loss, 3.0e-4 apart against the coupler's reflections of 0.027, which
+the 2 × 2 form leaves out). *Left:* Mason et al. 2025's multiplexers as the target: the preprint
+isn't in the folder (listed in its README); no number of theirs is compared.
+
 ### I12: Explore in 2D, verify in 3D
 
 The pipeline's last step and ROADMAP's 3D validation set, as examples with a plain run that CI
@@ -586,8 +602,8 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
 
 ## 6. Where the work stands
 
-*2026-11-14: I1 to I7 are merged (pull request #796), I8 (#806) and I9 (#835) too; I10 is on
-`feat/inverse-design-i10`. Each later phase is its own branch and pull request from main.*
+*2026-11-14: I1 to I7 are merged (pull request #796), I8 (#806), I9 (#835) and I10 (#838) too;
+I11 is on `feat/inverse-design-i11`. Each later phase is its own branch and pull request from main.*
 
 **Done** (each phase's *Done* paragraph above has its numbers):
 - I1 to I3: densities, filters, projections, robust designs, length scales;
@@ -601,10 +617,12 @@ the preprint is arXiv 2509.07233. Khan 2024 in the folder is the manuscript; the
   derivatives, FDFD's forward mode and a Kerr FDFD with its adjoint; Hughes et al.'s switches left
   open (I9 above);
 - I10 (2026-11-14, its own pull request): quantum objectives with their gradients and
-  `optimize_quantum`; Vernon et al.'s dual-coupling condition left open (I10 above).
+  `optimize_quantum`; Vernon et al.'s dual-coupling condition left open (I10 above);
+- I11 (2026-11-14, its own pull request): a device's sensitivity from its circuit carried to its
+  cells, and `optimize_codesign_ring` at critical coupling.
 
 The validation report has 31 topology cases (27 from I1 to I7, 4 from I8),
-`fdfd/adjoint-gradient-row`, I9's ten (six `mode/`, one `eme/`, three `fdfd/`) and I10's four `quantum/`.
+`fdfd/adjoint-gradient-row`, I9's ten (six `mode/`, one `eme/`, three `fdfd/`) I10's four `quantum/`, and I11's three (`circuit/`, `fdfd/`, `device/`).
 
 **Settled with #796:**
 
@@ -621,7 +639,6 @@ The validation report has 31 topology cases (27 from I1 to I7, 4 from I8),
 
 **Left of the plan** (each its own pull request, part of #761; the phases above say what each
 holds and how it is validated):
-- I11: device and circuit co-design;
 - I12: explore in 2D, verify in 3D;
 - the Academy lesson `academy/inverse-design.md`, written last.
 

@@ -1,0 +1,13 @@
+Setup
+  device: a ring's coupler: two 0.3 µm guides (2.85 in 1.444) brought from 1.5 to 0.3 µm apart over 1 µm by 3 µm S-bends, the gap there a design region of five bands; the loop a loss of amplitude 0.95 and a phase shifter
+  grid: 2D FDFD, E along z, 20 nm cells, 15 cells of PML, at 1.55 µm
+  solver: genoxide's L-BFGS-B on the five bands' densities (in [0, 1]) from 0, the loop on resonance for each (golden-section search), the gradient by the circuit adjoint and FDFD's adjoint
+  tolerance: the composed gradient within what fourth-order differences resolve; the through power below 1e-6 at the optimum
+
+
+The start: through power 0.8857, the coupler's |t| = 0.9485; the composed gradient within ten times what fourth-order differences resolve at 4 of 4 probes (three cells and the loop's phase)
+  probes where the gradient meets the differences            4   paper 4         ok
+Optimized in 5 evaluations: through power below 1e-12; the coupler's |t| = 0.9026 against the loop's a = 0.95, the coupler keeping 0.9282 of the power (its radiation and reflection the rest)
+  critical coupling: |t| = 0.9026 and a |t t' − κκ'| = 0.9029, apart by 3.0e-4; the coupler's largest reflection amplitude 0.027
+  the through power at the optimum       0.000000   paper below 0.000001         ok
+all 2 within tolerance of the paper

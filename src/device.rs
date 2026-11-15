@@ -55,6 +55,8 @@
 
 mod active;
 mod bend;
+#[path = "cases/device/codesign_checks.rs"]
+pub(crate) mod codesign_checks;
 pub mod compact;
 mod coupler;
 mod cut;

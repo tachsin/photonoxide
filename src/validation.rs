@@ -2329,6 +2329,8 @@ pub fn cases() -> Vec<Case> {
     cases.extend(crate::mode::adjoint_checks::cases());
     cases.extend(crate::eme::tangent_checks::cases());
     cases.extend(crate::fdfd::kerr_checks::cases());
+    // and device and circuit co-design across the two solvers (0.7, I11)
+    cases.extend(crate::device::codesign_checks::cases());
     cases
 }
 
