@@ -15,8 +15,9 @@
 //!   (Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972, Eq. 1),
 //!   ε̃⁻¹ = P ⟨ε⁻¹⟩ + (1 − P) ⟨ε⟩⁻¹, P = n nᵀ: the mean for a component along the interface, the
 //!   harmonic mean for one across it (their "VP-EP" scheme);
-//! - [`Averaging::Tensor`]: the whole tensor, its off-diagonal part too, which only the 2D
-//!   problem with H along z couples ([`crate::fdfd::Solver2d::from_plane`]).
+//! - [`Averaging::Tensor`]: the whole tensor, its off-diagonal part too, which the 2D problem
+//!   with H along z couples ([`crate::fdfd::Solver2d::from_plane`]), and a mode's cross-section
+//!   on Yee's plane (`eme::Plane::from_plane`, for an interface oblique to the grid).
 //!
 //! Farjadpour et al. show why: a smoothing perturbs the interface's fields by Δε |E∥|² −
 //! Δ(ε⁻¹) |D⊥|², and only their tensor makes that vanish to first order on an interface of any
@@ -58,7 +59,7 @@ pub enum Averaging {
     /// normal.
     Diagonal,
     /// Farjadpour et al.'s whole tensor, its off-diagonal part coupled where the problem has one
-    /// (2D, H along z).
+    /// (2D, H along z; a mode's cross-section on Yee's plane).
     Tensor,
 }
 

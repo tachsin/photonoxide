@@ -118,6 +118,23 @@ mean it is, with a sloped wall's n_eff good to about 2e-3 on such grids; vertica
 partial etches, on nodes, keep the scheme's own accuracy, and Hadley's equations
 (`mode::hadley`) apply to them.
 
+The cause is the scheme, not what the cells hold. Where an interface lies along the grid but
+between nodes (a slab whose faces cut cells), Farjadpour et al.'s tensor converges at order
+2.005 ± 0.008 here (TM; the mean at 0.66 ± 0.10). On an oblique edge every step of the
+staircase is a node whose four cells differ both ways, a small corner, so no cell average helps:
+on Afshar and Monro's silicon rod (D = 0.15 µm, 3.45 in 1.45, 800 nm) the mean's index converges
+at order 0.31 ± 0.02 from 10 to 1.25 nm, still 1.9e-2 off at 1.25 nm, and the tensor's not at
+all (issue #815).
+
+**For a sloped sidewall or a curved core, solve the cross-section on Yee's plane instead**:
+`eme::Plane::from_plane` with `Averaging::Tensor`, its modes by `Eme3d::modes` ([eigenmode
+expansion, an oblique interface](eme.md#an-oblique-interface)). There each component of E has
+its own place and its own cell, so there is no staircase of nodes, and the tensor is what each
+cell needs: the same rod converges at second order, its error 3.1e-5 at 2.5 nm against the
+mean's 2.3e-2 here. Its grid is uniform, so a modes job, whose grids are graded around the
+core, still solves its sloped walls here, to the bound above; a modes job doesn't offer Yee's
+plane yet.
+
 ## Jobs
 
 A task's stack is a preset's name, or a `[task.stack]` table: the layers bottom to top, each

@@ -24,6 +24,14 @@ papers:
     doi: 10.1109/JQE.1975.1068563
   - cite: "D. Marcuse, Bell Syst. Tech. J. 50, 2551 (1971) (a bent slab's modes matched to the outgoing Hankel function, Eq. 10: the exact bend the bends are checked against)"
     doi: 10.1002/j.1538-7305.1971.tb02620.x
+  - cite: "A. Farjadpour et al., Opt. Lett. 31, 2972 (2006) (the smoothing tensor, Eq. 1: a section's plane at an oblique interface)"
+    doi: 10.1364/OL.31.002972
+  - cite: "G. R. Werner, C. A. Bauer, J. R. Cary, J. Comput. Phys. 255, 436 (2013) (symmetric placements of the tensor's coupling turn first order at fine grids and high contrast)"
+    doi: 10.1016/j.jcp.2013.08.009
+  - cite: "E. Snitzer, J. Opt. Soc. Am. 51, 491 (1961) (the round rod's exact modes)"
+    doi: 10.1364/JOSA.51.000491
+  - cite: "S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009) (the silicon rod and its full-vector Kerr coefficient, Eqs. 39 and 48)"
+    doi: 10.1364/OE.17.002298
 validation:
   - eme/step-one-mode
   - eme/step-fresnel-te
@@ -52,6 +60,10 @@ validation:
   - eme/3d-cut-mmi-reflection
   - eme/3d-cut-mmi-reciprocity
   - eme/3d-cut-mmi-power
+  - eme/3d-oblique-rod
+  - eme/3d-oblique-rod-order
+  - eme/3d-oblique-rod-kerr
+  - eme/3d-oblique-rod-kerr-order
   - eme/wavelength-taper
   - eme/wavelength-mmi
   - eme/wavelength-reciprocity
@@ -413,6 +425,98 @@ keep. Measured on that taper, $\lvert S_p^\dagger S_p - 1\rvert$:
 That is the truncation's error, not round-off, and it isn't monotone in the number of modes. The
 small reflection of the same taper converges the same way: $\lvert S_{11}\rvert^2$ = 2.60e-5,
 2.54e-6 and 1.866e-5 with 40, 200 and all 728 modes.
+
+### An oblique interface
+
+A sloped sidewall or a curved core crosses the grid's cells at an angle. `Plane::from_plane`
+takes the cross-section as shapes drawn on an `averaging::Plane` and gives each value of E its
+permittivity over its own cell of the dual grid by an `Averaging`; `Averaging::Tensor` is the one
+for such an interface:
+
+```rust
+use photonoxide::averaging::{self, Averaging};
+use photonoxide::eme::{Eme3d, Plane, PlaneGrid};
+use photonoxide::geometry::{Point, Shape};
+use photonoxide::units::{Length, Wavelength};
+use photonoxide::Complex64 as c64;
+
+// a silicon rod 0.15 µm across in silica, on 10 nm cells over ±0.6 µm
+let mut drawn = averaging::Plane::new(c64::new(1.45 * 1.45, 0.0));
+drawn.draw(Shape::circle(Point::um(0.0, 0.0), Length::um(0.075))?, c64::new(3.45 * 3.45, 0.0));
+let grid = PlaneGrid::new(120, 120, (0.01, 0.01), (-0.6, -0.6));
+let plane = Plane::from_plane(grid, &drawn, Averaging::Tensor)?;
+let modes = Eme3d::new(Wavelength::um(0.8)?, 2)?.modes(&plane)?;
+let n_eff = modes[0].effective_index().re;
+# let _ = n_eff;
+# Ok::<(), photonoxide::Error>(())
+```
+
+Each value of E takes Farjadpour et al.'s tensor over its cell,
+$\tilde\varepsilon = (P\langle\varepsilon^{-1}\rangle + (1 - P)\langle\varepsilon\rangle^{-1})^{-1}$,
+$P = nn^T$, from the cell's fill shares and the interface's normal ([averaging](averaging.md)),
+and $E_z$ the mean $\langle\varepsilon\rangle$. Its off-diagonal part makes
+$D_x = \varepsilon_{xx}E_x + \varepsilon_{xy}\bar E_y$, $\bar E_y$ the mean of the four $E_y$
+around $E_x$'s place, and $D_y$ likewise, in both $C$ and $D$. Farjadpour et al. take each value's
+own $\varepsilon_{xy}$; here each pair of $E_x$ and $E_y$ is coupled by the mean of their two
+places' entries, which keeps $VC$ and $VCA$ symmetric, so the modes stay orthogonal to round-off,
+and turned out the more accurate of the two. Where every interface lies along the grid's axes
+the plane is `Averaging::Diagonal`'s to the bit; on a magnetic wall, a plane of symmetry, the
+off-diagonal part is zero; inside a PML the coupling isn't stretched, so keep oblique interfaces
+out of it. A cell on a wall reads what is drawn beyond it: draw the guide whole.
+
+Why this and not the full-vector solver: there, each node of an oblique edge's staircase is a
+small corner whatever the cells hold, and the index converges at order 0.3 ([full-vector
+modes](vector.md#accuracy)). On Yee's plane each component has its own place and cell, and the
+tensor is all a cell needs. Afshar and Monro's silicon rod (D = 0.15 µm, 3.45 in 1.45, 800 nm, its
+exact HE₁₁ index 1.691643 from Snitzer's characteristic equation), a quarter of the window
+1.2 µm a side between an electric wall at x = 0 and a magnetic one at y = 0, the error of its
+index:
+
+| Grid | 10 nm | 7.5 nm | 5 nm | 3.75 nm | 2.5 nm | 1.875 nm | Order (log fit, 10 to 2.5 nm) |
+|---|---|---|---|---|---|---|---|
+| `Samples` (8 × 8 points) | +2.0e-3 | | +7.7e-4 | | +3.9e-4 | | about 1 |
+| `Diagonal` | +4.0e-3 | | +2.1e-3 | | +1.0e-3 | | about 1 |
+| `Tensor`, each value's own $\varepsilon_{xy}$ | +7.5e-4 | +4.2e-4 | +2.4e-4 | +1.6e-4 | +8.4e-5 | | 1.54 ± 0.05 |
+| `Tensor` (taken) | +5.0e-4 | +2.9e-4 | +1.5e-4 | +8.8e-5 | +3.1e-5 | −2.1e-6 | 1.96 ± 0.11 |
+| `mode::vector`, the cells' mean | +3.6e-2 | | +2.8e-2 | | +2.3e-2 | | 0.31 ± 0.02 |
+
+The tensor's error at 2.5 nm is 3.1e-5, against the full-vector solver's 2.3e-2. It falls
+unevenly, as the edge crosses the cells anew on each grid (between neighbouring grids at orders
+1.84, 1.68, 1.83 and 2.58), and between 2.5 and 1.875 nm it changes sign. Werner, Bauer and Cary
+find that symmetric placements of the tensor's coupling, as this one is, turn first order at
+fine enough grids, sooner the higher the contrast (in FDTD, second order to high resolution
+below a contrast of about 10, first order from about 30). This rod's contrast is 5.7 (11.9
+against 2.1). What is shown here is second order from 10 to 2.5 nm, 80 to 320 cells a vacuum
+wavelength and 15 to 60 across the rod; at 1.875 nm the index's error is past its zero, so it
+says nothing of the order there, and the Kerr ratio below, which converges smoothly, still goes
+at second order (2.31 from 2.5 to 1.875 nm). Finer grids and higher contrast are not shown
+(1.875 nm on this window took 33 GB of memory, 820,000 unknowns). A stadium 0.4 × 0.15 µm turned 30°, on the
+whole window ±0.6 µm from 10 to 2.5 nm, fitted as $n_0 + Ch^p$: the tensor heads for 2.82103 at
+$p$ = 1.74 ± 0.19 and the samples for 2.82108 at 1.02 ± 0.03, the same limit (the full-vector
+solver's mean and tensor head for 2.82130 and 2.81965, 1.6e-3 apart).
+
+**Its fields.** The same rod's mode gives Afshar and Monro's ratio of the full-vector nonlinear
+coefficient to Foster et al.'s, $\gamma^V/\gamma^F$ (their Eqs. 39 and 48; the exact HE₁₁ fields
+give 1.41273, their "maximum difference of 40 %"): $E_z$ from the continuity equation at the
+nodes, $H$ at the cells' centres (the mean of $H_x$'s and $H_y$'s two places, $H_z$ from
+Faraday's law at the centre itself; $\nabla\cdot H$ = 0 to 3e-10), and $E$'s transverse part from
+$D$ with $H_z$ and $E_z$ smoothed over the cells the edge crosses, as for the TM slab of
+[fields](fields.md). On the cases' window, 0.75 µm a side (it moves the ratio by 6.5e-6 from
+1.2 µm's):
+
+| Grid | 10 nm | 7.5 nm | 5 nm | 3.75 nm | 2.5 nm | Order (log fit) |
+|---|---|---|---|---|---|---|
+| $\gamma^V/\gamma^F$ | 1.32805 | 1.35875 | 1.38877 | 1.39952 | 1.40698 | |
+| relative error | −6.0e-2 | −3.8e-2 | −1.7e-2 | −9.3e-3 | −4.1e-3 | 1.96 ± 0.05 |
+
+Richardson's limit at second order from 3.75 and 2.5 nm is 1.41294, 1.5e-4 from the exact
+1.41273 (from 5 and 2.5 nm, 1.41305); on the 1.2 µm window at 1.875 nm the ratio is 1.40978
+(−2.1e-3). The full-vector solver's mode reached 1.361 at 2.5 nm.
+
+
+A modes job doesn't offer Yee's plane yet: its grids are graded around the core and its media
+may be anisotropic, and Yee's plane here is uniform and isotropic, so the choice in a job is a
+decision of its own.
 
 ### The PML in 3D
 
@@ -1094,6 +1198,8 @@ Measured with the cases' own settings, at 1.55 µm, silicon (3.473) in oxide (1.
 | `eme/3d-drawing-extruded` | the stepped slab of `eme/3d-cut-extruded` drawn in a job as five rectangles ([a job's own drawing](#a-jobs-own-drawing)) | every entry the run records within 4.7e-16 of the hand-built sections' | the same planes | round-off, 1e-10 |
 | `eme/3d-drawing-taper` | `jobs/eme-taper-drawn-3d.yaml`: the taper of `eme/3d-cut-taper-exact` drawn as a path in the job, cut exactly | every entry the run records the device's exact cut's to the bit | the same 33 planes | round-off, 1e-10 |
 | `eme/3d-drawing-gds` | `eme/3d-drawing-extruded`'s strips read from a GDSII file (boxes on layer 1/0, 1 nm database unit) by a `type = "gds"` shape | every entry the run records the rectangles' run's to the bit | the same planes | round-off, 1e-10 |
+| `eme/3d-oblique-rod`, `-order` | Afshar and Monro's silicon rod (D = 0.15 µm, 3.45 in 1.45, 800 nm) on a quarter window 0.75 µm a side, `Averaging::Tensor` ([an oblique interface](#an-oblique-interface)), its HE₁₁ index at 2.5 nm; the order over 10, 7.5, 5, 3.75 and 2.5 nm | 1.69167, 1.8e-5 relative off; order 1.96 ± 0.11 | the exact 1.69164 (Snitzer's characteristic equation); second order | discretisation, 9e-5 relative, the 5 nm grid's error; order, 2 within 0.4 (three times the fit's standard error) |
+| `eme/3d-oblique-rod-kerr`, `-kerr-order` | the same rod's mode through smoothed fields: Afshar and Monro's $\gamma^V/\gamma^F$, Richardson's limit at second order from 3.75 and 2.5 nm; the order of its error over the five grids | 1.41294 (own error 7.3e-5), 1.5e-4 relative off; order 1.96 ± 0.05 | the exact HE₁₁ fields' 1.41273; second order | discretisation, 3e-4 relative, three times our own error; order, 2 within 0.2 (three times the fit's standard error) |
 | `eme/wavelength-taper`, `-mmi` | S over a range (1.45 to 1.65 µm, the C band) from a few solves, every entry on one set of wavelengths, asked for 1e-6 ([S over wavelength](#s-over-wavelength)) | ratio of the true error to the estimate 7.5e-7 (taper, 32 solves) and 7.8e-6 (multimode section, 117 solves) | the same expansion at each of 201 wavelengths | discretisation, a ratio of the true error to the estimate of at most 1, measured |
 | `eme/wavelength-reciprocity` | the two interpolants on the 201 wavelengths | $\lvert r - r^T \rvert$ 1.8e-14 | the solves' own reciprocity, kept by a shared denominator | round-off, 1e-12 |
 | `eme/wavelength-power` | the same: each column's power against the solves' | under 1e-3 of the bound $\sum_q (2\lvert S_{qp}\rvert + e_{qp}) e_{qp}$ | the bound the entries' estimates give | discretisation, a ratio of at most 1, measured |
