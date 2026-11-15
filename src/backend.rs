@@ -642,7 +642,10 @@ impl Analysis for OwnAnalysis {
         )?;
         let report = Report {
             factor_entries: Some(self.analysis.factor_entries()),
-            peak_memory_bytes: None,
+            // the fronts' and the factors' bytes, as the one-at-a-time order holds them
+            peak_memory_bytes: Some(
+                (self.analysis.peak_entries() * std::mem::size_of::<c64>()) as u64,
+            ),
             perturbed_pivots: factors.perturbed(),
             analysis_seconds: self.seconds,
             factorization_seconds: clock.elapsed().as_secs_f64(),

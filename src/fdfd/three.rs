@@ -673,6 +673,13 @@ impl Solver3d {
         self.lu.report().factor_entries.map(|e| e as u64)
     }
 
+    /// The factorization's peak bytes, as the direct solver reports them (photonoxide's own: the
+    /// factors and the fronts, not the matrix's copies).
+    #[cfg(test)]
+    pub(crate) fn factor_peak_bytes(&self) -> Option<u64> {
+        self.lu.report().peak_memory_bytes
+    }
+
     /// The same grid and boundaries at another `wavelength` or with another permittivity: the
     /// matrix's sparsity, which depends on neither, is analysed once and reused.
     ///

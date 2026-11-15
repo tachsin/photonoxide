@@ -188,9 +188,10 @@ pub struct Entry {
     pub nonzeros: usize,
     /// What it asks of the linear algebra.
     pub task: Task,
-    /// The memory it is expected to take, in bytes: the factors and the matrix of a direct
-    /// solve by photonoxide's own solver, the matrix and the vectors of an iterative one (the
-    /// direct reference's, where a plain QMR solve is checked against one).
+    /// The memory it is expected to take, in bytes: the factors, the fronts they are made in and
+    /// the matrix's copies of a direct solve by photonoxide's own solver in 3D (its peak), the factors and the matrix of one in 2D or an LU, the matrix and
+    /// the vectors of an iterative one (the direct reference's, where a plain QMR solve is
+    /// checked against one).
     pub memory_bytes: u64,
     /// The shortest tier it is part of.
     pub tier: Tier,
@@ -303,8 +304,36 @@ fn factor_entries(unknowns: usize, three: bool, symmetric: bool) -> f64 {
     if symmetric { half } else { lu * half }
 }
 
-/// The bytes of a direct solve: the factors' entries and the matrix's (a value and an index).
+/// The entries photonoxide's own L D Lᵀ in 3D holds at its peak, by the order of its fronts
+/// ([`crate::sparse`]'s `Analysis::peak_entries`, what the solver reports as its factorization's
+/// peak memory): the factors as stored (each front's L whole, m × k, 1.2 times the entries
+/// [`factor_entries`] counts), the updates waiting for their parents and the front being
+/// eliminated beside its copies. a n^(4/3) + b n, the nested dissection's law with its
+/// surface term, fitted to that peak at six sizes of the guide's cube (24 000 to 255 552
+/// unknowns, 20 to 44 cells), which it follows to 0.6 %.
+const PEAK_ENTRIES_A: f64 = 15.07;
+const PEAK_ENTRIES_B: f64 = -110.8;
+
+/// The bytes the matrix takes beside the factors while they are made, a nonzero's: what the
+/// process held beyond the fronts' peak at 30 to 44 cells, 3.0 to 3.2 kB an unknown at 13
+/// nonzeros. The copies that are alive at the factorization's peak, by reading the code, are the
+/// assembled entries (a row, a column and a value, 32 B), `Direct::new`'s matrix, its similarity,
+/// their triplets and columns, and the factorization's by-column lists, 24 to 32 B each: about
+/// 2 kB an unknown. The other 1 kB an unknown is not explained.
+const MATRIX_COPY_BYTES: f64 = 240.0;
+
+/// The bytes a direct solve takes at its peak. For photonoxide's own L D Lᵀ in 3D, the fronts'
+/// peak entries (16 B each) and the matrix's copies, from the process's peak working set at 20 to
+/// 44 cells of the guide with one thread, which it follows to 0.5 % from 30 cells up; a
+/// factorization with threads holds the updates of the subtrees it does side by side, up to 12 %
+/// more at 4 threads at 44. Otherwise the factors' entries (16 B) and the matrix's (a value and an
+/// index), which a 2D or an LU solve's peak has not been compared with.
 fn direct_memory(unknowns: usize, nonzeros: usize, three: bool, symmetric: bool) -> u64 {
+    if three && symmetric {
+        let n = unknowns as f64;
+        let entries = PEAK_ENTRIES_A * portable::powf(n, 4.0 / 3.0) + PEAK_ENTRIES_B * n;
+        return (16.0 * entries.max(0.0) + MATRIX_COPY_BYTES * nonzeros as f64) as u64;
+    }
     (16.0 * factor_entries(unknowns, three, symmetric) + 24.0 * nonzeros as f64) as u64
 }
 
@@ -692,7 +721,7 @@ const MULTIGRID_STENCIL_BYTES: u64 = 3_600;
 const MULTIGRID_REDISCRETIZED_BYTES: u64 = 2_000;
 
 /// The bytes of the direct solve that checks a plain QMR solve (the reference of
-/// `fdfd3d-iterative/guide-qmr-*`, 4 GB at 44³, #819): the memory the run peaks at after its
+/// `fdfd3d-iterative/guide-qmr-*`, 4.2 GB at 44³, #819): the memory the run peaks at after its
 /// timed phases, where more than the iterations took.
 fn qmr_reference_memory(unknowns: usize) -> u64 {
     direct_memory(unknowns, 13 * unknowns, true, true)
@@ -1333,6 +1362,25 @@ struct Solved {
     symmetric: bool,
     /// The matrix's nonzeros, repeated entries summed.
     nonzeros: usize,
+    /// The factorization's peak bytes, as the direct solver reports them.
+    peak_bytes: Option<u64>,
+}
+
+impl Solved {
+    /// What the memory estimate is held to: a 3D L D Lᵀ's reported peak and its matrix's copies,
+    /// otherwise the factors' entries and the matrix's.
+    #[cfg(test)]
+    fn modelled_bytes(&self, three: bool) -> usize {
+        match self.peak_bytes {
+            Some(peak) if three && self.symmetric => {
+                peak as usize + (MATRIX_COPY_BYTES * self.nonzeros as f64) as usize
+            }
+            _ => {
+                let factors = self.measurement.factor_entries.unwrap_or(0) as usize;
+                16 * factors + 24 * self.nonzeros
+            }
+        }
+    }
 }
 
 fn solve_direct(entry: &Entry, direct: &Choice) -> Result<Solved> {
@@ -1383,6 +1431,7 @@ fn solve_direct(entry: &Entry, direct: &Choice) -> Result<Solved> {
         },
         symmetric: factors.symmetric(),
         nonzeros: seen.len(),
+        peak_bytes: factors.report().peak_memory_bytes,
     })
 }
 
@@ -1831,9 +1880,9 @@ mod tests {
                     assert!((0.6..=1.0).contains(&ratio), "{}: {ratio}", e.id);
                 }
             }
-            // the memory, within a factor of 2 of the factors and the matrix
-            let factors = m.factor_entries.unwrap() as usize;
-            let measured = 16 * factors + 24 * solved.nonzeros;
+            // the memory, within a factor of 2 of the factors and the matrix, or in 3D of the
+            // factorization's reported peak and the matrix's copies
+            let measured = solved.modelled_bytes(e.family == Family::Fdfd3d);
             let ratio = e.memory_bytes as f64 / measured as f64;
             assert!((0.5..=2.0).contains(&ratio), "{}: {ratio}", e.id);
         }
@@ -2007,7 +2056,7 @@ mod tests {
             assert!(error < e.tolerance(), "{id}: {error}");
             assert_eq!(solved.measurement.unknowns, e.unknowns, "{id}");
             let factors = solved.measurement.factor_entries.unwrap() as usize;
-            let measured = 16 * factors + 24 * solved.nonzeros;
+            let measured = solved.modelled_bytes(e.family == Family::Fdfd3d);
             let ratio = e.memory_bytes as f64 / measured as f64;
             println!(
                 "{id}: {} unknowns, {} nonzeros (record {}), factors {} entries, memory record/measured {ratio:.2}, symmetric {}",
@@ -2015,5 +2064,99 @@ mod tests {
             );
             assert!((0.5..=2.0).contains(&ratio), "{id}: {ratio}");
         }
+    }
+
+    /// The peak working set of the process that solves the guide's cube directly (the
+    /// reference of `fdfd3d-iterative/guide-qmr-*`, `fdfd3d/guide-direct`: `Solver3d::new` and
+    /// one solve, plain PMLs), GB, read while it ran, release build, at 1 and at 4 rayon
+    /// threads. Cells a side, its unknowns, the peak at 1 thread (not taken at 20 and 24 cells)
+    /// and at 4. 2026-11-15, 66.8 GB of memory, others' builds running beside.
+    const RECORDED_PEAKS: [(usize, usize, Option<f64>, f64); 6] = [
+        (20, 24_000, None, 0.217),
+        (24, 41_472, None, 0.446),
+        (30, 81_000, Some(0.957), 1.049),
+        (36, 139_968, Some(1.935), 2.083),
+        (40, 192_000, Some(2.920), 3.034),
+        (44, 255_552, Some(4.243), 4.738),
+    ];
+
+    #[test]
+    fn the_direct_references_memory_is_the_peak_recorded_at_each_size() {
+        for (cells, unknowns, one_thread, four_threads) in RECORDED_PEAKS {
+            assert_eq!(unknowns, 3 * cells * cells * cells);
+            let estimate = direct_memory(unknowns, 13 * unknowns, true, true) as f64 / 1e9;
+            // The estimate is for one thread. At 1 thread the rule is a relative difference of
+            // 3 %, the run-to-run spread of the 4-thread peak at 44 cells (4.647 to 4.796 GB in
+            // three runs); at 4 threads 12 %, the largest excess of that peak over the 1-thread
+            // one in these runs (11.7 % at 44 cells), as the subtrees' updates are held side by
+            // side. A smaller size carries the test process's own 20 to 40 MB besides.
+            if let Some(m) = one_thread {
+                assert!(
+                    (estimate / m - 1.0).abs() <= 0.03,
+                    "{cells}: {estimate} for {m}"
+                );
+            }
+            assert!(
+                (estimate / four_threads - 1.0).abs() <= 0.12,
+                "{cells}: {estimate} for {four_threads}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_entries_that_run_a_direct_reference_expect_its_peak() {
+        let bytes = |id: &str| entry(id).unwrap_or_else(|| panic!("{id}")).memory_bytes;
+        // the reference is the larger of the two terms: at every size of the guide
+        for id in [
+            "fdfd3d-iterative/guide-qmr-20",
+            "fdfd3d-iterative/guide-qmr-free-30",
+            "fdfd3d-iterative/guide-qmr-44",
+            "fdfd3d-iterative/guide-qmr-free-44",
+        ] {
+            let e = entry(id).unwrap_or_else(|| panic!("{id}"));
+            assert_eq!(e.memory_bytes, qmr_reference_memory(e.unknowns), "{id}");
+        }
+        // 4.2 GB for the 44 cells' reference, which the issue measured at 4.07 and 4.22 GB
+        let at_44 = bytes("fdfd3d-iterative/guide-qmr-44") as f64 / 1e9;
+        assert!((4.0..=4.5).contains(&at_44), "{at_44}");
+        // and the plain direct solve of the 40 cells' guide, the same law
+        let direct = bytes("fdfd3d/guide-direct") as f64 / 1e9;
+        assert!((2.8..=3.1).contains(&direct), "{direct}");
+    }
+
+    #[test]
+    fn the_fronts_peak_follows_its_law_at_20_cells() {
+        use crate::fdfd::{Boundaries3d, Grid3d};
+        let (n, pml) = (20, 5);
+        let h = 0.01;
+        let half = 5.0 * h / 2.0;
+        let grid = Grid3d {
+            nx: n,
+            ny: n,
+            nz: n,
+            dx: h,
+            dy: h,
+            dz: h,
+            x0: -(n as f64) * h / 2.0,
+            y0: -(n as f64) * h / 2.0,
+            z0: -(n as f64) * h / 2.0,
+        };
+        let eps = move |_: f64, y: f64, z: f64| {
+            c64::new(
+                if y.abs() < half && z.abs() < half {
+                    12.09
+                } else {
+                    1.0
+                },
+                0.0,
+            )
+        };
+        let lam = Wavelength::um(1.55).unwrap();
+        let solver = Solver3d::new(grid, lam, eps, Boundaries3d::pml(pml)).unwrap();
+        let peak = solver.factor_peak_bytes().unwrap() as f64;
+        let u = grid.unknowns() as f64;
+        let law = 16.0 * (PEAK_ENTRIES_A * portable::powf(u, 4.0 / 3.0) + PEAK_ENTRIES_B * u);
+        // the law's largest difference from the reported peak over its six sizes is 0.6 %
+        assert!((law / peak - 1.0).abs() <= 0.01, "{law} for {peak}");
     }
 }
