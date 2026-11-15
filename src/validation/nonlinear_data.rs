@@ -64,7 +64,10 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 Absolute,
                 Reference,
                 1.0,
-                Stated(0.27, "half a pixel of Fig. 3, 0.013 × 10⁻¹⁴ cm²/W, in halves of the last digit; Fig. 2's is 0.046"),
+                Stated(
+                    0.27,
+                    "half a pixel of Fig. 3, 0.013 × 10⁻¹⁴ cm²/W, in halves of the last digit; Fig. 2's is 0.046",
+                ),
                 "half a unit of the last digit of the printed 2.1, 0.4, 4.7 and 2.0, the error measured in those halves",
             ),
         ),
@@ -76,25 +79,12 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Exact,
                 "a Gaussian's midpoint sums at 20 cells a width are exact to round-off (as mode/effective-area-gaussian), and γ is that area's closed form",
-            )
-            .varying(),
+            ),
         ),
-        (
-            "nonlinear/miller-linbo3-d33",
-            miller(),
-        ),
-        (
-            "nonlinear/miller-linbo3-d31",
-            miller(),
-        ),
-        (
-            "nonlinear/miller-linbo3-mgo-d33",
-            miller(),
-        ),
-        (
-            "nonlinear/miller-linbo3-mgo-d31",
-            miller(),
-        ),
+        ("nonlinear/miller-linbo3-d33", miller()),
+        ("nonlinear/miller-linbo3-d31", miller()),
+        ("nonlinear/miller-linbo3-mgo-d33", miller()),
+        ("nonlinear/miller-linbo3-mgo-d31", miller()),
     ]
 }
 

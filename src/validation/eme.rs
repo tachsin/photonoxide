@@ -134,8 +134,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1.0,
                 Measured,
                 "the bound the entries' estimates give a column's power: a ratio of at most 1 wherever they bound the entries' errors",
-            )
-            .varying(),
+            ),
         ),
         (
             "eme/bloch-quarter-wave",

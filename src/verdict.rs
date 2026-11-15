@@ -154,6 +154,13 @@ impl Rule {
     /// fails: a bound inside the tolerance would be an edge a value crosses between systems (the
     /// ring's fit, device/compact-ring-closed-form, read 2.1e-7 to 3.6e-7 by system, across a
     /// third of its 1e-6).
+    ///
+    /// Since #822 the maths functions are photonoxide's own and the dense decompositions don't
+    /// follow the threads, so Linux and Windows give the same bits in every case; a case is
+    /// marked only where the Systems workflow shows another system's full digits differ, which
+    /// today means faer's kernels on ARM (macOS on Apple silicon: fits, eigensolves and direct
+    /// solves through faer's dense code). A case that gives the same 17 digits on Linux, Windows
+    /// and macOS isn't marked (docs/methods/conventions.md, "The same numbers on every system").
     pub const fn varying(self) -> Rule {
         Rule {
             varies: true,
