@@ -18,8 +18,7 @@
 //!
 //! **The 2D design.** The plane by the effective index method, as `optimize_ybranch`'s: the
 //! 220 nm slab's TE index at each wavelength (2.97 at 1300 nm, 2.85 at 1550 nm, silica below and
-//! air above) inside the silicon and the silica's outside, where an etched region's light has no
-//! slab to stay in; H along z, 2D FDFD on 20 nm cells, PMLs of 0.3 µm. Densities on the region's
+//! air above) inside the silicon and air's outside, H along z, 2D FDFD on 20 nm cells, PMLs of 0.3 µm. Densities on the region's
 //! 140 × 140 pixels of 20 nm, a conic filter of 100 nm and a tanh projection at η = ½
 //! (`topology`). Both bounds of the specification count alike: the worst of the ten 1 − T and
 //! of the ten shares into the other port times 10 is minimized in its epigraph form by genoxide's
@@ -27,9 +26,17 @@
 //! method differs: "objective first" and steepest descent on a continuous permittivity, then a
 //! level set, on GPU-accelerated 3D FDFD.
 //!
+//! **Why air in the plane.** A first design with the silica's index outside the silicon, as
+//! `optimize_ybranch` takes for its oxide-clad device, met the specification in 2D (91.4 % and
+//! 91.6 % at the centres, 0.14 % and 0.72 % into the other port) and put 1.5 % and 10 % into the
+//! right ports in 3D on 55 nm cells: it carried light across narrow gaps that a plane of silica
+//! carries and the air-clad layer, which radiates into the substrate there, doesn't. With air
+//! outside, the same search's design keeps 49 % and 33 % on that grid; a 150 nm filter, for fewer
+//! small holes, kept 27 % and 26 %.
+//!
 //! **The 3D check.** The binarized design extruded through the 220 nm layer, solved in 3D FDFD
 //! (`--full`) on cells of 36.7, 31.4 and 27.5 nm (a sixth, a seventh and an eighth of the
-//! layer), inside stretched PMLs of 0.44 µm, by GMRES and the multigrid to a residual of 1e-9;
+//! layer), inside stretched PMLs of 16 cells, by GMRES and the multigrid to a residual of 1e-9;
 //! each output's fundamental mode in a window of its own, extrapolated to h → 0 at second order.
 //!
 //! **What is compared.** The design isn't published, so ours is compared with theirs by the
@@ -71,6 +78,8 @@ use rayon::prelude::*;
 const N_SI: f64 = 3.49;
 const N_SIO2: f64 = 1.45;
 const THICKNESS: f64 = 0.22;
+/// The plane's index where the layer is etched away.
+const N_ETCHED: f64 = 1.0;
 /// The waveguides' width, the outputs' centres off the axis and the region's half-side, µm.
 const WIDTH: f64 = 0.5;
 const OFFSET: f64 = 0.54;
@@ -171,7 +180,7 @@ fn pixel(x: f64, y: f64) -> Option<(usize, usize)> {
 /// The plane's permittivities on `g` at a slab index `core`: the waveguides, and in the region
 /// `design`'s shares of silicon, one per pixel (silica if `None`).
 fn cells(g: &Grid, core: f64, design: Option<&[f64]>) -> Vec<c64> {
-    let (si, clad) = (core * core, N_SIO2 * N_SIO2);
+    let (si, clad) = (core * core, N_ETCHED * N_ETCHED);
     (0..g.nx * g.ny)
         .map(|p| {
             let (x, y) = (g.x(p % g.nx), g.y(p / g.nx));
@@ -315,7 +324,7 @@ impl Demux {
     /// densities, rounded to 12 digits.
     fn evaluate(&self, rho: &[f64]) -> photonoxide::Result<(Vec<f64>, Vec<f64>)> {
         let share = self.density.permittivity(rho)?;
-        let clad = N_SIO2 * N_SIO2;
+        let clad = N_ETCHED * N_ETCHED;
         let per_band: Vec<[(f64, Vec<f64>); 2]> = self
             .bands
             .par_iter()
@@ -675,7 +684,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "2D",
-        "the effective index method: the 220 nm slab's TE index in the silicon and the silica's outside, H along z; 20 nm cells, 10 nm beside; PMLs of 0.3 µm",
+        "the effective index method: the 220 nm slab's TE index in the silicon and air's outside, H along z; 20 nm cells, 10 nm beside; PMLs of 0.3 µm",
     );
     setup.item(
         "design",
@@ -683,7 +692,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "3D (--full)",
-        "the design extruded through the layer; cells of 36.7, 31.4 and 27.5 nm, stretched PMLs of 0.44 µm, GMRES and the multigrid to 1e-9",
+        "the design extruded through the layer; cells of 36.7, 31.4 and 27.5 nm, stretched PMLs of 16 cells, GMRES and the multigrid to 1e-9",
     );
     setup.item(
         "tolerance",
