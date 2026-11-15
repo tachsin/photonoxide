@@ -2,6 +2,7 @@
 //! its triangle, the kernel of the vector fits ([`crate::compact`]) and of the media fits (the
 //! non-negative poles of [`crate::fdtd`]).
 
+use crate::dense::fixed;
 use faer::Mat;
 
 /// Singular values below this, relative to the largest, are dropped from a least squares: the
@@ -27,22 +28,19 @@ pub(crate) fn least_squares(a: Mat<f64>, b: &Mat<f64>) -> Vec<f64> {
             b[(i, 0)]
         }
     });
-    let qr = augmented.qr();
-    let r = qr.thin_R();
+    // faer's, sequential: the same bits on any number of threads (crate::dense::fixed)
+    let qr = fixed::Qr::new(augmented.as_ref());
+    let r = qr.thin_r();
     let rows = r.nrows().min(n);
     let rn = Mat::from_fn(rows, n, |i, j| r[(i, j)]);
     let qtb: Vec<f64> = (0..rows).map(|i| r[(i, n)]).collect();
     // faer's SVD, or where it doesn't converge (it can, rarely, on a nearly singular R whose
     // rounding differs between systems: #398) one-sided Jacobi, which always does
-    let (u, s, v) = match rn.thin_svd() {
+    let (u, s, v) = match fixed::thin_svd(rn.as_ref()) {
         Ok(svd) => (
-            svd.U().to_owned(),
-            svd.S()
-                .column_vector()
-                .iter()
-                .copied()
-                .collect::<Vec<f64>>(),
-            svd.V().to_owned(),
+            svd.u,
+            svd.s.column_vector().iter().copied().collect::<Vec<f64>>(),
+            svd.v,
         ),
         Err(_) => jacobi_svd(&rn),
     };

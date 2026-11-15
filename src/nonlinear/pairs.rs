@@ -193,8 +193,7 @@ impl JointSpectrum {
     pub fn schmidt(&self) -> Result<Schmidt> {
         let (ns, ni) = (self.signal.len(), self.idler.len());
         let m = faer::Mat::<c64>::from_fn(ns, ni, |i, j| self.amplitude[i * ni + j]);
-        let mut s = m
-            .singular_values()
+        let mut s = crate::dense::fixed::singular_values(m.as_ref())
             .map_err(|e| Error::invalid("joint spectrum", format!("its singular values: {e:?}")))?;
         let total: f64 = s.iter().map(|v| v * v).sum();
         if total <= 0.0 || total.is_nan() {

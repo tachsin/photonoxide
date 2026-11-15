@@ -26,7 +26,8 @@ the downloads); a script calls it as `photonoxide`, on the `PATH` or by its path
 - **The run.** `photonoxide run <job> --headless [--timeout <minutes>] [--out <dir>]` prints the
   run's folder on its first line of output (`runs/20261024-120000-<name>`) and exits when the run
   ends: 0 finished, 1 failed (the error on stderr and in `results.json`), 2 a wrong command line,
-  3 stopped by its timeout, 4 stopped on request ([docs/runs.md](runs.md#exit-codes)).
+  3 stopped by its timeout, 4 stopped on request, and with `--strict` 5 finished with a
+  warning or a number unchecked or not converged ([docs/runs.md](runs.md#exit-codes)).
 - **The numbers.** The folder's `results.json` (`"schema": 1`) holds the run's numbers: its grids,
   modes, sweep points, S-parameters, spectra and resonances, each array with its shape and unit
   ([docs/runs.md](runs.md#resultsjson)), and [docs/results.schema.json](results.schema.json) is its

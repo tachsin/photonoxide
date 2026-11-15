@@ -124,7 +124,7 @@ pub(crate) fn dense_leaky() -> f64 {
         dense[(i, j)] += v;
     }
     let region = leaky_regions()[1];
-    let Ok(all) = dense.eigenvalues() else {
+    let Ok(all) = crate::dense::fixed::eigenvalues(dense.as_ref()) else {
         return f64::NAN;
     };
     let mut want: Vec<c64> = all

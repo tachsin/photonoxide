@@ -58,6 +58,7 @@ use super::fit::{
 };
 use super::model::{band_of, check_band, laplace, responses_of};
 use crate::circuit::{Component, Fidelity, Parameter, Port, Provenance, SMatrix, Spectrum, ports};
+use crate::dense::fixed;
 use crate::portable;
 use crate::units::Wavelength;
 use crate::{Error, Result};
@@ -1216,10 +1217,9 @@ impl ParametricModel {
             let pencil_b = Mat::<c64>::from_fn(size, size, |i, j| {
                 c64::new(f64::from(u8::from(i == j && i < 2 * n)), 0.0)
             });
-            let eig = pencil_a
-                .generalized_eigen(&pencil_b)
+            let eig = fixed::generalized_eigen(pencil_a.as_ref(), pencil_b.as_ref())
                 .map_err(|e| failed(format!("the axis crossings: {e:?}")))?;
-            let (alpha, beta) = (eig.S_a(), eig.S_b());
+            let (alpha, beta) = (&eig.s_a, &eig.s_b);
             let scale = (0..n)
                 .map(|i| portable::complex::abs(h[(i, i)]))
                 .fold(1.0, f64::max);
@@ -1252,8 +1252,7 @@ impl ParametricModel {
                 let target = c64::new(0.0, z.im);
                 let nearest = |t: f64| -> Result<c64> {
                     let m = Mat::<c64>::from_fn(n, n, |r, c| h[(r, c)] - t * b[r] * delta[c]);
-                    let values = m
-                        .eigenvalues()
+                    let values = fixed::eigenvalues(m.as_ref())
                         .map_err(|e| failed(format!("the poles along a segment: {e:?}")))?;
                     values
                         .into_iter()

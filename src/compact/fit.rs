@@ -44,6 +44,7 @@
 //! e^(st) for s = −iω, so a stable pole has a negative real part in either convention;
 //! [`super::model`] maps wavelengths to s.
 
+use crate::dense::fixed;
 use crate::portable;
 use faer::Mat;
 use num_complex::Complex64 as c64;
@@ -580,8 +581,8 @@ pub(crate) fn eliminate(mut m: Mat<f64>, own: usize, shared: usize, out: &mut Ve
     for (j, &w) in scale.iter().enumerate().take(m.ncols() - 1) {
         m.col_mut(j).iter_mut().for_each(|v| *v *= w);
     }
-    let qr = m.qr();
-    let r = qr.thin_R();
+    let qr = fixed::Qr::new(m.as_ref());
+    let r = qr.thin_r();
     for i in own..r.nrows().min(own + shared) {
         out.push(
             (own..own + shared + 1)
@@ -636,7 +637,7 @@ pub(crate) fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
                 h[(i, j)] -= b[i] * c_tilde[j];
             }
         }
-        h.eigenvalues().map_err(failed)
+        fixed::eigenvalues_of_real(h.as_ref()).map_err(failed)
     } else {
         // every pole complex, two real unknowns each
         let n = poles.len();
@@ -651,7 +652,7 @@ pub(crate) fn sigma_zeros(poles: &[Pole], c_tilde: &[f64]) -> Result<Vec<c64>> {
             };
             diag - c[j]
         });
-        h.eigenvalues().map_err(failed)
+        fixed::eigenvalues(h.as_ref()).map_err(failed)
     }
 }
 

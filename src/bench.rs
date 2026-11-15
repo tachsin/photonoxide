@@ -543,9 +543,9 @@ impl Solve {
 }
 
 /// A guide's field from one source, solved to `tolerance`; its error is against the same
-/// problem (the same PMLs) solved to 1e-12, which isn't timed: by GMRES + multigrid with
-/// stretched PMLs, and by QMR + ILU(0) with plain ones, on which the multigrid wasn't measured.
-/// Both operators have the same solution.
+/// problem (the same PMLs) which isn't timed: solved to 1e-12 by GMRES + multigrid with
+/// stretched PMLs, and by the direct solver with plain ones (QMR's own reference to 1e-12 stalls
+/// just above it at 44 cells, #819). Both operators have the same solution.
 /// The guide of [`guide_3d`]'s `Guide::Cube { core: 10 }` with PMLs of 10, by the direct solver.
 fn guide_direct(timed_done: &mut dyn FnMut()) -> Result<Measurement> {
     let (h, core, pml) = (0.01, 10, 10);
@@ -691,18 +691,19 @@ fn guide_3d_with(
     };
     timed_done();
     let (reference, against) = match solve {
+        // the direct solver's field, which has no floor to stall at as a QMR run to 1e-12 has
+        // (#819); the same operator and plain PMLs as the timed QMR
         Solve::Qmr | Solve::QmrFree => (
-            new(Formulation::ShinFan, Product::Matrix)?.with_ilu()?,
-            "QMR + ILU(0) to 1e-12, relative",
+            Solver3d::new(grid, lam, eps, boundaries)?.solve(&source)?,
+            "the direct solver, relative",
         ),
         Solve::Ilu | Solve::Multigrid | Solve::MultigridStencil | Solve::MultigridRediscretized => {
-            (
-                new(Formulation::ShinFan, Product::Matrix)?.with_multigrid(Multigrid::default())?,
-                "GMRES + multigrid to 1e-12, relative",
-            )
+            let (field, _) = new(Formulation::ShinFan, Product::Matrix)?
+                .with_multigrid(Multigrid::default())?
+                .solve(&source, stopping(1e-12))?;
+            (field, "GMRES + multigrid to 1e-12, relative")
         }
     };
-    let (reference, _) = reference.solve(&source, stopping(1e-12))?;
     let difference: f64 = (field.values().iter())
         .zip(reference.values())
         .map(|(a, b)| (a - b).norm_sqr())

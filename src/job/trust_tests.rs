@@ -1,9 +1,10 @@
 //! What a job file says that it may not mean, which a run would otherwise answer with a number
-//! and exit 0 (issue #783): a misspelled device parameter, and a band outside where the analytic
-//! fit holds or typed in nanometres.
+//! and exit 0 (issue #783): a misspelled device parameter, a band outside where the analytic
+//! fit holds or typed in nanometres, and a modes job's window, grid or empty solve (the
+//! skeptic's scenarios, on `photonoxide new modes`'s strip).
 
 use super::*;
-use crate::run::Format;
+use crate::run::{Format, Run, Stop};
 
 fn yaml(text: &str) -> Job {
     Job::parse_as(text, Format::Yaml).unwrap()
@@ -201,5 +202,165 @@ fn the_console_hears_of_grids_not_known_to_have_converged() {
         lines[1],
         "convergence: unchecked: Re n_eff of mode 1, Re n_eff of mode 2 at 1.55 um: one grid \
          (0.02 um): no check ([task.convergence] checks it)"
+    );
+}
+
+/// `photonoxide new modes`'s job (a 500 x 220 nm strip in oxide, 20 nm, y from -1.2 to 1.2 um)
+/// with its lines `from` changed to `to`.
+fn new_modes(changes: &[(&str, &str)]) -> Job {
+    let mut text = templates::template("modes").unwrap().text.to_owned();
+    for (from, to) in changes {
+        assert!(text.contains(from), "the template has {from}");
+        text = text.replace(from, to);
+    }
+    yaml(&text)
+}
+
+/// A modes job's run in memory: its modes' Re n_eff and its warnings.
+fn modes_run(job: &Job) -> (Vec<f64>, Vec<String>) {
+    check(job).unwrap();
+    let mut run = Run::in_memory();
+    execute(job, &mut run, &Stop::new(None)).unwrap();
+    let (mut n, mut w) = (Vec::new(), Vec::new());
+    for line in run.lines() {
+        match serde_json::from_str::<Event>(line).unwrap() {
+            Event::Mode {
+                effective_index, ..
+            } => n.push(effective_index[0]),
+            Event::Warning { text } => w.push(text),
+            _ => {}
+        }
+    }
+    (n, w)
+}
+
+#[test]
+fn a_modes_window_narrower_than_the_strip_is_warned_of() {
+    // the template's own window: no warning, and its scheme said
+    let (n, w) = modes_run(&new_modes(&[]));
+    assert!(w.is_empty(), "{w:?}");
+    assert!(n[0] > 2.4, "{n:?}");
+    // the skeptic's 0.4 um window on the 500 nm strip: n_eff 2.2354 where 2.44 is right. Inside
+    // the strip a wave along the window's side travels at the 220 nm film's index, above the
+    // mode's: the field can't decay towards the side (no threshold: n_eff against that index)
+    let (n, w) = modes_run(&new_modes(&[(
+        "y: [-1.2 um, 1.2 um]",
+        "y: [-0.2 um, 0.2 um]",
+    )]));
+    assert!(n[0] < 2.3, "{n:?}");
+    assert!(
+        w.iter().any(|w| w.starts_with("mode 1 of")
+            && w.contains("its field doesn't decay towards the window's edge at y = -0.2 um")
+            && w.contains("widen y_um")),
+        "{w:?}"
+    );
+    // the 0.2 um window: no mode at all, said with why
+    let (n, w) = modes_run(&new_modes(&[(
+        "y: [-1.2 um, 1.2 um]",
+        "y: [-0.1 um, 0.1 um]",
+    )]));
+    assert!(n.is_empty(), "{n:?}");
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with("no mode found: of the 2 modes solved none has n_eff above 1.44")
+            && w[0].contains("a guide runs into the window's edge at y = -0.1 um and y = 0.1 um")
+            && w[0].contains("widen y_um"),
+        "{}",
+        w[0]
+    );
+}
+
+#[test]
+fn a_modes_field_at_the_window_s_edge_is_measured_against_the_grid_s_error() {
+    // 60 nm of oxide beside the strip: the mode decays into it (n_eff above 1.444), but the
+    // closed window lowers n_eff by more than the grid's own error at 20 nm (the scheme's
+    // dispersion, about 4e-3 here): widen the window. The same strip 1.2 um wide doesn't
+    // (the test above). The estimate's basis is modes_trust's doc; its check against the
+    // shift it estimates is modes_trust::tests
+    let (n, w) = modes_run(&new_modes(&[(
+        "y: [-1.2 um, 1.2 um]",
+        "y: [-0.31 um, 0.31 um]",
+    )]));
+    let (wide, _) = modes_run(&new_modes(&[]));
+    assert!(n[0] < wide[0], "{n:?} {wide:?}");
+    let first: Vec<&String> = w.iter().filter(|w| w.starts_with("mode 1 of")).collect();
+    assert_eq!(first.len(), 1, "{w:?}");
+    assert!(
+        first[0].contains("its field reaches the window's edge at y = ")
+            && first[0].contains("the closed window lowers its n_eff by about")
+            && first[0].contains("more than the grid's own error at its step, about")
+            && first[0].contains("widen y_um"),
+        "{}",
+        first[0]
+    );
+    // a job that asks for an accuracy is held to it instead: the template's window is wide for
+    // the grid's error but not for 1e-12 (its tail at 1 um of oxide holds a few 1e-9 of n_eff)
+    let strict = new_modes(&[(
+        "modes: 2                 # how many, highest effective index first",
+        "modes: 1\n  convergence: { tolerance: 1e-12, grids: 2 }",
+    )]);
+    let (_, w) = modes_run(&strict);
+    assert!(
+        w.iter()
+            .any(|w| w.contains("more than the tolerance of [task.convergence], 1e-12")),
+        "{w:?}"
+    );
+}
+
+#[test]
+fn a_modes_grid_with_too_few_cells_across_the_strip_is_warned_of() {
+    // the skeptic's 200 nm step: the grid puts 2 cells up the 220 nm film and 3 across the
+    // 500 nm strip (a node on each interface, the cells about the step between), and n_eff
+    // comes out far below the 20 nm grid's. The rule is the scheme's three-point differences:
+    // one inside the guide that touches no interface needs four cells
+    // (modes_trust::FEWEST_ACROSS), not a number of our own
+    let coarse = new_modes(&[("step: 20 nm", "step: 200 nm")]);
+    let before = warnings(&coarse);
+    assert_eq!(before.len(), 1, "{before:?}");
+    assert!(
+        before[0].starts_with("the guide at y = -0.25 to 0.25 um, z = ")
+            && before[0].contains("has 3 cells across it and 2 cells up it at step_nm = 200")
+            && before[0].contains("take step_nm at most 55 (its 0.22 um over 4)"),
+        "{}",
+        before[0]
+    );
+    // the run records it too, the same words
+    let (_, w) = modes_run(&coarse);
+    assert!(w.contains(&before[0]), "{w:?}");
+    // 400 nm: 2 cells across, 1 up
+    let coarser = new_modes(&[("step: 20 nm", "step: 400 nm")]);
+    let before = warnings(&coarser);
+    assert!(
+        before[0].contains("has 2 cells across it and 1 cell up it at step_nm = 400"),
+        "{before:?}"
+    );
+    // 100 nm: 3 cells up; 50 nm: 5 up and 10 across, and no warning of cells (the grid's error
+    // is the convergence line's to tell)
+    let w = warnings(&new_modes(&[("step: 20 nm", "step: 100 nm")]));
+    assert!(w.len() == 1 && w[0].contains("has 3 cells up it"), "{w:?}");
+    assert!(warnings(&new_modes(&[("step: 20 nm", "step: 50 nm")])).is_empty());
+    assert!(warnings(&new_modes(&[])).is_empty());
+}
+
+#[test]
+fn a_modes_run_says_its_scheme() {
+    let job = new_modes(&[]);
+    check(&job).unwrap();
+    let mut run = Run::in_memory();
+    execute(&job, &mut run, &Stop::new(None)).unwrap();
+    let events: Vec<Event> = run
+        .lines()
+        .iter()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let lines = results::Results::collect(&events).scheme_lines();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].starts_with(
+            "scheme: mode::vector solved by standard finite differences (Fallahkhair, Li and \
+             Murphy 2008)"
+        ) && lines[0].contains("about first order at the guides' corners"),
+        "{}",
+        lines[0]
     );
 }

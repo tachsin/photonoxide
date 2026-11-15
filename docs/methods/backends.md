@@ -494,8 +494,8 @@ own, alternating, and keeps each side's faster run. Measured on 2026-10-11 and 1
 shared machine. A solve's time is everything the solver does for it: on the GPU the matrix,
 ILU(0)'s factors or the multigrid's hierarchy copied up and analysed, the iterations, and the
 field copied back, so a step's time counts the transfers. The error is each problem's own check,
-the same for both sides: the field against a reference solve to 1e-12 (QMR + ILU(0) for plain
-QMR, GMRES + multigrid for the others), the strip with ports' S-matrix against its exact one.
+the same for both sides: the field against a reference solve (the direct solver's field for plain
+QMR, GMRES + multigrid to 1e-12 for the others; the two plain-QMR rows below were measured against QMR + ILU(0) to 1e-12, whose field is the direct solver's to 1.5e-11 at 30³), the strip with ports' S-matrix against its exact one.
 Every repeated GPU run gave the same error to the bit.
 
 | Problem | Grid | Unknowns | Iterations, CPU / GPU | CPU solve (a step) | GPU solve (a step) | Speed-up | Error, CPU / GPU |

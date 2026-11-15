@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3982 places in 470 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 649 sources, 641 with a DOI and 8 without, are cited at 3983 places in 470 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -1670,7 +1670,7 @@ B. Gustavsen, A. Semlyen, "Rational approximation of frequency domain responses 
 - Methods pages: [compact.md:8](methods/compact.md?plain=1#L8)
 - Academy lessons: [from-components-to-circuits.md:30](../academy/from-components-to-circuits.md?plain=1#L30), [152](../academy/from-components-to-circuits.md?plain=1#L152), [225](../academy/from-components-to-circuits.md?plain=1#L225), [ring-resonator.md:37](../academy/ring-resonator.md?plain=1#L37), [487](../academy/ring-resonator.md?plain=1#L487)
 - Validation cases: [`compact/vf-paper-rms`](validation.md?plain=1#L377)
-- Code: [src/cases/compact/checks.rs:717](../src/cases/compact/checks.rs#L717), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:79](../src/compact/model/tests.rs#L79), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1385](../src/compact/param.rs#L1385), [src/device/compact.rs:703](../src/device/compact.rs#L703)
+- Code: [src/cases/compact/checks.rs:717](../src/cases/compact/checks.rs#L717), [src/compact/fit.rs:6](../src/compact/fit.rs#L6), [src/compact/mod.rs:4](../src/compact/mod.rs#L4), [src/compact/model.rs:269](../src/compact/model.rs#L269), [src/compact/model/tests.rs:79](../src/compact/model/tests.rs#L79), [src/compact/param.rs:14](../src/compact/param.rs#L14), [1384](../src/compact/param.rs#L1384), [src/device/compact.rs:703](../src/device/compact.rs#L703)
 - Other documents: [ROADMAP.md:832](../ROADMAP.md?plain=1#L832), [docs/plans/carrier-modulators.md:556](plans/carrier-modulators.md?plain=1#L556)
 
 #### Güttel and Tisseur 2017
@@ -1713,7 +1713,7 @@ G. Hadley, "High-accuracy finite-difference equations for dielectric waveguide a
 - Academy lessons: [strip-waveguide.md:82](../academy/strip-waveguide.md?plain=1#L82), [416](../academy/strip-waveguide.md?plain=1#L416), [605](../academy/strip-waveguide.md?plain=1#L605), [696](../academy/strip-waveguide.md?plain=1#L696), [725](../academy/strip-waveguide.md?plain=1#L725)
 - Validation cases: [`mode/hadley-box-low`](validation.md?plain=1#L104), [`mode/hadley-box-high`](validation.md?plain=1#L105), [`mode/hadley-corner-low`](validation.md?plain=1#L106), [`mode/hadley-corner-high`](validation.md?plain=1#L107), [`mode/hadley-corners-box-low`](validation.md?plain=1#L155), [`fdfd3d/port-mode-strip`](validation.md?plain=1#L167), [`device/waveguide-fit-neff`](validation.md?plain=1#L314), [`device/waveguide-3d-order`](validation.md?plain=1#L316), [`device/rib-eim`](validation.md?plain=1#L334), [`device/rib-hadley`](validation.md?plain=1#L335), [`stack/rib-hadley-table`](validation.md?plain=1#L488), [`eme/3d-hadley`](validation.md?plain=1#L691)
 - Examples: [README.md:48](../examples/README.md?plain=1#L48), [86](../examples/README.md?plain=1#L86), [hadley_corners.rs:6](../examples/hadley_corners.rs#L6), [rib_hadley.rs:5](../examples/rib_hadley.rs#L5), [49](../examples/rib_hadley.rs#L49), [strip_waveguide.rs:16](../examples/strip_waveguide.rs#L16)
-- Code: [src/bench/catalogue.rs:777](../src/bench/catalogue.rs#L777), [src/cases/eme/three_checks.rs:661](../src/cases/eme/three_checks.rs#L661), [src/cases/stack/checks.rs:450](../src/cases/stack/checks.rs#L450), [src/device/checks.rs:90](../src/device/checks.rs#L90), [104](../src/device/checks.rs#L104), [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/splitter_checks.rs:90](../src/device/splitter_checks.rs#L90), [97](../src/device/splitter_checks.rs#L97), [386](../src/device/splitter_checks.rs#L386), [src/device/waveguide.rs:25](../src/device/waveguide.rs#L25), [36](../src/device/waveguide.rs#L36), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:7](../src/mode/hadley.rs#L7), [src/mode/vector.rs:16](../src/mode/vector.rs#L16), [1549](../src/mode/vector.rs#L1549), [src/validation.rs:759](../src/validation.rs#L759), [766](../src/validation.rs#L766), [773](../src/validation.rs#L773), [780](../src/validation.rs#L780), [1116](../src/validation.rs#L1116), [1200](../src/validation.rs#L1200)
+- Code: [src/bench/catalogue.rs:789](../src/bench/catalogue.rs#L789), [src/cases/eme/three_checks.rs:661](../src/cases/eme/three_checks.rs#L661), [src/cases/stack/checks.rs:450](../src/cases/stack/checks.rs#L450), [src/device/checks.rs:90](../src/device/checks.rs#L90), [104](../src/device/checks.rs#L104), [src/device/fit.rs:9](../src/device/fit.rs#L9), [src/device/splitter_checks.rs:90](../src/device/splitter_checks.rs#L90), [97](../src/device/splitter_checks.rs#L97), [386](../src/device/splitter_checks.rs#L386), [src/device/waveguide.rs:25](../src/device/waveguide.rs#L25), [36](../src/device/waveguide.rs#L36), [474](../src/device/waveguide.rs#L474), [src/mode/hadley.rs:7](../src/mode/hadley.rs#L7), [src/mode/vector.rs:16](../src/mode/vector.rs#L16), [1549](../src/mode/vector.rs#L1549), [src/validation.rs:759](../src/validation.rs#L759), [766](../src/validation.rs#L766), [773](../src/validation.rs#L773), [780](../src/validation.rs#L780), [1116](../src/validation.rs#L1116), [1200](../src/validation.rs#L1200)
 - Other documents: [ROADMAP.md:745](../ROADMAP.md?plain=1#L745)
 
 #### Hagen and Rubens 1902a
@@ -1902,7 +1902,7 @@ T. Herr, V. Brasch, J. D. Jost, C. Y. Wang, N. M. Kondratiev, M. L. Gorodetsky, 
 
 M. R. Hestenes, "Inversion of Matrices by Biorthogonalization and Related Results", Journal of the Society for Industrial and Applied Mathematics 6, 51 (1958). [doi:10.1137/0106005](https://doi.org/10.1137/0106005)
 
-- Code: [src/lstsq.rs:64](../src/lstsq.rs#L64)
+- Code: [src/lstsq.rs:62](../src/lstsq.rs#L62)
 
 #### Heurtel et al. 2023
 
@@ -1914,7 +1914,7 @@ N. Heurtel, A. Fyrillas, G. D. Gliniasty, R. Le Bihan, S. Malherbe, M. Pailhas, 
 
 N. J. Higham, "Accuracy and Stability of Numerical Algorithms: Second Edition", Society for Industrial and Applied Mathematics (2002). [doi:10.1137/1.9780898718027](https://doi.org/10.1137/1.9780898718027)
 
-- Code: [src/canary_tests.rs:214](../src/canary_tests.rs#L214), [382](../src/canary_tests.rs#L382), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:619](../tests/canary.rs#L619)
+- Code: [src/canary_tests.rs:214](../src/canary_tests.rs#L214), [382](../src/canary_tests.rs#L382), [src/nonlinear/fft.rs:134](../src/nonlinear/fft.rs#L134), [src/validation/gpu.rs:34](../src/validation/gpu.rs#L34), [tests/canary.rs:625](../tests/canary.rs#L625)
 
 #### Higham and Mary 2022
 
@@ -3838,7 +3838,7 @@ C. Sanathanan, J. Koerner, "Transfer function synthesis as a ratio of two comple
 
 - Methods pages: [compact.md:14](methods/compact.md?plain=1#L14)
 - Validation cases: [`device/compact-ring-closed-form`](validation.md?plain=1#L352), [`compact/param-ring-coupling`](validation.md?plain=1#L386)
-- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [src/compact/param.rs:31](../src/compact/param.rs#L31), [1377](../src/compact/param.rs#L1377), [src/device/compact.rs:709](../src/device/compact.rs#L709), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
+- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [src/compact/param.rs:31](../src/compact/param.rs#L31), [1376](../src/compact/param.rs#L1376), [src/device/compact.rs:709](../src/device/compact.rs#L709), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
 
 #### Sanford et al. 2003
 
@@ -4354,7 +4354,7 @@ P. Triverio, S. Grivet-Talocia, M. Nakhla, "A Parameterized Macromodeling Strate
 
 - Methods pages: [compact.md:12](methods/compact.md?plain=1#L12)
 - Validation cases: [`device/compact-ring-closed-form`](validation.md?plain=1#L352), [`compact/param-ring-coupling`](validation.md?plain=1#L386), [`compact/param-ring-piecewise`](validation.md?plain=1#L391)
-- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [815](../src/cases/compact/checks.rs#L815), [src/compact/param.rs:5](../src/compact/param.rs#L5), [1380](../src/compact/param.rs#L1380), [src/device/compact.rs:706](../src/device/compact.rs#L706), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
+- Code: [src/cases/compact/checks.rs:780](../src/cases/compact/checks.rs#L780), [815](../src/cases/compact/checks.rs#L815), [src/compact/param.rs:5](../src/compact/param.rs#L5), [1379](../src/compact/param.rs#L1379), [src/device/compact.rs:706](../src/device/compact.rs#L706), [src/job/fit_checks.rs:447](../src/job/fit_checks.rs#L447)
 
 #### Tsai et al. 1993
 
@@ -4512,7 +4512,7 @@ G. Veronis, R. W. Dutton, S. Fan, "Method for sensitivity analysis of photonic c
 
 - Methods pages: [averaging.md:14](methods/averaging.md?plain=1#L14), [circuit-adjoint.md:8](methods/circuit-adjoint.md?plain=1#L8), [fdfd-adjoint.md:8](methods/fdfd-adjoint.md?plain=1#L8), [fdtd-adjoint.md:8](methods/fdtd-adjoint.md?plain=1#L8), [topology.md:12](methods/topology.md?plain=1#L12)
 - Academy lessons: [fdfd-and-adjoints.md:73](../academy/fdfd-and-adjoints.md?plain=1#L73), [496](../academy/fdfd-and-adjoints.md?plain=1#L496), [773](../academy/fdfd-and-adjoints.md?plain=1#L773)
-- Validation cases: [`fdfd/adjoint-gradient-ez`](validation.md?plain=1#L147), [`fdfd3d/adjoint-gradient`](validation.md?plain=1#L169), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L192), [`fdtd/adjoint-modes`](validation.md?plain=1#L269), [`circuit/adjoint-mzi`](validation.md?plain=1#L284), [`chip/adjoint`](validation.md?plain=1#L374), [`fdfd/fill-derivative-ez`](validation.md?plain=1#L505), [`topology/fdfd-gradient`](validation.md?plain=1#L968), [`topology/robust-epigraph`](validation.md?plain=1#L972), [`topology/litho-gradient`](validation.md?plain=1#L994)
+- Validation cases: [`fdfd/adjoint-gradient-ez`](validation.md?plain=1#L147), [`fdfd3d/adjoint-gradient`](validation.md?plain=1#L169), [`fdfd3d/recycle-adjoint`](validation.md?plain=1#L192), [`fdtd/adjoint-modes`](validation.md?plain=1#L269), [`circuit/adjoint-mzi`](validation.md?plain=1#L284), [`chip/adjoint`](validation.md?plain=1#L374), [`fdfd/fill-derivative-ez`](validation.md?plain=1#L505), [`topology/fdfd-gradient`](validation.md?plain=1#L968), [`topology/robust-epigraph`](validation.md?plain=1#L972), [`topology/litho-gradient`](validation.md?plain=1#L994), [`fdfd/s-matrix-gradient`](validation.md?plain=1#L1006)
 - Code: [src/cases/device/codesign_checks.rs:37](../src/cases/device/codesign_checks.rs#L37), [src/cases/fdfd/fill_checks.rs:677](../src/cases/fdfd/fill_checks.rs#L677), [src/cases/topology/checks.rs:54](../src/cases/topology/checks.rs#L54), [82](../src/cases/topology/checks.rs#L82), [236](../src/cases/topology/checks.rs#L236), [src/circuit/adjoint.rs:17](../src/circuit/adjoint.rs#L17), [src/fdfd/adjoint.rs:5](../src/fdfd/adjoint.rs#L5), [src/fdfd/three/adjoint.rs:5](../src/fdfd/three/adjoint.rs#L5), [src/fdtd/adjoint.rs:26](../src/fdtd/adjoint.rs#L26), [src/job/chip_checks.rs:38](../src/job/chip_checks.rs#L38), [src/validation.rs:1060](../src/validation.rs#L1060), [1214](../src/validation.rs#L1214), [1375](../src/validation.rs#L1375), [1914](../src/validation.rs#L1914), [2019](../src/validation.rs#L2019)
 - Other documents: [docs/plans/optimization.md:588](plans/optimization.md?plain=1#L588)
 

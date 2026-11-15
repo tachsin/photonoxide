@@ -41,6 +41,7 @@ use faer::{Mat, c64};
 use rayon::prelude::*;
 
 use super::Pair;
+use crate::dense::fixed;
 use crate::portable;
 use crate::sparse::{Analysis, Multifrontal};
 use crate::{Error, Result};
@@ -269,22 +270,20 @@ fn ritz(operators: &Operators, u: &[Vec<c64>]) -> Result<(Vec<c64>, Mat<c64>)> {
     let broken = || failed("the projected eigenproblem's solve failed (not a number)");
     match &operators.b {
         None => {
-            let eig = ar
-                .eigen()
+            let eig = fixed::eigen(ar.as_ref())
                 .map_err(|e| failed(format!("the projected eigenproblem: {e:?}")))?;
-            let thetas: Vec<c64> = (0..r).map(|k| eig.S()[k]).collect();
+            let thetas: Vec<c64> = (0..r).map(|k| eig.s[k]).collect();
             if thetas.iter().any(|t| t.is_nan()) {
                 return Err(broken());
             }
-            Ok((thetas, eig.U().to_owned()))
+            Ok((thetas, eig.u))
         }
         Some(b) => {
             let bu: Vec<Vec<c64>> = u.iter().map(|c| b.apply(c)).collect();
             let br = Mat::<c64>::from_fn(r, r, |i, j| dot(&bu[j], &u[i]));
-            let eig = ar
-                .generalized_eigen(&br)
+            let eig = fixed::generalized_eigen(ar.as_ref(), br.as_ref())
                 .map_err(|e| failed(format!("the projected pencil: {e:?}")))?;
-            let (alpha, beta) = (eig.S_a(), eig.S_b());
+            let (alpha, beta) = (&eig.s_a, &eig.s_b);
             if (0..r).any(|k| alpha[k].is_nan() || beta[k].is_nan()) {
                 return Err(broken());
             }
@@ -297,7 +296,7 @@ fn ritz(operators: &Operators, u: &[Vec<c64>]) -> Result<(Vec<c64>, Mat<c64>)> {
                     }
                 })
                 .collect();
-            Ok((thetas, eig.U().to_owned()))
+            Ok((thetas, eig.u))
         }
     }
 }
@@ -313,7 +312,7 @@ const STALL: usize = 6;
 /// structure the multifrontal analysis declines.
 enum Factors {
     Own(Multifrontal),
-    Faer(Box<faer::sparse::linalg::solvers::Lu<usize, c64>>),
+    Faer(Box<fixed::SparseLu>),
 }
 
 impl Factors {
@@ -321,7 +320,6 @@ impl Factors {
         match self {
             Factors::Own(f) => f.solve(b),
             Factors::Faer(lu) => {
-                use faer::linalg::solvers::Solve;
                 let mut rhs = Mat::<c64>::from_fn(b.len(), 1, |i, _| b[i]);
                 lu.solve_in_place(rhs.as_mut());
                 (0..b.len()).map(|i| rhs[(i, 0)]).collect()
@@ -383,8 +381,7 @@ impl Shifts<'_> {
     fn factor(&self, z: c64) -> Result<Factors> {
         let m = Self::matrix(self.pencil, z)?;
         let Some(analysis) = &self.analysis else {
-            return m
-                .sp_lu()
+            return fixed::SparseLu::new(m.as_ref())
                 .map(|lu| Factors::Faer(Box::new(lu)))
                 .map_err(|e| failed(format!("the shifted matrix at {z} is singular: {e:?}")));
         };
@@ -735,11 +732,10 @@ pub(crate) fn hankel(
         .collect();
     let h = Mat::<c64>::from_fn(m, m, |i, j| mu[i + j]);
     let shifted = Mat::<c64>::from_fn(m, m, |i, j| mu[i + j + 1]);
-    let eig = shifted
-        .generalized_eigen(&h)
+    let eig = fixed::generalized_eigen(shifted.as_ref(), h.as_ref())
         .map_err(|e| failed(format!("the Hankel pencil: {e:?}")))?;
     let mut values: Vec<c64> = (0..m)
-        .map(|k| centre + radius * eig.S_a()[k] / eig.S_b()[k])
+        .map(|k| centre + radius * eig.s_a[k] / eig.s_b[k])
         .collect();
     values.sort_by(|a, b| a.re.total_cmp(&b.re).then(a.im.total_cmp(&b.im)));
     Ok(values)

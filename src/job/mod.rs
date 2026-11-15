@@ -532,6 +532,7 @@ mod line_checks;
 mod line_tests;
 mod modes;
 mod modes_checks;
+mod modes_trust;
 mod nonlinear;
 mod nonlinear_checks;
 mod nonlinear_pulse_checks;

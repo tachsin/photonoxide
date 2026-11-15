@@ -425,8 +425,8 @@ fn canary_least_squares_and_its_jacobi_fallback() {
 /// The library's least squares (faer's QR, then faer's thin SVD of R) on exact inputs, bit for
 /// bit: the hash of the solution, printed as `FAER r_lstsq <size> <hash>` beside
 /// `tests/canary.rs`'s `canary_faer_dense_kernels_bit_for_bit` (faer_bits.rs says how). Asserted:
-/// the same bits computed again and on faer sequential, 1, 2 and 5 threads; not asserted: the
-/// hashes against another system's (#822).
+/// the same bits computed again, and sequential and on 1 to 5 threads (its QR and SVD are faer's,
+/// sequential: `crate::dense::fixed`); not asserted: the hashes against another system's (#822).
 #[test]
 fn canary_faer_least_squares_bit_for_bit() {
     fn items() -> Vec<faer_bits::Item> {
@@ -448,6 +448,69 @@ fn canary_faer_least_squares_bit_for_bit() {
     }
     let Some(ways) =
         faer_bits::every_way("canary_tests::canary_faer_least_squares_bit_for_bit", items)
+    else {
+        return;
+    };
+    faer_bits::assert_what_holds_on_one_system(&ways);
+}
+
+/// The library's sparse LU (faer's supernodal LU on four tasks, `crate::dense::fixed::SparseLu`)
+/// bit for bit: a solve and a transposed solve of a complex five-point operator on an n × n grid
+/// (a mode solver's shape: −∇² + k² ε with ε random about 1, 2 + 0.1i in the middle), its
+/// entries from [`faer_bits::Inputs`], printed as `FAER c_sparse_lu <n> <hash>`. Asserted: the
+/// same bits computed again, and sequential and on 1 to 5 threads. faer's own `sp_lu` (all of
+/// rayon's threads) gave the same bits on 1 to 5 threads at 60 × 60 but other bits on 2 to 5
+/// than on one at 200 × 200 (40 000 unknowns; in November 2026, on x86-64), as it did in the mode
+/// solvers (#822). Not asserted: the hashes against another system's.
+#[test]
+fn canary_sparse_lu_bit_for_bit() {
+    fn items() -> Vec<faer_bits::Item> {
+        [60usize, 200]
+            .into_iter()
+            .map(|n| {
+                let mut g = faer_bits::Inputs::new(7000 + n as u64);
+                let at = |i: usize, j: usize| i * n + j;
+                let mut triplets = Vec::with_capacity(5 * n * n);
+                for i in 0..n {
+                    for j in 0..n {
+                        let middle =
+                            (n / 3..2 * n / 3).contains(&i) && (n / 3..2 * n / 3).contains(&j);
+                        let eps = if middle {
+                            c64::new(2.0, 0.1)
+                        } else {
+                            c64::new(1.0, 0.0)
+                        } + c64::new(g.next() / 64.0, 0.0);
+                        triplets.push(Triplet::new(at(i, j), at(i, j), eps - 4.0));
+                        for (di, dj) in [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)] {
+                            let (p, q) = (i as isize + di, j as isize + dj);
+                            if (0..n as isize).contains(&p) && (0..n as isize).contains(&q) {
+                                triplets.push(Triplet::new(
+                                    at(i, j),
+                                    at(p as usize, q as usize),
+                                    c64::new(1.0 + g.next() / 64.0, 0.0),
+                                ));
+                            }
+                        }
+                    }
+                }
+                let a = SparseColMat::<usize, c64>::try_new_from_triplets(n * n, n * n, &triplets)
+                    .expect("the operator");
+                let lu = crate::dense::fixed::SparseLu::new(a.as_ref()).expect("its LU");
+                let b = faer_bits::complex(n * n, 2, 8000 + n as u64);
+                let x = lu.solve(b.as_ref());
+                let y = lu.solve_transpose(b.as_ref());
+                faer_bits::Item {
+                    name: "c_sparse_lu".to_owned(),
+                    size: format!("{n}x{n}"),
+                    hash: faer_bits::Bits::new()
+                        .mat(x.as_ref())
+                        .mat(y.as_ref())
+                        .finish(),
+                }
+            })
+            .collect()
+    }
+    let Some(ways) = faer_bits::every_way("canary_tests::canary_sparse_lu_bit_for_bit", items)
     else {
         return;
     };

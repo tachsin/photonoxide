@@ -75,18 +75,22 @@ const USAGE: &str = "usage:
   photonoxide
       open the studio, to run a job from jobs/ or reopen a run from runs/
   photonoxide run <job.toml|.json|.yaml> [--out <dir>] [--headless] [--linger <seconds>]
-                  [--timeout <minutes>]
+                  [--timeout <minutes>] [--strict]
       run a job; the studio window shows it live and closes by itself when it's done
       (--headless: no window; --out: where run directories go, default runs/;
        --linger: how long the window stays after the run, default 5 s;
-       --timeout: a hard limit, the shorter of it and the job's own applying).
+       --timeout: a hard limit, the shorter of it and the job's own applying;
+       --strict: exit 5 when the run finished with a warning: or convergence: line on
+       stderr, a number it says may be wrong, unchecked or not converged; the results are
+       written as usual).
       [--workers <n>] [--worker <host:port>]... [--token <token>] [--task-timeout <seconds>]
       farm the sweep's points: to n workers started here, and to workers listening
       elsewhere (their token: --token or PHOTONOXIDE_FARM_TOKEN); the same record, gathered
       in order; a point past --task-timeout fails, and its worker is dropped
       It prints the run's directory, which holds results.json at the end
       (docs/runs.md); it exits 0 finished, 1 failed, 2 usage, 3 stopped by its
-      timeout, 4 stopped on request (the window closed early)
+      timeout, 4 stopped on request (the window closed early), 5 finished with a warning
+      or a number unchecked or not converged (only with --strict)
   photonoxide worker [--listen <address>] [--token <token>] [--slots <n>] [--once]
       serve coordinators' sweeps and jobs, one coordinator at a time, on 127.0.0.1:7878
       by default (an address beyond this machine needs a token); --slots: tasks at once,
@@ -283,6 +287,7 @@ fn run(args: &[String]) -> ExitCode {
     let mut headless = false;
     let mut linger = Duration::from_secs(5);
     let mut timeout: Option<Duration> = None;
+    let mut strict = false;
     let mut farming = farm::Options::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -293,6 +298,7 @@ fn run(args: &[String]) -> ExitCode {
         }
         match a.as_str() {
             "--headless" => headless = true,
+            "--strict" => strict = true,
             "--out" => match it.next() {
                 Some(dir) => out = PathBuf::from(dir),
                 None => return usage(),
@@ -321,8 +327,10 @@ fn run(args: &[String]) -> ExitCode {
         Ok(j) => j,
         Err(e) => return fail(e),
     };
-    // what the job does that it may not mean, though it runs: a chip's misspelled parameter
-    for w in job::warnings(&job) {
+    // what the job does that it may not mean, though it runs: a chip's misspelled parameter, a
+    // modes job's guide with too few cells across it
+    let warned = job::warnings(&job);
+    for w in &warned {
         eprintln!("warning: {w}");
     }
     // this machine's benchmark records for auto, and the external libraries if the job needs
@@ -395,13 +403,28 @@ fn run(args: &[String]) -> ExitCode {
     let _ = (headless, linger, finished);
     match worker.join() {
         Ok(Ok(stopped)) => {
-            // what results.json says of grids not known to have converged, said here too
-            if let Ok(results) = job::results::Results::read(&dir) {
-                for line in results.convergence_lines() {
-                    eprintln!("{line}");
+            // what the run recorded its numbers may not mean (a modes job's mode at its
+            // window's edge, no mode found), but for what was said before it started
+            let mut warnings = warned.len();
+            if let Ok(recorded) = job::results::warnings_in(&dir) {
+                for w in recorded.iter().filter(|w| !warned.contains(w)) {
+                    eprintln!("warning: {w}");
+                    warnings += 1;
                 }
             }
-            ended(stopped)
+            // the scheme a solver ran, and what results.json says of grids not known to have
+            // converged, said here too
+            let mut unchecked = 0;
+            if let Ok(results) = job::results::Results::read(&dir) {
+                for line in results.scheme_lines() {
+                    eprintln!("{line}");
+                }
+                for line in results.convergence_lines() {
+                    eprintln!("{line}");
+                    unchecked += 1;
+                }
+            }
+            ended(stopped, strict.then_some((warnings, unchecked)))
         }
         Ok(Err(e)) => fail(e),
         Err(_) => fail("the job panicked"),
@@ -409,10 +432,23 @@ fn run(args: &[String]) -> ExitCode {
 }
 
 /// The exit code of a run that ended without an error: 0 finished, 3 stopped by its timeout, 4
-/// stopped on request (docs/runs.md).
-fn ended(stopped: Option<StopReason>) -> ExitCode {
+/// stopped on request, and with `--strict` (`strict`: its `warning:` and `convergence:` lines)
+/// 5 finished with any (docs/runs.md). A stop comes first: a run that didn't finish has
+/// numbers missing, not only doubtful.
+fn ended(stopped: Option<StopReason>, strict: Option<(usize, usize)>) -> ExitCode {
     match stopped {
-        None => ExitCode::SUCCESS,
+        None => match strict {
+            Some((warnings, unchecked)) if warnings + unchecked > 0 => {
+                eprintln!(
+                    "--strict: the run finished with {warnings} warning{} and {unchecked} \
+                     convergence line{} (above): exit 5",
+                    if warnings == 1 { "" } else { "s" },
+                    if unchecked == 1 { "" } else { "s" }
+                );
+                ExitCode::from(5)
+            }
+            _ => ExitCode::SUCCESS,
+        },
         Some(StopReason::Timeout) => {
             eprintln!("stopped: the run reached its timeout");
             ExitCode::from(3)

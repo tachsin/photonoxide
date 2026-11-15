@@ -86,16 +86,16 @@ impl Bloch {
             (false, true) => zero,
             (false, false) => b.s12[(i - n, j - n)],
         });
-        let eig = a.generalized_eigen(&m).map_err(|e| {
+        let eig = crate::dense::fixed::generalized_eigen(a.as_ref(), m.as_ref()).map_err(|e| {
             Error::invalid("eme bloch", format!("the period's eigenproblem: {e:?}"))
         })?;
-        let (alpha, beta) = (eig.S_a(), eig.S_b());
+        let (alpha, beta) = (&eig.s_a, &eig.s_b);
         // ln λ = ln α − ln β: finite or ±∞ in its real part, never NaN unless both vanish
         let logs: Vec<c64> = (0..2 * n)
             .map(|i| portable::complex::ln(alpha[i]) - portable::complex::ln(beta[i]))
             .collect();
         // each eigenvector's share in each of the section's modes, both ways
-        let u = eig.U();
+        let u = &eig.u;
         let shares: Vec<Vec<f64>> = (0..2 * n)
             .map(|i| {
                 let w: Vec<f64> = (0..n)
