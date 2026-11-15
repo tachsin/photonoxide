@@ -127,6 +127,7 @@ Each methods page, lesson, example, job, document and source file that cites a s
 - [`optimize_grating_pareto.rs`](../examples/optimize_grating_pareto.rs): [Passoni et al. 2017](references.md#passoni-et-al-2017)
 - [`optimize_mesh.rs`](../examples/optimize_mesh.rs): [Clements et al. 2016](references.md#clements-et-al-2016), [Pai et al. 2019](references.md#pai-et-al-2019)
 - [`optimize_mesh_selfconfig.rs`](../examples/optimize_mesh_selfconfig.rs): [Pérez-López et al. 2020](references.md#pérez-lópez-et-al-2020)
+- [`optimize_metagrating.rs`](../examples/optimize_metagrating.rs): [Chen et al. 2024](references.md#chen-et-al-2024)
 - [`optimize_mode_converter.rs`](../examples/optimize_mode_converter.rs): [Chen et al. 2024](references.md#chen-et-al-2024)
 - [`optimize_mzi_lattice.rs`](../examples/optimize_mzi_lattice.rs): [Daubechies 1988](references.md#daubechies-1988), [Jinguji and Kawachi 1995](references.md#jinguji-and-kawachi-1995), [Jinguji and Oguma 2000](references.md#jinguji-and-oguma-2000)
 - [`optimize_ring_flat.rs`](../examples/optimize_ring_flat.rs): [Little et al. 1997](references.md#little-et-al-1997)

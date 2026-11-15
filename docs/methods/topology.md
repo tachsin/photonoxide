@@ -457,7 +457,10 @@ Arrieta et al.'s hyperparameters, measured by the testbed's metric) and
 [`optimize_demux_robust`](../../examples/optimize_demux_robust.rs) (Christiansen & Sigmund's
 demultiplexer: double Helmholtz filtering and the eroded, nominal and dilated realizations
 optimized together). Each records its design, which the plain run solves and `--full` optimizes
-again.
+again. [`optimize_metagrating`](../../examples/optimize_metagrating.rs) explores in 2D and
+verifies in 3D: the testbed's metagrating, stripes designed on a periodic cell (the conic filter
+made periodic by wrapping the pattern, Meep's damping below β = 32, the smoothed projection
+above), then the testbed's published designs and ours solved in 3D FDFD.
 
 ## The job
 
