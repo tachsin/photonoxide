@@ -58,8 +58,7 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
                 1e-12,
                 Measured,
                 "one process reached two ways, the same RK4 steps on equations that are the same once the fundamental is split: round-off, 2.3e-15 and 2.4e-15 with and without the loss",
-            )
-            .varying(),
+            ),
         ),
         (
             "job/nonlinear-fwm-depleted-loss",
@@ -69,8 +68,7 @@ fn job_rules() -> Vec<(&'static str, Rule)> {
                 4e-12,
                 Measured,
                 "the job's 2000 RK4 steps' error, 3.00e-12, rounded up (3.60e-12 with no loss); the reference's own on 2000 to 200 000 steps is 2.9e-14 to 9.4e-14 against 400 000",
-            )
-            .varying(),
+            ),
         ),
         (
             "job/nonlinear-ring-shg",
@@ -181,8 +179,7 @@ fn overlap_rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Measured,
                 "RK4's error on 500 steps, 7.2e-11, rounded up: fourth order (1.2e-9, 7.2e-11, 4.5e-12 and 2.8e-13 on 250 to 2000 steps), so 1000's is a sixteenth of it",
-            )
-            .varying(),
+            ),
         ),
     ]
 }

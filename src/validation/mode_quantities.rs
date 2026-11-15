@@ -26,8 +26,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Exact,
                 "a Gaussian's midpoint sums at 20 cells a width are exact to round-off, and the mirror images double the halves exactly",
-            )
-            .varying(),
+            ),
         ),
         (
             "mode/effective-area-slab-te",
@@ -117,8 +116,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Exact,
                 "a fold is the whole window's discrete problem, so its quantities agree to the eigensolver's convergence (2e-13 found at 20, 10 and 5 nm), as its modes' indices do (mode::vector's walls_fold_a_symmetric_waveguide_exactly, 1e-10); with E_z one-sided beside a wall they differed by 7.4e-3, 9.1e-4 and 1.1e-4",
-            )
-            .varying(),
+            ),
         ),
     ]
 }

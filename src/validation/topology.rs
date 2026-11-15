@@ -178,8 +178,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-8,
                 Measured,
                 "fourth-order differences of a function of the densities alone: 1.0e-8, 4.0e-10 and 1.7e-9 at δ = 1e-4, 1e-3 and 1e-2 (the_helmholtz_study), round-off below and truncation above; at δ = 1e-3 held to 1e-8",
-            )
-            .varying(),
+            ),
         ),
         (
             "topology/area-shapes",

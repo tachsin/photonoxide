@@ -13,7 +13,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
 }
 
 fn grid(measure: super::Measure, tolerance: f64, why: &'static str) -> Rule {
-    Rule::new(measure, Discretisation, tolerance, Measured, why).varying()
+    Rule::new(measure, Discretisation, tolerance, Measured, why)
 }
 
 fn order(why: &'static str) -> Rule {
@@ -131,8 +131,7 @@ fn cavity_rules() -> Vec<(&'static str, Rule)> {
                 1e-12,
                 Measured,
                 "the sums of a Gaussian sampled finely are its integral to round-off: 3.3e-15 to 2.2e-14 on 101 to 301 points a side, growing with the sums' length",
-            )
-            .varying(),
+            ),
         ),
         (
             "nonlinear/pairs-filtered-purity",
@@ -142,8 +141,7 @@ fn cavity_rules() -> Vec<(&'static str, Rule)> {
                 1e-11,
                 Measured,
                 "the singular value decomposition's round-off, as for the down-converted pairs' purity: 1.3e-15 to 4.4e-15 on 101 to 301 points a side",
-            )
-            .varying(),
+            ),
         ),
         (
             "nonlinear/opo-threshold-doubly",
@@ -153,8 +151,7 @@ fn cavity_rules() -> Vec<(&'static str, Rule)> {
                 1e-13,
                 Measured,
                 "the bisection's stop, 1e-13 relative: RK4's error is below it on 50 to 400 steps (the error 2.6e-14 to 5.0e-14)",
-            )
-            .varying(),
+            ),
         ),
         (
             "nonlinear/opo-threshold-singly",

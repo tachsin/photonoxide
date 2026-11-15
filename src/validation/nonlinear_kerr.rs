@@ -15,7 +15,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
 }
 
 fn grid(measure: super::Measure, tolerance: f64, why: &'static str) -> Rule {
-    Rule::new(measure, Discretisation, tolerance, Measured, why).varying()
+    Rule::new(measure, Discretisation, tolerance, Measured, why)
 }
 
 fn order(why: &'static str) -> Rule {
@@ -134,8 +134,7 @@ fn pulse_rules() -> Vec<(&'static str, Rule)> {
                 2e-9,
                 Measured,
                 "the drift on 1000 steps, 1.36e-9, rounded up: the RK4 nonlinear step's (2.0e-8, 1.4e-9, 8.7e-11 and 5.8e-12 on 500 to 4000)",
-            )
-            .varying(),
+            ),
         ),
     ]
 }

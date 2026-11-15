@@ -59,8 +59,7 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-10,
                 Noted,
                 "the sampling is the only error (the exact roots are found to the last bit): the tolerance asked of a sweep, 1e-10, the sweep run at a third of it so that its own estimate, noted, is under a third",
-            )
-            .varying(),
+            ),
         ),
         (
             "sweep/mode-crossing",

@@ -10,8 +10,7 @@ const TABLE_1: &str = "half a unit of each value's last printed digit, the error
 
 pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
     let table = |numerical| Rule::new(Absolute, Reference, 1.0, numerical, TABLE_1);
-    let grid =
-        |tolerance, why| Rule::new(Relative, Discretisation, tolerance, Measured, why).varying();
+    let grid = |tolerance, why| Rule::new(Relative, Discretisation, tolerance, Measured, why);
     vec![
         (
             "nonlinear/sinc2-half-maximum",
@@ -87,12 +86,12 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
                 1e-12,
                 Measured,
                 "the invariants are exact for the equations; RK4's drift from them, 9.2e-14 on 250 steps and 2.4e-15 on 500, is at round-off on 1000",
-            )
-            .varying(),
+            ),
         ),
         (
             "nonlinear/pairs-gaussian-purity",
-            grid(1e-11, "on 201 points a side the grid's error is below the SVD's round-off: 3.4e-13, and 4.4e-13 and 2.3e-12 on 301 and 401 (on 101 it is 1.3e-3)"),
+            // its singular values are faer's, whose kernels round differently on ARM (#822)
+            grid(1e-11, "on 201 points a side the grid's error is below the SVD's round-off: 3.4e-13, and 4.4e-13 and 2.3e-12 on 301 and 401 (on 101 it is 1.3e-3)").varying(),
         ),
         (
             "nonlinear/coupled-rk4-order",

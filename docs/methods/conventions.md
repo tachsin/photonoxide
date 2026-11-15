@@ -53,7 +53,13 @@ whatever its number of cores or `RAYON_NUM_THREADS`, and so on every machine of 
 x86-64 every validation row, on ARM all but five (below).
 Across systems the same bits are wanted but not promised, and CI checks what shows: the examples'
 outputs, written on Linux, are compared on Windows and macOS (Apple silicon) too, the 3D devices
-and the validation report by hand (the Systems workflow).
+and the validation report by hand (the Systems workflow). In November 2026 (#822) its 996
+cases gave the same 17 digits on Linux and Windows in every one, and on all three systems in
+677; the others differ on macOS alone, in faer's kernels on ARM. The report prints each case
+only to the digits that hold everywhere, and 27 cases' Error cells read "within it (digits vary
+by system)": the ones whose error itself moves between systems (the compact models' fits, AAA,
+the EME and topology gradients, among them). A case that gives the same 17 digits on all three
+systems isn't marked so.
 
 What can differ between systems, and what photonoxide does about each:
 
