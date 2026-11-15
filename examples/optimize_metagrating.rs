@@ -64,8 +64,8 @@ use std::time::Instant;
 
 use num_complex::Complex64 as c64;
 use photonoxide::fdfd::{
-    Axis, Boundaries, Boundaries3d, Edges, Field2d, Field3d, Grid, Grid3d, Polarization,
-    Solver2d, Solver3d,
+    Axis, Boundaries, Boundaries3d, Edges, Field2d, Field3d, Grid, Grid3d, Polarization, Solver2d,
+    Solver3d,
 };
 use photonoxide::topology::{Density, Edge, Projection, SmoothedProjection};
 use photonoxide::units::Wavelength;
@@ -777,7 +777,12 @@ fn three_d(ours: &Pattern, log: &mut std::fs::File) -> photonoxide::Result<Vec<[
             let eta = cell.order_power(&s.solve(&source)?) / incident;
             out[d][k] = eta;
             progress(
-                &format!("design {} of {}: {:.4} %", d + 1, patterns.len(), 100.0 * eta),
+                &format!(
+                    "design {} of {}: {:.4} %",
+                    d + 1,
+                    patterns.len(),
+                    100.0 * eta
+                ),
                 &mut note,
             );
         }
@@ -856,8 +861,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.print();
 
-
-
     let h = SCALES.map(|s| period() / (PIXELS * s) as f64);
     let planes: Vec<Plane> = SCALES.iter().map(|&s| Plane::new(s)).collect();
     let incident: Vec<f64> = planes
@@ -893,11 +896,20 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         println!("Our stripes, optimized in 2D on cells of 5.8 nm:");
         let design = Search::new()?.optimize()?;
         if write {
-            std::fs::write(OURS_FILE, to_hex(&design) + "
-").expect("the design written");
+            std::fs::write(
+                OURS_FILE,
+                to_hex(&design)
+                    + "
+",
+            )
+            .expect("the design written");
             println!("  written to {OURS_FILE}");
         } else {
-            let differing = design.iter().zip(recorded()).filter(|(a, b)| **a != *b).count();
+            let differing = design
+                .iter()
+                .zip(recorded())
+                .filter(|(a, b)| **a != *b)
+                .count();
             checks.count("pixels unlike the recorded design", differing, 0);
         }
         design
