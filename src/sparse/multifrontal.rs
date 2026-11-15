@@ -312,6 +312,59 @@ impl Analysis {
     pub(crate) fn factor_entries(&self) -> usize {
         self.entries
     }
+
+    /// The entries the factors take as stored: a front's L is its m × k block whole, the upper
+    /// triangle of its diagonal block included (L D Lᵀ), and an LU's U is its k × (m − k) panel.
+    pub(crate) fn stored_entries(&self) -> usize {
+        self.fronts
+            .iter()
+            .map(|f| {
+                let k = f.end - f.begin;
+                let p = f.below.len();
+                (k + p) * k + if self.symmetric { 0 } else { k * p }
+            })
+            .sum()
+    }
+
+    /// The most entries the factorization holds at once when its fronts are done one at a time
+    /// in the order [`Multifrontal`] visits them (each front's children first, the roots in
+    /// their order): the factors stored so far, the updates still waiting for their parents,
+    /// and the front being done, which is m × m while its children's updates are added and then
+    /// stays beside its stored L (m × k), U (k × p) and update (p × p) until they are copied
+    /// out. The sides, the matrix's copies, are not in it. A factorization with threads holds
+    /// more, the updates of the subtrees it does side by side.
+    pub(crate) fn peak_entries(&self) -> usize {
+        let (mut stored, mut waiting, mut peak) = (0usize, 0usize, 0usize);
+        let update = |s: usize| self.fronts[s].below.len() * self.fronts[s].below.len();
+        // (front, how many of its children are done)
+        let mut stack: Vec<(usize, usize)> = Vec::new();
+        for &root in &self.roots {
+            stack.push((root, 0));
+            while let Some(&(s, done)) = stack.last() {
+                let front = &self.fronts[s];
+                if done < front.children.len() {
+                    if let Some(top) = stack.last_mut() {
+                        top.1 += 1;
+                    }
+                    stack.push((front.children[done], 0));
+                    continue;
+                }
+                stack.pop();
+                let k = front.end - front.begin;
+                let p = front.below.len();
+                let m = k + p;
+                let kept = (m * k) + if self.symmetric { 0 } else { k * p };
+                // the front, with all its children's updates still waiting
+                peak = peak.max(stored + waiting + m * m);
+                waiting -= front.children.iter().map(|&c| update(c)).sum::<usize>();
+                // the eliminated front, beside the L, U and update copied out of it
+                peak = peak.max(stored + waiting + m * m + kept + p * p);
+                stored += kept;
+                waiting += p * p;
+            }
+        }
+        peak
+    }
 }
 
 /// A front's factors: the diagonal block's L (unit, strictly below) and U (on and above) with
