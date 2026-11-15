@@ -64,6 +64,7 @@ pub(crate) mod heated_checks;
 #[cfg(test)]
 mod heated_tests;
 pub(crate) mod ideal;
+mod loops;
 mod netlist;
 pub mod objective;
 mod solve;

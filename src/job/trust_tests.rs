@@ -364,3 +364,323 @@ fn a_modes_run_says_its_scheme() {
         lines[0]
     );
 }
+
+// ---- batch 2: rings, chips and optimizations (#783's A10, A12, A13, A14) ----
+
+/// A job's run in memory, checked: its warnings, in order.
+fn warned(job: &Job) -> Vec<String> {
+    check(job).unwrap();
+    let mut run = Run::in_memory();
+    execute(job, &mut run, &Stop::new(None)).unwrap();
+    run.lines()
+        .iter()
+        .filter_map(|l| match serde_json::from_str(l) {
+            Ok(Event::Warning { text }) => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The count a band warning asks for: "take points at least N".
+fn asked_points(warning: &str) -> usize {
+    let at = warning.find("take points at least ").expect("a count") + 21;
+    warning[at..].split(' ').next().unwrap().parse().unwrap()
+}
+
+#[test]
+fn a_ring_s_band_coarser_than_its_resonance_is_warned_of() {
+    // the device's own band, 100 nm at 101 points: a 1 nm step against a resonance under 0.1 nm
+    // wide (the experimentalist's −15 dB for a −45 dB dip)
+    let ring = |task: &str| device_job("all-pass ring", "    radius: \"10\"\n", task);
+    let w = warned(&ring("  kind: spectrum\n"));
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with(
+            "the band's step, 1.00 nm (101 points from 1.5 to 1.6 um), is coarser than the \
+             all-pass ring's resonance (its resonance at "
+        ) && w[0].contains("over its loaded Q of ")
+            && w[0].contains("nm wide at half its depth: every sample can miss a dip's bottom"),
+        "{}",
+        w[0]
+    );
+    // the count it asks for clears it; one fewer doesn't (the step then the width or finer)
+    let need = asked_points(&w[0]);
+    let band = |points: usize| {
+        format!("  kind: spectrum\n  from_um: 1.5\n  to_um: 1.6\n  points: {points}\n")
+    };
+    assert!(warned(&ring(&band(need))).is_empty());
+    assert_eq!(warned(&ring(&band(need - 1))).len(), 1);
+    // a study's points: the narrowest of them, said once
+    let sweep =
+        ring("  kind: sweep\n  axis:\n    - { parameter: gap, from: 0.2, to: 0.3, points: 3 }\n");
+    let w = warned(&sweep);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].contains("at the study's point 3, its narrowest"),
+        "{}",
+        w[0]
+    );
+}
+
+#[test]
+fn a_chip_s_band_coarser_than_its_loop_s_resonance_is_warned_of() {
+    // `photonoxide new chip`: 2001 points over 20 nm, a step an eighth of the dips' width
+    let text = templates::template("chip").unwrap().text.to_owned();
+    assert!(warned(&yaml(&text)).is_empty());
+    // its old 201 points, a 0.1 nm step against 0.081 nm: T = 0.812 where the dip is 0.712
+    let coarse = yaml(&text.replace("points: 2001", "points: 201"));
+    let w = warned(&coarse);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with(
+            "the band's step, 0.100 nm (201 points from 1.54 to 1.56 um), is coarser than the \
+             narrowest resonance of the chip's loop through coupler, ring (from its round trip at \
+             1.5500 um), 0.081"
+        ),
+        "{}",
+        w[0]
+    );
+    assert_eq!(asked_points(&w[0]), 248);
+    // the dip the 201 points show against the one the 2001 do
+    let through_min = |job: &Job| {
+        let mut run = Run::in_memory();
+        execute(job, &mut run, &Stop::new(None)).unwrap();
+        run.lines()
+            .iter()
+            .filter_map(|l| match serde_json::from_str(l) {
+                Ok(Event::SParameters { s, .. }) => {
+                    Some(s[1][0][0] * s[1][0][0] + s[1][0][1] * s[1][0][1])
+                }
+                _ => None,
+            })
+            .fold(f64::INFINITY, f64::min)
+    };
+    let (shown, fine) = (through_min(&coarse), through_min(&yaml(&text)));
+    assert!(shown > 0.8 && fine < 0.72, "{shown} {fine}");
+}
+
+#[test]
+fn a_ring_s_radius_below_the_bend_s_range_is_warned_of() {
+    // #783's A12: the ring's mode is the straight strip's, which the bend's model holds from 5 µm
+    let ring = |radius: &str| {
+        device_job(
+            "all-pass ring",
+            &format!("    radius: \"{radius}\"\n"),
+            SPECTRUM,
+        )
+    };
+    let w = warnings(&ring("1"));
+    assert_eq!(
+        w,
+        [
+            "the all-pass ring's radius, 1 um, is outside 5 to 10000 um, where its analytic model \
+          holds (its stated error, FSR within 0.5 % of 3D, is measured there): take radius \
+          within it, or a model that holds there"
+        ]
+    );
+    assert!(warnings(&ring("5")).is_empty());
+    // the run records it too
+    assert!(warned(&ring("1")).contains(&w[0]));
+    // the 3D model takes the same straight mode
+    let three = yaml(
+        "name: d\ndevice:\n  kind: add-drop ring\n  fidelity: 3D\n  parameters:\n    radius: \"3\"\n\
+         task:\n  kind: spectrum\n",
+    );
+    assert_eq!(
+        warnings(&three),
+        [
+            "the add-drop ring's radius, 3 um, is outside 5 to 10000 um, where its 3D model holds: \
+          take radius within it, or a model that holds there"
+        ]
+    );
+    // a study's designs, together
+    let sweep = device_job(
+        "all-pass ring",
+        "    radius: \"10\"\n",
+        "  kind: sweep\n  from_um: 1.5\n  to_um: 1.6\n  points: 3\n  axis:\n    - { parameter: radius, from: 2, to: 20, points: 4 }\n",
+    );
+    let w = warnings(&sweep);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with(
+            "the study's designs take the all-pass ring's radius from 2 to 20 um, 1 of 4 outside \
+             5 to 10000 um"
+        ),
+        "{}",
+        w[0]
+    );
+    // a chip's bend, named by its instance
+    let chip = yaml(
+        "name: c\ncircuit:\n  instance:\n    - name: arc\n      device: { kind: bend, fidelity: \
+         analytic, parameters: { radius: \"2\" } }\n  port:\n    - { name: a, at: arc.o1 }\n    \
+         - { name: b, at: arc.o2 }\ntask:\n  kind: spectrum\n  from_um: 1.54\n  to_um: 1.56\n  \
+         points: 11\n",
+    );
+    let w = warnings(&chip);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with("arc: the bend's radius, 2 um, is outside 5 to 10000 um"),
+        "{}",
+        w[0]
+    );
+    // an optimization that may take it there
+    let opt = device_job(
+        "all-pass ring",
+        "    radius: \"10\"\ntimeout_minutes: 1\n",
+        "  kind: optimize\n  method: lbfgsb\n  seed: 1\n  evaluations: 10\n  variable:\n    - { parameter: radius, from: 1, to: 20 }\n  objective:\n    - { name: Q, goal: maximize }\n",
+    );
+    let w = warnings(&opt);
+    assert!(
+        w.iter().any(|w| w.starts_with("the optimization's radius goes from 1 to 20 um, and the all-pass ring's analytic model holds over 5 to 10000 um")),
+        "{w:?}"
+    );
+}
+
+#[test]
+fn the_built_in_templates_warn_of_nothing() {
+    for t in templates::TEMPLATES {
+        let job = Job::parse_as(t.text, Format::Yaml).unwrap();
+        assert!(
+            warnings(&job).is_empty(),
+            "{}: {:?}",
+            t.name,
+            warnings(&job)
+        );
+    }
+}
+
+/// The designer's switch (#783's A13): two 3 dB couplers, a thermo-optic shifter 100 µm long in
+/// one arm and a waveguide as long in the other, unheated; with `fixed`, a waveguide of the
+/// shifter's length in series with it.
+fn switch(fixed: bool) -> Job {
+    let (heater_out, guide) = if fixed {
+        (
+            "[heater.o2, guide.o1]\n    - [guide.o2, combine.o2]",
+            "\n    - { name: guide, device: { kind: waveguide, fidelity: analytic, parameters: { length: \"100\" } } }",
+        )
+    } else {
+        ("[heater.o2, combine.o2]", "")
+    };
+    yaml(&format!(
+        "name: s\ncircuit:\n  instance:\n    - {{ name: split, component: coupler, values: {{ coupling: 0.5 }} }}\n    \
+         - {{ name: heater, device: {{ kind: thermo-optic phase shifter, fidelity: analytic, parameters: {{ length: \"100\" }} }} }}\n    \
+         - {{ name: reference, device: {{ kind: waveguide, fidelity: analytic, parameters: {{ length: \"100\" }} }} }}\n    \
+         - {{ name: combine, component: coupler, values: {{ coupling: 0.5 }} }}{guide}\n  \
+         connections:\n    - [split.o3, heater.o1]\n    - {heater_out}\n    - [split.o4, reference.o1]\n    \
+         - [reference.o2, combine.o1]\n  port:\n    - {{ name: in, at: split.o1 }}\n    \
+         - {{ name: in2, at: split.o2 }}\n    \
+         - {{ name: a, at: combine.o3 }}\n    - {{ name: b, at: combine.o4 }}\n\
+         task:\n  kind: spectrum\n  from_um: 1.55\n  to_um: 1.55\n  points: 1\n"
+    ))
+}
+
+/// The share of a switch's output in its brighter port, unheated.
+fn brighter_share(job: &Job) -> f64 {
+    let mut run = Run::in_memory();
+    execute(job, &mut run, &Stop::new(None)).unwrap();
+    let s = run
+        .lines()
+        .iter()
+        .find_map(|l| match serde_json::from_str(l) {
+            Ok(Event::SParameters { s, .. }) => Some(s),
+            _ => None,
+        })
+        .unwrap();
+    let p = |q: usize| s[q][0][0] * s[q][0][0] + s[q][0][1] * s[q][0][1];
+    p(2).max(p(3)) / (p(2) + p(3))
+}
+
+#[test]
+fn a_shifter_without_its_guide_s_propagation_is_warned_of() {
+    // the shifter's component is the phase its heater adds and its loss: the arm of it alone
+    // lacks the waveguide's 2π n_eff L/λ, so the unheated switch isn't in either state
+    let broken = switch(false);
+    let shown = brighter_share(&broken);
+    assert!(shown < 0.99, "{shown}");
+    let w = warnings(&broken);
+    assert_eq!(
+        w,
+        [
+            "heater: the thermo-optic phase shifter's component is the phase it adds and its loss, \
+          not its guide's own propagation over its 100 um: no waveguide is joined to it, so its \
+          arm lacks the guide's phase, 2 pi n_eff L / wavelength, that an arm of a waveguide \
+          has, and an interferometer of the two isn't balanced without power; put a waveguide \
+          100 um long in series with it"
+        ]
+    );
+    assert!(warned(&broken).contains(&w[0]));
+    // with the waveguide in series the switch is balanced: all of it in one port
+    let fixed = switch(true);
+    assert!(warnings(&fixed).is_empty(), "{:?}", warnings(&fixed));
+    let share = brighter_share(&fixed);
+    assert!(share > 1.0 - 1e-12, "{share}");
+}
+
+#[test]
+fn a_heater_s_neighbour_beyond_the_measured_crosstalk_is_warned_of() {
+    // #783's A14: the designer's 20 µm pitch, where the 2D crosstalk is about 3 times below the
+    // measured; 7.3 µm is the largest pitch it is checked at (device::thermo::CROSSTALK_PITCH)
+    let shifter = |kind: &str, fidelity: &str, pitch: &str| {
+        yaml(&format!(
+            "name: h\ndevice:\n  kind: {kind}\n  fidelity: {fidelity}\n  parameters:\n    pitch: \"{pitch}\"\ntask:\n  kind: spectrum\n"
+        ))
+    };
+    let w = warnings(&shifter("thermo-optic phase shifter", "2D", "20"));
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with(
+            "the thermo-optic phase shifter's pitch, 20 um, is beyond 7.3 um, where its 2D \
+             model's crosstalk on the neighbour is checked: it agrees with Jacques et al. 2019's \
+             measured 0.141 at 7.3 um"
+        ),
+        "{}",
+        w[0]
+    );
+    assert_eq!(
+        warnings(&shifter(
+            "doped thermo-optic phase shifter",
+            "analytic",
+            "10"
+        ))
+        .len(),
+        1
+    );
+    // the default 5 µm and the measured 7.3 µm: nothing; the heater in the guide has no
+    // measured crosstalk to hold it to
+    assert!(warnings(&shifter("thermo-optic phase shifter", "2D", "5")).is_empty());
+    assert!(warnings(&shifter("doped thermo-optic phase shifter", "2D", "7.3")).is_empty());
+    assert!(warnings(&shifter("in-guide thermo-optic phase shifter", "2D", "20")).is_empty());
+}
+
+#[test]
+fn the_built_in_jobs_warn_only_where_they_mean_it() {
+    // jobs/ and its components, as the studio opens them
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    let (mut seen, mut warned) = (0, Vec::new());
+    for dir in [root.clone(), root.join("components")] {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+                continue;
+            }
+            let job = Job::load(&path).unwrap();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            warned.extend(warnings(&job).into_iter().map(|w| format!("{name}: {w}")));
+            seen += 1;
+        }
+    }
+    assert!(seen > 40, "{seen}");
+    warned.sort();
+    // the self-imaging jobs take sections past the 2D model's widths on purpose: their figures
+    // are Soldano and Pennings's closed forms, which examples/mmi_soldano.rs checks, but the
+    // model's stated |S|² error isn't measured there, and the job says so
+    let names: Vec<&str> = warned
+        .iter()
+        .map(|w| w.split(':').next().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["mmi-1x2-self-imaging.yaml", "mmi-2x2-self-imaging.yaml"],
+        "{warned:#?}"
+    );
+}

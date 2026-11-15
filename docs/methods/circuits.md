@@ -144,6 +144,32 @@ A Mach-Zehnder interferometer of two couplers and two arms is the product of the
 matrices, $C \mathop{\mathrm{diag}}(t_1, t_2)\thinspace C$, which the circuit reproduces to
 $2 \times 10^{-16}$.
 
+### A loop's resonance width
+
+How narrow a circuit's features are is a property of its loops, which a job compares with its
+band's step ([devices.md](devices.md#what-a-device-or-chip-job-warns-of)). The waves leaving the
+ports go round the connections as $b \leftarrow S_b \Gamma b$. The loops are the strongly
+connected parts of the graph of $M = S_b\Gamma$ among the connected ports, found by Tarjan's
+algorithm (R. Tarjan, SIAM J. Comput. 1, 146 (1972), doi:10.1137/0201010). A reciprocal loop is
+two parts, one for each way round, reported once. $M$ is block triangular in its loops, so its
+nonzero eigenvalues are theirs. A resonance is where an eigenvalue $\mu = |\mu| e^{i\theta}$
+reaches 1. Near it the response goes as $1/(1 - \mu)$, and its full width at half depth is
+
+$$
+\Delta\lambda = \frac{2(1 - |\mu|)}{\sqrt{|\mu|}\thinspace |d\theta/d\lambda|},
+$$
+
+with $d\theta/d\lambda$ a central difference over $\lambda(1 \pm 10^{-8})$, each eigenvalue
+matched to its nearest. The round trip is smooth in wavelength, so a coarse band can't step over
+it the way it can step over the response. A ring of $m$ instances has $m$ eigenvalues, the $m$-th
+roots of its round trip $ra\thinspace e^{i\phi}$. Since $m(1 - (ra)^{1/m})$ is $1 - ra$ to first
+order, the width is Bogaerts et al.'s $\lambda^2(1 - ra)/(\pi n_g L \sqrt{ra})$ (their Eq. 9
+through $Q = \lambda/\Delta\lambda$) whatever $m$ is. The tests hold it within $(1 - ra)^2$ of
+that formula on all-pass rings at κ² of 0.005, 0.05 and 0.2, and on an add-drop ring. They also
+measure the dip of an all-pass ring at κ² = 0.05 on a band 2000 samples to the width, and the
+width at half its depth there is the round trip's to the samples' step. A loop with no loss
+($|\mu| = 1$) has no finite width and is left out.
+
 ## Limits
 
 - A connection has no length, loss or reflection: a waveguide between two components is a
