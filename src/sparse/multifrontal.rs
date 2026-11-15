@@ -313,19 +313,6 @@ impl Analysis {
         self.entries
     }
 
-    /// The entries the factors take as stored: a front's L is its m × k block whole, the upper
-    /// triangle of its diagonal block included (L D Lᵀ), and an LU's U is its k × (m − k) panel.
-    pub(crate) fn stored_entries(&self) -> usize {
-        self.fronts
-            .iter()
-            .map(|f| {
-                let k = f.end - f.begin;
-                let p = f.below.len();
-                (k + p) * k + if self.symmetric { 0 } else { k * p }
-            })
-            .sum()
-    }
-
     /// The most entries the factorization holds at once when its fronts are done one at a time
     /// in the order [`Multifrontal`] visits them (each front's children first, the roots in
     /// their order): the factors stored so far, the updates still waiting for their parents,

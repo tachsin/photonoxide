@@ -189,8 +189,7 @@ pub struct Entry {
     /// What it asks of the linear algebra.
     pub task: Task,
     /// The memory it is expected to take, in bytes: the factors, the fronts they are made in and
-    /// the matrix's copies of a direct solve by photonoxide's own solver in 3D (its peak, as
-    /// [`direct_memory`] says), the factors and the matrix of one in 2D or an LU, the matrix and
+    /// the matrix's copies of a direct solve by photonoxide's own solver in 3D (its peak), the factors and the matrix of one in 2D or an LU, the matrix and
     /// the vectors of an iterative one (the direct reference's, where a plain QMR solve is
     /// checked against one).
     pub memory_bytes: u64,
