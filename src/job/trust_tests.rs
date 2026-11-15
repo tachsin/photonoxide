@@ -448,7 +448,9 @@ fn a_chip_s_band_coarser_than_its_loop_s_resonance_is_warned_of() {
         run.lines()
             .iter()
             .filter_map(|l| match serde_json::from_str(l) {
-                Ok(Event::SParameters { s, .. }) => Some(s[1][0][0].powi(2) + s[1][0][1].powi(2)),
+                Ok(Event::SParameters { s, .. }) => {
+                    Some(s[1][0][0] * s[1][0][0] + s[1][0][1] * s[1][0][1])
+                }
                 _ => None,
             })
             .fold(f64::INFINITY, f64::min)
@@ -584,7 +586,7 @@ fn brighter_share(job: &Job) -> f64 {
             _ => None,
         })
         .unwrap();
-    let p = |q: usize| s[q][0][0].powi(2) + s[q][0][1].powi(2);
+    let p = |q: usize| s[q][0][0] * s[q][0][0] + s[q][0][1] * s[q][0][1];
     p(2).max(p(3)) / (p(2) + p(3))
 }
 
@@ -651,10 +653,10 @@ fn a_heater_s_neighbour_beyond_the_measured_crosstalk_is_warned_of() {
 }
 
 #[test]
-fn the_built_in_jobs_warn_of_nothing() {
-    // jobs/ and its components: each a sound setup, as the studio opens them
+fn the_built_in_jobs_warn_only_where_they_mean_it() {
+    // jobs/ and its components, as the studio opens them
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("jobs");
-    let mut seen = 0;
+    let (mut seen, mut warned) = (0, Vec::new());
     for dir in [root.clone(), root.join("components")] {
         for entry in std::fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
@@ -662,14 +664,23 @@ fn the_built_in_jobs_warn_of_nothing() {
                 continue;
             }
             let job = Job::load(&path).unwrap();
-            assert!(
-                warnings(&job).is_empty(),
-                "{}: {:?}",
-                path.display(),
-                warnings(&job)
-            );
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            warned.extend(warnings(&job).into_iter().map(|w| format!("{name}: {w}")));
             seen += 1;
         }
     }
     assert!(seen > 40, "{seen}");
+    warned.sort();
+    // the self-imaging jobs take sections past the 2D model's widths on purpose: their figures
+    // are Soldano and Pennings's closed forms, which examples/mmi_soldano.rs checks, but the
+    // model's stated |S|² error isn't measured there, and the job says so
+    let names: Vec<&str> = warned
+        .iter()
+        .map(|w| w.split(':').next().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["mmi-1x2-self-imaging.yaml", "mmi-2x2-self-imaging.yaml"],
+        "{warned:#?}"
+    );
 }

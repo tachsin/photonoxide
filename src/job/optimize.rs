@@ -2691,7 +2691,7 @@ pub(super) fn on_bounds(problem: &Problem, x: &[f64], stop: &str) -> Vec<String>
             continue;
         };
         let span = v.to - v.from;
-        if !(span > 0.0) {
+        if span.is_nan() || span <= 0.0 {
             continue;
         }
         let side = if (value - v.from) / span <= ON_BOUND {
