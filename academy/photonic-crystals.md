@@ -284,15 +284,18 @@ $P$ the projection onto the interface's normal (their Eq. 1), and the error of a
 square lattice of elliptical holes in $\varepsilon = 12$ becomes "asymptotically quadratic", where
 other averages converge linearly (p. 2973, Fig. 1).
 [subpixel_holes](../examples/subpixel_holes.rs) re-runs that test at the X point, the two lowest
-TE bands at 0.145257 and 0.164053 $c/a$, their reference the 64- and 96-cell runs extrapolated:
+TE bands at 0.145257 and 0.164053 $c/a$, their reference the 64- and 96-cell runs extrapolated
+(a plane-wave calculation gives 0.145257 and 0.164067: the extrapolation is low for band 2):
 
 ::example subpixel_holes
 
 Its smoothing's error falls with a slope of −2.26 against the paper's −2.43, below the mean
 $\varepsilon$'s at every resolution, as the paper found. One number is not reproduced: the mean
-$\varepsilon$'s slope for the first band is −1.84 here against the paper's −1.33 (printed, not
-checked). It is −1.81 over the paper's own 20 to 64 pixels, and −2.02 and −1.62 for the two
-lowest bands at the M point, so it depends on the mode and on the paper's unstated $k$. The case `fdtd/smoothing-crystal` checks the smoothing's error on a crystal's band
+$\varepsilon$'s slope for the first band is −1.84 against the paper's −1.33 (printed, not
+checked). It is −1.81 over the paper's own 20 to 64 pixels. At the M point the two lowest bands
+give −2.01 and −1.46 against a plane-wave reference, so the slope depends on the mode and on the
+paper's unstated $k$. Still, no $k$ in the zone gives both the paper's slope and the size of its
+error (issue #816). The case `fdtd/smoothing-crystal` checks the smoothing's error on a crystal's band
 against another published reference:
 
 ::validation fdtd/smoothing-crystal
