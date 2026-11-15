@@ -25,3 +25,22 @@ awk -F, '{ s = ""; for (k = 1; k <= NF; k += 4) { n = 0; for (q = 0; q < 4; q++)
 | `converter_generator_circle_18_x47530832_w15_s879.hex` | 169.1357421875 |
 | `converter_generator_circle_20_x47530832_w16_s416.hex` | 204.1748046875 |
 | `converter_generator_circle_20_x47530832_w40_s988.hex` | 207.0947265625 |
+
+## The metagrating designs
+
+Five of the testbed's 3D metagrating designs (Section 3.F and Fig. 8 of the paper), from the same
+repository at commit `683c9249f21bf751f3d2d4a1a0400250098a03b1`, `Metagrating3D/designs/`, under
+the same licence: the interpolated files, which the testbed's validation reads (its
+`metagrating_meep.py`: "image resolution is ~340 pixels/μm"). `device1_interpolated.csv` to
+`device4_interpolated.csv` are 472 × 180 pixels of silicon (1) and air (0), the rows along x,
+converted to hex as above (each row's 180 values as 45 hex digits);
+`metagrating_device5_interpolated.csv` is copied as it is, 473 values along x on the nodes of 472
+intervals, stripes. The example `optimize_metagrating` solves them.
+
+| File | Testbed's README (RCWA, FDTD) | In the paper (RCWA, FDTD) |
+|---|---|---|
+| `metagrating_device1_interpolated.hex` | 95.7 %, 95.5 % | not shown |
+| `metagrating_device2_interpolated.hex` | 93.3 %, 93.8 % | Fig. 8(b): 93.2 %, 93.8 % |
+| `metagrating_device3_interpolated.hex` | 96.6 %, 95.0 % | Fig. 8(c): 96.8 %, 95.0 % |
+| `metagrating_device4_interpolated.hex` | 93.3 %, 92.5 % | Fig. 8(d): 93.7 %, 92.5 % |
+| `metagrating_device5_interpolated.csv` | 84.1 %, 84.3 % | Fig. 8(e): 83.0 %, 84.3 % |
