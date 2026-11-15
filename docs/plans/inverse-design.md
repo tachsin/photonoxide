@@ -512,6 +512,14 @@ of the specification in one epigraph: 93.0 % and 88.3 % in 2D at the centres. In
 against their −1.7 and −2.0 dB, a gap (#595); into the other port −24.8 and −34 dB, below
 theirs, checked.
 
+*Shen 2015 (`optimize_pbs_soi`):* their design, read pixel by pixel from Fig. 1(a) (20 × 20
+pixels of 120 nm), solved in 3D FDFD (`--full`, 40 to 24 nm, GMRES and the multigrid, 134
+minutes): 41.4 ± 0.4 % for TE and 64.7 ± 0.4 % for TM against their computed 81 % and 89 %, a
+gap (#595); mirrored, the drawing gives 9 % and 30 %, so it is read the right way round, and the
+light missing is radiated. Ours, designed in the plane on their pixels with both polarizations
+in one epigraph (77 % and 82 % in 2D), keeps 19 ± 7 % and 29.8 ± 0.1 % in 3D, a gap (#595). Their
+direct binary search waits for tachsin/genoxide#426; ours is MMA on densities.
+
 ## 4. Decisions
 
 *I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*

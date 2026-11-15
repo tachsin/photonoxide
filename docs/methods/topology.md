@@ -468,6 +468,12 @@ specification (the wanted port's share and the other's) in one epigraph; then th
 extruded through the 220 nm layer and solved in 3D FDFD by GMRES and the multigrid. With silica
 beside the silicon instead, the plane carried light across gaps that the air-clad layer
 radiates from, and the design kept a few percent in 3D.
+[`optimize_pbs_soi`](../../examples/optimize_pbs_soi.rs) does it for Shen et al.'s polarization
+beamsplitter, both polarizations in one epigraph: TE as H along z on the slab's TE index, TM as
+E along z on its TM index, on their 20 × 20 pixels of 120 nm, each spread over its 6 × 6 cells
+and its gradient summed back over them. Their own design, read from their figure, is solved in
+3D beside ours. On pixels of 20 nm under a 120 nm filter the design did better in the plane and
+worse in 3D (18 % and 24 % against 33 % and 30 % on 40 nm cells).
 
 ## The job
 
