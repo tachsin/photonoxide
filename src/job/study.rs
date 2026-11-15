@@ -58,7 +58,7 @@ use super::device::{
     own_band, scene_ports, spec_of,
 };
 use super::kind::TaskKind;
-use super::{Event, task_error};
+use super::{Event, design_trust, task_error};
 use crate::circuit::Fidelity;
 use crate::device::spec::Grids;
 use crate::device::{Design, Device, MaterialSpec, Spec, StackSpec};
@@ -764,6 +764,11 @@ pub(super) fn check(job: &Job) -> Result<()> {
     prepare(job).map(|_| ())
 }
 
+/// The designs of a `"sweep"` or `"corners"` job's points, checked, in their order.
+pub(super) fn designs_of(job: &Job) -> Result<Vec<Spec>> {
+    prepare(job).map(|p| p.designs)
+}
+
 /// The `"sweep"` and `"corners"` kinds beside a `[device]`: the design studied, its kind named.
 pub(super) struct StudyKind(pub(super) &'static str);
 
@@ -859,7 +864,30 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop, scene: Event) -> Result
         ports: ports(job)?,
     })?;
     let batch = super::in_flight(p.bytes);
-    super::sweep_points(run, stop, 0..p.designs.len(), batch, |k| point(&p, k, stop))
+    // the points' figures read back, whoever solved them, for the narrowest resonance
+    run.start_tap();
+    let swept = super::sweep_points(run, stop, 0..p.designs.len(), batch, |k| point(&p, k, stop));
+    let lines = run.take_tap();
+    swept?;
+    let mut narrowest: Option<(f64, String, usize)> = None;
+    for line in &lines {
+        if let Ok(Event::DevicePoint { point, figures, .. }) = serde_json::from_str(line)
+            && let Some((w, what)) = design_trust::recorded_resonance(device.kind(), &figures)
+            && narrowest.as_ref().is_none_or(|n| w < n.0)
+        {
+            narrowest = Some((w, what, point));
+        }
+    }
+    if let Some((w, what, k)) = narrowest
+        && let Some(text) = design_trust::coarse_band(
+            &p.wavelengths,
+            w,
+            &format!("{what} at the study's point {}, its narrowest", k + 1),
+        )
+    {
+        run.record(&Event::Warning { text })?;
+    }
+    Ok(())
 }
 
 /// Point `k` of a study: its design computed, or why it wasn't; `None` when the stop came first.

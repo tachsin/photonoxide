@@ -516,3 +516,75 @@ fn a_crosstalk_task_names_what_it_lacks() {
     let e = crate::job::check(&plain).unwrap_err().to_string();
     assert!(e.contains("[task.crosstalk]"), "{e}");
 }
+
+/// The warnings of a record's lines.
+fn warnings_of(run: &Run) -> Vec<String> {
+    run.lines()
+        .iter()
+        .filter_map(|l| match serde_json::from_str(l) {
+            Ok(Event::Warning { text }) => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn an_optimum_on_its_bound_is_warned_of() {
+    // #783's A11: a coupler's even split is at 18.6 µm; on a range that ends at 10 µm L-BFGS-B
+    // ends on the bound, and the record says so whatever the method said of its stop
+    let narrow = COUPLER.replace("to = 30.0", "to = 10.0");
+    let run_on = |task: &str, stop: &str| {
+        let job = job_with(
+            "directional coupler",
+            "analytic",
+            "[device.parameters]\nlength = \"8.0\"\n",
+            task,
+        );
+        let mut problem = Problem::of(&job).unwrap();
+        let checks = problem.check_gradients().unwrap();
+        let (x, _) = lbfgsb(&problem);
+        let mut run = Run::in_memory();
+        let mut recorder = Recorder::begin(&problem, &job, &mut run, checks).unwrap();
+        let e = problem.evaluate(&x, true);
+        recorder.record(&mut run, &x, &e).unwrap();
+        recorder.finish(&problem, &mut run, stop).unwrap();
+        (x, warnings_of(&run))
+    };
+    let (x, w) = run_on(&narrow, "converged");
+    assert_eq!(x, [10.0]);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert_eq!(
+        w[0],
+        "the best design's length is on its upper bound, 10 um (the variable's to): the optimum \
+         may lie beyond it, and the method's \"converged\" means it stopped moving, here against \
+         the bound; widen the variable's range past it if the design allows"
+    );
+    // the same coupler on 2 to 30 µm: its optimum inside, no warning
+    let (x, w) = run_on(COUPLER, "converged");
+    assert!(x[0] > 18.0 && x[0] < 19.0, "{x:?}");
+    assert!(w.is_empty(), "{w:?}");
+}
+
+#[test]
+fn on_a_bound_is_the_bound_to_round_off() {
+    // a share of the range of 1e-8 (the report's round-off bound) or less is on it; a step of
+    // the optimizer's own (1e-6 of the range) off it isn't
+    let job = job_of("directional coupler", "analytic", COUPLER);
+    let problem = Problem::of(&job).unwrap();
+    let span = 28.0;
+    assert_eq!(on_bounds(&problem, &[2.0], "evaluations").len(), 1);
+    assert!(
+        on_bounds(&problem, &[2.0], "evaluations")[0]
+            .contains("lower bound, 2 um (the variable's from)")
+    );
+    assert!(
+        on_bounds(&problem, &[2.0], "evaluations")[0]
+            .contains("the run stopped for \"evaluations\"")
+    );
+    assert_eq!(
+        on_bounds(&problem, &[30.0 - 0.5e-8 * span], "converged").len(),
+        1
+    );
+    assert!(on_bounds(&problem, &[30.0 - 1e-6 * span], "converged").is_empty());
+    assert!(on_bounds(&problem, &[2.0 + 1e-6 * span], "converged").is_empty());
+}
