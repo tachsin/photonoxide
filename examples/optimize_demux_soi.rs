@@ -17,13 +17,13 @@
 //! of the frequency in steps of 1 %.
 //!
 //! **The 2D design.** The plane by the effective index method, as `optimize_ybranch`'s: the
-//! 220 nm slab's TE index at each wavelength (2.99 at 1300 nm, 2.85 at 1550 nm, silica below and
+//! 220 nm slab's TE index at each wavelength (2.97 at 1300 nm, 2.85 at 1550 nm, silica below and
 //! air above) inside the silicon and the silica's outside, where an etched region's light has no
 //! slab to stay in; H along z, 2D FDFD on 20 nm cells, PMLs of 0.3 µm. Densities on the region's
 //! 140 × 140 pixels of 20 nm, a conic filter of 100 nm and a tanh projection at η = ½
-//! (`topology`), the worst of the ten 1 − T and the ten shares into the other port, each over its bound in the
-//! specification (10 % and 1 %), minimized in its epigraph form by genoxide's MMA,
-//! every gradient by the adjoint; β from 8 to 256 in six stages of 40 evaluations. Their
+//! (`topology`). Both bounds of the specification count alike: the worst of the ten 1 − T and
+//! of the ten shares into the other port times 10 is minimized in its epigraph form by genoxide's
+//! MMA, every gradient by the adjoint; β from 8 to 256 in six stages of 40 evaluations. Their
 //! method differs: "objective first" and steepest descent on a continuous permittivity, then a
 //! level set, on GPU-accelerated 3D FDFD.
 //!
@@ -92,6 +92,8 @@ const BETAS: [f64; 6] = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0];
 const PER_STAGE: u64 = 40;
 /// Their specification as bounds: 1 − T at most (T above 90 %) and the other port at most.
 const SPEC: (f64, f64) = (0.1, 0.01);
+/// The other port's weight in the objectives, so that both bounds count alike.
+const WEIGHT: f64 = SPEC.0 / SPEC.1;
 /// Fig. 4(a), their 3D FDTD, dB: (wanted, other) at 1300 and at 1550 nm; the reading's ±.
 const FIG_4A: [(f64, f64); 2] = [(-1.7, -23.8), (-2.0, -23.0)];
 const READING: f64 = 0.1;
@@ -308,9 +310,9 @@ impl Demux {
         })
     }
 
-    /// The twenty objectives, per wavelength 1 − T and the other port's share, each over its
-    /// bound in [`SPEC`] (so that both are met when the worst is below 1), and their gradients in
-    /// the densities, rounded to 12 digits.
+    /// The twenty objectives, per wavelength 1 − T and the other port's share times [`WEIGHT`]
+    /// (both bounds of [`SPEC`] are met when the worst is below 10 %), and their gradients in the
+    /// densities, rounded to 12 digits.
     fn evaluate(&self, rho: &[f64]) -> photonoxide::Result<(Vec<f64>, Vec<f64>)> {
         let share = self.density.permittivity(rho)?;
         let clad = N_SIO2 * N_SIO2;
@@ -339,13 +341,10 @@ impl Demux {
                 let (t, dt) = port(&b.outputs[0])?;
                 let (x, dx) = port(&b.outputs[1])?;
                 Ok([
+                    (round12(1.0 - t), dt.iter().map(|&d| round12(-d)).collect()),
                     (
-                        round12((1.0 - t) / SPEC.0),
-                        dt.iter().map(|&d| round12(-d / SPEC.0)).collect(),
-                    ),
-                    (
-                        round12(x / SPEC.1),
-                        dx.iter().map(|&d| round12(d / SPEC.1)).collect(),
+                        round12(x * WEIGHT),
+                        dx.iter().map(|&d| round12(d * WEIGHT)).collect(),
                     ),
                 ])
             })
@@ -378,6 +377,9 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
         })
         .collect();
     let form = Epigraph::new(n, m)?;
+    // the densities, and the epigraph's bound, which the weighted share can take up to WEIGHT
+    let mut bounds = vec![0.0..=1.0; n];
+    bounds.push(0.0..=WEIGHT);
     let start = Instant::now();
     let mut last = None;
     for beta in BETAS {
@@ -400,7 +402,7 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
                 x[n]
             },
         );
-        let mma = Mma::builder(Real::new(vec![0.0..=1.0; n + 1]).expect("bounds"))
+        let mma = Mma::builder(Real::new(bounds.clone()).expect("bounds"))
             .initial_genome(Reals::from(y))
             .minimize()
             .build()
@@ -421,8 +423,8 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
         };
         println!(
             "    β {beta:>3}: worst T {:.4}, worst other port {:.4} ({:.0} s)",
-            1.0 - worst(0) * SPEC.0,
-            worst(1) * SPEC.1,
+            1.0 - worst(0),
+            worst(1) / WEIGHT,
             start.elapsed().as_secs_f64()
         );
         last = Some(d);
@@ -677,7 +679,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "design",
-        "140 × 140 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations; genoxide's MMA on the worst of the ten 1 − T over 10 % and the ten shares into the other port over 1 %",
+        "140 × 140 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations; genoxide's MMA on the worst of the ten 1 − T and of the ten shares into the other port times 10",
     );
     setup.item(
         "3D (--full)",
