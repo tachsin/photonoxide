@@ -351,7 +351,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_codesign_ring" => 60.0,
         "optimize_metagrating" => 60.0,
         "optimize_demux_soi" => 15.0,
-        "optimize_pbs_soi" => 15.0,
+        "optimize_pbs_soi" => 5.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
