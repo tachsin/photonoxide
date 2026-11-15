@@ -92,6 +92,8 @@ const PORT_X: f64 = 2.45;
 /// The centre wavelength, µm, and the steps in frequency about it.
 const CENTRE: f64 = 1.575;
 const STEPS: [f64; 5] = [-0.06, -0.03, 0.0, 0.03, 0.06];
+/// The half-sizes of their start's silicon rectangle, µm (Section 2.1: 4 × 2.4 µm).
+const START: [f64; 2] = [2.0, 1.2];
 /// The conic filter's radius, µm; β's stages and their evaluations.
 const RADIUS: f64 = 0.1;
 const BETAS: [f64; 6] = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0];
@@ -398,7 +400,19 @@ fn optimize() -> photonoxide::Result<Vec<bool>> {
     use genoxide::prelude::*;
     let n = SIDE[0] * SIDE[1];
     let m = 4 * wavelengths().len();
-    let mut rho = vec![0.5; n];
+    // their start (Fig. 1(a)): silicon over 4 × 2.4 µm within the domain, softened to 0.7
+    // and 0.3 so that the projection's slope isn't nil there
+    let mut rho: Vec<f64> = (0..n)
+        .map(|p| {
+            let x = -HALF[0] + ((p % SIDE[0]) as f64 + 0.5) * PIXEL;
+            let y = -HALF[1] + ((p / SIDE[0]) as f64 + 0.5) * PIXEL;
+            if x.abs() < START[0] && y.abs() < START[1] {
+                0.7
+            } else {
+                0.3
+            }
+        })
+        .collect();
     let form = Epigraph::new(n, m)?;
     // the densities, and the epigraph's bound, which the weighted share can take up to WEIGHT
     let mut bounds = vec![0.0..=1.0; n];
