@@ -1042,6 +1042,13 @@ const STATED_METAL_MEASURED: f64 = 15.0;
 const STATED_DOPED_MEASURED: f64 = 15.0;
 const STATED_IN_GUIDE_MEASURED: f64 = 15.0;
 
+/// The largest pitch, µm, at which a thermo-optic shifter's crosstalk at `fidelity` is checked,
+/// and what checks it; `None` for another device.
+pub(crate) fn crosstalk_pitch(kind: &str, fidelity: Fidelity) -> Option<(f64, &'static str)> {
+    let _ = (kind, fidelity);
+    None
+}
+
 /// Where the analytic models are checked against the 2D model.
 fn analytic_validity(heater: Heater) -> Vec<Range> {
     match heater {

@@ -498,6 +498,7 @@ mod chip_checks;
 #[cfg(test)]
 mod component_tests;
 mod components;
+mod design_trust;
 mod device;
 #[cfg(test)]
 mod device_tests;

@@ -2463,6 +2463,9 @@ impl Recorder {
             parameters,
             checks,
         })?;
+        // what the command line said of the job before it ran (a design outside its model's
+        // ranges, a misspelled parameter)
+        super::design_trust::record(run, super::warnings(job))?;
         let mut recorder = Recorder {
             count: 0,
             solves: 0,
@@ -2660,8 +2663,70 @@ impl Recorder {
             evaluations: self.count,
             solves: self.solves,
             front,
-        })
+        })?;
+        if let Some((_, _, _, x)) = &self.best {
+            for text in on_bounds(problem, x, stop) {
+                run.record(&Event::Warning { text })?;
+            }
+        }
+        Ok(())
     }
+}
+
+/// How near a variable's bound, as a share of its range, the best point is on it: the
+/// validation report's round-off bound for an exact identity (CONTRIBUTING.md, "Validation cases
+/// and their tolerances"). A method that keeps its points in the box (L-BFGS-B's and MMA's
+/// projections, the population methods' repair) leaves a variable whose bound holds it exactly
+/// there, x = from + u (to − from) with u at 0 or 1, which is the bound to round-off.
+const ON_BOUND: f64 = 1e-8;
+
+/// What the best point `x` of `problem`'s run, which stopped for `stop`, gives that its optimum
+/// may not be one: each variable on one of its bounds ([`ON_BOUND`]), where the objective may
+/// still fall beyond it, whatever the method said of its stop (#783's A11: the experimentalist's
+/// critical coupling ended on its upper bound and said "the method converged").
+pub(super) fn on_bounds(problem: &Problem, x: &[f64], stop: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for (k, v) in problem.variables.iter().enumerate() {
+        let Some(&value) = x.get(k) else {
+            continue;
+        };
+        let span = v.to - v.from;
+        if !(span > 0.0) {
+            continue;
+        }
+        let side = if (value - v.from) / span <= ON_BOUND {
+            Some(("lower", "from", v.from))
+        } else if (v.to - value) / span <= ON_BOUND {
+            Some(("upper", "to", v.to))
+        } else {
+            None
+        };
+        let Some((side, field, bound)) = side else {
+            continue;
+        };
+        let unit = problem
+            .units
+            .get(k)
+            .map_or("", String::as_str)
+            .replace('µ', "u");
+        let unit = if unit.is_empty() {
+            String::new()
+        } else {
+            format!(" {unit}")
+        };
+        let said = if stop == "converged" {
+            "the method's \"converged\" means it stopped moving, here against the bound".to_owned()
+        } else {
+            format!("the run stopped for \"{stop}\"")
+        };
+        out.push(format!(
+            "the best design's {} is on its {side} bound, {bound}{unit} (the variable's {field}): \
+             the optimum may lie beyond it, and {said}; widen the variable's range past it if the \
+             design allows",
+            v.parameter
+        ));
+    }
+    out
 }
 
 /// [`super::check`] for an `"optimize"` job.

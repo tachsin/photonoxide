@@ -1098,6 +1098,23 @@ fn run_study(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
         instances: p.chip.parts(&nominal),
         ports: ports.clone(),
     })?;
+    // what the command line said of it before it ran (its devices outside their models' ranges,
+    // a misspelled parameter), and a band that can step over the narrowest resonance (the
+    // nominal chip's, at the band's centre)
+    super::design_trust::record(run, super::warnings(job))?;
+    let w = &p.wavelengths;
+    if let Some((width, what)) =
+        super::design_trust::chip_resonance(&nominal, (w[0] + w[w.len() - 1]) / 2.0)?
+    {
+        let what = if p.study.is_some() {
+            format!("{what}, at the chip's nominal design")
+        } else {
+            what
+        };
+        if let Some(text) = super::design_trust::coarse_band(w, width, &what) {
+            run.record(&Event::Warning { text })?;
+        }
+    }
     match &p.study {
         None => {
             for &w in &p.wavelengths {

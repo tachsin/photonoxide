@@ -21,8 +21,10 @@ circuit:
     - { name: in, at: coupler.o1 }
     - { name: through, at: coupler.o4 }
 
+# 2001 points, a step of 0.01 nm: an eighth of the dips' width (0.081 nm at half their depth), so
+# a sample falls within 2 % of each dip's depth of its bottom. A step coarser than the width warns.
 task:
   kind: spectrum
   from_um: 1.54
   to_um: 1.56
-  points: 201
+  points: 2001

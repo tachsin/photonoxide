@@ -157,13 +157,20 @@ pub fn check(job: &Job) -> Result<()> {
 /// instances take names of their own, which a study names as `instance.name`, so these are
 /// warnings rather than errors; a device job refuses them. And of a modes job, a guide with
 /// fewer than two cells across it on the job's grid (#783), which its run records too, with
-/// what only the run can tell (a mode's field at the window's edge, no mode found). The command
-/// line prints them before it runs the job.
+/// what only the run can tell (a mode's field at the window's edge, no mode found). Of a device
+/// job, or a chip's device instances, a design outside the ranges its model is checked over (a
+/// ring's radius below the bend's 5 µm), an optimization's variable that can take it there, and
+/// a heater's neighbour beyond where its crosstalk is checked (#783's batch 2, its
+/// `design_trust`); a run records these too, with what only it can tell (a band that steps over
+/// a resonance, an optimum on a bound). The command line prints them before it runs the job.
 pub fn warnings(job: &Job) -> Vec<String> {
     if Holder::of(job) == Holder::Solver
         && job.task().get("kind").and_then(toml::Value::as_str) == Some("modes")
     {
         return super::modes::warnings(job);
+    }
+    if job.device().is_some() {
+        return super::design_trust::device_warnings(job);
     }
     let Ok(chip) = chip::chip_of(job) else {
         return Vec::new();
@@ -184,6 +191,7 @@ pub fn warnings(job: &Job) -> Vec<String> {
             }
         }
     }
+    out.extend(super::design_trust::chip_warnings(job));
     out
 }
 

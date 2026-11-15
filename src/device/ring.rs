@@ -282,6 +282,9 @@ fn methods(strip: &Strip) -> Vec<Method> {
         fit::GAPS[0],
         fit::GAPS[fit::GAPS.len() - 1],
     ));
+    // the ring's mode is the straight strip's at either fidelity: the bend's range for it
+    let radius = || Range::new("radius", super::bend::STRAIGHT_MODE_RADIUS, 1e4);
+    validity.push(radius());
     let mut papers = vec![
         "W. Bogaerts et al., Laser Photonics Rev. 6, 47 (published online 13 September 2011; the \
          January 2012 issue), doi:10.1002/lpor.201100017"
@@ -314,7 +317,7 @@ fn methods(strip: &Strip) -> Vec<Method> {
             write_up: "devices".into(),
             papers: solved,
             error: None,
-            validity: Vec::new(),
+            validity: vec![radius()],
         },
     ]
 }

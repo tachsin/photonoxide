@@ -212,6 +212,12 @@ fn default_mesh() -> Mesh {
     Mesh::fitted(0.02, 1.0, super::Scheme::Standard)
 }
 
+/// The smallest radius, µm, at which the straight strip's mode along the arc stands for the bent
+/// one: the bend's 3D shift of n_eff is 2.4e-3 at 5 µm (docs/methods/devices.md, the bend),
+/// within the analytic model's stated 0.003, and grows as the radius falls. The ring's models,
+/// which take the same straight mode round the ring, hold from it too (#783's A12).
+pub(super) const STRAIGHT_MODE_RADIUS: f64 = 5.0;
+
 /// The bend's models.
 fn methods(strip: &Strip) -> Vec<Method> {
     let mut validity = if strip.stated.is_some() {
@@ -219,7 +225,7 @@ fn methods(strip: &Strip) -> Vec<Method> {
     } else {
         fit_validity()
     };
-    validity.push(Range::new("radius", 5.0, 1e4));
+    validity.push(Range::new("radius", STRAIGHT_MODE_RADIUS, 1e4));
     vec![
         Method {
             fidelity: Fidelity::Analytic,

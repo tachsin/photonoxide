@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
 use super::kind::{Holder, TaskKind, find};
-use super::{Event, ScenePort, reason, task_error};
+use super::{Event, ScenePort, design_trust, reason, task_error};
 use crate::circuit::Fidelity;
 use crate::device::spec::Grids;
 use crate::device::{Design, Device, Spec};
@@ -666,6 +666,7 @@ pub(super) fn run_spectrum(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> 
         .cloned()
         .ok_or_else(|| task_error(format!("a {} has no {f} model", p.spec.kind)))?;
     let kind = p.device.kind().to_owned();
+    let named = kind.clone();
     let started = Instant::now();
     // on a thread of its own, so that a stop ends the run at once
     let Some(built) = crate::device::component_until(p.device, p.design.values(), f, stop)? else {
@@ -699,6 +700,17 @@ pub(super) fn run_spectrum(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> 
             })
             .collect(),
     })?;
+    // a band that can step over the device's resonance (a ring's λ/Q)
+    let figures: Vec<(String, f64)> = built
+        .figures
+        .iter()
+        .map(|g| (g.symbol.clone(), g.value))
+        .collect();
+    if let Some((width, what)) = design_trust::resonance_of(&named, &figures)
+        && let Some(text) = design_trust::coarse_band(&p.wavelengths, width, &what)
+    {
+        run.record(&Event::Warning { text })?;
+    }
     let ports: Vec<String> = built
         .component
         .ports()
@@ -772,6 +784,8 @@ pub(super) fn computed_with(
         job: job.name().to_owned(),
         kind: "device".into(),
     })?;
+    // what the design gives outside its model's ranges, as the command line said before it ran
+    design_trust::record(run, super::warnings(job))?;
     body(job, run, stop, scene)?;
     let seconds = run.elapsed().as_secs_f64();
     run.record(&Event::Finished {

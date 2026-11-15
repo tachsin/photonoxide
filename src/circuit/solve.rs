@@ -74,7 +74,7 @@ pub struct Circuit {
     /// Each instance's first parameter's position in the circuit's values.
     pub(super) parameter_offsets: Vec<usize>,
     /// Every port's instance and its position there.
-    owner: Vec<(usize, usize)>,
+    pub(super) owner: Vec<(usize, usize)>,
     /// The port each port is connected to, if any: Γ.
     pub(super) partner: Vec<Option<usize>>,
     /// The external ports' numbers, in the circuit's order.
@@ -257,7 +257,7 @@ impl Circuit {
 
     /// Every instance's S-matrix at `wavelength`, its parameters at `values`, each checked for
     /// its size.
-    fn blocks(&self, wavelength: Wavelength, values: &[f64]) -> Result<Vec<SMatrix>> {
+    pub(super) fn blocks(&self, wavelength: Wavelength, values: &[f64]) -> Result<Vec<SMatrix>> {
         if values.len() != self.parameters.len() {
             return Err(Error::invalid(
                 "circuit",

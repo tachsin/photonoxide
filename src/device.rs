@@ -118,6 +118,7 @@ pub use section::{Cells, Mesh, Scheme, Symmetry};
 pub use solve::FdfdGrid;
 pub use spec::{LayerSpec, MaterialSpec, PRESETS, Spec, StackSpec, fidelity};
 pub use tfln::{ElectrodeField, LineField, TflnModulator};
+pub(crate) use thermo::crosstalk_pitch;
 pub use thermo::{ThermoShifter, TurnOn};
 pub use waveguide::StripWaveguide;
 pub use ybranch::StripYBranch;

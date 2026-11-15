@@ -504,3 +504,20 @@ fn drives_are_one_at_a_time_and_a_film_s_range_is_kept() {
         .to_string();
     assert!(e.contains("no steady state"), "{e}");
 }
+
+#[test]
+#[ignore = "a measurement for #783's A14, printed"]
+fn print_crosstalk_against_pitch() {
+    for (name, d) in [
+        ("doped", ThermoShifter::doped()),
+        ("metal", ThermoShifter::metal()),
+    ] {
+        for pitch in [5.0, 7.3, 10.0, 12.5, 15.0, 17.3, 20.0] {
+            let v = Values::new(&d, &[("pitch", pitch)]).unwrap();
+            for f in [Fidelity::Analytic, Fidelity::TwoD] {
+                let x = d.component(&v, f).unwrap().figure("X").unwrap().value;
+                println!("{name} {f} pitch {pitch}: X = {x:.5}");
+            }
+        }
+    }
+}

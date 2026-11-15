@@ -26,11 +26,18 @@ What the run's numbers may not be, it says on stderr, without changing the exit 
 
 - a line `warning: ...` before it starts for a chip instance's parameter that nothing uses (a
   misspelled name, which leaves the parameter at its default; a device job refuses one), and for
-  a modes job's guide with fewer than two cells across it at the job's step;
+  a modes job's guide with fewer than two cells across it at the job's step; and for a device's
+  design (a study's points, a chip's device instances) outside the ranges its model holds over,
+  such as a ring's radius below 5 µm, an optimization's variable that can take it there, a
+  heater's neighbour beyond where its crosstalk is checked, and a chip's phase shifter with no
+  waveguide joined to it
+  ([device and chip jobs' warnings](methods/devices.md#what-a-device-or-chip-job-warns-of));
 - a line `warning: ...` at its end for each warning the run recorded (an event `warning` in
   `events.jsonl`), but those said before it started: a modes job's mode whose field reaches the
   window's edge, a solve or a sweep point that found no mode
-  ([modes jobs' warnings](methods/vector.md#what-a-modes-job-warns-of));
+  ([modes jobs' warnings](methods/vector.md#what-a-modes-job-warns-of)); a band whose step is
+  coarser than the narrowest resonance of a ring device or of a chip's loops; an optimization's
+  best design on a variable's bound;
 - a line `scheme: ...` naming the scheme a solver ran, where it says one: a modes job's standard
   finite differences, first order at the guides' corners;
 - a line `convergence: ...` for each number `results.json` holds as `unchecked` or

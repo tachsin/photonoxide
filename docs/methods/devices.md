@@ -507,11 +507,15 @@ the exponential coupling of Little et al.'s Appendix. C and γ are the straight 
 
 | Fidelity | Model | Stated error | Holds over |
 |---|---|---|---|
-| analytic | the strip's analytic mode; C and γ from the fit | the free spectral range within 0.5 % of 3D | the fits' |
-| 3D | the strip's 3D mode; C from the solver's supermodes at the gap, γ by a central difference over ±25 nm of gap, at the band's centre | — | λ₀ ± span/2 |
+| analytic | the strip's analytic mode; C and γ from the fit | the free spectral range within 0.5 % of 3D | the fits', radii from 5 µm |
+| 3D | the strip's 3D mode; C from the solver's supermodes at the gap, γ by a central difference over ±25 nm of gap, at the band's centre | — | λ₀ ± span/2, radii from 5 µm |
 
 The ring's mode is the straight strip's: the bend's shift and radiation are left to
-`round_trip_loss`, and the coupling is the band centre's at every wavelength. The figures are
+`round_trip_loss`, and the coupling is the band centre's at every wavelength. So both models
+hold where the bend's analytic model, the same straight mode along the arc, holds: from a
+radius of 5 µm, where the bend's 3D shift of n_eff is 2.4e-3, inside that model's stated 0.003
+([Bend](#bend)). A job whose ring is smaller runs, and warns
+([What a job warns of](#what-a-device-or-chip-job-warns-of)). The figures are
 Bogaerts's: the free spectral range $\lambda^2/(n_g L)$ (Eq. 9), the resonance nearest λ₀
 (Eq. 3), the loaded Q (Eqs. 20 and 22), and the extinction or the drop on resonance (Eqs. 11–16).
 At the defaults (10 µm, 200 nm) the analytic κ² is 0.0124, 2.2 % below 3D's.
