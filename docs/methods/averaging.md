@@ -50,7 +50,7 @@ always done, to the bit.
 | `Point` | the material at the component's own point | `"point"` |
 | `Mean` | $\langle\varepsilon\rangle = \sum_m f_m \varepsilon_m$ for every component | `"mean"` |
 | `Diagonal` | the diagonal of Farjadpour et al.'s tensor, below | `"diagonal"` |
-| `Tensor` | the whole tensor, its off-diagonal coupling too (2D, $H$ along $z$) | `"tensor"` |
+| `Tensor` | the whole tensor, its off-diagonal coupling too (2D, $H$ along $z$; a mode's cross-section on Yee's plane, [eigenmode expansion](eme.md#an-oblique-interface)) | `"tensor"` |
 
 Farjadpour et al. ask what a smoothing does to the problem. Near a flat interface a change
 $\Delta\varepsilon$ moves a frequency or a scattered power by
@@ -266,8 +266,9 @@ Every number with its grid; the slabs' and crystals' are 2D or a film's, never a
   would be the model's trend. The silicon-nitride bends are also tens of micrometres across, a
   2D problem of millions of cells at the grids the losses need. Rather than a 2D number beside a
   3D one, none: they wait for 3D FDFD or FDTD on these geometries.
-- The off-diagonal coupling in 3D, and corner-aware smoothing (Farjadpour et al.'s Fig. 3: a
-  sharp corner limits every scheme to about order 1.4).
+- The off-diagonal coupling in 3D FDFD and FDTD (a mode's cross-section on Yee's plane has it,
+  issue #815), and corner-aware smoothing (Farjadpour et al.'s Fig. 3: a sharp corner limits
+  every scheme to about order 1.4).
 - Sloped walls from the fill: in 3D they are sampled, and a 2D job refuses them.
 
 ## Use

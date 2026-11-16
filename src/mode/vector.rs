@@ -18,6 +18,12 @@
 //! quadrant) and at 1.4–1.8 at concave ones, as standard finite differences do. Hadley's own
 //! equations, on the same unknowns, are [`crate::mode::hadley`]: about second order there.
 //!
+//! **An interface oblique to the grid** (a sloped sidewall, a curved core) is a staircase of such
+//! corners, about 1/h of them, so no cell average gives it second order here: Afshar and Monro's
+//! silicon rod converges at order 0.3 with the cells' mean (issue #815). Solve it on Yee's plane
+//! instead, [`crate::eme::Plane::from_plane`] with [`crate::averaging::Averaging::Tensor`] and
+//! [`crate::eme::Eme3d::modes`]: second order on the same rod (docs/methods/eme.md).
+//!
 //! The paper uses the e^(jωt) convention; photonoxide uses e^(−iωt) ([`crate::units`]). The
 //! eigenvalue equations hold in either, written with the permittivity of the convention in use:
 //! a lossy medium is +i here, and a gyrotropic tensor written with +jΔ in the paper is −iΔ here.
@@ -42,6 +48,8 @@ use crate::{Error, Result};
 
 mod adjoint;
 mod guided;
+#[cfg(test)]
+mod oblique_study;
 
 pub use guided::{guided_modes, guided_modes_until};
 

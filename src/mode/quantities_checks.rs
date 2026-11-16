@@ -204,19 +204,16 @@ pub(crate) fn slab_orthogonality(h: f64) -> (f64, f64) {
 /// Afshar and Monro's silicon rod (their Fig. 1c), for the study of n̄₂ at an interface oblique
 /// to the grid: n = 3.45 and n₂ = 4.5e-18 m²/W, in silica (n = 1.45, n₂ = 2.6e-20 m²/W), at
 /// 800 nm.
-#[cfg(test)]
 const ROD: [f64; 4] = [3.45, 4.5e-18, 1.45, 2.6e-20];
 
 /// The paper's wavelength for the rod, 800 nm.
-#[cfg(test)]
 fn rod_lam() -> Wavelength {
     Wavelength::from_um_unchecked(0.8)
 }
 
 /// What the rod's fundamental mode gives for the Kerr effect.
-#[cfg(test)]
 #[derive(Clone, Copy, Debug)]
-struct RodKerr {
+pub(crate) struct RodKerr {
     /// Its effective index.
     pub neff: f64,
     /// Eq. 39's (and 42's) field-weighted n̄₂, m²/W.
@@ -225,20 +222,22 @@ struct RodKerr {
     /// Eq. 41's area), m²/W.
     pub n2_foster: f64,
     /// Eq. 41's effective area, µm².
+    #[cfg_attr(not(test), allow(dead_code))]
     pub area: f64,
     /// Eq. 44's (Agrawal's) effective area from E_t alone, µm².
+    #[cfg_attr(not(test), allow(dead_code))] // the studies read the areas, the cases don't
     pub area_transverse: f64,
 }
 
-#[cfg(test)]
 impl RodKerr {
     /// γ^V / γ^F: the paper's Eq. 39 over Eq. 48, n̄₂ over Foster's, the two sharing Eq. 41's
     /// area.
-    fn vector_over_foster(&self) -> f64 {
+    pub(crate) fn vector_over_foster(&self) -> f64 {
         self.n2_vector / self.n2_foster
     }
 
     /// γ^V / γ^S: Eq. 39 over Eq. 47 (Agrawal's, with the core's n₂ and E_t alone).
+    #[cfg(test)]
     fn vector_over_standard(&self) -> f64 {
         self.n2_vector / ROD[1] * self.area_transverse / self.area
     }
@@ -350,7 +349,7 @@ fn rod_kerr_eval(cs: &CrossSection, mode: &VectorMode, shares: &[f64], how: u8) 
     .expect("its grid");
     if how >= 3 {
         return rod_kerr_from_d(
-            mode,
+            mode.effective_index().re,
             &fields,
             shares,
             match how {
@@ -404,14 +403,13 @@ fn rod_kerr_eval(cs: &CrossSection, mode: &VectorMode, shares: &[f64], how: u8) 
 ///   cells: both are continuous across the edge, but a cell's ∇·H and ∇×H, from which they come,
 ///   mix the two sides' derivatives there, and are O(1) wrong at any grid
 ///   (`tests::rod_exact_h_diagnostic`).
-#[cfg(test)]
-fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8) -> RodKerr {
+fn rod_kerr_from_d(neff: f64, fields: &Fields, shares: &[f64], split: u8) -> RodKerr {
     let [nc, n2c, ns, n2s] = ROD;
     let (ec, es) = (nc * nc, ns * ns);
     let n = fields.xc.len();
     let h = fields.xc[1] - fields.xc[0];
     let k = rod_lam().wavenumber();
-    let beta = mode.effective_index().re * k;
+    let beta = neff * k;
     let i = c64::new(0.0, 1.0);
     // H_z and E_z, continuous across the edge: with split 3, in a cell the edge crosses (where
     // ∇·H and ∇×H over the cell mix the two sides' derivatives) the mean of the cells of one
@@ -548,12 +546,131 @@ fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8
     }
     let copies = 4.0;
     RodKerr {
-        neff: mode.effective_index().re,
+        neff,
         n2_vector: top / (3.0 * s2),
         n2_foster: fos / s2,
         area: copies * sz * sz / s2,
         area_transverse: copies * t2 * t2 / t4,
     }
+}
+
+/// The rod of diameter `d` µm on Yee's plane: a quarter `side` µm a side of square cells of side
+/// `h` behind an electric wall at x = 0 and a magnetic one at y = 0, each value of E's
+/// permittivity by Farjadpour et al.'s whole tensor ([`crate::eme::Plane::from_plane`] with
+/// [`crate::averaging::Averaging::Tensor`]): the drawn plane, the Yee plane and its HE₁₁ mode
+/// with E along x.
+pub(crate) fn rod_yee(
+    d: f64,
+    h: f64,
+    side: f64,
+) -> (
+    crate::averaging::Plane,
+    crate::eme::Plane,
+    crate::eme::Mode3d,
+) {
+    use crate::eme::{Eme3d, PlaneGrid, Wall, Walls};
+    use crate::geometry::{Point, Shape};
+    let [nc, _, ns, _] = ROD;
+    let n = (side / h).round() as usize;
+    let grid = PlaneGrid::new(n, n, (h, h), (0.0, 0.0)).with_walls(Walls {
+        west: Wall::Electric,
+        east: Wall::Electric,
+        south: Wall::Magnetic,
+        north: Wall::Electric,
+    });
+    let mut drawn = crate::averaging::Plane::new(c64::new(ns * ns, 0.0));
+    drawn.draw(
+        Shape::circle(Point::um(0.0, 0.0), Length::um(0.5 * d)).expect("a valid rod"),
+        c64::new(nc * nc, 0.0),
+    );
+    let plane = crate::eme::Plane::from_plane(grid, &drawn, crate::averaging::Averaging::Tensor)
+        .expect("a valid plane");
+    let mode = Eme3d::new(rod_lam(), 1)
+        .and_then(|e| e.modes(&plane))
+        .expect("the rod's mode")
+        .remove(0);
+    (drawn, plane, mode)
+}
+
+/// The rod's Kerr quantities from its mode on Yee's plane ([`rod_yee`]) through
+/// [`rod_kerr_from_d`]'s smoothed fields (`split` 3): H at the cells' centres, H_x and H_y the
+/// mean of their two places' and H_z from Faraday's law, −i (∂_x E_y − ∂_y E_x)/k, at the
+/// centre itself; E_z from the continuity equation at the nodes ([`crate::eme::Mode3d`]'s
+/// longitudinal field), the mean of a cell's four; each cell's share of the core from the
+/// drawn plane's fill. Also returns the largest |∇ · H| over the cells, relative to k |H|'s
+/// largest: 0 to round-off on Yee's grid, which checks H_z's sign.
+fn rod_kerr_yee(d: f64, h: f64, side: f64) -> (RodKerr, f64) {
+    let (drawn, plane, mode) = rod_yee(d, h, side);
+    let [nc, ..] = ROD;
+    let n = plane.grid().nx;
+    let k = rod_lam().wavenumber();
+    let i = c64::new(0.0, 1.0);
+    let ez = mode.longitudinal(&plane, None).expect("its plane");
+    let node = |a: usize, b: usize| ez[b * (n + 1) + a];
+    let centre = |a: usize| (a as f64 + 0.5) * h;
+    let (mut e, mut hh, mut shares) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut divergence, mut largest) = (0.0f64, 0.0f64);
+    for a in 0..n {
+        for b in 0..n {
+            let hx = 0.5 * (mode.hx(a, b) + mode.hx(a + 1, b));
+            let hy = 0.5 * (mode.hy(a, b) + mode.hy(a, b + 1));
+            let curl =
+                (mode.ey(a + 1, b) - mode.ey(a, b)) / h - (mode.ex(a, b + 1) - mode.ex(a, b)) / h;
+            let hz = -i * curl / k;
+            let div = (mode.hx(a + 1, b) - mode.hx(a, b)) / h
+                + (mode.hy(a, b + 1) - mode.hy(a, b)) / h
+                + i * mode.beta() * hz;
+            divergence = divergence.max(portable::complex::abs(div));
+            largest = largest.max(k * portable::complex::abs(hx).max(portable::complex::abs(hy)));
+            let ez = 0.25 * (node(a, b) + node(a + 1, b) + node(a, b + 1) + node(a + 1, b + 1));
+            e.push([c64::new(0.0, 0.0), c64::new(0.0, 0.0), ez]);
+            hh.push([hx, hy, hz]);
+            let s = drawn.shares(crate::geometry::Bounds::new(
+                crate::geometry::Point::um(a as f64 * h, b as f64 * h),
+                crate::geometry::Point::um((a + 1) as f64 * h, (b + 1) as f64 * h),
+            ));
+            let core = c64::new(nc * nc, 0.0);
+            shares.push(s.parts.iter().find(|p| p.0 == core).map_or(0.0, |p| p.1));
+        }
+    }
+    let xc: Vec<f64> = (0..n).map(centre).collect();
+    let fields = Fields {
+        area: vec![h * h; n * n],
+        xc: xc.clone(),
+        yc: xc,
+        e,
+        h: hh,
+        mirrors: [Some(0.0), Some(0.0)],
+    };
+    let neff = mode.effective_index().re;
+    (
+        rod_kerr_from_d(neff, &fields, &shares, 3),
+        divergence / largest,
+    )
+}
+
+/// Afshar and Monro's rod diameter for the cases on Yee's plane, µm (their Fig. 1c's 0.15).
+pub(crate) const ROD_D: f64 = 0.15;
+
+/// The quarter window's side for the cases, µm: from 0.75 to 1.2 µm the index moves by
+/// 1.6e-7 at 5 nm, against the grid's error of 1.5e-4, and γ^V/γ^F by 6.5e-6 relative.
+pub(crate) const ROD_SIDE: f64 = 0.75;
+
+/// [`rod_kerr_yee`]'s quantities of the rod of [`ROD_D`] at spacing `h`, each grid solved once
+/// however many cases ask for it.
+pub(crate) fn rod_yee_kerr(h: f64) -> RodKerr {
+    use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+    type Solved = BTreeMap<u64, Arc<OnceLock<RodKerr>>>;
+    static SOLVED: Mutex<Solved> = Mutex::new(BTreeMap::new());
+    let slot = Arc::clone(
+        SOLVED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(h.to_bits())
+            .or_default(),
+    );
+    *slot.get_or_init(|| rod_kerr_yee(ROD_D, h, ROD_SIDE).0)
 }
 
 /// The rod's exact HE₁₁ Kerr quantities at diameter `d` µm, from the step-index fibre's fields:
@@ -564,8 +681,7 @@ fn rod_kerr_from_d(mode: &VectorMode, fields: &Fields, shares: &[f64], split: u8
 /// units). The integrals by Simpson's rule in r (2000 intervals in the core, 20000 outside to
 /// 40/w beyond the edge) and the trapezoidal rule in φ (exact for the trigonometric polynomial
 /// the integrands are). Also returns |H_φ|'s relative jump at the edge, 0 for the right β.
-#[cfg(test)]
-fn rod_kerr_exact(d: f64) -> (RodKerr, f64) {
+pub(crate) fn rod_kerr_exact(d: f64) -> (RodKerr, f64) {
     use std::f64::consts::PI;
     let [_, n2c, _, n2s] = ROD;
     let rod = RodExact::new(d);
@@ -579,9 +695,11 @@ fn rod_kerr_exact(d: f64) -> (RodKerr, f64) {
         }
         let n2 = if r < a { n2c } else { n2s };
         let mut out = [0.0; 6];
+        // the Bessel functions once a radius, not once a point
+        let radial = rod.radial(r);
         for p in 0..nphi {
             let phi = 2.0 * PI * p as f64 / nphi as f64;
-            let (eps, [er, ep, ez], [hr, hp, _]) = rod.polar(r, phi);
+            let (eps, [er, ep, ez], [hr, hp, _]) = rod.at_angle(radial, phi);
             let sz = (er * hp.conj() - ep * hr.conj()).re;
             let norm = er.norm_sqr() + ep.norm_sqr() + ez.norm_sqr();
             let square = er * er + ep * ep + ez * ez;
@@ -637,7 +755,6 @@ fn rod_kerr_exact(d: f64) -> (RodKerr, f64) {
 }
 
 /// The step-index fibre's HE₁₁ mode for the rod of [`rod_kerr_exact`], its fields at any point.
-#[cfg(test)]
 struct RodExact {
     a: f64,
     k: f64,
@@ -650,7 +767,6 @@ struct RodExact {
     b: f64,
 }
 
-#[cfg(test)]
 impl RodExact {
     fn new(d: f64) -> RodExact {
         let [nc, _, ns, _] = ROD;
@@ -732,7 +848,13 @@ impl RodExact {
 
     /// ε and the fields' polar components (r, φ, z) at (r, φ), r > 0: E_z = F(r) cos φ,
     /// H_z = B F(r) sin φ.
+    #[cfg(test)]
     fn polar(&self, r: f64, phi: f64) -> (f64, [c64; 3], [c64; 3]) {
+        self.at_angle(self.radial(r), phi)
+    }
+
+    /// What [`RodExact::polar`] needs of the radius r > 0: F, F′, F/r, κ² and ε.
+    fn radial(&self, r: f64) -> [f64; 5] {
         let [nc, _, ns, _] = ROD;
         let (f, df, kappa2, eps) = if r < self.a {
             let x = self.u * r;
@@ -760,6 +882,11 @@ impl RodExact {
         } else {
             f / r
         };
+        [f, df, fr, kappa2, eps]
+    }
+
+    /// [`RodExact::polar`] at the angle φ from the radius's [`RodExact::radial`].
+    fn at_angle(&self, [f, df, fr, kappa2, eps]: [f64; 5], phi: f64) -> (f64, [c64; 3], [c64; 3]) {
         let (beta, k, b) = (self.beta, self.k, self.b);
         let i = c64::new(0.0, 1.0);
         let (cs, sn) = (portable::cos(phi), portable::sin(phi));
@@ -777,6 +904,7 @@ impl RodExact {
     }
 
     /// H's Cartesian components at (x, y).
+    #[cfg(test)]
     fn h_at(&self, x: f64, y: f64) -> [c64; 3] {
         let r = portable::hypot(x, y);
         let phi = portable::atan2(y, x);
@@ -1185,6 +1313,44 @@ mod tests {
                     r.vector_over_standard(),
                 );
             }
+        }
+    }
+    #[test]
+    #[ignore = "a grid study, run by hand (cargo test --release -- --ignored --nocapture)"]
+    fn afshar_and_monros_rod_on_yees_grid() {
+        // issue #815: γ^V/γ^F from the rod's mode on Yee's plane with the whole tensor;
+        // YEE_GRIDS="0.01,0.005,0.0025"
+        let start = std::time::Instant::now();
+        let d = 0.15;
+        let (exact, _) = rod_kerr_exact(d);
+        println!(
+            "exact D {d}: neff {:.9} V/F {:.6} V/S {:.6}",
+            exact.neff,
+            exact.vector_over_foster(),
+            exact.vector_over_standard()
+        );
+        let grids: Vec<f64> = std::env::var("YEE_GRIDS")
+            .unwrap_or_else(|_| "0.01,0.005,0.0025".to_owned())
+            .split(',')
+            .map(|s| s.trim().parse().expect("a number"))
+            .collect();
+        for (k, &h) in grids.iter().enumerate() {
+            let side = std::env::var("YEE_SIDE").map_or(ROD_SIDE, |s| s.parse().expect("a number"));
+            let (r, div) = rod_kerr_yee(d, h, side);
+            let el = start.elapsed().as_secs_f64();
+            println!(
+                "step {}/{} ({:.0} %, {el:.0} s, ETA {:.0} s): yee h {h}: neff {:.9} (error \
+                 {:+.3e}) V/F {:.6} (rel {:+.3e}) V/S {:.6} div H {div:.1e}",
+                k + 1,
+                grids.len(),
+                100.0 * (k + 1) as f64 / grids.len() as f64,
+                el / (k + 1) as f64 * (grids.len() - k - 1) as f64,
+                r.neff,
+                r.neff - exact.neff,
+                r.vector_over_foster(),
+                r.vector_over_foster() / exact.vector_over_foster() - 1.0,
+                r.vector_over_standard(),
+            );
         }
     }
 

@@ -218,11 +218,16 @@ permittivity, the average that did best for a thicker silicon rod's index at 1.5
 ([stacks.md](stacks.md)), but this rod is near cut-off, where the index rises by 0.13 for each
 10 nm of diameter, and the mean leaves it about a nanometre wider in radius at 5 nm.
 
-So a converged $\bar n_2$ at an oblique interface needs both: the smoothing above in the library,
-which needs each cell's share and the edge's normal (a cross-section keeps only the averaged
-permittivity), and a mode that converges at an oblique interface. Until then `field_weighted_n2`
-keeps its one-sided fields, right where the interfaces lie on the grid's lines
-(`mode/kerr-index-slab-tm`). The study is
+So a converged $\bar n_2$ at an oblique interface needs both: the smoothing above, which needs
+each cell's share and the edge's normal (a cross-section keeps only the averaged permittivity),
+and a mode that converges at an oblique interface. The mode is Yee's plane's with Farjadpour et
+al.'s whole tensor ([eigenmode expansion, an oblique interface](eme.md#an-oblique-interface)): its
+index converges at second order on this rod, and the same smoothed fields from it (H at the cells'
+centres, $E_z$ from the continuity equation) give $\gamma^V/\gamma^F$ = 1.32805, 1.38877 and
+1.40698 at 10, 5 and 2.5 nm, second order (1.96 ± 0.05), Richardson's limit 1.41294 against the
+exact 1.41273 (`eme/3d-oblique-rod-kerr`, `eme/3d-oblique-rod-kerr-order`). That is the cases'
+computation for the rod, its edge's normal the radius; `field_weighted_n2` keeps its one-sided
+fields, right where the interfaces lie on the grid's lines (`mode/kerr-index-slab-tm`). The study is
 `mode::quantities_checks::tests::afshar_and_monros_rod_study` (`ROD_EXACT_H=1` for the exact H),
 the exact fields `mode::quantities_checks::tests::afshar_and_monros_rod_exact`, and the cells'
 $H_z$ `mode::quantities_checks::tests::rod_exact_h_diagnostic`.

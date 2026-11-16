@@ -344,3 +344,137 @@ fn refusals() {
     );
     assert!(eme.s_matrix(&[]).is_err());
 }
+
+/// A silicon stadium 0.4 × 0.15 µm (round ends) turned by `angle` degrees about the origin, in
+/// oxide, drawn for the averaging.
+fn stadium(angle: f64) -> crate::averaging::Plane {
+    use crate::geometry::{Point, Shape};
+    let mut plane = crate::averaging::Plane::new(c64::new(1.444 * 1.444, 0.0));
+    plane.draw(
+        Shape::rounded_rect(
+            Point::um(0.0, 0.0),
+            Length::um(0.4),
+            Length::um(0.15),
+            Length::um(0.075),
+            angle.to_radians(),
+        )
+        .unwrap(),
+        c64::new(3.473 * 3.473, 0.0),
+    );
+    plane
+}
+
+/// The `count` highest indices of `plane` at 1.55 µm, between electric walls.
+fn indices(plane: &Plane, count: usize) -> Vec<c64> {
+    Eme3d::new(lam(), count)
+        .unwrap()
+        .modes(plane)
+        .unwrap()
+        .iter()
+        .map(super::Mode3d::effective_index)
+        .collect()
+}
+
+#[test]
+fn a_drawn_plane_by_samples_is_the_plane_of_its_points_and_an_axis_tensor_the_diagonal() {
+    use crate::averaging::Averaging;
+    use crate::geometry::{Point, Shape};
+    let grid = centred(16, 16, 0.06, 0.06);
+    let drawn = stadium(30.0);
+    assert_eq!(
+        Plane::from_plane(grid, &drawn, Averaging::Samples).unwrap(),
+        Plane::new(grid, |x, y| drawn.at(x, y)).unwrap()
+    );
+    // a film across the window whose faces lie between the grid's lines, along its axis: no
+    // off-diagonal part, and the tensor's plane is the diagonal's to the bit (a corner's cell has
+    // one)
+    let mut strip = crate::averaging::Plane::new(c64::new(1.444 * 1.444, 0.0));
+    strip.draw(
+        Shape::rect(Point::um(0.0, -0.007), Length::um(5.0), Length::um(0.22)).unwrap(),
+        c64::new(3.473 * 3.473, 0.0),
+    );
+    let tensor = Plane::from_plane(grid, &strip, Averaging::Tensor).unwrap();
+    assert!(tensor.is_diagonal());
+    assert_eq!(
+        tensor,
+        Plane::from_plane(grid, &strip, Averaging::Diagonal).unwrap()
+    );
+    // the turned stadium has one
+    let turned = Plane::from_plane(grid, &drawn, Averaging::Tensor).unwrap();
+    assert!(!turned.is_diagonal());
+    assert!((0..16).any(|i| (0..=16).any(|j| portable::complex::abs(turned.eps_xy(i, j)) > 0.0)));
+}
+
+#[test]
+fn the_tensors_coupling_keeps_the_operators_symmetric() {
+    use crate::averaging::Averaging;
+    use crate::geometry::{Point, Shape};
+    // the turned stadium on the whole window
+    let grid = centred(16, 16, 0.06, 0.06);
+    symmetric(
+        &Plane::from_plane(grid, &stadium(30.0), Averaging::Tensor).unwrap(),
+        None,
+    );
+    // a rod's quarter behind an electric wall at x = 0 and a magnetic one at y = 0, where the
+    // coupling reaches across the magnetic wall to the images
+    let walls = super::Walls {
+        west: super::Wall::Electric,
+        east: super::Wall::Electric,
+        south: super::Wall::Magnetic,
+        north: super::Wall::Electric,
+    };
+    let mut rod = crate::averaging::Plane::new(c64::new(1.444 * 1.444, 0.0));
+    rod.draw(
+        Shape::circle(Point::um(0.0, 0.0), Length::um(0.25)).unwrap(),
+        c64::new(3.473 * 3.473, 0.0),
+    );
+    let grid = PlaneGrid::new(16, 16, (0.05, 0.05), (0.0, 0.0)).with_walls(walls);
+    let quarter = Plane::from_plane(grid, &rod, Averaging::Tensor).unwrap();
+    assert!(!quarter.is_diagonal());
+    // on the magnetic wall, a plane of symmetry, no off-diagonal part
+    assert!((0..16).all(|i| quarter.eps_xy(i, 0) == c64::new(0.0, 0.0)));
+    symmetric(&quarter, None);
+}
+
+#[test]
+fn a_tensor_planes_modes_are_orthonormal() {
+    use crate::averaging::Averaging;
+    let grid = centred(16, 16, 0.06, 0.06);
+    let plane = Plane::from_plane(grid, &stadium(30.0), Averaging::Tensor).unwrap();
+    let modes = Eme3d::new(lam(), 12).unwrap().modes(&plane).unwrap();
+    for (i, a) in modes.iter().enumerate() {
+        for (j, b) in modes.iter().enumerate() {
+            let expected = if i == j { 1.0 } else { 0.0 };
+            let p = a.product(b).unwrap();
+            assert!(
+                portable::complex::abs(p - expected) < 1e-10,
+                "<E{i}, H{j}> = {p}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_tensor_plane_mirrored_or_transposed_has_the_same_modes() {
+    // the stadium at 30°, mirrored in x (−30°) and transposed, x and y swapped (60°): the same
+    // structure seen otherwise on a square grid centred on it, so the same indices, which a
+    // coupling placed or signed wrong would split
+    use crate::averaging::Averaging;
+    let grid = centred(16, 16, 0.06, 0.06);
+    let of = |angle: f64| {
+        indices(
+            &Plane::from_plane(grid, &stadium(angle), Averaging::Tensor).unwrap(),
+            3,
+        )
+    };
+    let (base, mirrored, transposed) = (of(30.0), of(-30.0), of(60.0));
+    for k in 0..3 {
+        for other in [mirrored[k], transposed[k]] {
+            assert!(
+                portable::complex::abs(base[k] - other) < 1e-10,
+                "mode {k}: {} against {other}",
+                base[k]
+            );
+        }
+    }
+}

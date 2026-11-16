@@ -216,6 +216,17 @@ is.
   equations, on the same grid and unknowns, reach about second order there and sixth at
   straight interfaces: see [high-accuracy modes](hadley.md), for uniform grids of lossless
   isotropic media.
+- **Interfaces oblique to the grid** (a sloped sidewall, a curved core) converge slowly here,
+  whatever the cells hold: each step of the staircase is a node whose four cells differ both
+  ways, a small corner, and there are about 1/h of them. On Afshar and Monro's silicon rod
+  (D = 0.15 µm, 3.45 in 1.45, 800 nm) the index converges at order 0.31 ± 0.02 from 10 to
+  1.25 nm with the cells' mean, and not at all with Farjadpour et al.'s tensor, though the
+  tensor converges at second order (2.005 ± 0.008) on a slab whose faces cut cells along the
+  grid (issue #815; [stacks](stacks.md#the-cross-sections-average)). For such an interface use
+  Yee's plane: `eme::Plane::from_plane` with `Averaging::Tensor` and `Eme3d::modes`
+  ([eigenmode expansion, an oblique interface](eme.md#an-oblique-interface)), second order on
+  the same rod. This solver stays the one for interfaces on the grid's lines, where it is second
+  order, takes graded grids and anisotropic media, and is what modes jobs run.
 - **The book's strip** (500 × 220 nm, 3.473 in 1.444, 1550 nm): TE-like 2.447067, 2.445713,
   2.444396, 2.443506 at 20, 10, 5, 2.5 nm, against the book's 2.443 (Lumerical, 20 nm mesh,
   good to about 1e-3).
