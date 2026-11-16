@@ -50,18 +50,44 @@
 //! grating phase-matched by the slabs' indices (period 0.640 µm) ended at 3.04 dB; a robust search
 //! (eroded, blueprint and dilated at ¾, ½ and ¼) at 2.74 dB, still with features under 100 nm.
 //!
-//! **The finer grids** (`--full`). Both designs again on cells of 10, 6.67 and 5 nm from 1520 to
+//! **The finer grids** (`--full`). Both designs again on cells of 10, 8 and 6.67 nm from 1520 to
 //! 1580 nm in steps of 4 nm: the least loss and its wavelength (a parabola through the least
 //! sample and its neighbours) and the 1-dB band (linear between samples; 4 nm steps move its edges
-//! by about 0.03 nm on a parabola this wide). The grids don't converge in turn, so each value is
-//! their mean ± half their range.
+//! by about 0.03 nm on a parabola this wide). The values move the same way from grid to grid, but
+//! not by shrinking steps, so they aren't extrapolated: each is the three grids' mean ± half
+//! their range.
 //!
 //! **What is compared.** Their design against the text's 1.94 dB and 34 nm, within the text's and
 //! Fig. 2(c)'s difference (0.02 dB and 2.55 nm: the curve, read from its vector path, gives
-//! 1.9185 dB at 1550.3 nm and 36.55 nm) and our grids' spread: checked where it is within,
-//! otherwise reported. Ours against their design solved here, where the grids' spreads decide it.
+//! 1.9185 dB at 1550.3 nm and 36.55 nm): on 20 nm cells, the grid their numbers come from, as
+//! the setup's check; on the finer grids within that and their spread, checked where it is
+//! within, otherwise reported. Ours against their design solved here, where the grids' spreads
+//! decide it.
 //!
-//! WHAT_IT_FOUND
+//! **What it found** (`--full`, 2026-11-16, on 4 threads: about 10 minutes for the design, 25, 30
+//! and 45 for the 10, 8 and 6.67 nm grids):
+//!
+//! | | least loss (dB) | at (nm) | 1-dB bandwidth (nm) |
+//! |---|---|---|---|
+//! | the paper's text (Fig. 2(c)'s curve) | 1.94 (1.9185) | (1550.3) | 34 (36.55) |
+//! | their design here, 20 nm cells (theirs) | 1.952 | 1549.1 | 35.1 |
+//! | their design here, 10, 8 and 6.67 nm cells | 1.976 ± 0.002 | 1545.1 ± 0.3 | 35.0 ± 0.0 |
+//! | our design, 20 nm cells | 2.270 | 1550.9 | 34.9 |
+//! | our design, 10, 8 and 6.67 nm cells | 2.309 ± 0.003 | 1546.8 ± 0.3 | 35.2 ± 0.0 |
+//!
+//! On their grid their design agrees with the text within the reading, the loss and the band both
+//! checked. On the finer grids it loses 0.024 dB more and peaks 4 nm bluer (the 20 nm grid's own
+//! error); the bandwidth stays checked, but the least loss, 0.036 dB above the text, is beyond the
+//! reading and the grids' spread: reported, not checked (#595).
+//!
+//! Ours: the density stage, binarized, gave 2.32 dB with two features under 100 nm (a 20 nm
+//! groove among them); with those merged, 2.48 dB; the edge stage brought it to 2.27 dB with 22
+//! grooves, the narrowest 100.1 nm, and its second and third stages gained nothing. On the finer
+//! grids 2.309 ± 0.003 dB: 0.333 dB more loss than their design here, beyond the spreads,
+//! reported (#595). Their method found a better optimum than this search does from uniform
+//! densities. The design is recorded in `examples/designs/optimize_grating_coupler_soi.txt`,
+//! which the plain run solves; `--full` optimizes it again and checks it is the same to 1 pm (its
+//! values and gradients rounded to 12 digits).
 //!
 //! ```sh
 //! cargo run --release --example optimize_grating_coupler_soi                    # the recorded designs on 20 nm cells, the recorded finer grids
@@ -160,13 +186,56 @@ const TEXT_BANDWIDTH: f64 = 34.0;
 const FIG_LOSS: f64 = 1.9185;
 const FIG_BANDWIDTH: f64 = 36.55;
 const FIG_CENTRE: f64 = 1550.3;
-/// The finer grids of `--full`: cells of 20 nm divided by these, and how many wavelengths each
-/// solves at once (a 5 nm grid's factorization takes several GB).
-const FINE: [usize; 3] = [2, 3, 4];
-const AT_ONCE: [usize; 3] = [4, 3, 2];
+/// The finer grids of `--full`: their cells, µm, and how many wavelengths each solves at once
+/// (a 6.67 nm grid's factorization takes several GB).
+const FINE: [f64; 3] = [0.01, 0.008, 0.02 / 3.0];
+const AT_ONCE: [usize; 3] = [4, 4, 3];
 /// What `--full` found, per fine grid, per design (theirs, ours): the least loss, dB, its
 /// wavelength, nm, and the 1-dB band's edges, nm.
-const RECORDED: [[[f64; 4]; 2]; 3] = [[[f64::NAN; 4]; 2]; 3];
+const RECORDED: [[[f64; 4]; 2]; 3] = [
+    [
+        [
+            1.973822528894021,
+            1545.5276205181933,
+            1528.6417183234107,
+            1563.6287899044328,
+        ],
+        [
+            2.3063295246151623,
+            1547.1763280880139,
+            1527.7596250301103,
+            1562.9761466815462,
+        ],
+    ],
+    [
+        [
+            1.975322915592025,
+            1544.9486898143093,
+            1527.9914369767507,
+            1562.9987888319226,
+        ],
+        [
+            2.308059184594255,
+            1546.6615282698735,
+            1527.2251422194934,
+            1562.4381921577876,
+        ],
+    ],
+    [
+        [
+            1.9783140828679446,
+            1544.8742597019664,
+            1527.9275951669485,
+            1562.920255197677,
+        ],
+        [
+            2.3121460789342025,
+            1546.5440501504472,
+            1527.1009027087582,
+            1562.3024714337364,
+        ],
+    ],
+];
 
 const OURS: &str = include_str!("designs/optimize_grating_coupler_soi.txt");
 const OURS_FILE: &str = "examples/designs/optimize_grating_coupler_soi.txt";
@@ -841,11 +910,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "--full",
-        "both designs again on cells of 10, 6.67 and 5 nm, from 1520 to 1580 nm in steps of 4 nm",
+        "both designs again on cells of 10, 8 and 6.67 nm, from 1520 to 1580 nm in steps of 4 nm",
     );
     setup.item(
         "tolerance",
-        "their design against the text's least loss and 1-dB bandwidth, within the text's and Fig. 2(c)'s difference and our grids' spread; ours against theirs where that spread decides it",
+        "their design against the text's least loss and 1-dB bandwidth, within the text's and Fig. 2(c)'s difference, on their 20 nm cells and, with our grids' spread, on the finer ones; ours against theirs where that spread decides it",
     );
     setup.medium("silicon", "Li 1980, 293 K (the paper prints no indices)");
     setup.medium("silica", "Malitson 1965");
@@ -926,6 +995,26 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             .collect::<Vec<_>>()
             .join(", ");
         println!("    {every} (nm dB)");
+        if d == 0 {
+            // the setup's check, on their grid: their design against the text, within the
+            // text's and the figure's difference
+            for (what, v, printed, reading) in [
+                (
+                    "their design, 20 nm, least loss (dB)",
+                    least,
+                    TEXT_LOSS,
+                    (TEXT_LOSS - FIG_LOSS).abs(),
+                ),
+                (
+                    "their design, 20 nm, 1-dB band (nm)",
+                    hi - lo,
+                    TEXT_BANDWIDTH,
+                    (TEXT_BANDWIDTH - FIG_BANDWIDTH).abs(),
+                ),
+            ] {
+                checks.compare(what, v, printed, reading);
+            }
+        }
     }
     if !designed {
         println!("  our design: not designed yet: run --full --write");
@@ -935,8 +1024,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let results: Vec<[[f64; 4]; 2]> = if fine && designed {
         let log = open_log();
         let mut out = Vec::new();
-        for (k, n) in FINE.into_iter().enumerate() {
-            let h = PIXEL / n as f64;
+        for (k, h) in FINE.into_iter().enumerate() {
             let label = format!("grid {}/{}", k + 1, FINE.len());
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(AT_ONCE[k])
@@ -955,7 +1043,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         println!("  not recorded yet: run --full");
         return Ok(checks.finish());
     }
-    let h = FINE.map(|n| 1e3 * PIXEL / n as f64);
+    let h = FINE.map(|h| 1e3 * h);
     println!(
         "  on {:.2}, {:.2} and {:.2} nm cells, then their mean ± half their range:",
         h[0], h[1], h[2]
