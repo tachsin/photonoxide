@@ -133,11 +133,9 @@ const THEIRS: &str = include_str!("designs/piggott_2020_fig5b.hex");
 
 /// The 220 nm slab's TE index at `lam`, µm: silica both sides.
 fn slab_index(lam: f64) -> photonoxide::Result<f64> {
-    Ok(
-        Slab::new(N_SIO2, N_SI, N_SIO2, Length::um(THICKNESS))?
-            .modes(photonoxide::mode::Polarization::Te, Wavelength::um(lam)?)[0]
-            .effective_index(),
-    )
+    Ok(Slab::new(N_SIO2, N_SI, N_SIO2, Length::um(THICKNESS))?
+        .modes(photonoxide::mode::Polarization::Te, Wavelength::um(lam)?)[0]
+        .effective_index())
 }
 
 /// The 2D grid of cell `h`, µm.
@@ -791,7 +789,11 @@ fn compare_3d(checks: &mut common::Checks, results: &[Results3d]) {
             let (te, ts) = least;
             let bound = fig[0].min(fig[1]) - READING;
             if te - ts >= bound {
-                checks.at_most(&format!("{name}, least share, 3D, short of theirs"), bound - te, 0.0);
+                checks.at_most(
+                    &format!("{name}, least share, 3D, short of theirs"),
+                    bound - te,
+                    0.0,
+                );
             } else if te + ts < bound {
                 println!(
                     "      reported, not checked: the least share {te:.4} is {:.4} below their design's, beyond our grids' spread and the reading (a gap, #595)",
@@ -819,7 +821,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "device",
         "a 3.8 × 2.5 µm region of 220 nm silicon, silica on all sides; a 0.5 µm input guide on the axis, three 0.5 µm outputs 1 µm apart, read from Fig. 5(b)",
     );
-    setup.medium("silicon", "n = 3.49 (Piggott et al. 2015's; not printed in 2020)");
+    setup.medium(
+        "silicon",
+        "n = 3.49 (Piggott et al. 2015's; not printed in 2020)",
+    );
     setup.medium("silica", "n = 1.45");
     setup.item(
         "wavelengths",
@@ -907,8 +912,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     let lam = if at_1500 { 1.5 } else { LAMBDA_3D };
     println!("3D FDFD at {:.0} nm:", 1e3 * lam);
     if three {
-        let path =
-            std::env::var("SPLITTER_SOI_LOG").unwrap_or_else(|_| "optimize_splitter_soi.log".into());
+        let path = std::env::var("SPLITTER_SOI_LOG")
+            .unwrap_or_else(|_| "optimize_splitter_soi.log".into());
         let mut log = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -941,7 +946,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                     "  {name}, {:.1} nm cells: lower {a:.4}, centre {b:.4}, upper {c:.4}, total {:.4}; Fig. 5(d): {}",
                     1e3 * THICKNESS / grids[0] as f64,
                     a + b + c,
-                    fig.map_or("none".to_string(), |f| format!("{}, {}, {}", f[0], f[1], f[2]))
+                    fig.map_or("none".to_string(), |f| format!(
+                        "{}, {}, {}",
+                        f[0], f[1], f[2]
+                    ))
                 );
             }
         } else {
