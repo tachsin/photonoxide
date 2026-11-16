@@ -512,6 +512,13 @@ of the specification in one epigraph: 93.0 % and 88.3 % in 2D at the centres. In
 against their −1.7 and −2.0 dB, a gap (#595); into the other port −24.8 and −34 dB, below
 theirs, checked.
 
+*Frellsen 2016 (`optimize_mode_mux_soi`):* their design is printed in Fig. 1(b), so it is read
+onto the domain's 20 nm pixels and solved first, as the setup's check: in 3D FDFD (`--full`, 42.5
+to 34 nm, 88 minutes for both designs) −0.09 ± 0.07 and −0.45 ± 0.09 dB against Fig. 2(d)'s
+−0.11 and −0.38 dB, checked. Ours, designed in the plane from their silicon rectangle (from
+uniform ½ the search made small holes that lost 1.7 and 2.4 dB in 3D), gets 88 to 94 % in 2D and
+−1.34 ± 0.34 and −1.48 ± 0.08 dB in 3D: 1.2 and 1.1 dB more loss than theirs, a gap (#595).
+
 ## 4. Decisions
 
 *I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*

@@ -468,6 +468,13 @@ specification (the wanted port's share and the other's) in one epigraph; then th
 extruded through the 220 nm layer and solved in 3D FDFD by GMRES and the multigrid. With silica
 beside the silicon instead, the plane carried light across gaps that the air-clad layer
 radiates from, and the design kept a few percent in 3D.
+[`optimize_mode_mux_soi`](../../examples/optimize_mode_mux_soi.rs) takes Frellsen et al.'s
+two-mode multiplexer the same way, and first solves their own design, read from their figure
+onto the domain's pixels, in 3D: it matches their 3D FDTD, so the setup (thickness, guides,
+ports, normalization) is theirs before anything is designed. Our search there starts from their
+silicon rectangle: from uniform densities of ½ it made many small holes, which the plane
+forgives and the 3D layer scatters into the substrate. Their design comes out within 0.07 dB of
+their FDTD; ours, from the plane, loses about 1.1 dB more than theirs.
 
 ## The job
 

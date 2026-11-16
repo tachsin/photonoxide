@@ -31,7 +31,14 @@
 //! ±3 and ±6 % about 1575 nm (their pulses' 260 nm about 1580 nm), for each of the two modes,
 //! the worst of 1 − T and of ten times the share into the other guide is minimized in its
 //! epigraph form by genoxide's MMA, every gradient by the adjoint; β from 8 to 256 in six stages
-//! of 40 evaluations. Their method differs: 3D FDTD with pulses and the adjoint, 200 iterations.
+//! of 40 evaluations. The search starts from theirs (Fig. 1(a)): silicon over 4 × 2.4 µm in the
+//! domain, softened to densities of 0.7 there and 0.3 around. Their method differs: 3D FDTD with
+//! pulses and the adjoint, 200 iterations.
+//!
+//! **Why their start.** A first search from densities of ½ everywhere made a design of many small
+//! holes and islands that reached 94 to 97 % in 2D but kept only −1.70 dB (TE₀) and −2.42 dB
+//! (TE₁) on the 3D check's coarsest grid; from their start the design is one solid body, 88 to
+//! 94 % in 2D, and keeps −1.06 and −1.53 dB there.
 //!
 //! **The 3D check.** Each design extruded through the 340 nm layer, solved in 3D FDFD (`--full`)
 //! at 1550 nm on cells of 42.5, 37.8 and 34 nm (an eighth, a ninth and a tenth of the layer)
@@ -45,7 +52,19 @@
 //! otherwise reported. The share into the other guide is reported only: their Fig. 2(c) gives an
 //! extinction ratio from a line scan of the flux, not a modal share.
 //!
-//! **What it found**: not run yet.
+//! **What it found** (`--full`, 2026-11-16: 4 minutes for the design, 88 for the 3D solves on 6
+//! threads). The straight wire keeps 0.99997 of TE₀ and 0.99973 of TE₁ in its mode. Their design,
+//! as read, in 3D: −0.09 ± 0.07 dB TE₀ to TE₀ and −0.45 ± 0.09 dB TE₀ to TE₁ against Fig. 2(d)'s
+//! −0.11 and −0.38 dB, both checked (in our 2D plane it gives 96.4 % and 93.3 % at 1575 nm).
+//! Ours in 2D, at 10 nm: 88 to 94 % over the five wavelengths, at most 0.62 % into the other
+//! guide. In 3D: −1.34 ± 0.34 dB and −1.48 ± 0.08 dB, 1.2 and 1.1 dB more loss than their
+//! design's, a gap (#595): theirs was optimized in 3D, ours in a plane that can't see what its
+//! edges send into the substrate. Into the other guide −21 to −23 dB for TE₀ in and −17 to −18 dB
+//! for TE₁ (theirs −21 to −23.5 dB), reported. The three grids don't converge in turn (the 20 nm
+//! pixels fall on each grid's cells differently), so the extrapolations' spread is the first-order
+//! one, and the small shares into the other guide aren't extrapolated. The design is recorded in
+//! `examples/designs/optimize_mode_mux_soi.hex`, which the plain run solves; `--full` optimizes it
+//! again and checks it is the same, its values and gradients rounded to 12 digits.
 //!
 //! ```sh
 //! cargo run --release --example optimize_mode_mux_soi                    # the recorded designs in 2D, the recorded 3D
@@ -53,6 +72,7 @@
 //! cargo run --release --example optimize_mode_mux_soi -- --full --write  # the optimization, recorded
 //! cargo run --release --example optimize_mode_mux_soi -- --3d             # the recorded designs' 3D solves
 //! cargo run --release --example optimize_mode_mux_soi -- --3d --coarse    # those on the coarsest grid only
+//! cargo run --release --example optimize_mode_mux_soi -- --3d --coarse --ours  # ours alone there
 //! ```
 
 mod common;
@@ -118,7 +138,44 @@ const RESIDUAL: f64 = 1e-9;
 /// What `--full` found in 3D, per grid: per piece (the straight wire, their design, ours), per
 /// mode in (TE₀, TE₁), the wanted output's share and the other's (the straight wire: the same
 /// mode's and the other mode's).
-const RECORDED_3D: [[[[f64; 2]; 2]; 3]; 3] = [[[[f64::NAN; 2]; 2]; 3]; 3];
+const RECORDED_3D: [[[[f64; 2]; 2]; 3]; 3] = [
+    [
+        [
+            [0.99997251053111, 2.1702652273819068e-13],
+            [0.999728361949055, 2.722861644097249e-13],
+        ],
+        [
+            [0.9619226778922829, 0.005628064508130972],
+            [0.9251112786353429, 0.004469760119279638],
+        ],
+        [
+            [0.7842086796913148, 0.004889626871265813],
+            [0.7032722274650925, 0.016802991459615783],
+        ],
+    ],
+    [
+        [[f64::NAN, f64::NAN], [f64::NAN, f64::NAN]],
+        [
+            [0.9615760661569454, 0.00832597243151301],
+            [0.9225204316804361, 0.006517764100011851],
+        ],
+        [
+            [0.8010102949998695, 0.0052724626860635605],
+            [0.69692353998179, 0.014518044871164525],
+        ],
+    ],
+    [
+        [[f64::NAN, f64::NAN], [f64::NAN, f64::NAN]],
+        [
+            [0.9650360415801488, 0.007908056470376679],
+            [0.9185931201262463, 0.006288012026941646],
+        ],
+        [
+            [0.7878162213219122, 0.007960119120463653],
+            [0.6996126943934593, 0.018837817411934098],
+        ],
+    ],
+];
 
 const OURS: &str = include_str!("designs/optimize_mode_mux_soi.hex");
 const OURS_FILE: &str = "examples/designs/optimize_mode_mux_soi.hex";
@@ -751,7 +808,6 @@ fn compare_3d(checks: &mut common::Checks, results: &[Results3d]) {
             let t = [0, 1, 2].map(|k| db(results[k][p][m][0]));
             let x = [0, 1, 2].map(|k| db(results[k][p][m][1]));
             let (te, ts, order) = extrapolated(h, t);
-            let (xe, xs, _) = extrapolated(h, x);
             println!(
                 "    {}: {:.3}, {:.3}, {:.3} dB on the three grids, {te:.2} ± {ts:.2} dB extrapolated (order {}); Fig. 2(d): {theirs} dB",
                 modes[m],
@@ -760,8 +816,10 @@ fn compare_3d(checks: &mut common::Checks, results: &[Results3d]) {
                 t[2],
                 order.map_or("none".to_string(), |q| format!("{q:.1}"))
             );
+            // the grids sample the 20 nm pixels each their own way, so these small shares wander
+            // from grid to grid and aren't extrapolated: the three are reported
             println!(
-                "      into the other guide {:.1}, {:.1}, {:.1} dB, {xe:.1} ± {xs:.1} dB extrapolated (reported)",
+                "      into the other guide {:.1}, {:.1}, {:.1} dB on the three grids (reported)",
                 x[0], x[1], x[2]
             );
             let what = format!("{name}, {}, 3D (dB)", modes[m]);
@@ -820,7 +878,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     );
     setup.item(
         "design",
-        "211 × 130 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations; genoxide's MMA on the worst of the ten 1 − T and of the ten shares into the other guide times 10",
+        "211 × 130 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations from their 4 × 2.4 µm rectangle (densities 0.7 in it, 0.3 around); genoxide's MMA on the worst of the ten 1 − T and of the ten shares into the other guide times 10",
     );
     setup.item("their design", "Fig. 1(b), read onto the same 20 nm pixels");
     setup.item(
