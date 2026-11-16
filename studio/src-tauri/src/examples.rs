@@ -77,6 +77,7 @@ examples!(
     optimize_demux_soi: "../../../examples/optimize_demux_soi.rs",
     optimize_mode_mux_soi: "../../../examples/optimize_mode_mux_soi.rs",
     optimize_splitter_soi: "../../../examples/optimize_splitter_soi.rs",
+    optimize_grating_coupler_soi: "../../../examples/optimize_grating_coupler_soi.rs",
     directional_coupler: "../../../examples/directional_coupler.rs",
     ring_q_factor: "../../../examples/ring_q_factor.rs",
     mzi_dwivedi: "../../../examples/mzi_dwivedi.rs",
@@ -252,6 +253,10 @@ fn title(name: &str) -> (&'static str, &'static str) {
             "A three-way power splitter, explored in 2D and verified in 3D",
             "Piggott et al. 2020",
         ),
+        "optimize_grating_coupler_soi" => (
+            "A grating coupler, designed in 2D and verified on finer grids",
+            "Su et al. 2018",
+        ),
         "optimize_metagrating" => (
             "A metagrating deflector, explored in 2D and verified in 3D",
             "Chen et al. 2024",
@@ -358,6 +363,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_demux_soi" => 15.0,
         "optimize_mode_mux_soi" => 15.0,
         "optimize_splitter_soi" => 15.0,
+        "optimize_grating_coupler_soi" => 90.0,
         "bend_loss" | "leaky_waves" | "strip_waveguide" => 10.0,
         "lorentz_okoniewski" | "subpixel_holes" => 15.0,
         "directional_coupler" | "tfsf_square_cylinder" => 20.0,
