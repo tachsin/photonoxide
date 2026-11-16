@@ -1,0 +1,31 @@
+Setup
+  device: a 14 µm region of 220 nm silicon, grooves 100 nm deep, on 2 µm of buried oxide over silicon, silica above; the waveguide on the left
+  beam: TE (E along the grooves), a Gaussian of 5.2 µm waist at 10° from the normal in air (6.9° in the silica), leaning towards the waveguide, its centre 6.8 µm into the region
+  2D: FDFD on 20 nm cells (theirs), PMLs of 1 µm all round; the incident power from the same beam in silica alone
+  their design: Fig. 2(a), read from its vector outline
+  design: densities on 700 pixels of 20 nm, each the top 100 nm of the layer, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations from densities ½; then the grooves' edges, every groove and tooth at least 100 nm, three stages of 50; genoxide's MMA on 1 − η at 1550 nm
+  --full: both designs again on cells of 10, 8 and 6.67 nm, from 1520 to 1580 nm in steps of 4 nm
+  tolerance: their design against the text's least loss and 1-dB bandwidth, within the text's and Fig. 2(c)'s difference, on their 20 nm cells and, with our grids' spread, on the finer ones; ours against theirs where that spread decides it
+  materials:
+    silicon: Li 1980, 293 K (the paper prints no indices)
+    silica: Malitson 1965
+
+At 1550 nm: silicon 3.4757, silica 1.4440
+Their design: 23 grooves, the narrowest feature 99.8 nm; ours: 22 grooves, the narrowest 100.1 nm
+  our features under 100 nm                     0   paper 0                      ok
+In 2D on 20 nm cells, the loss into the waveguide's TE₀:
+  their design: least 1.952 dB at 1549.1 nm; 1-dB band 1532.1 to 1567.2 nm (35.1 nm)
+    1520 5.01, 1524 4.22, 1528 3.53, 1532 2.97, 1536 2.53, 1540 2.22, 1544 2.03, 1548 1.96, 1552 1.98, 1556 2.09, 1560 2.31, 1564 2.62, 1568 3.03, 1572 3.52, 1576 4.07, 1580 4.66 (nm dB)
+  their design, 20 nm, least loss (dB)     1.951577   paper 1.94       ± 2.1499999999999853e-2 ok
+  their design, 20 nm, 1-dB band (nm)    35.064413   paper 34         ± 2.549999999999997e0 ok
+  our design: least 2.270 dB at 1550.9 nm; 1-dB band 1531.6 to 1566.5 nm (34.9 nm)
+    1520 4.67, 1524 4.12, 1528 3.64, 1532 3.23, 1536 2.89, 1540 2.61, 1544 2.42, 1548 2.30, 1552 2.27, 1556 2.36, 1560 2.57, 1564 2.94, 1568 3.47, 1572 4.18, 1576 5.07, 1580 6.11 (nm dB)
+On the finer grids:
+  on 10.00, 8.00 and 6.67 nm cells, then their mean ± half their range:
+  their design: least loss 1.976 ± 0.002 dB at 1545.1 ± 0.3 nm; 1-dB bandwidth 35.0 ± 0.0 nm
+  our design: least loss 2.309 ± 0.003 dB at 1546.8 ± 0.3 nm; 1-dB bandwidth 35.2 ± 0.0 nm
+  the paper: least loss 1.94 dB, 1-dB bandwidth 34 nm (Fig. 2(c): 1.9185 dB at 1550.3 nm, 36.55 nm)
+  their design, least loss (dB): 1.976, +0.036 from the paper, beyond the reading and our grids' spread: reported, not checked (a gap, #595)
+  their design, 1-dB bandwidth (nm)     34.995694   paper 34         ± 2.5601401370749244e0 ok
+  our least loss is 0.333 dB more than their design's here, beyond the grids' spreads: reported, not checked (a gap, #595)
+all 4 within tolerance of the paper

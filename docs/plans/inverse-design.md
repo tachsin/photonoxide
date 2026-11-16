@@ -529,6 +529,15 @@ with silica beside the silicon from a solid rectangle, mirror symmetric, maximiz
 share at their six wavelengths: 0.291 to 0.313 in 2D, and 0.285, 0.350 and 0.285 (total 0.919)
 in 3D, its least share within the grids' spreads of their design's.
 
+*Su 2018 (`optimize_grating_coupler_soi`):* the conventional coupler of Fig. 2 (220 nm silicon,
+100 nm grooves, 2 µm of oxide over silicon, the fibre at 10°), a cross-section, so 2D only, its
+`--full` the same 2D on finer grids. Their design is printed as a vector outline in Fig. 2(a) and
+solved first: on their 20 nm cells 1.952 dB and a 35.1 nm 1-dB band against the text's 1.94 dB
+and 34 nm, checked; on 10, 8 and 6.67 nm cells 1.976 ± 0.002 dB, 0.036 dB above, a gap (#595),
+the band still checked. The 10° is read as the fibre's angle in air: in the silica their design
+peaks at 1526 nm. Ours, densities and then the grooves' edges with their 100 nm minimum feature
+as constraints: 2.309 ± 0.003 dB, 0.33 dB more than theirs (#595).
+
 ## 4. Decisions
 
 *I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*
