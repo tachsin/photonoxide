@@ -519,6 +519,16 @@ to 34 nm, 88 minutes for both designs) −0.09 ± 0.07 and −0.45 ± 0.09 dB ag
 uniform ½ the search made small holes that lost 1.7 and 2.4 dB in 3D), gets 88 to 94 % in 2D and
 −1.34 ± 0.34 and −1.48 ± 0.08 dB in 3D: 1.2 and 1.1 dB more loss than theirs, a gap (#595).
 
+*Piggott 2020 (`optimize_splitter_soi`):* the three-way splitter of Fig. 5; their design is printed
+as a vector outline in Fig. 5(b), read onto 20 nm pixels and solved first. In 3D FDFD (`--full`,
+36.7 to 27.5 nm, 20 minutes for both designs) it gives 0.317, 0.280 and 0.316 (total 0.913)
+against Fig. 5(d)'s 0.289, 0.302 and 0.289 (total 0.880): reported, not checked, an unexplained
+gap (#595), after the grid, the port plane, the indices and the reading's resolution and scale
+were ruled out; one 20 nm pixel of edge moves the balance by 0.03. Ours, designed in the plane
+with silica beside the silicon from a solid rectangle, mirror symmetric, maximizing the least
+share at their six wavelengths: 0.291 to 0.313 in 2D, and 0.285, 0.350 and 0.285 (total 0.919)
+in 3D, its least share within the grids' spreads of their design's.
+
 ## 4. Decisions
 
 *I decided on 2026-11-10 to take the recommended option of each of the eight; each says so below, and its text is kept.*

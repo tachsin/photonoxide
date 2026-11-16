@@ -475,6 +475,14 @@ ports, normalization) is theirs before anything is designed. Our search there st
 silicon rectangle: from uniform densities of ½ it made many small holes, which the plane
 forgives and the 3D layer scatters into the substrate. Their design comes out within 0.07 dB of
 their FDTD; ours, from the plane, loses about 1.1 dB more than theirs.
+[`optimize_splitter_soi`](../../examples/optimize_splitter_soi.rs) does the same for Piggott et
+al.'s three-way splitter, with silica beside the silicon in the plane (the layer is clad in silica
+on all sides) and a mirror-symmetric search that maximizes the least of the three shares. There the
+setup's check doesn't pass: their design, read from their figure, gives the outer outputs 0.03
+more and the centre 0.02 less than their FDTD, and neither the grid, the port plane, the indices
+nor the reading explains it, so it is reported, not checked. One 20 nm pixel of edge moves the
+balance by as much, which is how sensitive a compact splitter's balance is to its outline. Ours,
+from a solid rectangle, keeps as much light in 3D as theirs (a total of 0.919 against 0.913).
 
 ## The job
 
