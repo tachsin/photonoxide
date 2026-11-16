@@ -1,0 +1,48 @@
+Setup
+  device: a 4.22 × 2.6 µm domain of 340 nm silicon on silica, air above; a two-mode guide 0.71 µm wide on the left (its centre 0.315 µm above the domain's), single-mode guides 0.43 µm wide on the right (0.424 µm above and 0.473 µm below), read from Fig. 1(b)
+  wavelengths: five, ±3 and ±6 % in frequency about 1575 nm; TE₀ in to the upper guide, TE₁ in to the lower, each as TE₀
+  2D: the effective index method: the 340 nm slab's TE index in the silicon and air's outside, H along z; 20 nm cells, 10 nm beside; PMLs of 0.3 µm
+  design: 211 × 130 pixels of 20 nm, a 100 nm conic filter, tanh projection at η = ½, β 8 to 256 in six stages of 40 evaluations from their 4 × 2.4 µm rectangle (densities 0.7 in it, 0.3 around); genoxide's MMA on the worst of the ten 1 − T and of the ten shares into the other guide times 10
+  their design: Fig. 1(b), read onto the same 20 nm pixels
+  3D (--full): each design extruded through the layer, at 1550 nm; cells of 42.5, 37.8 and 34 nm, stretched PMLs of 16 cells, GMRES and the multigrid to 1e-9; a straight two-mode wire on the first
+  tolerance: 3D: their design against Fig. 2(d), read to ±0.02 dB, within the reading and our grids' spread; our loss at most theirs where that spread decides it; the share into the other guide reported
+  materials:
+    silicon: ε = 11.68
+    silica: ε = 2.085
+
+The slab's TE index at 1675.5 nm: 3.0073
+The slab's TE index at 1575.0 nm: 3.0407
+The slab's TE index at 1485.8 nm: 3.0702
+Silicon in the domain: 71.2 % of theirs (as read), 75.2 % of ours
+In 2D (not the devices' performance), binarized: per mode in, the wanted guide's share and the other's, each of the input's power:
+  their design:
+    1675.5 nm: TE₀ 0.9582 (+0.0008 from 20 nm), other 2.57e-2; TE₁ 0.8835 (+0.0003), other 2.64e-2
+    1623.7 nm: TE₀ 0.9661 (+0.0007 from 20 nm), other 1.39e-2; TE₁ 0.9271 (-0.0024), other 1.38e-2
+    1575.0 nm: TE₀ 0.9638 (+0.0020 from 20 nm), other 1.45e-2; TE₁ 0.9330 (+0.0001), other 1.14e-2
+    1529.1 nm: TE₀ 0.9489 (+0.0008 from 20 nm), other 2.13e-2; TE₁ 0.9265 (+0.0056), other 2.15e-2
+    1485.8 nm: TE₀ 0.9019 (+0.0034 from 20 nm), other 2.81e-2; TE₁ 0.8590 (+0.0018), other 4.22e-2
+  our design:
+    1675.5 nm: TE₀ 0.8803 (-0.0292 from 20 nm), other 2.98e-3; TE₁ 0.9315 (-0.0083), other 8.37e-4
+    1623.7 nm: TE₀ 0.9418 (-0.0080 from 20 nm), other 1.39e-4; TE₁ 0.9414 (-0.0058), other 4.48e-4
+    1575.0 nm: TE₀ 0.9307 (-0.0067 from 20 nm), other 3.59e-4; TE₁ 0.9086 (-0.0085), other 2.91e-3
+    1529.1 nm: TE₀ 0.9284 (-0.0036 from 20 nm), other 3.38e-3; TE₁ 0.9329 (-0.0101), other 5.82e-3
+    1485.8 nm: TE₀ 0.9109 (-0.0150 from 20 nm), other 7.94e-4; TE₁ 0.9014 (-0.0218), other 6.20e-3
+3D FDFD at 1550 nm:
+  what --full found (recorded):
+  the straight wire on 42.5 nm cells, TE0 in: 0.99997 stays in it (-0.0001 dB), 2.2e-13 goes to the other mode
+  the straight wire on 42.5 nm cells, TE1 in: 0.99973 stays in it (-0.0012 dB), 2.7e-13 goes to the other mode
+  their design (Fig. 1(b)), at 1550 nm:
+    TE₀ to TE₀: -0.169, -0.170, -0.155 dB on the three grids, -0.09 ± 0.07 dB extrapolated (order none); Fig. 2(d): -0.11 dB
+      into the other guide -22.5, -20.8, -21.0 dB on the three grids (reported)
+  their design (Fig. 1(b)), TE₀ to TE₀, 3D (dB)    -0.088064   paper -0.11      ± 9.38894461102056e-2 ok
+    TE₀ to TE₁: -0.338, -0.350, -0.369 dB on the three grids, -0.45 ± 0.09 dB extrapolated (order none); Fig. 2(d): -0.38 dB
+      into the other guide -23.5, -21.9, -22.0 dB on the three grids (reported)
+  their design (Fig. 1(b)), TE₀ to TE₁, 3D (dB)    -0.447756   paper -0.38      ± 1.0776445387653925e-1 ok
+  our design, at 1550 nm:
+    TE₀ to TE₀: -1.056, -0.964, -1.036 dB on the three grids, -1.34 ± 0.34 dB extrapolated (order none); Fig. 2(d): -0.11 dB
+      into the other guide -23.1, -22.8, -21.0 dB on the three grids (reported)
+      reported, not checked: 1.23 dB more loss than their design's, beyond our grids' spread and the reading (a gap, #595)
+    TE₀ to TE₁: -1.529, -1.568, -1.551 dB on the three grids, -1.48 ± 0.08 dB extrapolated (order none); Fig. 2(d): -0.38 dB
+      into the other guide -17.7, -18.4, -17.2 dB on the three grids (reported)
+      reported, not checked: 1.10 dB more loss than their design's, beyond our grids' spread and the reading (a gap, #595)
+all 2 within tolerance of the paper
