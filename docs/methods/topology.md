@@ -483,6 +483,17 @@ more and the centre 0.02 less than their FDTD, and neither the grid, the port pl
 nor the reading explains it, so it is reported, not checked. One 20 nm pixel of edge moves the
 balance by as much, which is how sensitive a compact splitter's balance is to its outline. Ours,
 from a solid rectangle, keeps as much light in 3D as theirs (a total of 0.919 against 0.913).
+[`optimize_grating_coupler_soi`](../../examples/optimize_grating_coupler_soi.rs) takes Su et al.'s
+grating coupler, a problem of its cross-section, so it stays in 2D: the fibre's Gaussian beam is a
+line of current above the layer, the incident power the same beam's in silica alone, and the
+coupled power the waveguide's TE₀. Their design, read from their figure's vector outline, comes
+out within the reading of their 1.94 dB on their own 20 nm cells, and 0.036 dB above it on cells
+of 10 to 6.67 nm. The search runs in two stages, as theirs: densities along the grating, then the
+grooves' edges as the variables, with every groove and tooth at least their 100 nm minimum
+feature as linear constraints, the gradient of an edge being the change of the one cell it sits
+in. A filter alone doesn't hold that minimum in 1D (a 20 nm groove survived the 100 nm conic
+filter, and eroded and dilated designs still left features under 100 nm). From uniform densities
+ours loses 0.33 dB more than theirs.
 
 ## The job
 
