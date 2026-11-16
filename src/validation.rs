@@ -5598,6 +5598,13 @@ fn ours_cell(rule: &Rule, noted: Option<f64>) -> String {
     match rule.numerical {
         Numerical::Exact => "exact".into(),
         Numerical::Measured => "what it measures".into(),
+        // its digits are the platform's, as a varying Error cell's are: one text wherever the
+        // rule passes it (#854: fdfd/s-matrix-gradient noted 2.4e-9 on Linux, 8.2e-9 on macOS)
+        Numerical::Noted
+            if rule.noted_varies && noted.is_some_and(|v| v <= rule.tolerance / 3.0) =>
+        {
+            "within a third of it (digits vary by system)".into()
+        }
         Numerical::Noted => noted.map_or("—".into(), shown),
         Numerical::Stated(v, from) => format!("{} ({from})", shown(v)),
     }
@@ -6046,6 +6053,25 @@ mod tests {
             error: 1.2e-6,
         };
         assert_eq!(error_cell(&fit, &over), "1.2e-6");
+        // a noted error the platform's last bits set: a bound wherever the rule passes it, its
+        // digits once it doesn't (fdfd/s-matrix-gradient: 2.4e-9 and 8.2e-9 by system)
+        let differences = Rule::new(
+            Measure::Relative,
+            Basis::Discretisation,
+            5e-8,
+            Numerical::Noted,
+            "differences",
+        );
+        assert_eq!(ours_cell(&differences, Some(2.4e-9)), "2.4e-9");
+        let differences = differences.varying().noted_varying();
+        for v in [2.4e-9, 8.2e-9, 5e-8 / 3.0] {
+            assert_eq!(
+                ours_cell(&differences, Some(v)),
+                "within a third of it (digits vary by system)"
+            );
+        }
+        assert_eq!(ours_cell(&differences, Some(2e-8)), "2.0e-8");
+        assert_eq!(ours_cell(&differences, None), "—");
         let rc = Rule::new(
             Measure::Relative,
             Basis::Discretisation,

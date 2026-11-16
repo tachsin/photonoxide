@@ -126,6 +126,10 @@ pub struct Rule {
     pub varies: bool,
     /// The case computes in f32, so a round-off tolerance may be up to 2e-4 ([`Rule::in_f32`]).
     pub single: bool,
+    /// What the case notes as its own error is set by a platform's last bits too: the report
+    /// shows "within a third of it" wherever it is, so it reads the same on every system
+    /// ([`Rule::noted_varying`]).
+    pub noted_varies: bool,
 }
 
 impl Rule {
@@ -145,6 +149,7 @@ impl Rule {
             why,
             varies: false,
             single: false,
+            noted_varies: false,
         }
     }
 
@@ -164,6 +169,21 @@ impl Rule {
     pub const fn varying(self) -> Rule {
         Rule {
             varies: true,
+            ..self
+        }
+    }
+
+    /// The same rule for a case whose noted error ([`Numerical::Noted`]) a platform's last bits
+    /// set as well: what differences resolve, their step against twice it, where the round-off
+    /// of the solves they difference is what is left. Its Ours cell reads "within a third of it
+    /// (digits vary by system)" wherever the noted error is within the third of the tolerance the
+    /// rule holds it to, and the value once it isn't (the case then fails). Marked only where the
+    /// Systems workflow shows another system's printed digits differ: fdfd/kerr-gradient noted
+    /// 4.4e-10 on Linux and Windows and 4.9e-10 on macOS, fdfd/s-matrix-gradient 2.4e-9 and
+    /// 8.2e-9 (#854).
+    pub const fn noted_varying(self) -> Rule {
+        Rule {
+            noted_varies: true,
             ..self
         }
     }
@@ -203,6 +223,9 @@ impl Rule {
             && self.numerical == Numerical::Measured
         {
             return Some("a published comparison needs our own error beside it".into());
+        }
+        if self.noted_varies && self.numerical != Numerical::Noted {
+            return Some("only a noted error can vary by system".into());
         }
         let ours = match self.numerical {
             Numerical::Noted => match noted {
