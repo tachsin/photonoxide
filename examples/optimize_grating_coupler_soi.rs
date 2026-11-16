@@ -100,8 +100,10 @@ const TEXT_BANDWIDTH: f64 = 34.0;
 const FIG_LOSS: f64 = 1.9185;
 const FIG_BANDWIDTH: f64 = 36.55;
 const FIG_CENTRE: f64 = 1550.3;
-/// The finer grids of `--full`: cells of 20 nm divided by these.
+/// The finer grids of `--full`: cells of 20 nm divided by these, and how many wavelengths each
+/// solves at once (a 5 nm grid's factorization takes several GB).
 const FINE: [usize; 3] = [2, 3, 4];
+const AT_ONCE: [usize; 3] = [4, 3, 2];
 /// What `--full` found, per fine grid, per design (theirs, ours): the least loss, dB, its
 /// wavelength, nm, and the 1-dB band's edges, nm.
 const RECORDED: [[[f64; 4]; 2]; 3] = [[[f64::NAN; 4]; 2]; 3];
@@ -480,7 +482,7 @@ fn density_stage(problem: &Coupler, progress: &Progress) -> photonoxide::Result<
         println!(
             "    densities, β {beta:>3}: η {:.4} ({:.2} dB) ({:.0} s)",
             1.0 - value,
-            db(1.0 - value),
+            -db(1.0 - value),
             progress.start.elapsed().as_secs_f64()
         );
         density = Some(d);
@@ -545,7 +547,7 @@ fn edge_stage(
             "    edges, stage {}: η {:.4} ({:.2} dB) ({:.0} s)",
             stage + 1,
             1.0 - value,
-            db(1.0 - value),
+            -db(1.0 - value),
             progress.start.elapsed().as_secs_f64()
         );
     }
@@ -869,7 +871,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         for (k, n) in FINE.into_iter().enumerate() {
             let h = PIXEL / n as f64;
             let label = format!("grid {}/{}", k + 1, FINE.len());
-            let s = spectra(&designs, h, Some((&log, &label)))?;
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(AT_ONCE[k])
+                .build()
+                .expect("a thread pool");
+            let s = pool.install(|| spectra(&designs, h, Some((&log, &label))))?;
             let f = [features(&lams, &s[0]), features(&lams, &s[1])];
             println!("  recorded: {f:?}");
             out.push(f);
