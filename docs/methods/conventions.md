@@ -59,7 +59,11 @@ cases gave the same 17 digits on Linux and Windows in every one, and on all thre
 only to the digits that hold everywhere, and 27 cases' Error cells read "within it (digits vary
 by system)": the ones whose error itself moves between systems (the compact models' fits, AAA,
 the EME and topology gradients, among them). A case that gives the same 17 digits on all three
-systems isn't marked so.
+systems isn't marked so. Two cases' Ours cells read "within a third of it (digits vary by
+system)" for the same reason: fdfd/kerr-gradient's and fdfd/s-matrix-gradient's own error is
+what their differences resolve, the round-off of the solves they difference, which faer's ARM
+kernels set otherwise (4.4e-10 on Linux and Windows and 4.9e-10 on macOS, and 2.4e-9 and
+8.2e-9; #854).
 
 What can differ between systems, and what photonoxide does about each:
 
