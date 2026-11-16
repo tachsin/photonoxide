@@ -307,6 +307,46 @@ pub(crate) fn rules() -> Vec<(&'static str, Rule)> {
             ),
         ),
         (
+            "eme/3d-oblique-rod",
+            Rule::new(
+                Relative,
+                Discretisation,
+                9e-5,
+                Measured,
+                "the 5 nm grid's error, 8.8e-5, rounded up: the 2.5 nm grid's is 1.8e-5, at the order eme/3d-oblique-rod-order checks",
+            ),
+        ),
+        (
+            "eme/3d-oblique-rod-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.4,
+                Noted,
+                "second order within three times the log fit's standard error over the five grids (0.11), rounded up: the error falls unevenly as the edge crosses the cells anew on each grid (the orders between neighbouring grids 1.84, 1.68, 1.83 and 2.57), and first order (the cells' samples, about 1) and each value's own off-diagonal entry (1.54) lie outside it",
+            ),
+        ),
+        (
+            "eme/3d-oblique-rod-kerr",
+            Rule::new(
+                Relative,
+                Discretisation,
+                3e-4,
+                Noted,
+                "three times the limit's own error, rounded up: the limit moves by 7.3e-5 when taken from 5 and 2.5 nm instead of 3.75 and 2.5",
+            ),
+        ),
+        (
+            "eme/3d-oblique-rod-kerr-order",
+            Rule::new(
+                Absolute,
+                Order,
+                0.2,
+                Noted,
+                "second order within three times the log fit's standard error over the five grids (0.049), rounded up: the error falls smoothly, between neighbouring grids at orders 1.56, 2.00, 2.07 and 2.05",
+            ),
+        ),
+        (
             "eme/3d-cut-extruded",
             Rule::new(
                 Absolute,

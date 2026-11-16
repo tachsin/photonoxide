@@ -22,6 +22,21 @@
 //! guide's pairs, or a uniform medium's TE and TM of the same order) are given the basis
 //! orthogonal in both that product and Σ V E_i · E_j: unique when the two forms' ratios differ
 //! within the group, so the basis doesn't depend on the eigensolver's choice.
+//!
+//! **An interface oblique to the grid** (a sloped sidewall, a curved core): [`Plane::from_plane`]
+//! with [`Averaging::Tensor`] gives each value of E A. Farjadpour et al.'s tensor
+//! (Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972, Eq. 1) over its own cell of the dual
+//! grid, ε = (P ⟨ε⁻¹⟩ + (1 − P) ⟨ε⟩⁻¹)⁻¹ with P = n nᵀ from the fill shares and the interface's
+//! normal ([`crate::averaging::Shares::inverse_tensor`]), E_z the mean ⟨ε⟩. Its off-diagonal
+//! part makes D_x = ε_xx E_x + ε_xy Ē_y, Ē_y the mean of the four E_y around E_x's place, and
+//! D_y likewise, in both C and D. Each pair of E_x and E_y is coupled by the mean of their two
+//! places' ε_xy (Farjadpour et al. take each value's own): V C and V C A stay symmetric, so the
+//! modes stay orthogonal as above, and on Afshar and Monro's silicon rod the index converges at
+//! second order where each value's own entry gave 1.5 (issue #815, docs/methods/eme.md). With
+//! no off-diagonal part (every interface along the grid's axes) the operator is the diagonal
+//! one's to the bit. Inside a PML the coupling isn't stretched, so V C is symmetric there only
+//! where no oblique interface reaches into it; on a magnetic wall, a plane of symmetry, ε_xy is
+//! zero.
 
 use std::sync::Arc;
 
@@ -32,6 +47,7 @@ use faer::{Mat, Par};
 use num_complex::Complex64 as c64;
 
 use super::Wall;
+use crate::averaging::{self, Averaging, Shares};
 use crate::portable;
 use crate::{Error, Result};
 
@@ -268,6 +284,10 @@ pub struct Plane {
     ey: Vec<c64>,
     /// At E_z's, the nodes, ny + 1 rows of nx + 1.
     ez: Vec<c64>,
+    /// ε_xy at E_x's places and ε_yx at E_y's, laid out as `ex` and `ey`: empty for a
+    /// permittivity diagonal in the grid's axes.
+    exy: Vec<c64>,
+    eyx: Vec<c64>,
 }
 
 impl Plane {
@@ -280,6 +300,102 @@ impl Plane {
     /// [`Error::InvalidValue`] for a grid without cells, positive steps or unknowns, or a
     /// permittivity that isn't finite.
     pub fn new(grid: PlaneGrid, eps: impl Fn(f64, f64) -> c64) -> Result<Plane> {
+        Plane::sampled(grid, eps, SAMPLES)
+    }
+
+    /// The cross-section `plane` draws, on `grid`, each value of E's permittivity taken over
+    /// its cell of the dual grid by `averaging` ([`crate::averaging`]):
+    ///
+    /// - [`Averaging::Samples`]: [`Plane::new`] with the plane's permittivity at each point, to
+    ///   the bit;
+    /// - [`Averaging::Point`]: the material at each value's own place;
+    /// - [`Averaging::Mean`] and [`Averaging::Diagonal`]: from the cell's fill shares, the mean
+    ///   for every component, or the diagonal of Farjadpour et al.'s tensor;
+    /// - [`Averaging::Tensor`]: their whole tensor, its off-diagonal part coupling E_x and E_y
+    ///   (see the module's docs). This is the one for an interface oblique to the grid, a
+    ///   sloped sidewall or a curved core: the rod of docs/methods/eme.md converges at second
+    ///   order with it, at first with the others. Where every interface lies along the grid's
+    ///   axes it is [`Averaging::Diagonal`]'s plane, to the bit.
+    ///
+    /// E_z takes the mean ⟨ε⟩ but by samples and point, every interface being parallel to it.
+    /// A cell on a wall reads what is drawn beyond it, so draw a guide whole about a magnetic
+    /// wall (its plane of symmetry); only [`Averaging::Samples`] and [`Averaging::Point`] mirror
+    /// the window themselves, as [`Plane::new`] does.
+    ///
+    /// # Errors
+    ///
+    /// As [`Plane::new`].
+    pub fn from_plane(
+        grid: PlaneGrid,
+        plane: &averaging::Plane,
+        averaging: Averaging,
+    ) -> Result<Plane> {
+        let eps = |x: f64, y: f64| plane.at(x, y);
+        if !averaging.reads_fill() {
+            let samples = if averaging == Averaging::Point {
+                1
+            } else {
+                SAMPLES
+            };
+            return Plane::sampled(grid, eps, samples);
+        }
+        grid.check()?;
+        let (nx, ny, h) = (grid.nx, grid.ny, (grid.dx, grid.dy));
+        let zero = c64::new(0.0, 0.0);
+        // (ε along `along`, ε_xy) over the cell centred on `c`
+        let value = |c: (f64, f64), along: usize| -> (c64, c64) {
+            let s: Shares<c64> = plane.shares_at(c, h);
+            if averaging != Averaging::Tensor || along == 2 || s.is_uniform() {
+                return (s.component(along, averaging), zero);
+            }
+            let [xx, yy, xy] = s.inverse_tensor();
+            let scale = portable::complex::abs(xx).max(portable::complex::abs(yy));
+            if portable::complex::abs(xy) <= 1e-12 * scale {
+                // a normal along an axis, to the rounding of the distance's normal (1e-17 or
+                // so off it): the diagonal's value, to the bit
+                return (s.component(along, Averaging::Diagonal), zero);
+            }
+            let det = xx * yy - xy * xy;
+            (if along == 0 { yy / det } else { xx / det }, -xy / det)
+        };
+        let w = grid.walls;
+        let ex: Vec<(c64, c64)> = (0..=ny)
+            .flat_map(|j| (0..nx).map(move |i| (i, j)))
+            .map(|(i, j)| {
+                let (e, xy) = value((grid.x(i) + 0.5 * grid.dx, grid.y(j)), 0);
+                // on a wall, a mirror plane, ε_xy is odd: zero
+                let wall =
+                    (j == 0 && w.south == Wall::Magnetic) || (j == ny && w.north == Wall::Magnetic);
+                (e, if wall { zero } else { xy })
+            })
+            .collect();
+        let ey: Vec<(c64, c64)> = (0..ny)
+            .flat_map(|j| (0..=nx).map(move |i| (i, j)))
+            .map(|(i, j)| {
+                let (e, yx) = value((grid.x(i), grid.y(j) + 0.5 * grid.dy), 1);
+                let wall =
+                    (i == 0 && w.west == Wall::Magnetic) || (i == nx && w.east == Wall::Magnetic);
+                (e, if wall { zero } else { yx })
+            })
+            .collect();
+        let ez = (0..=ny)
+            .flat_map(|j| (0..=nx).map(move |i| (i, j)))
+            .map(|(i, j)| value((grid.x(i), grid.y(j)), 2).0)
+            .collect();
+        Plane::from_tensors(
+            grid,
+            [
+                ex.iter().map(|v| v.0).collect(),
+                ey.iter().map(|v| v.0).collect(),
+                ez,
+            ],
+            ex.iter().map(|v| v.1).collect(),
+            ey.iter().map(|v| v.1).collect(),
+        )
+    }
+
+    /// [`Plane::new`] from `samples`² points a cell.
+    fn sampled(grid: PlaneGrid, eps: impl Fn(f64, f64) -> c64, samples: usize) -> Result<Plane> {
         grid.check()?;
         let (nx, ny, h) = (grid.nx, grid.ny, [grid.dx, grid.dy]);
         // a cell on a wall reaches past it: there the structure is its mirror image
@@ -298,19 +414,19 @@ impl Plane {
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
             .map(|(i, j)| {
                 let c = [grid.x(i) + 0.5 * grid.dx, grid.y(j)];
-                averaged(&eps, c, h, Some(true), SAMPLES)
+                averaged(&eps, c, h, Some(true), samples)
             })
             .collect();
         let ey = (0..ny)
             .flat_map(|j| (0..=nx).map(move |i| (i, j)))
             .map(|(i, j)| {
                 let c = [grid.x(i), grid.y(j) + 0.5 * grid.dy];
-                averaged(&eps, c, h, Some(false), SAMPLES)
+                averaged(&eps, c, h, Some(false), samples)
             })
             .collect();
         let ez = (0..=ny)
             .flat_map(|j| (0..=nx).map(move |i| (i, j)))
-            .map(|(i, j)| averaged(&eps, [grid.x(i), grid.y(j)], h, None, SAMPLES))
+            .map(|(i, j)| averaged(&eps, [grid.x(i), grid.y(j)], h, None, samples))
             .collect();
         Plane::from_values(grid, ex, ey, ez)
     }
@@ -336,7 +452,69 @@ impl Plane {
                 "every permittivity must be finite and not zero",
             ));
         }
-        Ok(Plane { grid, ex, ey, ez })
+        Ok(Plane {
+            grid,
+            ex,
+            ey,
+            ez,
+            exy: Vec::new(),
+            eyx: Vec::new(),
+        })
+    }
+
+    /// As [`Plane::from_values`], with the off-diagonal ε_xy at each of E_x's places and ε_yx at
+    /// each of E_y's (a symmetric tensor's, laid out as `ex` and `ey`). All of them zero, it is
+    /// [`Plane::from_values`]'s plane, to the bit.
+    pub(crate) fn from_tensors(
+        grid: PlaneGrid,
+        [ex, ey, ez]: [Vec<c64>; 3],
+        exy: Vec<c64>,
+        eyx: Vec<c64>,
+    ) -> Result<Plane> {
+        let mut plane = Plane::from_values(grid, ex, ey, ez)?;
+        if exy.len() != plane.ex.len() || eyx.len() != plane.ey.len() {
+            return Err(Error::invalid(
+                "eme plane",
+                "an off-diagonal permittivity per value of E_x and of E_y",
+            ));
+        }
+        if !exy
+            .iter()
+            .chain(&eyx)
+            .all(|v| v.re.is_finite() && v.im.is_finite())
+        {
+            return Err(Error::invalid(
+                "eme plane",
+                "every permittivity must be finite",
+            ));
+        }
+        if exy.iter().chain(&eyx).any(|v| *v != c64::new(0.0, 0.0)) {
+            plane.exy = exy;
+            plane.eyx = eyx;
+        }
+        Ok(plane)
+    }
+
+    /// ε_xy at E_x's place (i, j): 0 but for [`Averaging::Tensor`] where an oblique interface
+    /// crosses the place's cell.
+    pub fn eps_xy(&self, i: usize, j: usize) -> c64 {
+        self.exy
+            .get(j * self.grid.nx + i)
+            .copied()
+            .unwrap_or(c64::new(0.0, 0.0))
+    }
+
+    /// ε_yx at E_y's place (i, j), as [`Plane::eps_xy`].
+    pub fn eps_yx(&self, i: usize, j: usize) -> c64 {
+        self.eyx
+            .get(j * (self.grid.nx + 1) + i)
+            .copied()
+            .unwrap_or(c64::new(0.0, 0.0))
+    }
+
+    /// Whether the permittivity has off-diagonal parts.
+    pub(crate) fn is_diagonal(&self) -> bool {
+        self.exy.is_empty()
     }
 
     /// The grid.
@@ -564,6 +742,118 @@ fn merged(mut rows: Rows) -> Rows {
     rows
 }
 
+/// D_x = (ε E)_x at E_x's place (i, j) over the unknowns: ε_x E_x, and with an off-diagonal
+/// part ε_xy times the mean of the four E_y around it, each pair of E_x and E_y coupled by the
+/// mean of their two places' ε_xy and ε_yx (so the coupling is symmetric, and V C with it);
+/// beyond a magnetic wall the normal E_y is minus its image, and the image's ε_yx minus the
+/// cell's.
+fn dx_terms(plane: &Plane, i: usize, j: usize) -> Vec<(Option<usize>, c64)> {
+    let g = plane.grid;
+    let ny = g.ny;
+    let mut out = vec![(g.ex(i, j), plane.eps_x(i, j))];
+    if plane.is_diagonal() {
+        return out;
+    }
+    let xy = plane.eps_xy(i, j);
+    for (a, b) in [
+        (i, j as isize - 1),
+        (i + 1, j as isize - 1),
+        (i, j as isize),
+        (i + 1, j as isize),
+    ] {
+        let (b, sign) = if b < 0 {
+            (0, -1.0)
+        } else if b >= ny as isize {
+            (ny - 1, -1.0)
+        } else {
+            (b as usize, 1.0)
+        };
+        let coupling = 0.125 * (xy + sign * plane.eps_yx(a, b));
+        out.push((g.ey(a, b), sign * coupling));
+    }
+    out
+}
+
+/// D_y at E_y's place (i, j), as [`dx_terms`].
+fn dy_terms(plane: &Plane, i: usize, j: usize) -> Vec<(Option<usize>, c64)> {
+    let g = plane.grid;
+    let nx = g.nx;
+    let mut out = vec![(g.ey(i, j), plane.eps_y(i, j))];
+    if plane.is_diagonal() {
+        return out;
+    }
+    let yx = plane.eps_yx(i, j);
+    for (a, b) in [
+        (i as isize - 1, j),
+        (i as isize, j),
+        (i as isize - 1, j + 1),
+        (i as isize, j + 1),
+    ] {
+        let (a, sign) = if a < 0 {
+            (0, -1.0)
+        } else if a >= nx as isize {
+            (nx - 1, -1.0)
+        } else {
+            (a as usize, 1.0)
+        };
+        let coupling = 0.125 * (yx + sign * plane.eps_xy(a, b));
+        out.push((g.ex(a, b), sign * coupling));
+    }
+    out
+}
+
+/// ε_z⁻¹ ∇_t · (ε E_t) at node (i, j) over the unknowns, off the electric walls; on a magnetic
+/// wall the normal E beyond it is minus its image, so its difference doubles.
+fn potential(plane: &Plane, s: &Stretch, i: usize, j: usize) -> Vec<(Option<usize>, c64)> {
+    let g = plane.grid;
+    let (nx, ny, dx, dy) = (g.nx, g.ny, g.dx, g.dy);
+    if !g.node_free(i, j) {
+        return Vec::new();
+    }
+    let inverse = 1.0 / plane.eps_z(i, j);
+    let wx = inverse / (s.x_node[i] * dx);
+    let wy = inverse / (s.y_node[j] * dy);
+    let mut out = Vec::with_capacity(4);
+    let mut push = |scale: c64, terms: Vec<(Option<usize>, c64)>| {
+        out.extend(terms.into_iter().map(|(c, v)| (c, scale * v)));
+    };
+    if i < nx {
+        let f = if i == 0 { 2.0 } else { 1.0 };
+        push(f * wx, dx_terms(plane, i, j));
+    }
+    if i > 0 {
+        let f = if i == nx { 2.0 } else { 1.0 };
+        push(-f * wx, dx_terms(plane, i - 1, j));
+    }
+    if j < ny {
+        let f = if j == 0 { 2.0 } else { 1.0 };
+        push(f * wy, dy_terms(plane, i, j));
+    }
+    if j > 0 {
+        let f = if j == ny { 2.0 } else { 1.0 };
+        push(-f * wy, dy_terms(plane, i, j - 1));
+    }
+    out
+}
+
+/// E_z at the nodes, ny + 1 rows of nx + 1, of the mode of `plane` with propagation constant
+/// `beta` and transverse E `e` (over the unknowns) inside `stretch`: the continuity equation's
+/// E_z = i ε_z⁻¹ ∇_t · (ε E_t) / β, the operator D's own divergence; 0 on an electric wall.
+pub(crate) fn longitudinal(plane: &Plane, stretch: &Stretch, beta: c64, e: &[c64]) -> Vec<c64> {
+    let g = plane.grid;
+    let i = c64::new(0.0, 1.0);
+    (0..=g.ny)
+        .flat_map(|b| (0..=g.nx).map(move |a| (a, b)))
+        .map(|(a, b)| {
+            let p: c64 = potential(plane, stretch, a, b)
+                .into_iter()
+                .filter_map(|(col, v)| col.map(|col| v * e[col]))
+                .sum();
+            i * p / beta
+        })
+        .collect()
+}
+
 /// The operators C = −∇_t × ∇_t × + k₀² ε and D = ∇_t ε_z⁻¹ ∇_t · ε of `plane` (see the
 /// module's docs), at wavenumber `k`.
 pub(crate) fn operators(plane: &Plane, stretch: &Stretch, k: f64) -> (Rows, Rows) {
@@ -594,41 +884,20 @@ pub(crate) fn operators(plane: &Plane, stretch: &Stretch, k: f64) -> (Rows, Rows
             (g.ex(i, j), wy),
         ]
     };
-    // ε_z⁻¹ ∇_t · (ε E_t) at node (i, j), off the electric walls; on a magnetic wall the normal
-    // E beyond it is minus its image, so its difference doubles
-    let potential = |i: usize, j: usize| -> Vec<(Option<usize>, c64)> {
-        if !g.node_free(i, j) {
-            return Vec::new();
-        }
-        let inverse = 1.0 / plane.eps_z(i, j);
-        let wx = inverse / (s.x_node[i] * dx);
-        let wy = inverse / (s.y_node[j] * dy);
-        let mut out = Vec::with_capacity(4);
-        if i < nx {
-            let f = if i == 0 { 2.0 } else { 1.0 };
-            out.push((g.ex(i, j), f * wx * plane.eps_x(i, j)));
-        }
-        if i > 0 {
-            let f = if i == nx { 2.0 } else { 1.0 };
-            out.push((g.ex(i - 1, j), -f * wx * plane.eps_x(i - 1, j)));
-        }
-        if j < ny {
-            let f = if j == 0 { 2.0 } else { 1.0 };
-            out.push((g.ey(i, j), f * wy * plane.eps_y(i, j)));
-        }
-        if j > 0 {
-            let f = if j == ny { 2.0 } else { 1.0 };
-            out.push((g.ey(i, j - 1), -f * wy * plane.eps_y(i, j - 1)));
-        }
-        out
-    };
+    let potential = |i: usize, j: usize| potential(plane, s, i, j);
+    let dx_terms = |i: usize, j: usize| dx_terms(plane, i, j);
+    let dy_terms = |i: usize, j: usize| dy_terms(plane, i, j);
     let k2 = k * k;
     let mut c: Rows = vec![Vec::new(); n];
     let mut d: Rows = vec![Vec::new(); n];
     for j in 0..=ny {
         for i in 0..nx {
             let Some(r) = g.ex(i, j) else { continue };
-            c[r].push((r, k2 * plane.eps_x(i, j)));
+            c[r].extend(
+                dx_terms(i, j)
+                    .into_iter()
+                    .filter_map(|(col, v)| col.map(|col| (col, k2 * v))),
+            );
             // −(∇ × ẑH_z)_x = −∂_y H_z
             let w = 1.0 / (s.y_node[j] * dy);
             let (a, b) = (i as isize, j as isize);
@@ -643,7 +912,11 @@ pub(crate) fn operators(plane: &Plane, stretch: &Stretch, k: f64) -> (Rows, Rows
     for j in 0..ny {
         for i in 0..=nx {
             let Some(r) = g.ey(i, j) else { continue };
-            c[r].push((r, k2 * plane.eps_y(i, j)));
+            c[r].extend(
+                dy_terms(i, j)
+                    .into_iter()
+                    .filter_map(|(col, v)| col.map(|col| (col, k2 * v))),
+            );
             // −(∇ × ẑH_z)_y = ∂_x H_z
             let w = 1.0 / (s.x_node[i] * dx);
             let (a, b) = (i as isize, j as isize);
@@ -752,6 +1025,23 @@ impl Mode3d {
     /// The weights it carries.
     pub(crate) fn weights(&self) -> &Arc<Vec<c64>> {
         &self.weights
+    }
+
+    /// E_z at the nodes ([`longitudinal`]), node (i, j) at j (nx + 1) + i, for the mode found on
+    /// `plane` inside `pml`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a plane on another grid, and [`Stretch::new`]'s.
+    pub(crate) fn longitudinal(&self, plane: &Plane, pml: Option<&Pml3d>) -> Result<Vec<c64>> {
+        if plane.grid != self.grid {
+            return Err(Error::invalid(
+                "eme modes",
+                "the mode's plane is on another grid",
+            ));
+        }
+        let stretch = Stretch::new(&self.grid, pml)?;
+        Ok(longitudinal(plane, &stretch, self.beta, &self.e))
     }
 }
 

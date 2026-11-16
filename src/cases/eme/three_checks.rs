@@ -637,6 +637,136 @@ fn taper_cross_code() -> Outcome {
 /// [`taper_cross_code`]'s tolerance, absolute on |S₂₁|².
 pub(crate) const TAPER_TOLERANCE: f64 = 4e-5;
 
+/// The grids of the oblique rod's cases, µm: its order is the log fit over all five.
+pub(crate) const ROD_GRIDS: [f64; 5] = [0.01, 0.0075, 0.005, 0.00375, 0.0025];
+
+/// The exact HE₁₁ index of Afshar and Monro's rod (3.45 in 1.45, D = 0.15 µm, 800 nm), from
+/// Snitzer's characteristic equation.
+fn rod_exact() -> f64 {
+    crate::stack::checks::he11(
+        3.45,
+        1.45,
+        0.5 * crate::mode::quantities_checks::ROD_D,
+        Wavelength::from_um_unchecked(0.8),
+    )
+}
+
+/// Least squares of ln|e| = ln C + p ln h: the order p and its standard error.
+pub(crate) fn log_slope(h: &[f64], e: &[f64]) -> (f64, f64) {
+    let x: Vec<f64> = h.iter().map(|&v| portable::ln(v)).collect();
+    let y: Vec<f64> = e.iter().map(|&v| portable::ln(v.abs())).collect();
+    let m = x.len() as f64;
+    let (mx, my) = (x.iter().sum::<f64>() / m, y.iter().sum::<f64>() / m);
+    let sxx: f64 = x.iter().map(|v| (v - mx) * (v - mx)).sum();
+    let sxy: f64 = x.iter().zip(&y).map(|(a, b)| (a - mx) * (b - my)).sum();
+    let p = sxy / sxx;
+    let c = my - p * mx;
+    let rss: f64 = x
+        .iter()
+        .zip(&y)
+        .map(|(a, b)| (b - c - p * a) * (b - c - p * a))
+        .sum();
+    (p, (rss / (m - 2.0) / sxx).sqrt())
+}
+
+/// The rod's index error on each of [`ROD_GRIDS`].
+fn rod_errors() -> Vec<f64> {
+    let exact = rod_exact();
+    ROD_GRIDS
+        .iter()
+        .map(|&h| crate::mode::quantities_checks::rod_yee_kerr(h).neff - exact)
+        .collect()
+}
+
+/// [`oblique_rod`]'s tolerance, relative.
+pub(crate) const ROD_TOLERANCE: f64 = 9e-5;
+
+/// The rod's index at 2.5 nm against the exact HE₁₁.
+fn oblique_rod() -> Outcome {
+    let exact = rod_exact();
+    let got = crate::mode::quantities_checks::rod_yee_kerr(0.0025).neff;
+    let expected = significant(exact, 7);
+    Outcome {
+        measured: significant(got, 7),
+        expected,
+        tolerance: ROD_TOLERANCE * expected,
+        error: significant((got - exact).abs(), 2),
+    }
+}
+
+/// [`oblique_rod_order`]'s margin.
+pub(crate) const ROD_ORDER_MARGIN: f64 = 0.4;
+
+/// The order of the rod's index error over [`ROD_GRIDS`], by the log fit, its standard error
+/// noted.
+fn oblique_rod_order() -> Outcome {
+    let (p, se) = log_slope(&ROD_GRIDS, &rod_errors());
+    crate::validation::note_numerical(significant(se, 2));
+    let order = (100.0 * p).round() / 100.0;
+    Outcome {
+        measured: order,
+        expected: 2.0,
+        tolerance: ROD_ORDER_MARGIN,
+        error: (order - 2.0).abs(),
+    }
+}
+
+/// Afshar and Monro's γ^V/γ^F of the exact HE₁₁ fields, and the rod's on each of
+/// [`ROD_GRIDS`].
+fn rod_kerr_ratios() -> (f64, Vec<f64>) {
+    use crate::mode::quantities_checks::{ROD_D, rod_kerr_exact, rod_yee_kerr};
+    let exact = rod_kerr_exact(ROD_D).0.vector_over_foster();
+    let grids = ROD_GRIDS
+        .iter()
+        .map(|&h| rod_yee_kerr(h).vector_over_foster())
+        .collect();
+    (exact, grids)
+}
+
+/// Richardson's limit at second order of `fine` on the grid `h` and `coarse` on `big`.
+fn richardson(fine: f64, h: f64, coarse: f64, big: f64) -> f64 {
+    fine + (fine - coarse) * h * h / (big * big - h * h)
+}
+
+/// [`oblique_rod_kerr`]'s tolerance, relative.
+pub(crate) const ROD_KERR_TOLERANCE: f64 = 3e-4;
+
+/// The rod's γ^V/γ^F extrapolated to h → 0 at second order from its two finest grids, 3.75 and
+/// 2.5 nm, against the exact fields'; its own error, noted, the change in that limit when it is
+/// taken from 5 and 2.5 nm instead.
+fn oblique_rod_kerr() -> Outcome {
+    let (exact, r) = rod_kerr_ratios();
+    let h = ROD_GRIDS;
+    let limit = richardson(r[4], h[4], r[3], h[3]);
+    let other = richardson(r[4], h[4], r[2], h[2]);
+    crate::validation::note_numerical(significant((limit - other).abs() / exact, 2));
+    let expected = significant(exact, 6);
+    Outcome {
+        measured: significant(limit, 6),
+        expected,
+        tolerance: ROD_KERR_TOLERANCE * expected,
+        error: significant((limit - exact).abs(), 2),
+    }
+}
+
+/// [`oblique_rod_kerr_order`]'s margin.
+pub(crate) const ROD_KERR_ORDER_MARGIN: f64 = 0.2;
+
+/// The order of γ^V/γ^F's error over [`ROD_GRIDS`], by the log fit, its standard error noted.
+fn oblique_rod_kerr_order() -> Outcome {
+    let (exact, r) = rod_kerr_ratios();
+    let errors: Vec<f64> = r.iter().map(|v| v / exact - 1.0).collect();
+    let (p, se) = log_slope(&ROD_GRIDS, &errors);
+    crate::validation::note_numerical(significant(se, 2));
+    let order = (100.0 * p).round() / 100.0;
+    Outcome {
+        measured: order,
+        expected: 2.0,
+        tolerance: ROD_KERR_ORDER_MARGIN,
+        error: (order - 2.0).abs(),
+    }
+}
+
 /// Every 3D eigenmode-expansion case, in report order.
 pub(crate) fn cases() -> Vec<Case> {
     vec![
@@ -728,6 +858,34 @@ pub(crate) fn cases() -> Vec<Case> {
             tier: Tier::CrossCode,
             source: r"photonoxide's 3D FDFD on the same plane, its ports' fundamental modes, along z at 0.1 µm over 2 to 7, PMLs 1 µm thick and leads 1.5 µm long; its limit at $\Delta z \to 0$ by a least-squares fit of $v_0 + a\Delta z^2 + b\Delta z^4$",
             run: taper_cross_code,
+        },
+        Case {
+            id: "eme/3d-oblique-rod",
+            title: r"An interface oblique to the grid: Afshar and Monro's silicon rod (D = 0.15 µm, 3.45 in 1.45, 800 nm) on a quarter of its window, 0.75 µm a side between an electric wall at x = 0 and a magnetic one at y = 0, each value of E's permittivity Farjadpour et al.'s whole tensor over its cell (`Plane::from_plane` with `Averaging::Tensor`), on a 2.5 nm grid: the HE₁₁ index (shown)",
+            tier: Tier::Analytic,
+            source: r"the step-index fibre's exact HE₁₁ index from Snitzer's characteristic equation (E. Snitzer, J. Opt. Soc. Am. 51, 491 (1961), doi:10.1364/JOSA.51.000491)",
+            run: oblique_rod,
+        },
+        Case {
+            id: "eme/3d-oblique-rod-order",
+            title: r"The same on 10, 7.5, 5, 3.75 and 2.5 nm grids: the order of convergence of the index's error, a least-squares fit of $\ln\lvert e\rvert$ against $\ln h$ (shown)",
+            tier: Tier::Analytic,
+            source: r"second order: Farjadpour et al.'s tensor makes the smoothing's first-order error vanish at an interface of any slope (A. Farjadpour et al., Opt. Lett. 31, 2972 (2006), doi:10.1364/OL.31.002972); each pair of $E_x$ and $E_y$ coupled by the mean of their places' $\varepsilon_{xy}$",
+            run: oblique_rod_order,
+        },
+        Case {
+            id: "eme/3d-oblique-rod-kerr",
+            title: r"The same rod's mode on each grid through smoothed fields ($E_z$ from the continuity equation, $H$ at the cells' centres, E's transverse part from D with $H_z$ and $E_z$ smoothed over the cells the edge crosses): Afshar and Monro's $\gamma^V/\gamma^F$, their Eq. 39 over Eq. 48, Richardson's limit at second order from 3.75 and 2.5 nm (shown)",
+            tier: Tier::Analytic,
+            source: r"the exact HE₁₁ fields ($E_z = J_1(ur)\cos\varphi$ and $H_z$ its partner in the core, $K_1$ outside), their integrals by Simpson's rule: the paper's ″maximum difference of 40 %″ (S. Afshar V., T. M. Monro, Opt. Express 17, 2298 (2009), doi:10.1364/OE.17.002298)",
+            run: oblique_rod_kerr,
+        },
+        Case {
+            id: "eme/3d-oblique-rod-kerr-order",
+            title: r"The same on 10, 7.5, 5, 3.75 and 2.5 nm grids: the order of convergence of $\gamma^V/\gamma^F$'s relative error, a least-squares fit of $\ln\lvert e\rvert$ against $\ln h$ (shown)",
+            tier: Tier::Analytic,
+            source: r"second order: the mode's at an oblique interface (eme/3d-oblique-rod-order), and the fields' smoothing across the edge's cells, second order on mode/kerr-index-slab-tm's slab",
+            run: oblique_rod_kerr_order,
         },
     ]
 }
