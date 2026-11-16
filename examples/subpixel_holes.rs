@@ -103,8 +103,9 @@ const TILT: f64 = 53.0;
 const CARRIER: f64 = 0.155;
 const WIDTH: f64 = 0.08;
 const COURANT: f64 = 0.99;
-/// The finer resolution of the reference's Richardson extrapolation, and the slopes' tolerance.
-const REFERENCE: usize = 96;
+/// The reference's three resolutions, each 1.5 times the last, for Richardson's extrapolation at
+/// the order they show; and the slopes' tolerance.
+const REFERENCE: [usize; 3] = [64, 96, 144];
 const TOLERANCE: f64 = 0.3;
 
 /// The lattice, two periods (1 µm each) along x and one along y.
@@ -275,15 +276,18 @@ pub fn main() -> ExitCode {
     setup.item(
         "grid",
         &format!(
-            "{} pixels a period ({REFERENCE} for the reference), Courant number {COURANT}",
-            RESOLUTIONS.map(|n| n.to_string()).join(", ")
+            "{} pixels a period ({}, {} and {} for the reference), Courant number {COURANT}",
+            RESOLUTIONS.map(|n| n.to_string()).join(", "),
+            REFERENCE[0],
+            REFERENCE[1],
+            REFERENCE[2]
         ),
     );
     setup.item(
         "solver",
         "2D FDTD, TE, subpixel smoothing (none, the mean ε, Farjadpour et al.'s at s = 1 and 2, \
          at the nodes); the frequencies by a matrix pencil; the reference by Richardson's \
-         extrapolation",
+         extrapolation at the order three resolutions show",
     );
     setup.item(
         "tolerance",
@@ -313,7 +317,7 @@ pub fn main() -> ExitCode {
     let mut jobs: Vec<(usize, usize)> = (0..methods.len())
         .flat_map(|m| RESOLUTIONS.iter().map(move |&n| (m, n)))
         .collect();
-    jobs.push((3, REFERENCE));
+    jobs.extend(REFERENCE[1..].iter().map(|&n| (3, n)));
     // the slowest first
     jobs.sort_by_key(|&(_, n)| std::cmp::Reverse(n));
     // side by side, in order, on photonoxide's threads: the studio builds this example in
@@ -329,13 +333,25 @@ pub fn main() -> ExitCode {
     };
     let mut checks = common::Checks::default();
     for band in 0..2 {
-        let (coarse, fine) = (get(3, 64)[band], get(3, REFERENCE)[band]);
-        let reference = fine + (fine - coarse) * 64.0 * 64.0 / (96.0 * 96.0 - 64.0 * 64.0);
+        // Richardson's extrapolation at the order p the three runs show: their differences
+        // shrink by 1.5^p from one to the next
+        let [a, b, c] = REFERENCE.map(|n| get(3, n)[band]);
+        let ratio = (a - b) / (b - c);
+        assert!(
+            ratio > 1.0,
+            "band {}: the reference's runs don't converge monotonically",
+            band + 1
+        );
+        let order = portable::ln(ratio) / portable::ln(1.5);
+        let reference = c + (c - b) / (ratio - 1.0);
         println!();
         println!(
-            "band {}: {reference:.8} c/um, the new method (2 dx) at 64 and 96 pixels by \
-             Richardson ({coarse:.8}, {fine:.8})",
-            band + 1
+            "band {}: {reference:.8} c/um, the new method (2 dx) at {}, {} and {} pixels \
+             ({a:.8}, {b:.8}, {c:.8}) by Richardson at their order {order:.2}",
+            band + 1,
+            REFERENCE[0],
+            REFERENCE[1],
+            REFERENCE[2]
         );
         print!("{:<20}", "pixels a period");
         for n in RESOLUTIONS {
