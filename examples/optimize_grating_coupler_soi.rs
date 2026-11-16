@@ -9,7 +9,67 @@
 //! A grating coupler is a problem of its cross-section, the plane of the layer stack and the
 //! direction the light runs in, so it is designed and verified here in 2D only, as the paper does.
 //!
-//! TEXT_PLACEHOLDER
+//! **The problem** (Section 3.1, Fig. 2 and p. 4026). A layer of silicon 220 nm thick on 2 µm of
+//! buried oxide over a silicon substrate, silica above (Fig. 2(a)), its top 100 nm etched into
+//! grooves (Fig. 2(b)) over a 14 µm region; the minimum feature 100 nm; the fibre at 10° from the
+//! normal, TE, at 1550 nm. They solve it in 2D FDFD on 20 nm cells inside PMLs, the fibre's mode a
+//! Gaussian current exp(−x²/σ_w²). The paper doesn't print the indices (the library's silicon,
+//! Li 1980 at 293 K, and silica, Malitson 1965, are used: 3.4757 and 1.4440 at 1550 nm), σ_w
+//! (5.2 µm is used, the field's 1/e radius for a standard single-mode fibre's 10.4 µm mode field
+//! diameter), where the beam's centre sits (where their design couples most at 1550 nm, 6.8 µm into
+//! the region to 0.1 µm, `--align`; 0.2 µm either way costs under 0.01 dB), or in which medium
+//! the 10° is measured.
+//!
+//! **The angle.** As 10° in the silica, their design's least loss falls at 1526 nm, 24 nm short of
+//! Fig. 2(c)'s; as the fibre's angle in air (6.9° in the silica by Snell's law), at 1549 nm. The
+//! air reading is used, the usual one for a fibre's tilt. The peak's place chose it, so the
+//! peak's wavelength isn't a check here: the loss and the bandwidth are.
+//!
+//! **Their design** (Fig. 2(a)) is a vector outline. Its 23 grooves are read at the figure's 1 µm
+//! scale bar, at which the layer is 220.06 nm thick, the grooves 100.07 nm deep, and the narrowest
+//! groove and tooth 99.9 nm (their minimum feature; the "14 µm" arrow is 13.87 µm at that scale).
+//! The waveguide is on the left, where the grooves are narrowest (weak scattering where the light
+//! starts; read the other way round, with the angle taken in the silica, it loses 5.9 dB at best).
+//!
+//! **The model.** E along z (TE), each cell's permittivity the mean over its area (E is parallel
+//! to every interface); the beam a line of current 0.78 µm above the layer, its phase running at
+//! k₀ sin 10° along x so that it leans towards the waveguide; the incident power the same beam's in
+//! silica alone, through a row below it; the coupled power the waveguide's TE₀ going left, 3 µm
+//! from the region. PMLs of 1 µm all round, the substrate running into the lower one.
+//!
+//! **Our design**, in two stages as theirs (Section 2.1), at 1550 nm with the beam where theirs
+//! couples most. First densities, one per 20 nm pixel of the grooves' band, from ½ everywhere,
+//! through a 100 nm conic filter (padded with the slab's silicon) and a tanh projection at η = ½,
+//! β from 8 to 256 in six stages of 40 evaluations; binarized, the features under 100 nm merged
+//! (the narrowest first, a groove filled or a tooth etched). Then the grooves' edges themselves,
+//! every groove and every tooth between grooves at least 100 nm (linear constraints, their Eq. 4),
+//! in three stages of 50 evaluations, each edge within 0.2 µm of where the stage starts. Both by
+//! genoxide's MMA on 1 − η, every gradient by the adjoint (an edge's: the change of the one cell it
+//! sits in). Their method differs in its optimizers (L-BFGS-B, SLSQP), its start (random) and
+//! how it turns densities into edges (a least-squares fit). Starting the densities from a uniform
+//! grating phase-matched by the slabs' indices (period 0.640 µm) ended at 3.04 dB; a robust search
+//! (eroded, blueprint and dilated at ¾, ½ and ¼) at 2.74 dB, still with features under 100 nm.
+//!
+//! **The finer grids** (`--full`). Both designs again on cells of 10, 6.67 and 5 nm from 1520 to
+//! 1580 nm in steps of 4 nm: the least loss and its wavelength (a parabola through the least
+//! sample and its neighbours) and the 1-dB band (linear between samples; 4 nm steps move its edges
+//! by about 0.03 nm on a parabola this wide). The grids don't converge in turn, so each value is
+//! their mean ± half their range.
+//!
+//! **What is compared.** Their design against the text's 1.94 dB and 34 nm, within the text's and
+//! Fig. 2(c)'s difference (0.02 dB and 2.55 nm: the curve, read from its vector path, gives
+//! 1.9185 dB at 1550.3 nm and 36.55 nm) and our grids' spread: checked where it is within,
+//! otherwise reported. Ours against their design solved here, where the grids' spreads decide it.
+//!
+//! WHAT_IT_FOUND
+//!
+//! ```sh
+//! cargo run --release --example optimize_grating_coupler_soi                    # the recorded designs on 20 nm cells, the recorded finer grids
+//! cargo run --release --example optimize_grating_coupler_soi -- --full          # the optimization again, and the finer grids
+//! cargo run --release --example optimize_grating_coupler_soi -- --full --write  # the optimization, recorded
+//! cargo run --release --example optimize_grating_coupler_soi -- --fine          # the recorded designs on the finer grids
+//! cargo run --release --example optimize_grating_coupler_soi -- --align         # their design with the beam's centre moved
+//! ```
 
 mod common;
 
@@ -301,8 +361,13 @@ impl Coupler {
         let source = beam(&g, LAMBDA, n.1, BEAM_X);
         let incident = incident(g, LAMBDA, &source)?;
         let background = cells(&g, n, Some(&[]));
-        let solver =
-            Solver2d::from_cells(g, Polarization::Ez, lam, &background, Boundaries::pml(pml(PIXEL)))?;
+        let solver = Solver2d::from_cells(
+            g,
+            Polarization::Ez,
+            lam,
+            &background,
+            Boundaries::pml(pml(PIXEL)),
+        )?;
         let mode = waveguide_mode(&solver, &g)?;
         let ratio = mode.power(g.dy) / incident;
         // the band's rows, by their centres
@@ -642,7 +707,9 @@ fn to_text(g: &[(f64, f64)]) -> String {
 fn from_text(text: &str) -> Vec<(f64, f64)> {
     text.lines()
         .filter_map(|l| {
-            let mut v = l.split_whitespace().map(|s| s.parse::<f64>().expect("a number"));
+            let mut v = l
+                .split_whitespace()
+                .map(|s| s.parse::<f64>().expect("a number"));
             Some((v.next()?, v.next()?))
         })
         .collect()
