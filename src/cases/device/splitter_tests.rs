@@ -699,6 +699,7 @@ fn flux_cells(
 #[allow(clippy::too_many_lines)]
 fn survey_mmi_budget() {
     use crate::fdfd::{Axis, Direction, Field3d, PortMode3d};
+    use num_complex::Complex64 as c64;
     use std::io::Write;
     let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_owned());
     let started = Instant::now();
@@ -916,48 +917,154 @@ fn survey_mmi_budget() {
             }
         }
     }
-    if var("BOTH", "0") == "1" {
-        // by reciprocity, the coupling of each of the section's modes into o2: what o2's launch
-        // puts into it going back, on the planes before the outputs
-        let back = launch(1);
-        let mut lines = Vec::new();
-        for (plane, ms) in &section {
-            if g.node(Axis::X, *plane) < 0.5 * (x_in + x_out) {
-                continue;
-            }
-            let mut predicted = num_complex::Complex64::new(0.0, 0.0);
-            let mut each = Vec::new();
-            for m in ms.iter().filter(|m| guided(m)) {
-                let (a, _) = field.mode_amplitudes(m);
-                let (_, t) = back.mode_amplitudes(m);
-                predicted += a * t;
-                each.push(format!("[{:.5} a {:.6} t {:.6}]", m.effective_index().re, a.norm_sqr(), t.norm_sqr()));
-            }
-            lines.push(format!(
-                "guided only at x {:.4}: P_o2 {:.6} against {p2:.6}; {}",
-                g.node(Axis::X, *plane),
-                predicted.norm_sqr() / incident,
-                each.join(" ")
-            ));
-        }
-        for l in lines {
-            log(&l);
-        }
-    }
-    // the guided-mode model's couplings on the plane, for the record
+    // the guided-mode model on the plane: its modes and each port's couplings into them
     let (model, values) = StripMmi::one_by_two().guided(&v).unwrap();
     let analysis = model.analysis(lam, values[1]).unwrap();
-    let c = analysis.couplings(0);
-    let n: Vec<f64> = analysis
+    let (c_in, c_out) = (analysis.couplings(0), analysis.couplings(1));
+    let plane_n: Vec<f64> = analysis
         .propagation_constants()
         .iter()
         .map(|b| b / lam.wavenumber())
         .collect();
+    let squares = |c: &[f64]| c.iter().map(|c| c * c).collect::<Vec<_>>();
     log(&format!(
-        "plane's guided modes {n:.5?}; input couplings squared {:.6?}, sum {:.6}",
-        c.iter().map(|c| c * c).collect::<Vec<_>>(),
-        c.iter().map(|c| c * c).sum::<f64>()
+        "plane's guided modes {plane_n:.5?}; input couplings squared {:.6?}, sum {:.6}; o2's {:.6?}",
+        squares(c_in),
+        c_in.iter().map(|c| c * c).sum::<f64>(),
+        squares(c_out)
     ));
+    if var("BOTH", "0") != "1" {
+        return;
+    }
+    let fields = [field, launch(1), launch(2)];
+    // the S-matrix as the study's: S A = B over the ports' fundamental modes, so that what the
+    // PMLs send back is part of A
+    let mut incoming = faer::Mat::<c64>::zeros(3, 3);
+    let mut outgoing = faer::Mat::<c64>::zeros(3, 3);
+    for (p, f) in fields.iter().enumerate() {
+        for q in 0..3 {
+            let (fwd, bwd) = f.mode_amplitudes(&ports[q].0.mode);
+            let (a, b) = if q == 0 { (fwd, bwd) } else { (bwd, fwd) };
+            incoming[(q, p)] = a;
+            outgoing[(q, p)] = b;
+        }
+    }
+    let st = {
+        use faer::linalg::solvers::Solve;
+        incoming
+            .transpose()
+            .to_owned()
+            .partial_piv_lu()
+            .solve(outgoing.transpose().to_owned())
+    };
+    let s = |q: usize, p: usize| st[(p, q)];
+    let (s21, s31) = (s(1, 0).norm_sqr(), s(2, 0).norm_sqr());
+    log(&format!(
+        "S: P_o2 {s21:.6} P_o3 {s31:.6} sum {:.6} excess {:.5} dB; R {:.3e}; S23 {:.3e}",
+        s21 + s31,
+        -10.0 * portable::log10(s21 + s31),
+        s(0, 0).norm_sqr(),
+        s(1, 2).norm_sqr()
+    ));
+    // the guided modes alone, the 3D's: on each plane before the outputs, each even mode's
+    // amplitude from o1 (a) and, by reciprocity, its coupling into o2 (t, what o2's launch puts
+    // into it going back), each launch over its own incident amplitude. Σ a t is o2's amplitude
+    // carried by the guided modes; the length moved by ΔL turns each term by e^(iβΔL).
+    let (a0, _) = fields[0].mode_amplitudes(&ports[0].0.mode);
+    let (_, a1) = fields[1].mode_amplitudes(&ports[1].0.mode);
+    let best = |p: &dyn Fn(f64) -> f64| -> (f64, f64) {
+        let xs: Vec<f64> = (0..=1200).map(|i| -0.6 + 1e-3 * f64::from(i)).collect();
+        let i = (0..xs.len())
+            .max_by(|&a, &b| p(xs[a]).total_cmp(&p(xs[b])))
+            .unwrap();
+        let (mut a, mut b) = (xs[i.saturating_sub(1)], xs[(i + 1).min(1200)]);
+        let r = 0.5 * (5f64.sqrt() - 1.0);
+        while b - a > 1e-9 {
+            let (x, y) = (b - r * (b - a), a + r * (b - a));
+            if p(x) > p(y) {
+                b = y;
+            } else {
+                a = x;
+            }
+        }
+        let x = 0.5 * (a + b);
+        (x, p(x))
+    };
+    let db = |p: f64| -10.0 * portable::log10(2.0 * p);
+    for (plane, ms) in &section {
+        if g.node(Axis::X, *plane) < 0.5 * (x_in + x_out) {
+            continue;
+        }
+        let even: Vec<(f64, c64, c64)> = ms
+            .iter()
+            .filter(|m| guided(m))
+            .filter_map(|m| {
+                let (a, _) = fields[0].mode_amplitudes(m);
+                let (_, t) = fields[1].mode_amplitudes(m);
+                (a.norm_sqr() > 1e-8).then(|| (m.beta().re, a / a0, t / a1))
+            })
+            .collect();
+        let each: Vec<String> = even
+            .iter()
+            .map(|(b, a, t)| {
+                format!(
+                    "[n {:.5} |a|^2 {:.6} |t|^2 {:.6} arg(at)/pi {:+.4}]",
+                    b / lam.wavenumber(),
+                    a.norm_sqr(),
+                    t.norm_sqr(),
+                    (a * t).arg() / std::f64::consts::PI
+                )
+            })
+            .collect();
+        log(&format!(
+            "guided even modes at x {:.4}: {}; sum |a|^2 {:.6}, 2 sum |t|^2 {:.6}",
+            g.node(Axis::X, *plane),
+            each.join(" "),
+            even.iter().map(|e| e.1.norm_sqr()).sum::<f64>(),
+            2.0 * even.iter().map(|e| e.2.norm_sqr()).sum::<f64>()
+        ));
+        // the models, each with the length moved by ΔL from LENGTH: the 3D couplings whole;
+        // their sizes only, with the plane's signs and no phase but the length's; and the
+        // plane's couplings, the first three even modes at the 3D β (the fourth isn't guided)
+        let turn = |b: f64, d: f64| portable::complex::exp(c64::new(0.0, b * d));
+        let three = |d: f64| -> f64 {
+            even.iter()
+                .map(|(b, a, t)| a * t * turn(*b, d))
+                .sum::<c64>()
+                .norm_sqr()
+        };
+        let sizes = |d: f64| -> f64 {
+            even.iter()
+                .enumerate()
+                .map(|(k, (b, a, t))| {
+                    let sign = (c_in[2 * k] * c_out[2 * k]).signum();
+                    sign * (a * t).norm() * turn(*b, length + d)
+                })
+                .sum::<c64>()
+                .norm_sqr()
+        };
+        let plane = |d: f64| -> f64 {
+            even.iter()
+                .enumerate()
+                .map(|(k, (b, ..))| c_in[2 * k] * c_out[2 * k] * turn(*b, length + d))
+                .sum::<c64>()
+                .norm_sqr()
+        };
+        for (label, p) in [
+            ("3D couplings", &three as &dyn Fn(f64) -> f64),
+            ("3D couplings' sizes, the plane's signs", &sizes),
+            ("the plane's couplings, 3D beta", &plane),
+        ] {
+            let (d, pb) = best(p);
+            log(&format!(
+                "  guided only, {label}: P {:.6} at {length} um ({:.4} dB); best {pb:.6} at {:.4} um ({:.4} dB)",
+                p(0.0),
+                db(p(0.0)),
+                length + d,
+                db(pb)
+            ));
+        }
+    }
 }
 
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell
