@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 650 sources, 642 with a DOI and 8 without, are cited at 4007 places in 477 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 653 sources, 644 with a DOI and 9 without, are cited at 4013 places in 477 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -189,6 +189,13 @@ V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Bergg
 - Methods pages: [catalogue.md:8](methods/catalogue.md?plain=1#L8), [476](methods/catalogue.md?plain=1#L476), [quantum.md:1163](methods/quantum.md?plain=1#L1163)
 - Code: [src/material/catalogue/films.rs:3](../src/material/catalogue/films.rs#L3), [75](../src/material/catalogue/films.rs#L75), [src/material/catalogue/references.rs:655](../src/material/catalogue/references.rs#L655), [656](../src/material/catalogue/references.rs#L656)
 
+#### Anc et al. 1999
+
+M. J. Anc, R. P. Dolan, J. Jiao, T. Nakai, "Thin-layer SIMOX for future applications", 1999 IEEE International SOI Conference. Proceedings, 106 (1999). [doi:10.1109/SOI.1999.819875](https://doi.org/10.1109/SOI.1999.819875)
+
+- Methods pages: [fabrication.md:35](methods/fabrication.md?plain=1#L35), [936](methods/fabrication.md?plain=1#L936)
+- Code: [src/fabrication/simox_checks.rs:48](../src/fabrication/simox_checks.rs#L48)
+
 #### Anemogiannis et al. 1999
 
 E. Anemogiannis, E. Glytsis, T. Gaylord, "Determination of guided and leaky modes in lossless and lossy planar multilayer optical waveguides: reflection pole method and wavevector density method", J. Lightwave Technol. 17, 929 (1999). [doi:10.1109/50.762914](https://doi.org/10.1109/50.762914)
@@ -372,7 +379,7 @@ C. A. Bauer, G. R. Werner, J. R. Cary, "A second-order 3D electromagnetics algor
 
 J. F. Bauters, M. J. R. Heck, D. John, D. Dai, M.-C. Tien, J. S. Barton, A. Leinse, R. G. Heideman, D. J. Blumenthal, J. E. Bowers, "Ultra-low-loss high-aspect-ratio Si\_3N\_4 waveguides", Opt. Express 19, 3163 (2011). [doi:10.1364/OE.19.003163](https://doi.org/10.1364/OE.19.003163)
 
-- Methods pages: [fabrication.md:57](methods/fabrication.md?plain=1#L57)
+- Methods pages: [fabrication.md:64](methods/fabrication.md?plain=1#L64)
 - Academy lessons: [loss-in-silicon-waveguides.md:80](../academy/loss-in-silicon-waveguides.md?plain=1#L80), [118](../academy/loss-in-silicon-waveguides.md?plain=1#L118), [337](../academy/loss-in-silicon-waveguides.md?plain=1#L337)
 - Code: [src/fabrication/references.rs:280](../src/fabrication/references.rs#L280), [282](../src/fabrication/references.rs#L282)
 - Other documents: [docs/plans/fabrication.md:664](plans/fabrication.md?plain=1#L664)
@@ -534,7 +541,7 @@ W. Bogaerts, D. Pérez, J. Capmany, D. A. B. Miller, J. Poon, D. Englund, F. Mor
 
 R. J. Bojko, J. Li, L. He, T. Baehr-Jones, M. Hochberg, Y. Aida, "Electron beam lithography writing strategies for low loss, high confinement silicon optical waveguides", Journal of Vacuum Science & Technology B, Nanotechnology and Microelectronics: Materials, Processing, Measurement, and Phenomena 29, 06F309 (2011). [doi:10.1116/1.3653266](https://doi.org/10.1116/1.3653266)
 
-- Methods pages: [fabrication.md:35](methods/fabrication.md?plain=1#L35)
+- Methods pages: [fabrication.md:42](methods/fabrication.md?plain=1#L42)
 - Academy lessons: [how-a-chip-is-made.md:73](../academy/how-a-chip-is-made.md?plain=1#L73), [207](../academy/how-a-chip-is-made.md?plain=1#L207)
 - Code: [src/fabrication/references.rs:96](../src/fabrication/references.rs#L96)
 - Other documents: [docs/plans/fabrication.md:645](plans/fabrication.md?plain=1#L645)
@@ -724,7 +731,7 @@ G. K. Celler, S. Cristoloveanu, "Frontiers of silicon-on-insulator", J. Appl. Ph
 
 - Methods pages: [fabrication.md:14](methods/fabrication.md?plain=1#L14)
 - Validation cases: [`fabrication/simox-oxide-celler-low-dose`](validation.md?plain=1#L827), [`fabrication/simox-oxide-celler-thin`](validation.md?plain=1#L828)
-- Code: [src/fabrication/references.rs:56](../src/fabrication/references.rs#L56), [src/fabrication/simox.rs:10](../src/fabrication/simox.rs#L10), [src/fabrication/simox_checks.rs:197](../src/fabrication/simox_checks.rs#L197), [204](../src/fabrication/simox_checks.rs#L204)
+- Code: [src/fabrication/references.rs:56](../src/fabrication/references.rs#L56), [src/fabrication/simox.rs:10](../src/fabrication/simox.rs#L10), [src/fabrication/simox_checks.rs:203](../src/fabrication/simox_checks.rs#L203), [210](../src/fabrication/simox_checks.rs#L210)
 - Other documents: [docs/plans/fabrication.md:640](plans/fabrication.md?plain=1#L640)
 
 #### Černošková et al. 2014
@@ -760,7 +767,7 @@ Y. K. Chembo, C. R. Menyuk, "Spatiotemporal Lugiato-Lefever formalism for Kerr-c
 
 Y. Chen, "Nanofabrication by electron beam lithography and its applications: A review", Microelectronic Engineering 135, 57 (2015). [doi:10.1016/j.mee.2015.02.042](https://doi.org/10.1016/j.mee.2015.02.042)
 
-- Methods pages: [fabrication.md:37](methods/fabrication.md?plain=1#L37)
+- Methods pages: [fabrication.md:44](methods/fabrication.md?plain=1#L44)
 - Academy lessons: [how-a-chip-is-made.md:85](../academy/how-a-chip-is-made.md?plain=1#L85), [206](../academy/how-a-chip-is-made.md?plain=1#L206)
 - Validation cases: [`fabrication/lithography-choice`](validation.md?plain=1#L805)
 - Code: [src/fabrication/checks.rs:447](../src/fabrication/checks.rs#L447), [src/fabrication/references.rs:104](../src/fabrication/references.rs#L104)
@@ -1005,24 +1012,30 @@ C. de Boor, "A Practical Guide to Splines", Springer New York (1978). [doi:10.10
 
 J. P. de Souza, M. Behar, J. F. Dias, J. H. R. dos Santos, "Range parameters of ¹⁸O implanted into Si and SiO₂", Nucl. Instrum. Methods Phys. Res. B 175–177, 46 (2001). [doi:10.1016/S0168-583X(00)00525-5](https://doi.org/10.1016/S0168-583X(00)00525-5)
 
-- Methods pages: [fabrication.md:20](methods/fabrication.md?plain=1#L20), [753](methods/fabrication.md?plain=1#L753)
+- Methods pages: [fabrication.md:20](methods/fabrication.md?plain=1#L20), [761](methods/fabrication.md?plain=1#L761)
 - Code: [src/fabrication/references.rs:80](../src/fabrication/references.rs#L80), [src/fabrication/simox.rs:24](../src/fabrication/simox.rs#L24)
 
 #### Deal and Grove 1965
 
 B. E. Deal, A. S. Grove, "General Relationship for the Thermal Oxidation of Silicon", Journal of Applied Physics 36, 3770 (1965). [doi:10.1063/1.1713945](https://doi.org/10.1063/1.1713945)
 
-- Methods pages: [fabrication.md:47](methods/fabrication.md?plain=1#L47)
+- Methods pages: [fabrication.md:54](methods/fabrication.md?plain=1#L54)
 - Academy lessons: [how-a-chip-is-made.md:25](../academy/how-a-chip-is-made.md?plain=1#L25), [363](../academy/how-a-chip-is-made.md?plain=1#L363)
 - Validation cases: [`fabrication/deal-grove-tables`](validation.md?plain=1#L803), [`fabrication/deal-grove-campbell`](validation.md?plain=1#L809)
 - Code: [src/fabrication/checks.rs:433](../src/fabrication/checks.rs#L433), [src/fabrication/oxidation.rs:3](../src/fabrication/oxidation.rs#L3), [src/fabrication/references.rs:136](../src/fabrication/references.rs#L136), [src/fabrication/rule_checks.rs:322](../src/fabrication/rule_checks.rs#L322)
 - Other documents: [docs/plans/fabrication.md:628](plans/fabrication.md?plain=1#L628)
 
+#### Dearnaley 1975
+
+G. Dearnaley, "Ion implantation", Nature 256, 701 (1975). [doi:10.1038/256701a0](https://doi.org/10.1038/256701a0)
+
+- Methods pages: [fabrication.md:30](methods/fabrication.md?plain=1#L30), [809](methods/fabrication.md?plain=1#L809)
+
 #### Dearnaley et al. 1973
 
 G. Dearnaley, J. H. Freeman, R. S. Nelson, J. Stephen, "Ion Implantation", North-Holland, ISBN 9780444104885 (1973)., open access.
 
-- Methods pages: [fabrication.md:28](methods/fabrication.md?plain=1#L28), [774](methods/fabrication.md?plain=1#L774)
+- Methods pages: [fabrication.md:28](methods/fabrication.md?plain=1#L28), [782](methods/fabrication.md?plain=1#L782)
 
 #### Deb et al. 2002
 
@@ -1036,7 +1049,7 @@ K. Deb, A. Pratap, S. Agarwal, T. Meyarivan, "A fast and elitist multiobjective 
 
 M. Delaney, I. Zeimpekis, D. Lawson, D. W. Hewak, O. L. Muskens, "A New Family of Ultralow Loss Reversible Phase‐Change Materials for Photonic Integrated Circuits: Sb 2 S 3 and Sb 2 Se 3", Adv Funct Materials 30, 2002447 (2020). [doi:10.1002/adfm.202002447](https://doi.org/10.1002/adfm.202002447), open access.
 
-- Methods pages: [catalogue.md:350](methods/catalogue.md?plain=1#L350), [devices.md:44](methods/devices.md?plain=1#L44), [fabrication.md:67](methods/fabrication.md?plain=1#L67)
+- Methods pages: [catalogue.md:350](methods/catalogue.md?plain=1#L350), [devices.md:44](methods/devices.md?plain=1#L44), [fabrication.md:74](methods/fabrication.md?plain=1#L74)
 - Academy lessons: [modulators.md:109](../academy/modulators.md?plain=1#L109), [606](../academy/modulators.md?plain=1#L606), [708](../academy/modulators.md?plain=1#L708)
 - Validation cases: [`material/pcm-delaney-fits`](validation.md?plain=1#L45), [`material/pcm-delaney-fits-gst`](validation.md?plain=1#L46), [`material/pcm-delaney-contrast`](validation.md?plain=1#L47), [`material/pcm-delaney-table-1`](validation.md?plain=1#L48), [`material/pcm-delaney-losses`](validation.md?plain=1#L49), [`material/pcm-delaney-fom`](validation.md?plain=1#L50), [`material/pcm-delaney-lossless`](validation.md?plain=1#L51), [`material/pcm-sb2se3-crystallization`](validation.md?plain=1#L52), [`material/pcm-sb2s3-crystallization`](validation.md?plain=1#L53), [`device/pcm-fom`](validation.md?plain=1#L674), [`device/pcm-conformal-area`](validation.md?plain=1#L677), [`fabrication/thermal-order`](validation.md?plain=1#L806), [`fabrication/pcm-rules`](validation.md?plain=1#L818)
 - Examples: [README.md:97](../examples/README.md?plain=1#L97), [pcm_delaney.rs:6](../examples/pcm_delaney.rs#L6)
@@ -1055,7 +1068,7 @@ M. Delaney, I. Zeimpekis, D. Lawson, D. Hewak, O. Muskens, "Dataset for A new fa
 
 M. Delaney, I. Zeimpekis, H. Du, X. Yan, M. Banakar, D. J. Thomson, D. W. Hewak, O. L. Muskens, "Nonvolatile programmable silicon photonics using an ultralow-loss Sb 2 Se 3 phase change material", Sci. Adv. 7, eabg3500 (2021). [doi:10.1126/sciadv.abg3500](https://doi.org/10.1126/sciadv.abg3500), open access.
 
-- Methods pages: [fabrication.md:69](methods/fabrication.md?plain=1#L69)
+- Methods pages: [fabrication.md:76](methods/fabrication.md?plain=1#L76)
 - Validation cases: [`fabrication/pcm-reported-flows`](validation.md?plain=1#L819)
 - Examples: [pcm_delaney.rs:27](../examples/pcm_delaney.rs#L27)
 - Code: [src/fabrication/platform_checks.rs:739](../src/fabrication/platform_checks.rs#L739), [src/fabrication/references.rs:272](../src/fabrication/references.rs#L272), [274](../src/fabrication/references.rs#L274)
@@ -1102,7 +1115,7 @@ D. Deschrijver, M. Mrozowski, T. Dhaene, D. De Zutter, "Macromodeling of Multipo
 
 C. P. Dietrich, A. Fiore, M. G. Thompson, M. Kamp, S. Höfling, "GaAs integrated quantum photonics: Towards compact and multi‐functional quantum photonic integrated circuits", Laser & Photonics Reviews 10, 870 (2016). [doi:10.1002/lpor.201500321](https://doi.org/10.1002/lpor.201500321)
 
-- Methods pages: [fabrication.md:75](methods/fabrication.md?plain=1#L75)
+- Methods pages: [fabrication.md:82](methods/fabrication.md?plain=1#L82)
 - Validation cases: [`fabrication/gaas-rules`](validation.md?plain=1#L823)
 - Code: [src/fabrication/platform_checks.rs:767](../src/fabrication/platform_checks.rs#L767), [src/fabrication/references.rs:256](../src/fabrication/references.rs#L256)
 - Other documents: [docs/plans/fabrication.md:670](plans/fabrication.md?plain=1#L670)
@@ -1354,7 +1367,7 @@ P. A. Franken, A. E. Hill, C. W. Peters, G. Weinreich, "Generation of Optical Ha
 
 S. Franssila, "Introduction to Microfabrication", Wiley (2010). [doi:10.1002/9781119990413](https://doi.org/10.1002/9781119990413)
 
-- Methods pages: [fabrication.md:53](methods/fabrication.md?plain=1#L53)
+- Methods pages: [fabrication.md:60](methods/fabrication.md?plain=1#L60)
 - Academy lessons: [how-a-chip-is-made.md:67](../academy/how-a-chip-is-made.md?plain=1#L67), [316](../academy/how-a-chip-is-made.md?plain=1#L316)
 - Validation cases: [`fabrication/rayleigh-franssila`](validation.md?plain=1#L808), [`fabrication/rule-choices`](validation.md?plain=1#L811)
 - Code: [src/fabrication/references.rs:320](../src/fabrication/references.rs#L320), [src/fabrication/rule_checks.rs:315](../src/fabrication/rule_checks.rs#L315), [336](../src/fabrication/rule_checks.rs#L336)
@@ -1464,7 +1477,7 @@ Z. Gao, X. Chen, Z. Zhang, U. Chakraborty, W. Bogaerts, D. S. Boning, "Automatic
 
 J. G. E. Gardeniers, H. A. C. Tilmans, C. C. G. Visser, "LPCVD silicon-rich silicon nitride films for applications in micromechanics, studied with statistical experimental design", Journal of Vacuum Science & Technology A: Vacuum, Surfaces, and Films 14, 2879 (1996). [doi:10.1116/1.580239](https://doi.org/10.1116/1.580239) [Open copy](https://ris.utwente.nl/ws/files/6771994/JVS_14_2879.pdf).
 
-- Methods pages: [fabrication.md:61](methods/fabrication.md?plain=1#L61)
+- Methods pages: [fabrication.md:68](methods/fabrication.md?plain=1#L68)
 
 #### Gayer et al. 2008
 
@@ -1875,7 +1888,7 @@ P. L. F. Hemment, E. Maydell-Ondrusz, K. G. Stevens, J. A. Kilner, J. Butcher, "
 
 - Methods pages: [fabrication.md:18](methods/fabrication.md?plain=1#L18)
 - Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L830)
-- Code: [src/fabrication/references.rs:72](../src/fabrication/references.rs#L72), [src/fabrication/simox.rs:45](../src/fabrication/simox.rs#L45), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
+- Code: [src/fabrication/references.rs:72](../src/fabrication/references.rs#L72), [src/fabrication/simox.rs:46](../src/fabrication/simox.rs#L46), [src/fabrication/simox_checks.rs:224](../src/fabrication/simox_checks.rs#L224)
 - Other documents: [docs/plans/fabrication.md:642](plans/fabrication.md?plain=1#L642)
 
 #### Henson and Yang 2002
@@ -2075,7 +2088,7 @@ K. Izumi, M. Doken, H. Ariyoshi, "C.M.O.S. devices fabricated on buried SiO2 lay
 
 - Methods pages: [fabrication.md:12](methods/fabrication.md?plain=1#L12)
 - Validation cases: [`fabrication/simox-oxide-below-1300`](validation.md?plain=1#L830)
-- Code: [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/simox.rs:2](../src/fabrication/simox.rs#L2), [src/fabrication/simox_checks.rs:218](../src/fabrication/simox_checks.rs#L218)
+- Code: [src/fabrication/references.rs:48](../src/fabrication/references.rs#L48), [src/fabrication/simox.rs:2](../src/fabrication/simox.rs#L2), [src/fabrication/simox_checks.rs:224](../src/fabrication/simox_checks.rs#L224)
 - Other documents: [docs/plans/fabrication.md:639](plans/fabrication.md?plain=1#L639)
 
 ### J
@@ -2227,7 +2240,7 @@ D. Jundt, M. Fejer, R. Byer, "Optical properties of lithium-rich lithium niobate
 
 H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, "Optical frequency comb generation from aluminum nitride microring resonator", Opt. Lett. 38, 2810 (2013). [doi:10.1364/OL.38.002810](https://doi.org/10.1364/OL.38.002810)
 
-- Methods pages: [catalogue.md:40](methods/catalogue.md?plain=1#L40), [fabrication.md:73](methods/fabrication.md?plain=1#L73)
+- Methods pages: [catalogue.md:40](methods/catalogue.md?plain=1#L40), [fabrication.md:80](methods/fabrication.md?plain=1#L80)
 - Academy lessons: [nonlinear-optics.md:204](../academy/nonlinear-optics.md?plain=1#L204), [346](../academy/nonlinear-optics.md?plain=1#L346), [1121](../academy/nonlinear-optics.md?plain=1#L1121)
 - Validation cases: [`fabrication/aln-reported-flows`](validation.md?plain=1#L821)
 - Code: [src/fabrication/platform_checks.rs:753](../src/fabrication/platform_checks.rs#L753), [src/fabrication/references.rs:248](../src/fabrication/references.rs#L248), [src/material/catalogue/kerr.rs:17](../src/material/catalogue/kerr.rs#L17), [src/material/catalogue/references.rs:606](../src/material/catalogue/references.rs#L606)
@@ -2238,7 +2251,7 @@ H. Jung, C. Xiong, K. Y. Fong, X. Zhang, H. X. Tang, "Optical frequency comb gen
 
 Ö. Kabadayi, H. Gümüş, "Range and longitudinal range straggling with various stopping power formulations for oxygen ions in Si and SiO2", Phys. Status Solidi B 242, 2391 (2005). [doi:10.1002/pssb.200540082](https://doi.org/10.1002/pssb.200540082)
 
-- Methods pages: [fabrication.md:22](methods/fabrication.md?plain=1#L22), [759](methods/fabrication.md?plain=1#L759)
+- Methods pages: [fabrication.md:22](methods/fabrication.md?plain=1#L22), [767](methods/fabrication.md?plain=1#L767)
 - Code: [src/fabrication/simox.rs:28](../src/fabrication/simox.rs#L28)
 
 #### Kaito et al. 1984
@@ -2303,7 +2316,7 @@ H. Kato, S. Adachi, H. Nakanishi, K. Ohtsuka, "Optical Properties of (AlxGa1-x)0
 
 F. Kaufmann, G. Finco, A. Maeder, R. Grange, "Redeposition‐free inductively‐coupled plasma etching of lithium niobate for integrated photonics", Nanophotonics 12, 1601 (2023). [doi:10.1515/nanoph-2022-0676](https://doi.org/10.1515/nanoph-2022-0676), open access.
 
-- Methods pages: [fabrication.md:41](methods/fabrication.md?plain=1#L41)
+- Methods pages: [fabrication.md:48](methods/fabrication.md?plain=1#L48)
 - Academy lessons: [how-a-chip-is-made.md:115](../academy/how-a-chip-is-made.md?plain=1#L115), [303](../academy/how-a-chip-is-made.md?plain=1#L303)
 - Code: [src/fabrication/references.rs:184](../src/fabrication/references.rs#L184), [186](../src/fabrication/references.rs#L186)
 - Other documents: [docs/plans/fabrication.md:659](plans/fabrication.md?plain=1#L659)
@@ -2470,7 +2483,7 @@ R. Kremer, K. Graf, M. Cardona, G. Devyatykh, A. Gusev, A. Gibin, A. Inyushkin, 
 
 M. Krishnan, J. W. Nalaskowski, L. M. Cook, "Chemical Mechanical Planarization: Slurry Chemistry, Materials, and Mechanisms", Chem. Rev. 110, 178 (2009). [doi:10.1021/cr900170z](https://doi.org/10.1021/cr900170z)
 
-- Methods pages: [fabrication.md:49](methods/fabrication.md?plain=1#L49)
+- Methods pages: [fabrication.md:56](methods/fabrication.md?plain=1#L56)
 - Academy lessons: [how-a-chip-is-made.md:61](../academy/how-a-chip-is-made.md?plain=1#L61), [415](../academy/how-a-chip-is-made.md?plain=1#L415)
 - Validation cases: [`fabrication/accuracy-combined`](validation.md?plain=1#L812)
 - Code: [src/fabrication/references.rs:128](../src/fabrication/references.rs#L128), [src/fabrication/rule_checks.rs:343](../src/fabrication/rule_checks.rs#L343)
@@ -2541,7 +2554,7 @@ H. W. Lam, "SIMOX SOI for integrated circuit fabrication", IEEE Circuits Devices
 
 - Methods pages: [fabrication.md:16](methods/fabrication.md?plain=1#L16)
 - Validation cases: [`fabrication/simox-oxide-lam`](validation.md?plain=1#L829)
-- Code: [src/fabrication/references.rs:64](../src/fabrication/references.rs#L64), [src/fabrication/simox.rs:20](../src/fabrication/simox.rs#L20), [src/fabrication/simox_checks.rs:211](../src/fabrication/simox_checks.rs#L211)
+- Code: [src/fabrication/references.rs:64](../src/fabrication/references.rs#L64), [src/fabrication/simox.rs:20](../src/fabrication/simox.rs#L20), [src/fabrication/simox_checks.rs:217](../src/fabrication/simox_checks.rs#L217)
 - Other documents: [docs/plans/fabrication.md:641](plans/fabrication.md?plain=1#L641)
 
 #### Lamb 1996
@@ -2713,7 +2726,7 @@ S. Lin, M. Hammood, H. Yun, E. Luan, N. A. F. Jaeger, L. Chrostowski, "Computati
 
 J. Lindhard, M. Scharff, H. E. Schiøtt, "Range concepts and heavy ion ranges (Notes on atomic collisions, II)", Mat. Fys. Medd. Dan. Vid. Selsk. 33, no. 14 (1963). [Open copy](https://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf).
 
-- Methods pages: [fabrication.md:25](methods/fabrication.md?plain=1#L25), [764](methods/fabrication.md?plain=1#L764)
+- Methods pages: [fabrication.md:25](methods/fabrication.md?plain=1#L25), [772](methods/fabrication.md?plain=1#L772)
 - Code: [src/fabrication/simox.rs:30](../src/fabrication/simox.rs#L30)
 
 #### Lischke et al. 2015
@@ -2820,7 +2833,7 @@ L. A. Lugiato, R. Lefever, "Spatial Dissipative Structures in Passive Optical Sy
 
 K. Luke, A. Dutt, C. B. Poitras, M. Lipson, "Overcoming Si\_3N\_4 film stress limitations for high quality factor ring resonators", Opt. Express 21, 22829 (2013). [doi:10.1364/OE.21.022829](https://doi.org/10.1364/OE.21.022829)
 
-- Methods pages: [fabrication.md:59](methods/fabrication.md?plain=1#L59)
+- Methods pages: [fabrication.md:66](methods/fabrication.md?plain=1#L66)
 - Validation cases: [`fabrication/nitride-rules`](validation.md?plain=1#L815), [`fabrication/nitride-reported-flows`](validation.md?plain=1#L816)
 - Code: [src/fabrication/platform_checks.rs:711](../src/fabrication/platform_checks.rs#L711), [718](../src/fabrication/platform_checks.rs#L718), [src/fabrication/references.rs:288](../src/fabrication/references.rs#L288), [290](../src/fabrication/references.rs#L290)
 - Other documents: [docs/plans/fabrication.md:665](plans/fabrication.md?plain=1#L665)
@@ -2856,7 +2869,7 @@ H.-K. Lyeo, D. G. Cahill, B.-S. Lee, J. R. Abelson, M.-H. Kwon, K.-B. Kim, S. G.
 
 C. Mack, "Fundamental Principles of Optical Lithography: The Science of Microfabrication", Wiley (2007). [doi:10.1002/9780470723876](https://doi.org/10.1002/9780470723876)
 
-- Methods pages: [fabrication.md:55](methods/fabrication.md?plain=1#L55)
+- Methods pages: [fabrication.md:62](methods/fabrication.md?plain=1#L62)
 - Academy lessons: [how-a-chip-is-made.md:49](../academy/how-a-chip-is-made.md?plain=1#L49), [251](../academy/how-a-chip-is-made.md?plain=1#L251)
 - Validation cases: [`fabrication/min-features-above-limit`](validation.md?plain=1#L810)
 - Code: [src/fabrication/references.rs:328](../src/fabrication/references.rs#L328), [src/fabrication/rule_checks.rs:329](../src/fabrication/rule_checks.rs#L329)
@@ -2872,7 +2885,7 @@ H. A. Macleod, "Thin-Film Optical Filters, Fifth Edition", CRC Press (2017). [do
 
 M. J. Madou, "Fundamentals of Microfabrication and Nanotechnology, Three-Volume Set", CRC Press (2018). [doi:10.1201/9781315274164](https://doi.org/10.1201/9781315274164)
 
-- Methods pages: [fabrication.md:51](methods/fabrication.md?plain=1#L51)
+- Methods pages: [fabrication.md:58](methods/fabrication.md?plain=1#L58)
 - Academy lessons: [how-a-chip-is-made.md:103](../academy/how-a-chip-is-made.md?plain=1#L103), [255](../academy/how-a-chip-is-made.md?plain=1#L255), [348](../academy/how-a-chip-is-made.md?plain=1#L348)
 - Validation cases: [`fabrication/rule-choices`](validation.md?plain=1#L811)
 - Code: [src/fabrication/references.rs:304](../src/fabrication/references.rs#L304), [src/fabrication/rule_checks.rs:336](../src/fabrication/rule_checks.rs#L336)
@@ -3451,7 +3464,7 @@ G. D. Pettit, W. J. Turner, "Refractive Index of InP", Journal of Applied Physic
 
 M. H. P. Pfeiffer, A. Kordts, V. Brasch, M. Zervas, M. Geiselmann, J. D. Jost, T. J. Kippenberg, "Photonic Damascene process for integrated high-Q microresonator based nonlinear photonics", Optica 3, 20 (2016). [doi:10.1364/OPTICA.3.000020](https://doi.org/10.1364/OPTICA.3.000020)
 
-- Methods pages: [fabrication.md:63](methods/fabrication.md?plain=1#L63), [nonlinear.md:44](methods/nonlinear.md?plain=1#L44)
+- Methods pages: [fabrication.md:70](methods/fabrication.md?plain=1#L70), [nonlinear.md:44](methods/nonlinear.md?plain=1#L44)
 - Academy lessons: [nonlinear-optics.md:216](../academy/nonlinear-optics.md?plain=1#L216), [850](../academy/nonlinear-optics.md?plain=1#L850), [1120](../academy/nonlinear-optics.md?plain=1#L1120)
 - Validation cases: [`fabrication/nitride-rules`](validation.md?plain=1#L815), [`fabrication/nitride-reported-flows`](validation.md?plain=1#L816)
 - Code: [src/fabrication/platform_checks.rs:711](../src/fabrication/platform_checks.rs#L711), [718](../src/fabrication/platform_checks.rs#L718), [src/fabrication/references.rs:296](../src/fabrication/references.rs#L296), [298](../src/fabrication/references.rs#L298)
@@ -3492,11 +3505,17 @@ S. Ploeg, H. Gunther, R. M. Camacho, "Simphony: An Open-Source Photonic Integrat
 - Methods pages: [components.md:299](methods/components.md?plain=1#L299)
 - Other documents: [ROADMAP.md:771](../ROADMAP.md?plain=1#L771)
 
+#### Plummer et al. 2000
+
+J. D. Plummer, M. D. Deal, P. B. Griffin, "Silicon VLSI Technology: Fundamentals, Practice, and Modeling", Prentice Hall, ISBN 9780130850379 (2000)., open access.
+
+- Methods pages: [fabrication.md:33](methods/fabrication.md?plain=1#L33)
+
 #### Poberaj et al. 2012
 
 G. Poberaj, H. Hu, W. Sohler, P. Günter, "Lithium niobate on insulator (LNOI) for micro‐photonic devices", Laser & Photonics Reviews 6, 488 (2012). [doi:10.1002/lpor.201100035](https://doi.org/10.1002/lpor.201100035)
 
-- Methods pages: [fabrication.md:39](methods/fabrication.md?plain=1#L39)
+- Methods pages: [fabrication.md:46](methods/fabrication.md?plain=1#L46)
 - Academy lessons: [how-a-chip-is-made.md:79](../academy/how-a-chip-is-made.md?plain=1#L79), [159](../academy/how-a-chip-is-made.md?plain=1#L159)
 - Code: [src/fabrication/references.rs:152](../src/fabrication/references.rs#L152)
 - Other documents: [docs/plans/fabrication.md:653](plans/fabrication.md?plain=1#L653)
@@ -3736,7 +3755,7 @@ M. Rigler, J. Buh, M. P. Hoffmann, R. Kirste, M. Bobea, S. Mita, M. D. Gerhold, 
 
 C. Ríos, M. Stegmaier, P. Hosseini, D. Wang, T. Scherer, C. D. Wright, H. Bhaskaran, W. H. P. Pernice, "Integrated all-photonic non-volatile multi-level memory", Nature Photon 9, 725 (2015). [doi:10.1038/nphoton.2015.182](https://doi.org/10.1038/nphoton.2015.182)
 
-- Methods pages: [fabrication.md:65](methods/fabrication.md?plain=1#L65)
+- Methods pages: [fabrication.md:72](methods/fabrication.md?plain=1#L72)
 - Academy lessons: [modulators.md:79](../academy/modulators.md?plain=1#L79), [599](../academy/modulators.md?plain=1#L599), [707](../academy/modulators.md?plain=1#L707)
 - Validation cases: [`fabrication/nitride-reported-flows`](validation.md?plain=1#L816), [`fabrication/pcm-rules`](validation.md?plain=1#L818)
 - Code: [src/fabrication/platform_checks.rs:718](../src/fabrication/platform_checks.rs#L718), [732](../src/fabrication/platform_checks.rs#L732), [src/fabrication/references.rs:224](../src/fabrication/references.rs#L224)
@@ -3912,7 +3931,7 @@ S. Seltzer, "Stopping-Powers and Range Tables for Electrons, Protons, and Helium
 
 S. Selvaraja, P. Jaenen, W. Bogaerts, D. Van Thourhout, P. Dumon, R. Baets, "Fabrication of Photonic Wire and Crystal Circuits in Silicon-on-Insulator Using 193-nm Optical Lithography", J. Lightwave Technol. 27, 4076 (2009). [doi:10.1109/JLT.2009.2022282](https://doi.org/10.1109/JLT.2009.2022282)
 
-- Methods pages: [fabrication.md:33](methods/fabrication.md?plain=1#L33), [topology.md:36](methods/topology.md?plain=1#L36)
+- Methods pages: [fabrication.md:40](methods/fabrication.md?plain=1#L40), [topology.md:36](methods/topology.md?plain=1#L36)
 - Academy lessons: [how-a-chip-is-made.md:55](../academy/how-a-chip-is-made.md?plain=1#L55), [140](../academy/how-a-chip-is-made.md?plain=1#L140), [tolerances-corners-and-yield.md:17](../academy/tolerances-corners-and-yield.md?plain=1#L17), [185](../academy/tolerances-corners-and-yield.md?plain=1#L185)
 - Validation cases: [`fabrication/etch-stop-or-timed`](validation.md?plain=1#L804), [`fabrication/lithography-choice`](validation.md?plain=1#L805), [`fabrication/reported-flows`](validation.md?plain=1#L807), [`fabrication/rule-choices`](validation.md?plain=1#L811)
 - Examples: [README.md:67](../examples/README.md?plain=1#L67), [optimize_swg_converter.rs:26](../examples/optimize_swg_converter.rs#L26), [optimize_ybranch.rs:85](../examples/optimize_ybranch.rs#L85)
@@ -4743,7 +4762,7 @@ Y. Xing, J. Dong, U. Khan, W. Bogaerts, "Capturing the Effects of Spatial Proces
 
 C. Xiong, W. H. P. Pernice, H. X. Tang, "Low-Loss, Silicon Integrated, Aluminum Nitride Photonic Circuits and Their Use for Electro-Optic Signal Processing", Nano Lett. 12, 3562 (2012). [doi:10.1021/nl3011885](https://doi.org/10.1021/nl3011885)
 
-- Methods pages: [fabrication.md:71](methods/fabrication.md?plain=1#L71)
+- Methods pages: [fabrication.md:78](methods/fabrication.md?plain=1#L78)
 - Validation cases: [`fabrication/aln-reported-flows`](validation.md?plain=1#L821)
 - Code: [src/fabrication/platform_checks.rs:753](../src/fabrication/platform_checks.rs#L753), [src/fabrication/references.rs:240](../src/fabrication/references.rs#L240)
 - Other documents: [docs/plans/fabrication.md:669](plans/fabrication.md?plain=1#L669)
@@ -4865,7 +4884,7 @@ Y. Zhang, S. Yang, A. E.-J. Lim, G.-Q. Lo, C. Galland, T. Baehr-Jones, M. Hochbe
 
 M. Zhang, C. Wang, R. Cheng, A. Shams-Ansari, M. Lončar, "Monolithic ultra-high-Q lithium niobate microring resonator", Optica 4, 1536 (2017). [doi:10.1364/OPTICA.4.001536](https://doi.org/10.1364/OPTICA.4.001536)
 
-- Methods pages: [fabrication.md:45](methods/fabrication.md?plain=1#L45)
+- Methods pages: [fabrication.md:52](methods/fabrication.md?plain=1#L52)
 - Academy lessons: [how-a-chip-is-made.md:91](../academy/how-a-chip-is-made.md?plain=1#L91), [403](../academy/how-a-chip-is-made.md?plain=1#L403)
 - Validation cases: [`fabrication/reported-flows`](validation.md?plain=1#L807)
 - Code: [src/fabrication/checks.rs:461](../src/fabrication/checks.rs#L461), [src/fabrication/references.rs:168](../src/fabrication/references.rs#L168), [170](../src/fabrication/references.rs#L170)
@@ -4881,7 +4900,7 @@ H. Zhang, L. Xu, J. Chen, L. Zhou, B. M. A. Rahman, X. Wu, L. Lu, Y. Xu, J. Xu, 
 
 Y. Zhang, L. Shao, J. Yang, Z. Chen, K. Zhang, K.-M. Shum, D. Zhu, C. H. Chan, M. Lončar, C. Wang, "Systematic investigation of millimeter-wave optic modulation performance in thin-film lithium niobate", Photon. Res. 10, 2380 (2022). [doi:10.1364/PRJ.468518](https://doi.org/10.1364/PRJ.468518)
 
-- Methods pages: [devices.md:52](methods/devices.md?plain=1#L52), [electro-optic.md:14](methods/electro-optic.md?plain=1#L14), [fabrication.md:43](methods/fabrication.md?plain=1#L43), [travelling-wave.md:16](methods/travelling-wave.md?plain=1#L16)
+- Methods pages: [devices.md:52](methods/devices.md?plain=1#L52), [electro-optic.md:14](methods/electro-optic.md?plain=1#L14), [fabrication.md:50](methods/fabrication.md?plain=1#L50), [travelling-wave.md:16](methods/travelling-wave.md?plain=1#L16)
 - Academy lessons: [how-a-chip-is-made.md:109](../academy/how-a-chip-is-made.md?plain=1#L109), [396](../academy/how-a-chip-is-made.md?plain=1#L396), [modulators.md:115](../academy/modulators.md?plain=1#L115), [421](../academy/modulators.md?plain=1#L421), [715](../academy/modulators.md?plain=1#L715)
 - Validation cases: [`pockels/zhang-2022`](validation.md?plain=1#L557), [`line/response-loss-3db`](validation.md?plain=1#L574), [`line/zhang-2022-index`](validation.md?plain=1#L579), [`line/zhang-2022-full-wave-index`](validation.md?plain=1#L605), [`device/tfln-zhang-vpil`](validation.md?plain=1#L745), [`device/tfln-measured`](validation.md?plain=1#L747), [`device/tfln-zhang-response`](validation.md?plain=1#L748), [`fabrication/reported-flows`](validation.md?plain=1#L807)
 - Examples: [README.md:98](../examples/README.md?plain=1#L98), [tfln_zhang.rs:7](../examples/tfln_zhang.rs#L7)
@@ -4953,7 +4972,7 @@ D. Zhu, L. Shao, M. Yu, R. Cheng, B. Desiatov, C. J. Xin, Y. Hu, J. Holzgrafe, S
 
 J. F. Ziegler, J. P. Biersack, M. D. Ziegler, "SRIM: The Stopping and Range of Ions in Matter", SRIM Co., ISBN 9780965420716 (2008)., open access.
 
-- Methods pages: [fabrication.md:31](methods/fabrication.md?plain=1#L31), [795](methods/fabrication.md?plain=1#L795)
+- Methods pages: [fabrication.md:38](methods/fabrication.md?plain=1#L38), [817](methods/fabrication.md?plain=1#L817)
 
 #### Zortman et al. 2010
 
