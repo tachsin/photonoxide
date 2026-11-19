@@ -40,10 +40,13 @@
 //!    the oxidation of [`super::smart_cut`]'s thinning.
 //!
 //! Below 1300 °C the dose balance only bounds the oxide from above: part of the oxygen stays
-//! in a transition region of oxide precipitates in the silicon, up to 20 % oxygen (Celler,
-//! p. 4959). Izumi's 2100 Å after 1150 °C for 2 h (p. 593) and P. L. F. Hemment et al.'s 2800 ±
-//! 140 Å as implanted (Vacuum 34, 203 (1984), doi:10.1016/0042-207X(84)90128-3, p. 204) are
-//! 77 % and 68 % of the balance's 2727 Å and 4091 Å; [`oxide`] refuses those anneals.
+//! outside the continuous oxide, after an anneal in a transition region of oxide precipitates in
+//! the silicon, up to 20 % oxygen (Celler, p. 4959), and as implanted in the profile's
+//! sub-stoichiometric wings (P. L. F. Hemment et al., Vacuum 34, 203 (1984),
+//! doi:10.1016/0042-207X(84)90128-3, Fig. 3(b), p. 205). Izumi's 2100 Å after 1150 °C for 2 h
+//! (p. 593) and Hemment et al.'s 2800 ± 140 Å as implanted (p. 204) are 77 % and 68 % of the
+//! balance's 2727 Å and 4091 Å; no source in hand gives the oxygen outside as a number, so
+//! [`oxide`] refuses those anneals.
 
 use crate::{Error, Result};
 

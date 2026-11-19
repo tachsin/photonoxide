@@ -26,6 +26,13 @@ papers:
   - cite: "G. Dearnaley, J. H. Freeman, R. S. Nelson, J. Stephen, Ion Implantation, North-Holland (1973), ISBN 9780444104885 (Appendix 3: B. J. Smith's 1971 normalised projected range and straggle tables, the method, pp. 766–767; Tables A3.1–A3.3, pp. 769–771)"
     doi: ""
     ref: dearnaley-1973
+  - cite: "G. Dearnaley, Nature 256, 701 (1975) (ion ranges in silicon against the ion's atomic number at 40–500 keV, from LSS theory, Fig. 1, p. 702)"
+    doi: 10.1038/256701a0
+  - cite: "J. D. Plummer, M. D. Deal, P. B. Griffin, Silicon VLSI Technology, Prentice Hall (2000), ISBN 9780130850379 (SIMOX, p. 145; the oxidant molecules per cm³ of oxide, Eq. 6.20, p. 316; a buried oxide from an oxygen dose, Problem 6.22, p. 369)"
+    doi: ""
+    ref: plummer-2000
+  - cite: "M. J. Anc, R. P. Dolan, J. Jiao, T. Nakai, 1999 IEEE International SOI Conference, p. 106 (1999) (the 56 nm oxide Celler and Cristoloveanu cite as their Ref. 45; not in hand)"
+    doi: 10.1109/SOI.1999.819875
   - cite: "J. F. Ziegler, J. P. Biersack, M. D. Ziegler, SRIM: The Stopping and Range of Ions in Matter, SRIM Co. (2008), ISBN 9780965420716 (Chapter 10: PRAL, Eqs. 10-20 to 10-27, pp. 10-6 to 10-12; the universal nuclear stopping, Eqs. 10-39 and 10-43 to 10-46, pp. 10-16 to 10-18)"
     doi: ""
     ref: ziegler-2008
@@ -734,6 +741,7 @@ Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸
 | TRIM (1997) | 60.1 | 115.8 | 169.7 | 224.1 | 330.5 | 430.3 | the same |
 | SRIM2003.26, read from the figure | 65.8 | 122.1 | 177.4 | 232.2 | 367.3 | 441.7 | Kabadayi and Gümüş 2005, Fig. 3, p. 2397 |
 | LSS, our arithmetic from the paper | | 118.9 | 180.5 | 241.2 | 357.9 | 467.7 | Lindhard, Scharff and Schiøtt 1963, Eq. 4.5, p. 25 |
+| LSS in silicon, read from the figure at Z₁ = 8 | | | | 242 | | 457 | Dearnaley 1975, Fig. 1, p. 702 |
 | Smith's table, read by Izumi | | | | | 370 | | Izumi et al. 1978, p. 593 |
 | measured by Izumi (Auger), after 1150 °C | | | | | 380 | | the same |
 | Smith's table, our reading: lines | 64.4 | 130.8 | 197.9 | 264.7 | 391.3 | 516.4 | `ion_range::smith`, Dearnaley et al. 1973, Appendix 3, pp. 769–771 |
@@ -789,7 +797,21 @@ Cristoloveanu, p. 4959). Lam gives 100–300 nm over doses of 1.2–2.2×10¹⁸
   391–402 nm, 6–9 % above the 370 nm Izumi read from the same table and 3–6 % above the 380 nm
   he measured. How Izumi read it isn't said; the gap isn't explained. The tables' masses are not
   silicon's and oxygen's (on their line, Z = 14 would weigh about 30 u, not 28.1), which the
-  appendix's method doesn't correct.
+  appendix's method doesn't correct. Read again against Izumi's text (#820), the appendix leaves
+  no other column or unit to take: it prints only the projected range and its straggle, in mg/cm²
+  of a substrate of unit density (p. 766), to be divided by the density, and lists silicon at
+  2.33 g/cm³ (pp. 767 and 768); Izumi says "projected range" too. The entries used are as printed
+  (checked again against the page images at 100 and 200 keV). Reading the energy linearly instead
+  of on logarithmic paper moves 391.3 nm by 0.2 %. Straight lines on the double logarithmic paper
+  through all the ions Z₁ = 5–40, the appendix's "sufficient points … to establish the trend"
+  (p. 767), instead of the two neighbours, give 382–385 nm, 3–4 % above 370. None of these
+  readings gives 370 nm: that needs a density of 2.46 g/cm³ or an ion of Z₁ = 8.5. Dearnaley's
+  1975 review (G. Dearnaley, Nature 256, 701 (1975), doi:10.1038/256701a0) plots the ranges of
+  ions in silicon from LSS theory (Fig. 1, p. 702). Read at Z₁ = 8, its curves give 242 and
+  457 nm at 100 and 200 keV, and between them on logarithmic paper 351 nm at 150 keV, within 2 %
+  of our LSS arithmetic. At neon (Z₁ = 10), a point of both, its curves lie 10, 13 and 11 %
+  below the 1973 tables read for silicon at 100, 200 and 500 keV. Izumi's 370 nm lies between the two presentations, but his text
+  names only the 1973 tables.
 - **PRAL** (J. P. Biersack's projected range algorithm, as J. F. Ziegler, J. P. Biersack,
   M. D. Ziegler, *SRIM: The Stopping and Range of Ions in Matter*, SRIM Co. (2008),
   ref:ziegler-2008, Chapter 10, gives it) is the library's range model, `ion_range::pral`. Its
@@ -871,23 +893,49 @@ them. The papers say where the rest of the oxygen is:
   1×10¹⁶ cm⁻² (p. 206), under 1 % of the dose.
 - Not the oxide's density. Hemment's model fits the implanted oxide at 2.4×10²² molecules per
   cm³ (p. 207), 9 % denser than the 2.2×10²² here. At that density the balance gives 375 nm, still
-  34 % above his 280 nm.
+  34 % above his 280 nm. Plummer et al. take the same 2.2×10²² molecules per cm³ as here (N₁,
+  Eq. 6.20, p. 316), and Dearnaley et al. list silicon dioxide at 2.27 g/cm³ (p. 768), 2.28×10²²
+  molecules: every density in hand makes the balance thinner, not thicker. Plummer et al. set the
+  same balance as a problem: 1×10¹⁸ cm⁻² at 200 keV, annealed into stoichiometric SiO₂
+  (Problem 6.22, p. 369).
 - In the silicon around the oxide. Below about 1250 °C "a broad transition region consisting of a
   high density of discrete oxide precipitates", up to 20 % oxygen, lies between the film and the
   continuous oxide. Only above 1300 °C do the precipitates dissolve (Celler and Cristoloveanu,
-  p. 4959). Hemment's Fig. 2, as read from the figure, shows the same thing: as implanted, a
-  continuous oxide appears only above about 1.4×10¹⁸ cm⁻² at 200 keV, the dose below it held in
-  the profile's wings. Celler gives about 1.5×10¹⁸ (p. 4960).
+  p. 4959). Izumi's Auger profile (Fig. 1, p. 593) spreads his oxygen over about 200 to 600 nm of
+  depth about his 210 nm oxide, and silicon's own signal never vanishes at its peak; its units
+  are arbitrary, so it gives no fraction.
+- As implanted, in the profile's wings. Hemment's layer had no anneal: his SIMS profile at
+  1.8×10¹⁸ cm⁻² falls off on both sides of the stoichiometric plateau (Fig. 3(b), p. 205), and at
+  0.56×10¹⁸ no oxide forms at all (Fig. 3(a)); his model assumes "that excess oxygen rapidly
+  diffuses to the wings of the distribution" (p. 207). His Fig. 2 (p. 204), read from the figure, puts the oxide's thickness
+  against the dose (by RBS, implanted at 400–500 °C) on a straight line: 125 nm at 1.5×10¹⁸
+  cm⁻², the first oxide measured, rising 282 nm per 10¹⁸ cm⁻², 24 % steeper than the balance's
+  227 nm, to about 205 nm at 1.8×10¹⁸; extended, it meets zero at 1.07×10¹⁸. His TEM 280 ±
+  14 nm (wafer 8, implanted at about 550 °C, Table 1) lies a third above that line, so the 68 %
+  depends on which of his two measurements is taken: by the line it is 50 %. Celler gives about
+  1.5×10¹⁸ for the first continuous oxide (p. 4960) and 1.4×10¹⁸ at 200 keV in Fig. 3 (p. 4958,
+  after Hemment et al.).
 
-No paper in hand gives the oxygen in the precipitates as a number, so the explanation is
-qualitative. The case above checks only that neither oxide exceeds the balance.
+No paper in hand gives the oxygen outside the oxide as a number (Celler and Cristoloveanu,
+Plummer et al. and Hemment et al. were read for it, #820), so the explanation is qualitative and
+no retained fraction enters the route. The case above checks only that neither oxide exceeds the
+balance. One figure would give a number and isn't taken: Celler and Cristoloveanu's Fig. 4
+(p. 4958, from Marsh et al.) shows 1.8×10¹⁸ cm⁻² after 2 h at 1150 °C, 2 h at 1250 °C and 0.5 h
+at 1405 °C. Measured with the one 0.5 µm scale bar, printed in the middle panel, the continuous
+oxide is 205, about 300 and 337 nm, so at 1150 °C 61 % of the oxide at 1405 °C. But the energy
+isn't given, the figure doesn't say the bar holds for every panel, and 337 nm is itself 82 % of
+the balance at that dose, which would contradict the balance above 1300 °C if the bar held there.
 
 **One difference within its basis but not explained.** At the stated 2×10¹⁷ cm⁻² the balance gives
 45.5 nm against Celler's 56 nm, 19 % thinner. The case passes only because the dose is printed
-to one digit. A dose of 2.46×10¹⁷ would give 56 nm. Internal oxidation would thicken it: at
-about 1350 °C, oxygen diffusing in from the surface oxidizes the silicon at the buried oxide
-(Celler and Cristoloveanu, p. 4960, and Fig. 5, p. 4959). But the paper doesn't say this sample had it, and
-Fig. 5 is a drawing without numbers.
+to one digit. A dose of 2.46×10¹⁷ would give 56 nm, or an oxide of 3.6×10²² oxygen atoms per cm³,
+at least 19 % below every density in hand. Internal oxidation would thicken it: at about 1350 °C, oxygen
+diffusing in from the surface oxidizes the silicon at the buried oxide (Celler and Cristoloveanu,
+p. 4960, and Fig. 5, p. 4959). But the review gives the result in one sentence, citing it to M.
+J. Anc, R. P. Dolan, J. Jiao, T. Nakai, 1999 IEEE International SOI Conference, p. 106,
+doi:10.1109/SOI.1999.819875 (its Ref. 45, not in hand): the dose to one digit, and neither how
+the oxide was measured nor the anneal's ambient. Fig. 5 is a drawing without numbers. That paper
+would settle it.
 
 **What it does not claim.** It does not compute the oxide's depth from the energy, or how the
 film depends on the dose (it takes 0.2 µm for every dose of the route). The range model
