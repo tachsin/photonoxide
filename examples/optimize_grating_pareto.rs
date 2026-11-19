@@ -200,7 +200,7 @@ use genoxide::prelude::*;
 use photonoxide::Complex64 as c64;
 use photonoxide::backend::Choice;
 use photonoxide::convergence::Study;
-use photonoxide::fdfd::{Boundaries, Direction, Edges, Grid, Polarization, Solver2d};
+use photonoxide::fdfd::{Boundaries, Direction, Edges, Field2d, Grid, Polarization, Solver2d};
 use photonoxide::units::Wavelength;
 use rayon::prelude::*;
 
@@ -223,9 +223,19 @@ const PML: (f64, f64) = (0.4, 0.3);
 const REACH: f64 = 2.0;
 /// The grid: cells 20 nm along the film and 10 nm across it (the paper's vertical mesh).
 const STEP: (f64, f64) = (0.02, 0.01);
-/// The grooves' widths and the teeth between them, µm.
-const GROOVE: (f64, f64) = (0.06, 0.45);
-const TOOTH: (f64, f64) = (0.06, 0.5);
+/// The fibre's height above the film, FID, µm (Supp. Tab. I and the data files).
+const FID: f64 = 1.28;
+/// The searches' grooves, as the supplement's data files hold every 4 and 6 µm structure: groove
+/// k's centre within a quarter of the period Λ of k·Λ, its width from 50 nm to three quarters of
+/// Λ (the files' extremes: centres +Λ/4 at 4 µm and ±Λ/4 at 6 µm from k·Λ, widths 50.0 nm and
+/// 496.9 nm, 3Λ/4 at 6 µm).
+const WIDTH_MIN: f64 = 0.05;
+const WIDTH_SHARE: f64 = 0.75;
+const POSITION_SHARE: f64 = 0.25;
+/// The linear chirp's period, µm, and its duty cycles' range (Supp. Tab. II's 684 and 662 nm,
+/// 10 to 40 %, within them).
+const PERIOD: (f64, f64) = (0.60, 0.75);
+const DUTY: (f64, f64) = (0.05, 0.60);
 /// The wavelengths, µm: the window, and the search's and the front's counts across it.
 const WINDOW: (f64, f64) = (1.40, 1.70);
 const SEARCH_WAVELENGTHS: usize = 7;
@@ -260,19 +270,21 @@ struct Setup {
 
 /// The farthest a search's grating of `n` grooves can reach, µm.
 const fn reach(n: usize) -> f64 {
-    n as f64 * GROOVE.1 + (n - 1) as f64 * TOOTH.1
+    PERIOD.1 * ((n - 1) as f64 + POSITION_SHARE + WIDTH_SHARE / 2.0)
 }
 
+/// The searches' setups: Fig. 6's table and the data files' common data (the 4 µm etch is the
+/// files' 140 nm, the 6 µm grating has the files' 13 grooves), the beam's waist at FID.
 const SETUPS: [Setup; 2] = [
     Setup {
         mfd: 4.0,
         t_box: 2.1,
         fio: 2.60,
-        etch: 0.150,
+        etch: 0.140,
         paper: 53.0,
         grooves: 8,
         reach: reach(8),
-        waist: 0.0,
+        waist: FID,
         profile_at_centre: false,
     },
     Setup {
@@ -281,191 +293,39 @@ const SETUPS: [Setup; 2] = [
         fio: 3.70,
         etch: 0.120,
         paper: 47.0,
-        grooves: 11,
-        reach: reach(11),
-        waist: 0.0,
+        grooves: 13,
+        reach: reach(13),
+        waist: FID,
         profile_at_centre: false,
     },
 ];
 
 /// What `--full` found: for each setup the front (efficiency %, 1-dB bandwidth nm, on the
-/// 31 wavelengths) and the two designs either side of 100 nm (the grooves' widths, then the
-/// teeth, µm).
+/// 31 wavelengths) and the two designs either side of 100 nm (each groove's centre and width,
+/// nm, the centres from x = 0).
 struct Recorded {
     front: &'static [(f64, f64)],
-    designs: [&'static [f64]; 2],
+    designs: [&'static [(f64, f64)]; 2],
 }
 
 const RECORDED: [Recorded; 2] = [
     Recorded {
-        front: &[
-            (47.19, 81.3),
-            (46.92, 84.9),
-            (46.68, 85.4),
-            (46.19, 88.5),
-            (45.58, 90.8),
-            (45.2, 92.9),
-            (44.77, 94.4),
-            (44.71, 96.0),
-            (44.61, 96.1),
-            (44.5, 96.2),
-            (44.3, 98.1),
-            (43.66, 99.8),
-            (43.31, 103.2),
-            (43.25, 103.5),
-            (43.15, 103.8),
-            (42.81, 103.8),
-            (42.61, 104.6),
-            (42.33, 107.0),
-            (42.27, 109.1),
-            (42.04, 110.3),
-            (40.9, 116.1),
-            (39.04, 117.3),
-            (38.76, 117.8),
-            (38.24, 123.3),
-            (38.13, 123.6),
-            (37.8, 123.8),
-            (37.73, 124.0),
-            (36.61, 126.9),
-            (36.6, 127.5),
-            (36.51, 127.7),
-            (36.26, 128.4),
-            (34.92, 132.8),
-            (34.82, 133.4),
-            (32.47, 136.0),
-            (31.76, 137.1),
-            (31.67, 137.2),
-            (31.44, 138.0),
-            (26.38, 140.5),
-            (26.05, 140.7),
-            (25.5, 143.8),
-            (24.97, 147.3),
-            (24.53, 149.6),
-            (24.52, 149.8),
-            (20.98, 149.8),
-            (19.93, 160.8),
-        ],
-        designs: [
-            &[
-                0.10694378035983863,
-                0.22844542026877815,
-                0.20772674103569022,
-                0.26659426671905934,
-                0.24084029164035195,
-                0.2740941857403562,
-                0.28720014132978994,
-                0.30097775404309435,
-                0.4990221383603607,
-                0.4950708986593101,
-                0.4766740469109271,
-                0.45130432055003483,
-                0.4432871425640192,
-                0.4054033444473496,
-                0.3520346188017661,
-            ],
-            &[
-                0.10694378035983863,
-                0.22844542026877815,
-                0.2072688657638441,
-                0.26659426671905934,
-                0.24220101858053533,
-                0.2740941857403562,
-                0.28720014132978994,
-                0.30097775404309435,
-                0.4994031264535395,
-                0.4950708986593101,
-                0.4766740469109271,
-                0.45130432055003483,
-                0.425240241806933,
-                0.4054033444473496,
-                0.3520346188017661,
-            ],
-        ],
+        front: &[],
+        designs: [&[], &[]],
     },
     Recorded {
-        front: &[
-            (52.93, 69.6),
-            (52.83, 69.8),
-            (52.8, 69.8),
-            (52.49, 70.8),
-            (52.33, 71.7),
-            (51.83, 72.8),
-            (51.54, 74.9),
-            (50.14, 76.6),
-            (49.99, 77.0),
-            (49.87, 77.0),
-            (48.32, 77.6),
-            (48.31, 78.1),
-            (47.95, 78.8),
-            (47.92, 80.3),
-            (47.87, 80.6),
-            (47.76, 80.7),
-            (47.58, 82.0),
-            (46.38, 82.2),
-            (44.51, 88.0),
-            (43.8, 93.0),
-            (41.72, 93.5),
-            (41.69, 96.6),
-            (40.0, 98.7),
-            (39.09, 103.8),
-            (38.63, 106.5),
-            (28.58, 107.8),
-            (28.36, 108.2),
-            (28.05, 123.7),
-            (27.39, 126.2),
-            (26.11, 131.6),
-            (25.39, 137.8),
-        ],
-        designs: [
-            &[
-                0.07617751474666361,
-                0.12031395860887875,
-                0.16084445135761485,
-                0.19790329192094622,
-                0.21384877540649977,
-                0.2196456081640724,
-                0.21045297405549843,
-                0.21528273119278646,
-                0.29264565688502314,
-                0.27752422958536704,
-                0.2746964584310877,
-                0.4999902271663186,
-                0.49998738348370664,
-                0.49061932255359253,
-                0.4874044552635302,
-                0.4089877384306991,
-                0.42707940932901733,
-                0.4231191856416643,
-                0.423497565593346,
-                0.4760529793441853,
-                0.33856932794990535,
-            ],
-            &[
-                0.07439132397694191,
-                0.12085442565031249,
-                0.16085912898961383,
-                0.19890454308304467,
-                0.21516113197899814,
-                0.1975310431840146,
-                0.2009237197548691,
-                0.20080857091529555,
-                0.316536986166827,
-                0.22804336072209724,
-                0.2919917564503079,
-                0.4999231745415722,
-                0.4999478031586212,
-                0.49062258747012755,
-                0.48740145242553995,
-                0.41197718571024117,
-                0.43279291706652995,
-                0.42312255113565284,
-                0.42348469113719,
-                0.4629307776882262,
-                0.3774621070483094,
-            ],
-        ],
+        front: &[],
+        designs: [&[], &[]],
     },
 ];
+
+/// Grooves given by their centres and widths, nm: their starts and widths, µm.
+fn centred(grooves: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    grooves
+        .iter()
+        .map(|&(c, w)| ((c - w / 2.0) / 1000.0, w / 1000.0))
+        .collect()
+}
 
 /// One of the paper's own designs, from its supplement's data files: its number on its front,
 /// the efficiency (%) and 1-dB bandwidth (nm) printed for it, and each groove's centre and
@@ -480,10 +340,7 @@ struct Structure {
 impl Structure {
     /// The grooves' starts and widths, µm.
     fn cut(&self) -> Vec<(f64, f64)> {
-        self.grooves
-            .iter()
-            .map(|&(c, w)| ((c - w / 2.0) / 1000.0, w / 1000.0))
-            .collect()
+        centred(self.grooves)
     }
 }
 
@@ -747,31 +604,43 @@ const RERUN: [(u32, f64, f64); 4] = [
     (35, 46.07, 121.11),
 ];
 
-/// The grooves' starts and widths of a design given as its widths and teeth.
-fn grooves(genome: &[f64], n: usize) -> Vec<(f64, f64)> {
-    let mut out = Vec::with_capacity(n);
-    let mut start = 0.0;
-    for k in 0..n {
-        out.push((start, genome[k]));
-        if k + 1 < n {
-            start += genome[k] + genome[n + k];
-        }
-    }
-    out
+/// The grooves' starts and widths, µm, of a search's design of `n` grooves about the period
+/// `period`: its genome is each groove's centre's offset from k·`period`, then each width.
+fn layout(genome: &[f64], n: usize, period: f64) -> Vec<(f64, f64)> {
+    (0..n)
+        .map(|k| {
+            let w = genome[n + k];
+            (k as f64 * period + genome[k] - w / 2.0, w)
+        })
+        .collect()
 }
 
-/// The design of a linear chirp: the period and the grooves' share of it from `first` to `last`.
-fn chirp(n: usize, first: (f64, f64), last: (f64, f64)) -> Vec<f64> {
-    let mut genome = vec![0.0; 2 * n - 1];
+/// The grooves' bounds in a search about `period`: the offsets, then the widths.
+fn bounds(n: usize, period: f64) -> Vec<(f64, f64)> {
+    let offset = POSITION_SHARE * period;
+    (0..2 * n)
+        .map(|k| {
+            if k < n {
+                (-offset, offset)
+            } else {
+                (WIDTH_MIN, WIDTH_SHARE * period)
+            }
+        })
+        .collect()
+}
+
+/// The genome of a linear chirp of `n` grooves (Supp. Eq. S11): the period `period`, µm, the
+/// duty cycle from `start` at the first groove to `stop` at `length` µm from it, then `stop`.
+fn chirp(n: usize, period: f64, (start, stop): (f64, f64), length: f64) -> Vec<f64> {
+    let mut genome = vec![0.0; 2 * n];
     for k in 0..n {
-        let t = k as f64 / (n - 1).max(1) as f64;
-        let period = first.0 + (last.0 - first.0) * t;
-        let share = first.1 + (last.1 - first.1) * t;
-        let g = (share * period).clamp(GROOVE.0, GROOVE.1);
-        genome[k] = g;
-        if k + 1 < n {
-            genome[n + k] = (period - g).clamp(TOOTH.0, TOOTH.1);
-        }
+        let x = k as f64 * period;
+        let duty = if x < length {
+            start + (stop - start) * x / length
+        } else {
+            stop
+        };
+        genome[n + k] = (duty * period).clamp(WIDTH_MIN, WIDTH_SHARE * period);
     }
     genome
 }
@@ -812,12 +681,18 @@ struct Model {
 
 /// The grid of `setup` on cells `dx` × `dy`, its PMLs' cells along x and y, and the BOX's
 /// bottom, µm.
-fn window(setup: Setup, (dx, dy): (f64, f64)) -> (Grid, usize, usize, f64) {
+fn window(setup: Setup, step: (f64, f64)) -> (Grid, usize, usize, f64) {
+    window_shifted(setup, step, 0.0)
+}
+
+/// [`window`] with its left edge `shift` µm further left (the cells' edges moved against the
+/// grooves').
+fn window_shifted(setup: Setup, (dx, dy): (f64, f64), shift: f64) -> (Grid, usize, usize, f64) {
     let w0 = setup.mfd / 2.0;
     let (s, c) = math::sin_cos(ANGLE * PI / 180.0);
     // where the beam's axis crosses the line, from where it crosses the waist's height
     let tilt = s / c * (LINE - setup.waist);
-    let left = (setup.fio - REACH * w0 + tilt).min(-1.0) - 0.3;
+    let left = (setup.fio - REACH * w0 + tilt).min(-1.0) - 0.3 - shift;
     let right = (setup.fio + REACH * w0 + tilt).max(setup.reach + 0.3);
     let px = (PML.0 / dx).round() as usize;
     let py = (PML.1 / dy).round() as usize;
@@ -835,8 +710,13 @@ fn window(setup: Setup, (dx, dy): (f64, f64)) -> (Grid, usize, usize, f64) {
 }
 
 impl Model {
-    fn new(setup: Setup, (dx, dy): (f64, f64)) -> photonoxide::Result<Model> {
-        let (grid, px, py, y_box) = window(setup, (dx, dy));
+    fn new(setup: Setup, step: (f64, f64)) -> photonoxide::Result<Model> {
+        Model::shifted(setup, step, 0.0)
+    }
+
+    /// [`Model::new`] on [`window_shifted`]'s grid.
+    fn shifted(setup: Setup, (dx, dy): (f64, f64), shift: f64) -> photonoxide::Result<Model> {
+        let (grid, px, py, y_box) = window_shifted(setup, (dx, dy), shift);
         let boundaries = Boundaries {
             x: Edges::Pml { low: px, high: px },
             y: Edges::Pml { low: py, high: py },
@@ -844,7 +724,8 @@ impl Model {
             order: 3.0,
         };
         // the analysis every solve reuses: a uniform grating's matrix
-        let start = chirp(setup.grooves, (0.7, 0.4), (0.7, 0.4));
+        let n = setup.grooves;
+        let uniform = layout(&chirp(n, 0.7, (0.4, 0.4), 0.0), n, 0.7);
         Ok(Model {
             setup,
             grid,
@@ -858,21 +739,16 @@ impl Model {
                 grid,
                 Polarization::Ez,
                 Wavelength::um(CENTRE)?,
-                &cells(grid, setup, y_box, &grooves(&start, setup.grooves)),
+                &cells(grid, setup, y_box, &uniform),
                 boundaries,
                 &Choice::Photonoxide,
             )?,
         })
     }
 
-    /// ε per cell of `genome`.
-    fn cells(&self, genome: &[f64]) -> Vec<c64> {
-        cells(
-            self.grid,
-            self.setup,
-            self.y_box,
-            &grooves(genome, self.setup.grooves),
-        )
+    /// ε per cell of the grooves `cut` (their starts and widths, µm).
+    fn cells(&self, cut: &[(f64, f64)]) -> Vec<c64> {
+        cells(self.grid, self.setup, self.y_box, cut)
     }
 }
 
@@ -891,6 +767,16 @@ fn cells_with(
     (n_si, n_ox): (f64, f64),
 ) -> Vec<c64> {
     let (si, ox) = (n_si * n_si, n_ox * n_ox);
+    // the grooves as the film's open stretches: those that overlap merged into one
+    let mut sorted: Vec<(f64, f64)> = cut.iter().map(|&(a, w)| (a, a + w)).collect();
+    sorted.sort_by(|p, q| p.0.total_cmp(&q.0));
+    let mut open_stretches: Vec<(f64, f64)> = Vec::with_capacity(sorted.len());
+    for (a, b) in sorted {
+        match open_stretches.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => open_stretches.push((a, b)),
+        }
+    }
     let mut eps = Vec::with_capacity(g.nx * g.ny);
     for j in 0..g.ny {
         let (ya, yb) = (g.y0 + j as f64 * g.dy, g.y0 + (j + 1) as f64 * g.dy);
@@ -901,7 +787,10 @@ fn cells_with(
             let (xa, xb) = (g.x0 + i as f64 * g.dx, g.x0 + (i + 1) as f64 * g.dx);
             let mut e = base;
             if etched > 0.0 {
-                let open: f64 = cut.iter().map(|&(a, w)| overlap(xa, xb, a, a + w)).sum();
+                let open: f64 = open_stretches
+                    .iter()
+                    .map(|&(a, b)| overlap(xa, xb, a, b))
+                    .sum();
                 e -= (si - ox) * etched * open / (g.dx * g.dy);
             }
             eps.push(c64::new(e, 0.0));
@@ -920,6 +809,11 @@ impl Model {
 
     /// [`Model::beam`] in an oxide of index `n_ox`.
     fn beam_in(&self, wavelength: f64, n_ox: f64) -> Beam {
+        self.beam_on(wavelength, n_ox, self.line)
+    }
+
+    /// [`Model::beam_in`] on rows `line` and `line + 1`.
+    fn beam_on(&self, wavelength: f64, n_ox: f64, line: usize) -> Beam {
         let g = self.grid;
         let w0 = self.setup.mfd / 2.0;
         let k0 = 2.0 * PI / wavelength;
@@ -961,31 +855,44 @@ impl Model {
         };
         Beam {
             k0,
-            rows: [row(self.line), row(self.line + 1)],
+            rows: [row(line), row(line + 1)],
         }
     }
 
     /// The coupling efficiency of the design with cells `eps` at the beam's wavelength.
     fn efficiency(&self, eps: &[c64], beam: &Beam) -> photonoxide::Result<f64> {
+        let (field, power) = self.launch(eps, beam.k0)?;
+        Ok(self.project(&field, power, beam, self.line))
+    }
+
+    /// The field the waveguide's TE0 sends into the grating with cells `eps`, at the wavenumber
+    /// `k0`, and the mode's power.
+    fn launch(&self, eps: &[c64], k0: f64) -> photonoxide::Result<(Field2d, f64)> {
         let s = self
             .template
-            .reuse_cells(Wavelength::um(2.0 * PI / beam.k0)?, eps)?;
+            .reuse_cells(Wavelength::um(2.0 * PI / k0)?, eps)?;
         let mode = s
             .port_modes_within(self.port, self.window.clone(), 1)?
             .remove(0);
         let field = s.solve_system(&s.mode_source(&mode, Direction::Forward))?;
+        Ok((field, mode.power(self.grid.dy)))
+    }
+
+    /// The share of `power` that `field` couples into `beam`, projected on the face between
+    /// rows `line` and `line + 1`, where `beam` was computed.
+    fn project(&self, field: &Field2d, power: f64, beam: &Beam, line: usize) -> f64 {
         let g = self.grid;
         let ik0 = c64::new(0.0, beam.k0);
         let (mut projection, mut flux) = (c64::new(0.0, 0.0), 0.0);
         for i in self.pml..g.nx - self.pml {
-            let (e0, e1) = (field.at(i, self.line), field.at(i, self.line + 1));
+            let (e0, e1) = (field.at(i, line), field.at(i, line + 1));
             let (b0, b1) = (beam.rows[0][i], beam.rows[1][i]);
             let (e, h) = (0.5 * (e0 + e1), (e1 - e0) / (g.dy * ik0));
             let (b, hb) = (0.5 * (b0 + b1), (b1 - b0) / (g.dy * ik0));
             projection += 0.25 * (e * hb.conj() + b.conj() * h) * g.dx;
             flux += 0.5 * (b * hb.conj()).re * g.dx;
         }
-        Ok(projection.norm_sqr() / (flux * mode.power(g.dy)))
+        projection.norm_sqr() / (flux * power)
     }
 
     /// The beams at `lambda`.
@@ -993,10 +900,10 @@ impl Model {
         lambda.par_iter().map(|&l| self.beam(l)).collect()
     }
 
-    /// The efficiencies of each of `genomes` at `beams`' wavelengths, every solve on its own
-    /// thread.
-    fn spectra(&self, genomes: &[Vec<f64>], beams: &[Beam]) -> Vec<Vec<f64>> {
-        let eps: Vec<Vec<c64>> = genomes.par_iter().map(|g| self.cells(g)).collect();
+    /// The efficiencies of each of the designs `cuts` (their grooves' starts and widths, µm) at
+    /// `beams`' wavelengths, every solve on its own thread.
+    fn spectra(&self, cuts: &[Vec<(f64, f64)>], beams: &[Beam]) -> Vec<Vec<f64>> {
+        let eps: Vec<Vec<c64>> = cuts.par_iter().map(|c| self.cells(c)).collect();
         self.spectra_of(&eps, beams)
     }
 
@@ -1105,11 +1012,11 @@ fn band(lambda: &[f64], ce: &[f64]) -> Band {
     }
 }
 
-/// A front's point: its band and design.
+/// A front's point: its band and design, its grooves' starts and widths, µm.
 #[derive(Clone)]
 struct Point {
     band: Band,
-    genome: Vec<f64>,
+    cut: Vec<(f64, f64)>,
 }
 
 /// The feasible non-dominated points of `points` (a larger peak and width are better), by width.
@@ -1154,12 +1061,20 @@ fn note(log: &Mutex<std::fs::File>, line: &str) {
     let _ = writeln!(log.lock().expect("a lock"), "{line}");
 }
 
-/// The single-objective PSO on the linear chirp, for the efficiency at 1.55 µm.
-fn chirped(model: &Model, log: &Mutex<std::fs::File>) -> (Vec<f64>, f64) {
+/// The single-objective PSO on the linear chirp (Supp. Eq. S11: the period, the duty cycle at
+/// the first groove and where the chirp stops, and the chirp's length as a share of the
+/// grating's), for the efficiency at 1.55 µm: the period, the chirp's genome and its efficiency.
+fn chirped(model: &Model, log: &Mutex<std::fs::File>) -> (f64, Vec<f64>, f64) {
     let n = model.setup.grooves;
     let beam = model.beam(CENTRE);
-    let design = |x: &[f64]| chirp(n, (x[0], x[1]), (x[2], x[3]));
-    let real = Real::new(vec![0.5..=0.9, 0.1..=0.7, 0.5..=0.9, 0.1..=0.7]).expect("bounds");
+    let design = |x: &[f64]| chirp(n, x[0], (x[1], x[2]), x[3] * (n - 1) as f64 * x[0]);
+    let real = Real::new(vec![
+        PERIOD.0..=PERIOD.1,
+        DUTY.0..=DUTY.1,
+        DUTY.0..=DUTY.1,
+        0.0..=1.0,
+    ])
+    .expect("bounds");
     let pso = Pso::builder(real)
         .population_size(PSO.0)
         .maximize()
@@ -1169,8 +1084,9 @@ fn chirped(model: &Model, log: &Mutex<std::fs::File>) -> (Vec<f64>, f64) {
     let fitness = Batch(|xs: &[&Reals]| {
         xs.par_iter()
             .map(|x| {
+                let cut = layout(&design(x), n, x[0]);
                 model
-                    .efficiency(&model.cells(&design(x)), &beam)
+                    .efficiency(&model.cells(&cut), &beam)
                     .expect("a solve")
             })
             .collect::<Vec<f64>>()
@@ -1200,32 +1116,49 @@ fn chirped(model: &Model, log: &Mutex<std::fs::File>) -> (Vec<f64>, f64) {
         .run()
         .expect("a run");
     let best = outcome.best();
+    let x = best.genome();
+    note(
+        log,
+        &format!(
+            "MFD {} um, the best chirp: period {:.4} um, duty cycle {:.3} to {:.3} over {:.3} of the grating",
+            model.setup.mfd, x[0], x[1], x[2], x[3]
+        ),
+    );
     (
-        design(best.genome()),
+        x[0],
+        design(x),
         best.fitness().and_then(Fitness::score).unwrap_or(f64::NAN),
     )
 }
 
-/// NSGA-II from the chirped design: the non-dominated set of every design evaluated.
-fn search(model: &Model, start: &[f64], log: &Mutex<std::fs::File>) -> (Vec<Point>, u64) {
+/// NSGA-II from the chirped design `start` about `period`, for `generations`: the non-dominated
+/// set of every design evaluated, and how many were.
+fn search(
+    model: &Model,
+    period: f64,
+    start: &[f64],
+    generations: u64,
+    log: &Mutex<std::fs::File>,
+) -> (Vec<Point>, u64) {
     let n = model.setup.grooves;
-    let genes = 2 * n - 1;
+    let genes = 2 * n;
     let lambda = wavelengths(SEARCH_WAVELENGTHS);
     let beams = model.beams(&lambda);
-    let range = |k: usize| if k < n { GROOVE } else { TOOTH };
+    let range = bounds(n, period);
     // the chirped design and 19 others within 50 nm of it, seeded
     let mut rng = StreamRng::seed_from_u64(2);
     let mut initial = vec![Reals::from(start.to_vec())];
     for _ in 1..NSGA.0 {
         let near: Vec<_> = start
             .iter()
-            .enumerate()
-            .map(|(k, &x)| (x - 0.05).max(range(k).0)..=(x + 0.05).min(range(k).1))
+            .zip(&range)
+            .map(|(&x, &(lo, hi))| (x - 0.05).max(lo)..=(x + 0.05).min(hi))
             .collect();
         initial.push(Real::new(near).expect("bounds").random_genome(&mut rng));
     }
-    let bounds: Vec<_> = (0..genes).map(|k| range(k).0..=range(k).1).collect();
-    let nsga = Nsga2::builder(Real::new(bounds).expect("bounds"), [Objective::Maximize; 2])
+    let real =
+        Real::new(range.iter().map(|&(lo, hi)| lo..=hi).collect::<Vec<_>>()).expect("bounds");
+    let nsga = Nsga2::builder(real, [Objective::Maximize; 2])
         .population_size(NSGA.0)
         .crossover(SimulatedBinaryCrossover::new(20.0).expect("valid"))
         .mutate(PolynomialMutation::per_gene(1.0 / genes as f64, 20.0).expect("valid"))
@@ -1236,14 +1169,14 @@ fn search(model: &Model, start: &[f64], log: &Mutex<std::fs::File>) -> (Vec<Poin
     // every design evaluated, batch by batch in the engine's order
     let evaluated: Mutex<Vec<Point>> = Mutex::new(Vec::new());
     let fitness = Batch(|xs: &[&Reals]| {
-        let genomes: Vec<Vec<f64>> = xs.iter().map(|x| x.to_vec()).collect();
+        let cuts: Vec<Vec<(f64, f64)>> = xs.iter().map(|x| layout(x, n, period)).collect();
         let points: Vec<Point> = model
-            .spectra(&genomes, &beams)
+            .spectra(&cuts, &beams)
             .into_iter()
-            .zip(genomes)
-            .map(|(ce, genome)| Point {
+            .zip(cuts)
+            .map(|(ce, cut)| Point {
                 band: band(&lambda, &ce),
-                genome,
+                cut,
             })
             .collect();
         let scores: Vec<Scores<2>> = points
@@ -1257,20 +1190,19 @@ fn search(model: &Model, start: &[f64], log: &Mutex<std::fs::File>) -> (Vec<Poin
     });
     let started = Instant::now();
     let outcome = MultiEngine::new(nsga, fitness)
-        .stop_when(Stop::generations(NSGA.1))
+        .stop_when(Stop::generations(generations))
         .on_generation(|s| {
             let g = s.progress().generation();
             let elapsed = started.elapsed().as_secs_f64();
             note(
                 log,
                 &format!(
-                    "MFD {} um, NSGA-II: generation {g} of {} ({:.0} %), {} evaluations, {} in, {} to go",
+                    "MFD {} um, NSGA-II: generation {g} of {generations} ({:.1} %), {} evaluations, {} in, {} to go",
                     model.setup.mfd,
-                    NSGA.1,
-                    100.0 * g as f64 / NSGA.1 as f64,
+                    100.0 * g as f64 / generations as f64,
                     s.progress().evaluations(),
                     minutes(elapsed),
-                    minutes(elapsed * (NSGA.1 as f64 - g as f64) / g.max(1) as f64)
+                    minutes(elapsed * (generations as f64 - g as f64) / g.max(1) as f64)
                 ),
             );
         })
@@ -1284,25 +1216,29 @@ fn search(model: &Model, start: &[f64], log: &Mutex<std::fs::File>) -> (Vec<Poin
 fn refine(model: &Model, points: &[Point]) -> Vec<Point> {
     let lambda = wavelengths(FRONT_WAVELENGTHS);
     let beams = model.beams(&lambda);
-    let genomes: Vec<Vec<f64>> = points.iter().map(|p| p.genome.clone()).collect();
+    let cuts: Vec<Vec<(f64, f64)>> = points.iter().map(|p| p.cut.clone()).collect();
     let again: Vec<Point> = model
-        .spectra(&genomes, &beams)
+        .spectra(&cuts, &beams)
         .into_iter()
-        .zip(genomes)
-        .map(|(ce, genome)| Point {
+        .zip(cuts)
+        .map(|(ce, cut)| Point {
             band: band(&lambda, &ce),
-            genome,
+            cut,
         })
         .collect();
     non_dominated(&again)
 }
 
-/// Two designs' bands on the front's wavelengths, on `model`'s grid.
-fn bands(model: &Model, designs: &[&[f64]; 2]) -> [Band; 2] {
+/// Designs' bands on the front's wavelengths, on `model`'s grid; each design its grooves' starts
+/// and widths, µm.
+fn bands(model: &Model, designs: &[Vec<(f64, f64)>]) -> Vec<Band> {
     let lambda = wavelengths(FRONT_WAVELENGTHS);
     let beams = model.beams(&lambda);
-    let ce = model.spectra(&[designs[0].to_vec(), designs[1].to_vec()], &beams);
-    [band(&lambda, &ce[0]), band(&lambda, &ce[1])]
+    model
+        .spectra(designs, &beams)
+        .iter()
+        .map(|ce| band(&lambda, ce))
+        .collect()
 }
 
 /// The efficiency at 100 nm between two designs' bands, %.
@@ -1312,17 +1248,18 @@ fn between(b: &[Band; 2]) -> f64 {
     c0 + (c1 - c0) * (TARGET - w0) / (w1 - w0)
 }
 
-/// The check at 100 nm for one setup from its two designs either side, on the paper's grid and
-/// one twice as coarse.
+/// The check at 100 nm for one setup from its two designs either side (their grooves' starts and
+/// widths, µm), on the plain run's grids ([`CHECK_GRIDS`]).
 fn check(
     checks: &mut common::Checks,
     setup: Setup,
-    designs: &[&[f64]; 2],
+    designs: &[Vec<(f64, f64)>; 2],
 ) -> photonoxide::Result<()> {
-    let coarse = Model::new(setup, (2.0 * STEP.0, 2.0 * STEP.1))?;
-    let fine = Model::new(setup, STEP)?;
-    let (bc, bf) = (bands(&coarse, designs), bands(&fine, designs));
-    for (m, b) in [(&coarse, &bc), (&fine, &bf)] {
+    let mut study = Study::new("efficiency at 100 nm (%)");
+    let mut ef = f64::NAN;
+    for step in CHECK_GRIDS {
+        let m = Model::new(setup, step)?;
+        let b = bands(&m, designs);
         println!(
             "  {:.0} × {:.0} nm ({} × {} cells): the designs either side of {TARGET} nm, {:.2} % at {:.1} nm ({:.4}–{:.4} µm) and {:.2} % at {:.1} nm ({:.4}–{:.4} µm)",
             1000.0 * m.grid.dx,
@@ -1338,17 +1275,13 @@ fn check(
             b[1].low,
             b[1].high
         );
+        // the efficiency at 100 nm to 4 digits: what holds on every system
+        ef = held(between(&[b[0], b[1]]), 2);
+        study = study.on(step.1, ef)?;
     }
-    let (ec, ef) = (between(&bc), (between(&bf)));
-    // the efficiency at 100 nm to 4 digits: what holds on every system
-    let ef = (ef * 100.0).round() / 100.0;
-    let study = Study::new("efficiency at 100 nm (%)")
-        .on(2.0 * STEP.1, (ec * 100.0).round() / 100.0)?
-        .on(STEP.1, ef)?
-        .check(TOLERANCE / 3.0)?;
     checks.converged(
         &format!("MFD {} µm: CE at 100 nm, grids", setup.mfd),
-        &study,
+        &study.check(TOLERANCE / 3.0)?,
     );
     let what = format!("MFD {} µm: CE at 100 nm, 2D (%)", setup.mfd);
     if (ef - setup.paper).abs() <= TOLERANCE {
@@ -1398,13 +1331,17 @@ fn held(x: f64, digits: i32) -> f64 {
     (x * scale).round() / scale
 }
 
-/// The grids of `--supplement`'s comparison, coarsest first: twice the paper's vertical mesh,
-/// the paper's (the searches' grid) and half of it.
+/// The grids of `--supplement`'s comparison, coarsest first: the paper's vertical mesh (the
+/// searches' grid), half of it and a quarter. Not 40 × 20 nm: along the film it is outside the
+/// range where the error falls as a power of the cell (`--grids`).
 const GRIDS: [(f64, f64); 3] = [
-    (2.0 * STEP.0, 2.0 * STEP.1),
     STEP,
     (STEP.0 / 2.0, STEP.1 / 2.0),
+    (STEP.0 / 4.0, STEP.1 / 4.0),
 ];
+
+/// The plain run's grids: the searches' and half of it.
+const CHECK_GRIDS: [(f64, f64); 2] = [STEP, (STEP.0 / 2.0, STEP.1 / 2.0)];
 
 /// A front's common data and its own efficiency at 100 nm, between the two designs either side.
 fn header(front: &Front) {
@@ -1432,12 +1369,12 @@ fn header(front: &Front) {
 }
 
 /// The paper's own front at 100 nm, as the searches' model solves it: two of the supplement's
-/// designs, either side of 100 nm on our grid, re-solved on the paper's grid and one twice as
-/// coarse; the efficiency between them at 100 nm checked against the main text's, as our own
-/// front's is.
+/// designs, either side of 100 nm on our grid, re-solved on the plain run's grids
+/// ([`CHECK_GRIDS`]); the efficiency between them at 100 nm checked against the main text's, as
+/// our own front's is.
 fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
     println!(
-        "\nThe paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist on the film). The efficiency at {TARGET} nm between two of them, against the main text's, within {TOLERANCE} points, for the 4 µm front: the 6 µm one's moves by 1.8 points between these two grids and needs `--supplement`'s finer one, which also compares each design with its printed efficiency and bandwidth."
+        "\nThe paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist at FID). The efficiency at {TARGET} nm between two of them, against the main text's, within {TOLERANCE} points, for the 4 µm front: the 6 µm one's needs 10 × 5 nm for a minute or more a wavelength, too slow for CI, and is `--supplement`'s, which also compares each design with its printed efficiency and bandwidth."
     );
     for front in &FRONTS {
         let Some(plain) = front.plain else {
@@ -1445,45 +1382,43 @@ fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
         };
         header(front);
         let pair = [front.structure(plain[0]), front.structure(plain[1])];
-        let setup = front.setup(0.0);
+        let setup = front.setup(front.fid);
         let started = Instant::now();
-        let mut bands = Vec::with_capacity(2);
-        for (k, step) in [GRIDS[0], GRIDS[1]].into_iter().enumerate() {
-            bands.push(structure_bands(&Model::new(setup, step)?, &pair));
+        let mut study = Study::new("efficiency at 100 nm (%)");
+        let mut ef = f64::NAN;
+        for (k, step) in CHECK_GRIDS.into_iter().enumerate() {
+            let b = structure_bands(&Model::new(setup, step)?, &pair);
             eprintln!(
-                "MFD {} um, the paper's designs: grid {} of 2, {} in",
+                "MFD {} um, the paper's designs: grid {} of {}, {} in",
                 front.mfd,
                 k + 1,
+                CHECK_GRIDS.len(),
                 minutes(started.elapsed().as_secs_f64())
             );
+            for (s, b) in pair.iter().zip(&b) {
+                println!(
+                    "  structure {}: paper {} % at {} nm; ours {:.2} % at {:.1} nm ({:.4}–{:.4} µm) on {:.0} × {:.0} nm",
+                    s.number,
+                    s.ce,
+                    s.bandwidth,
+                    100.0 * b.peak,
+                    b.width_nm(),
+                    b.low,
+                    b.high,
+                    1000.0 * step.0,
+                    1000.0 * step.1
+                );
+            }
+            if !(b[0].width_nm() <= TARGET && TARGET <= b[1].width_nm()) {
+                println!("  the two don't hold {TARGET} nm between them on this grid: not checked");
+                return Ok(());
+            }
+            ef = held(between(&[b[0], b[1]]), 2);
+            study = study.on(step.1, ef)?;
         }
-        let (bc, bf) = ([bands[0][0], bands[0][1]], [bands[1][0], bands[1][1]]);
-        for (k, s) in pair.iter().enumerate() {
-            println!(
-                "  structure {}: paper {} % at {} nm; ours {:.2} % at {:.1} nm ({:.4}–{:.4} µm) on 20 × 10 nm, {:.2} % at {:.1} nm on 40 × 20 nm",
-                s.number,
-                s.ce,
-                s.bandwidth,
-                100.0 * bf[k].peak,
-                bf[k].width_nm(),
-                bf[k].low,
-                bf[k].high,
-                100.0 * bc[k].peak,
-                bc[k].width_nm()
-            );
-        }
-        if !(bf[0].width_nm() <= TARGET && TARGET <= bf[1].width_nm()) {
-            println!("  the two don't hold {TARGET} nm between them on our grid: not checked");
-            continue;
-        }
-        let ef = held(between(&bf), 2);
-        let study = Study::new("efficiency at 100 nm (%)")
-            .on(GRIDS[0].1, held(between(&bc), 2))?
-            .on(GRIDS[1].1, ef)?
-            .check(TOLERANCE / 3.0)?;
         checks.converged(
             &format!("MFD {} µm: their CE at 100 nm, grids", front.mfd),
-            &study,
+            &study.check(TOLERANCE / 3.0)?,
         );
         let what = format!("MFD {} µm: their CE at 100 nm, 2D (%)", front.mfd);
         if (ef - front.paper).abs() <= TOLERANCE {
@@ -1499,38 +1434,49 @@ fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
     Ok(())
 }
 
-/// `--supplement`: every design of [`FRONTS`] on the three [`GRIDS`], with the beam's waist on
-/// the film and at the fibre's distance above it, each compared with the efficiency and
-/// bandwidth the paper prints for it, within the paper's own spread ([`spread`]); our grid's
-/// error, from the three grids, within a third of it.
+/// `--supplement`: every design of [`FRONTS`] on the three [`GRIDS`], with the beam's waist at
+/// the fibre's distance above the film, each compared with the efficiency and bandwidth the
+/// paper prints for it, within the paper's own spread ([`spread`]); our grid's error, from the
+/// three grids, within a third of it. `--mfd` runs one front.
 fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let (ce_tol, bw_tol) = spread();
     println!(
         "\nThe paper's own designs (its supplement's data files), each against what the paper prints for it. The tolerance is the paper's own spread on its 2D numbers: Supp. Fig. 7 solves four of the 4 µm front's structures again, and they differ from the data file's by up to {ce_tol:.2} points in efficiency and {:.2} % in bandwidth; our grid's error must be within a third of that.",
         100.0 * bw_tol
     );
-    for (f, front) in FRONTS.iter().enumerate() {
+    let only: Option<f64> = option("--mfd");
+    for (f, front) in FRONTS
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| only.is_none_or(|m| m == f.mfd))
+    {
         header(front);
         let structures: Vec<&Structure> = front.structures.iter().collect();
-        let waists = [
-            ("the waist on the film", 0.0),
-            ("the waist at FID", front.fid),
-        ];
-        // one design at a time, its wavelengths in parallel, for a progress line after each
+        let waists = [("the waist at FID", front.fid)];
+        // one design at a time, its wavelengths in parallel, for a progress line after each; on
+        // the finest grid one wavelength at a time (a 6 µm solve there takes 15 GB)
         let total = waists.len() * GRIDS.len() * structures.len();
         let started = Instant::now();
         let mut done = 0;
         let mut bands = Vec::with_capacity(waists.len() * GRIDS.len());
         for &(name, waist) in &waists {
-            for step in GRIDS {
+            for (g, step) in GRIDS.into_iter().enumerate() {
                 let model = Model::new(front.setup(waist), step)?;
+                let one = rayon::ThreadPoolBuilder::new()
+                    .num_threads(1)
+                    .build()
+                    .expect("a thread pool");
                 let mut grid = Vec::with_capacity(structures.len());
                 for s in &structures {
-                    grid.extend(structure_bands(&model, &[*s]));
+                    if g + 1 == GRIDS.len() {
+                        grid.extend(one.install(|| structure_bands(&model, &[*s])));
+                    } else {
+                        grid.extend(structure_bands(&model, &[*s]));
+                    }
                     done += 1;
                     let elapsed = started.elapsed().as_secs_f64();
                     eprintln!(
-                        "MFD {} um, the paper's designs: {done} of {total} ({:.0} %; structure {}, {name}, {:.0} x {:.0} nm), {} in",
+                        "MFD {} um, the paper's designs: {done} of {total} ({:.0} %; structure {}, {name}, {:.0} x {:.1} nm), {} in",
                         front.mfd,
                         100.0 * done as f64 / total as f64,
                         s.number,
@@ -1563,7 +1509,7 @@ fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
                     .zip(GRIDS)
                     .map(|(b, (dx, dy))| {
                         format!(
-                            "{:.2} % at {:.1} nm on {:.0} × {:.0} nm",
+                            "{:.2} % at {:.1} nm on {:.0} × {:.1} nm",
                             100.0 * b.peak,
                             b.width_nm(),
                             1000.0 * dx,
@@ -1763,6 +1709,105 @@ fn dispersion(step: (f64, f64)) -> photonoxide::Result<()> {
     Ok(())
 }
 
+/// `--grids`: the paper's designs at 1.55 µm, the waist at FID, on grids refined along each
+/// axis alone and on the searches' grid moved against the grooves, the efficiency projected at
+/// three heights.
+fn grids() -> photonoxide::Result<()> {
+    let ladder: [((f64, f64), f64); 14] = [
+        ((0.04, 0.02), 0.0),
+        ((0.02, 0.01), 0.0),
+        ((0.01, 0.005), 0.0),
+        ((0.005, 0.0025), 0.0),
+        ((0.04, 0.01), 0.0),
+        ((0.01, 0.01), 0.0),
+        ((0.02, 0.02), 0.0),
+        ((0.02, 0.005), 0.0),
+        ((0.02, 0.01), 0.005),
+        ((0.02, 0.01), 0.010),
+        ((0.02, 0.01), 0.015),
+        ((0.01, 0.005), 0.0025),
+        ((0.01, 0.005), 0.005),
+        ((0.01, 0.005), 0.0075),
+    ];
+    let only: Option<f64> = option("--mfd");
+    let started = Instant::now();
+    for front in FRONTS.iter().filter(|f| only.is_none_or(|m| m == f.mfd)) {
+        let setup = front.setup(front.fid);
+        let jobs: Vec<(usize, usize)> = (0..front.structures.len())
+            .flat_map(|s| (0..ladder.len()).map(move |g| (s, g)))
+            .collect();
+        let done = std::sync::atomic::AtomicUsize::new(0);
+        let wanted = |s: usize, g: usize| {
+            option::<usize>("--grid").is_none_or(|k| k == g)
+                && option::<u32>("--structure").is_none_or(|n| n == front.structures[s].number)
+        };
+        let rows: Vec<Option<[f64; 3]>> = jobs
+            .par_iter()
+            .map(|&(s, g)| {
+                if !wanted(s, g) {
+                    return None;
+                }
+                let (step, shift) = ladder[g];
+                let model = Model::shifted(setup, step, shift).expect("a model");
+                let eps = cells(model.grid, setup, model.y_box, &front.structures[s].cut());
+                let k0 = 2.0 * PI / CENTRE;
+                let (field, power) = model.launch(&eps, k0).expect("a solve");
+                let ce = [0.2, LINE, 0.4].map(|h| {
+                    let line = ((h - model.grid.y0) / model.grid.dy).floor() as usize;
+                    let beam = model.beam_on(CENTRE, N_OX, line);
+                    100.0 * model.project(&field, power, &beam, line)
+                });
+                let k = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                let elapsed = started.elapsed().as_secs_f64();
+                eprintln!(
+                    "MFD {} um, --grids: {k} of {} ({:.0} %; structure {}, {:.0} x {:.1} nm, shift {:.0} nm), {} in",
+                    front.mfd,
+                    jobs.len(),
+                    100.0 * k as f64 / jobs.len() as f64,
+                    front.structures[s].number,
+                    1000.0 * step.0,
+                    1000.0 * step.1,
+                    1000.0 * shift,
+                    minutes(elapsed)
+                );
+                Some(ce)
+            })
+            .collect();
+        println!(
+            "\nMFD {} µm, the waist at FID: CE % at {CENTRE} µm projected 0.2, 0.3 and 0.4 µm above the film",
+            front.mfd
+        );
+        for (s, structure) in front.structures.iter().enumerate() {
+            println!("  structure {}:", structure.number);
+            for (g, &((dx, dy), shift)) in ladder.iter().enumerate() {
+                let Some(ce) = rows[s * ladder.len() + g] else {
+                    continue;
+                };
+                println!(
+                    "    {:2.0} × {:4.1} nm, moved {:2.0} nm: {:.4}  {:.4}  {:.4}",
+                    1000.0 * dx,
+                    1000.0 * dy,
+                    1000.0 * shift,
+                    ce[0],
+                    ce[1],
+                    ce[2]
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The value after `flag` on the command line.
+fn option<T: std::str::FromStr>(flag: &str) -> Option<T> {
+    std::env::args()
+        .skip_while(|a| a != flag)
+        .nth(1)
+        .and_then(|a| a.parse().ok())
+}
+
+/// `--full`: each setup's chirp and search (`--generations` sets the search's generations,
+/// `--mfd` runs one setup), its front and the check at 100 nm.
 fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
     let path =
         std::env::var("GRATING_LOG").unwrap_or_else(|_| "optimize_grating_pareto.log".into());
@@ -1774,33 +1819,39 @@ fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
             .expect("a log file"),
     );
     eprintln!("progress in {path}");
-    for setup in SETUPS {
+    let generations = option("--generations").unwrap_or(NSGA.1);
+    let only: Option<f64> = option("--mfd");
+    for setup in SETUPS
+        .into_iter()
+        .filter(|s| only.is_none_or(|m| m == s.mfd))
+    {
         let model = Model::new(setup, STEP)?;
         println!(
-            "\nMFD {} µm: T_BOX {} µm, FIO {} µm, etch {} nm, {} grooves; {} × {} cells of {:.0} × {:.0} nm",
+            "\nMFD {} µm: T_BOX {} µm, FIO {} µm, etch {} nm, {} grooves, the waist at FID {} µm; {} × {} cells of {:.0} × {:.0} nm",
             setup.mfd,
             setup.t_box,
             setup.fio,
             1000.0 * setup.etch,
             setup.grooves,
+            setup.waist,
             model.grid.nx,
             model.grid.ny,
             1000.0 * STEP.0,
             1000.0 * STEP.1
         );
-        let (start, ce) = chirped(&model, &log);
+        let (period, start, ce) = chirped(&model, &log);
         println!(
-            "  the best linear chirp (PSO, {} particles, {} moves): CE {:.2} % at 1.55 µm",
+            "  the best linear chirp (PSO, {} particles, {} moves): period {:.1} nm, CE {:.2} % at 1.55 µm",
             PSO.0,
             PSO.1,
+            1000.0 * period,
             100.0 * ce
         );
         println!("    {start:?}");
-        let (points, evaluations) = search(&model, &start, &log);
+        let (points, evaluations) = search(&model, period, &start, generations, &log);
         println!(
-            "  NSGA-II (population {}, {} generations, {evaluations} evaluations): {} points on the front",
+            "  NSGA-II (population {}, {generations} generations, {evaluations} evaluations): {} points on the front",
             NSGA.0,
-            NSGA.1,
             points.len()
         );
         let refined = refine(&model, &points);
@@ -1819,22 +1870,26 @@ fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
         }
         let table: Vec<(f64, f64)> = refined
             .iter()
-            .map(|p| {
-                (
-                    (10000.0 * p.band.peak).round() / 100.0,
-                    (10.0 * p.band.width_nm()).round() / 10.0,
-                )
-            })
+            .map(|p| (held(100.0 * p.band.peak, 2), held(p.band.width_nm(), 1)))
             .collect();
         println!("  front: &{table:?},");
         match bracket(&table) {
             Some(k) => {
+                let centres = |cut: &[(f64, f64)]| -> Vec<(f64, f64)> {
+                    cut.iter()
+                        .map(|&(a, w)| (held(1000.0 * (a + w / 2.0), 1), held(1000.0 * w, 1)))
+                        .collect()
+                };
                 println!(
                     "  designs: [&{:?}, &{:?}],",
-                    refined[k].genome,
-                    refined[k + 1].genome
+                    centres(&refined[k].cut),
+                    centres(&refined[k + 1].cut)
                 );
-                check(checks, setup, &[&refined[k].genome, &refined[k + 1].genome])?;
+                let designs = [
+                    centred(&centres(&refined[k].cut)),
+                    centred(&centres(&refined[k + 1].cut)),
+                ];
+                check(checks, setup, &designs)?;
             }
             None => println!("  the front doesn't span {TARGET} nm: not checked"),
         }
@@ -1864,21 +1919,19 @@ fn print_setup() {
         s.shape(
             "film",
             &format!(
-                "{} grooves from x = 0, their widths {} to {} and the teeth between them {} to {} (the variables); the waveguide unetched for x < 0, the film unetched after the last groove",
+                "{} grooves about a period Λ (the linear chirp's), groove k's centre within Λ/4 of k·Λ and its width {} to 3Λ/4 (the variables), x = 0 at the chirp's first groove's centre; the waveguide unetched before the first groove, the film unetched after the last",
                 setup.grooves,
-                common::length(GROOVE.0),
-                common::length(GROOVE.1),
-                common::length(TOOTH.0),
-                common::length(TOOTH.1)
+                common::length(WIDTH_MIN)
             ),
         );
         s.item(
             "fibre",
             &format!(
-                "a Gaussian beam, MFD {} (its waist {}), in the top oxide at {}° from the normal, its axis {} from the first groove (FIO), its waist on the film's top",
+                "a Gaussian beam, MFD {} (its waist {}), in the top oxide at {}° from the normal, its waist {} above the film (FID), its axis through x = {} there (FIO)",
                 common::length(setup.mfd),
                 common::length(setup.mfd / 2.0),
                 common::number(ANGLE),
+                common::length(setup.waist),
                 common::length(setup.fio)
             ),
         );
@@ -1897,7 +1950,7 @@ fn print_setup() {
         s.item(
             "grid",
             &format!(
-                "{} × {} cells of {} × {}, each cell's ε its area's mean; the check's coarse grid twice the cells",
+                "{} × {} cells of {} × {}, each cell's ε its area's mean; the check's fine grid half the cells",
                 grid.nx,
                 grid.ny,
                 common::length(STEP.0),
@@ -1949,6 +2002,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
         "Passoni et al. 2017's apodized grating couplers (Fig. 6): 220 nm SOI, n = 3.47 and 1.44, TE, a 10° fibre; 2D FDFD (labelled 2D), the efficiency by reciprocity, the 1-dB band from {FRONT_WAVELENGTHS} wavelengths, {} to {} µm",
         WINDOW.0, WINDOW.1
     );
+    if std::env::args().any(|a| a == "--grids") {
+        grids()?;
+        return Ok(ExitCode::SUCCESS);
+    }
     if std::env::args().any(|a| a == "--beams") {
         beams()?;
         return Ok(ExitCode::SUCCESS);
@@ -1987,7 +2044,14 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 .collect();
             println!("    {}", cells.join("   "));
         }
-        check(&mut checks, *setup, &recorded.designs)?;
+        if recorded.designs[0].is_empty() {
+            continue;
+        }
+        check(
+            &mut checks,
+            *setup,
+            &[centred(recorded.designs[0]), centred(recorded.designs[1])],
+        )?;
     }
     published(&mut checks)?;
     Ok(checks.finish())
