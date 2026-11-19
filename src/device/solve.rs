@@ -422,6 +422,14 @@ fn grid_3d(
     })
 }
 
+/// A 3D port and its window's rows across, for a survey.
+#[cfg(test)]
+pub(super) type Placed3d = (Port3d, std::ops::Range<usize>);
+
+/// A 2D port and its window's rows across, for a survey.
+#[cfg(test)]
+pub(super) type Placed2d = (Port, std::ops::Range<usize>);
+
 /// [`sampled_by`]'s iterative 3D route at one wavelength, set up and not solved: the solver,
 /// each port (its fundamental mode, and its window's rows across) in the geometry's order, and
 /// the stopping rule. For a survey that looks into the field rather than the S-matrix.
@@ -435,11 +443,7 @@ pub(super) fn iterative_3d(
     core: &str,
     wavelength: Wavelength,
     grid: &FdfdGrid,
-) -> Result<(
-    IterativeSolver3d,
-    Vec<(Port3d, std::ops::Range<usize>)>,
-    Stopping,
-)> {
+) -> Result<(IterativeSolver3d, Vec<Placed3d>, Stopping)> {
     let (nx, ny, unknowns) = size(geometry, core, grid, true)?;
     check_size(unknowns)?;
     let Route::Iterative {
@@ -502,7 +506,7 @@ pub(super) fn direct_2d(
     core: &str,
     wavelength: Wavelength,
     grid: &FdfdGrid,
-) -> Result<(Solver2d, Vec<(Port, std::ops::Range<usize>)>)> {
+) -> Result<(Solver2d, Vec<Placed2d>)> {
     let (nx, ny, _) = size(geometry, core, grid, false)?;
     let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
     let h = grid.step;
@@ -537,7 +541,7 @@ pub(super) fn direct_2d(
     )?;
     let ports = placed
         .iter()
-        .map(|p| -> Result<(Port, std::ops::Range<usize>)> {
+        .map(|p| -> Result<Placed2d> {
             let mut modes = solver.port_modes_within(p.plane, p.rows.clone(), 1)?;
             Ok((
                 Port {

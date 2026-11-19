@@ -1042,7 +1042,7 @@ fn survey_mmi_budget() {
                     b / lam.wavenumber(),
                     a.norm_sqr(),
                     t.norm_sqr(),
-                    (a * t).arg() / std::f64::consts::PI
+                    portable::complex::arg(a * t) / std::f64::consts::PI
                 )
             })
             .collect();
@@ -1080,7 +1080,7 @@ fn survey_mmi_budget() {
                     .enumerate()
                     .map(|(k, ((_, a, t), b))| {
                         let sign = (c_in[2 * k] * c_out[2 * k]).signum();
-                        sign * (a * t).norm() * turn(*b, length + d)
+                        sign * portable::complex::abs(a * t) * turn(*b, length + d)
                     })
                     .sum::<c64>()
                     .norm_sqr()

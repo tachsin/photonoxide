@@ -849,9 +849,9 @@ losses (its spread the ± on a grid), and what the image's length is predicted t
 - **What is left.** At its best length 3D loses 0.221 ± 0.007 dB, 0.045 dB more than the 2D
   model at its own, where at 3.79 µm it lost 0.44 dB more. The guided modes with the 3D indices
   account for 0.024 dB of it (0.200 dB): the fourth mode's power, radiated, and mode 4's
-  larger phase error (0.25π). The other 0.021 ± 0.007 dB is beyond the guided modes. In 2D the
-  junctions shed 0.004 dB (2D FDFD's best against the guided modes'); in 3D a junction can also
-  scatter out of the plane, the likely rest, not shown here (the field wasn't examined).
+  larger phase error (0.25π). The other 0.021 ± 0.007 dB is the section's faces reflecting
+  light back into its guided modes, which the guided-mode analysis leaves out; it isn't light
+  scattered out of the plane ([below](#where-the-3d-mmis-power-goes)).
 
 So the 0.86 dB at 3.79 µm is the image's length, not a loss of the stack's: the formula's
 paraxial length is 8 % long for the plane's own modes, and the stack images 4 % shorter than
@@ -864,6 +864,84 @@ model's power falls fastest. To design such a narrow MMI, sweep its length rathe
 
 The runs: `device::splitter_tests::survey_3d` with `LENGTH` set (µm), each length a process;
 `survey_mmi_modes` for the modes and the guided modes with the 3D indices.
+
+#### Where the 3D MMI's power goes
+
+The same MMI at 3.337 µm, the 3D best length, on the study's three grids (PMLs of 8, 11 and 16
+cells on 44, 31.4 and 22 nm): o1 launched, and o2 and o3 for the S-matrix, which gives the
+study's power into an output to the digit (0.471334, 0.474621 and 0.474703). In o1's field, the
+modes of every guide, and the power through the faces of a box around the device: its sides
+0.3 µm out from the section's, its top and bottom 0.3 µm from the core's faces, its ends on the
+input's plane and the outputs'. The share of the input, from o1's launch alone:
+
+| Where it goes | 44 nm | 31.4 nm | 22 nm |
+|---|---|---|---|
+| Into the outputs' fundamental modes, $2P$ | 0.9432 | 0.9492 | 0.9494 |
+| Into the outputs' second TE mode (index 1.52, guided in the 0.5 µm strips) | 0.0063 | 0.0077 | 0.0092 |
+| Back into the input's fundamental mode | 0.0018 | 0.0017 | 0.0016 |
+| Back through the input's plane otherwise | 0.0039 | 0.0026 | 0.0026 |
+| Out of the box above and below | 0.0165 | 0.0147 | 0.0139 |
+| Out of the box beside | 0.0180 | 0.0186 | 0.0184 |
+| Through the outputs' plane outside their modes | 0.0106 | 0.0057 | 0.0051 |
+| The faces' total over the input (the box's own error) | 0.0003 | 0.0002 | 0.0001 |
+
+(On 44 nm the S-matrix's $2P$ is 0.9427: o1's launch alone keeps what the PMLs send back.)
+
+A quarter of the 0.051 lost leaves above and below. With the box's faces 0.15 µm out instead,
+0.011 to 0.016 does (light at a slant crosses whichever face is nearer), and the input's plane
+catches more of what the input's face scatters. Out of the plane is where some of the light
+goes, not what 3D loses over the 2D model, as the outputs' amplitude shows.
+
+**What the power into an output is made of.** By reciprocity, o2's amplitude is Lorentz's
+form of o1's field and o2's across any plane between their sources; on a plane in the section,
+over the plane's modes, it is $\sum (a^+ w^- - a^- w^+)$, $a$ from o1's launch and $w$ from
+o2's. The guided modes' forward terms are the guided-mode analysis with these junctions'
+couplings and the grid's indices; their backward terms are the section's faces reflecting (the
+output face's reflection of o1's light, the input face's of o2's); what is left is the rest of
+the field: the light the junctions radiate, out of the plane and in it, and their near fields.
+The same parts come out on planes 0.15 and 0.8 µm before the outputs, to the sixth digit. From
+the guided-mode analysis with the 3D indices (Hadley's, converged), 0.477303 at this length, the
+power into an output, and the change in excess loss on the finest grid:
+
+| Part | 44 nm | 31.4 nm | 22 nm | dB on 22 nm |
+|---|---|---|---|---|
+| The guided modes, the plane's couplings and the 3D indices | 0.477303 | 0.477303 | 0.477303 | 0.2018 |
+| The junctions' own couplings, the guided modes' share of each | +0.000315 | −0.000546 | −0.000210 | +0.002 ± 0.003 |
+| The grid's indices for the converged ones | −0.003005 | −0.000444 | +0.000091 | −0.001 ± 0.005 |
+| The faces' reflections | −0.001122 | −0.001716 | −0.002244 | +0.021 ± 0.005 |
+| The rest of the field | −0.001893 | +0.000012 | −0.000237 | +0.002 ± 0.002 |
+| What the PMLs send back | −0.000264 | +0.000012 | 0.000000 | 0.000 |
+| 3D FDFD | 0.471334 | 0.474621 | 0.474703 | 0.2255 |
+
+(Each ± is the part's change from 31.4 to 22 nm. In dB, the parts are taken in the table's order.)
+
+- **The budget closes.** The parts add up to 3D on every grid, exactly: the gap at this length,
+  0.024 dB on 22 nm, 0.0245 on 31.4 nm, against 0.021 ± 0.007 dB between the best lengths.
+  On the two finer grids the faces' reflections are 0.016 and 0.021 dB of it, and the only part
+  clear of its own ± (0.021 ± 0.005 dB); the others add 0.003 ± 0.006 dB together.
+- **The faces reflect.** At the outputs' face 0.42, 0.54 and 0.56 % of the input goes back into
+  the section's guided modes (on 44, 31.4 and 22 nm), and part of it comes forward again from
+  the input's face. The guided-mode analysis has no reflections; in 3D at 3.34 µm they take
+  power from the outputs (their phase, and so their sign, turns with the length). The plane reflects as
+  much (2D FDFD on 5 nm cells: 0.52 % at 3.337 µm, `survey_mmi_budget_2d`). The term still
+  grows with the grid (−0.0011, −0.0017, −0.0022) while the gap has settled (−0.0060, −0.0027,
+  −0.0026): the parts trade between them as the cells shrink, so each part's ± is only its last
+  change.
+- **Not out-of-plane scattering.** The 3D input's junction puts more of the input into the
+  section's three guided modes than the plane's couplings do, 0.9805 against 0.9759 (0.9837 with
+  the plane's fourth mode, not guided in 3D); the outputs' takes a little less from them, twice
+  $\sum \lvert t \rvert^2$ 0.986 against 0.991 ($t$ each mode's coupling into o2). Both are in
+  the junctions' couplings, 0.002 ± 0.003 dB, and the radiated light's own term at the outputs is
+  0.002 ± 0.002 dB.
+- **What the modes can't show.** The guided modes' terms are exact, each mode's projection the
+  scheme's own. The rest is the field less its guided modes, not a sum of modes: on 44 nm, the
+  first 12, 50, 150 and 300 of the plane's 6560 modes give o2's power as 0.473509, 0.474467,
+  0.474392 and 0.473528, against 0.471598 from o1's launch alone; a few hundred modes of the
+  plane, its PMLs' among them, don't hold the radiated field. So where the radiated light goes is
+  read from the box's faces, not from the modes.
+
+The runs: `device::splitter_tests::survey_mmi_budget` with `GRID`, `PML` and `BOTH=1`, one grid
+a process (3, 7 and 21 minutes on 4 threads); `survey_mmi_budget_2d` for the plane.
 
 The earlier surveys are `device::splitter_tests::survey` (ignored: run by hand).
 
