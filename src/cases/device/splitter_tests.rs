@@ -643,6 +643,323 @@ fn survey_mmi_modes() {
     }
 }
 
+/// The Poynting flux along `axis` across the plane between nodes `plane` and `plane + 1`, cell
+/// by cell over `window` (index ranges along `axis.others()`), as [`crate::fdfd::Field3d::flux`]
+/// sums it over the whole plane: (u, v, power).
+fn flux_cells(
+    field: &crate::fdfd::Field3d,
+    axis: crate::fdfd::Axis,
+    plane: usize,
+    window: (std::ops::Range<usize>, std::ops::Range<usize>),
+) -> Vec<(usize, usize, f64)> {
+    let g = field.grid();
+    let (b, c) = axis.others();
+    let area = g.step(b) * g.step(c);
+    let mut out = Vec::with_capacity(window.0.len() * window.1.len());
+    for v in window.1.clone() {
+        for u in window.0.clone() {
+            let mut s = 0.0;
+            for (component, h, sign) in [(b, c, 0.5), (c, b, -0.5)] {
+                let mut at = [0; 3];
+                at[axis.index()] = plane;
+                at[b.index()] = u;
+                at[c.index()] = v;
+                let low = field.e(component, (at[0], at[1], at[2]));
+                at[axis.index()] = plane + 1;
+                let high = field.e(component, (at[0], at[1], at[2]));
+                at[axis.index()] = plane;
+                let hv = field.h(h, (at[0], at[1], at[2]));
+                s += sign * (0.5 * (low + high) * hv.conj()).re;
+            }
+            out.push((u, v, s * area));
+        }
+    }
+    out
+}
+
+/// Where the 2 µm MMI's power goes in 3D (issue #814): the input launched alone through the
+/// device's own iterative 3D route, and in its field the modes of every guide (the input's
+/// reflection, the section's guided modes after the input's face and before the outputs', each
+/// output's modes) and the power through the faces of boxes around the device, out of the plane
+/// (above and below) and in it (beside, and through the outputs' plane outside their modes).
+/// `BOTH` launches the output `o2` too: by reciprocity, each of the section's modes' coupling
+/// into it. By hand, one grid a process:
+///
+/// ```sh
+/// GRID=0.044:0.044 LENGTH=3.337 BOTH=1 cargo test --release --lib \
+///     device::splitter_tests::survey_mmi_budget -- --ignored --nocapture
+/// ```
+///
+/// `GRID` in-plane:vertical steps (µm), `PML` and `MARGIN` as `survey_3d`'s; `MODES` the
+/// section's modes solved on each plane, `PORT_MODES` each port's; `DIST` the planes' distances
+/// from the section's faces (µm); `BOXES` the boxes' faces' distances out from the section's
+/// sides and the core's faces (µm, y:z, comma-separated); `MAPS` a folder for the flux maps.
+#[test]
+#[ignore = "a survey, not a check"]
+#[allow(clippy::too_many_lines)]
+fn survey_mmi_budget() {
+    use crate::fdfd::{Axis, Direction, Field3d, PortMode3d};
+    use std::io::Write;
+    let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_owned());
+    let started = Instant::now();
+    let log = |line: &str| {
+        let line = format!("[{:7.1} s] {line}", started.elapsed().as_secs_f64());
+        println!("{line}");
+        if let Ok(path) = std::env::var("LOG") {
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .unwrap();
+            writeln!(f, "{line}").unwrap();
+        }
+    };
+    let (device, v) = super::splitter_checks::splitter_3d("mmi");
+    let length: f64 = var("LENGTH", "3.337").parse().unwrap();
+    let v = v.with(device.as_ref(), "length", length).unwrap();
+    let lam = um(1.55);
+    let geometry = device.geometry(&v).unwrap();
+    let (h, hz) = var("GRID", "0.044:0.044")
+        .split_once(':')
+        .map(|(a, b)| (a.parse::<f64>().unwrap(), b.parse::<f64>().unwrap()))
+        .unwrap();
+    let pml: usize = var("PML", "8").parse().unwrap();
+    let margin: f64 = var("MARGIN", "0.4").parse().unwrap();
+    let grid = FdfdGrid::new(h)
+        .with_step_z(hz)
+        .with_margin(margin)
+        .with_pml(pml)
+        .with_samples(1);
+    let modes: usize = var("MODES", "12").parse().unwrap();
+    let port_modes: usize = var("PORT_MODES", "4").parse().unwrap();
+    let (solver, ports, stopping) =
+        super::solve::iterative_3d(&geometry, "Si", lam, &grid).unwrap();
+    let g = solver.grid();
+    log(&format!(
+        "MMI L {length} um, 3D {h}:{hz} PML {pml} margin {margin}: {} x {} x {} cells, {} unknowns",
+        g.nx,
+        g.ny,
+        g.nz,
+        g.unknowns()
+    ));
+    let soi = super::guide::Strip::soi();
+    let (cladding, ..) = super::section::indices(&soi.stack, &soi.core, lam).unwrap();
+    let (_, bottom, top) = geometry.structure.stack().layer("Si").unwrap();
+    let (zb, zt) = (bottom.to_um(), top.to_um());
+    let ix = |x: f64| ((x - g.x0) / g.dx).round() as usize;
+    let iy = |y: f64| ((y - g.y0) / g.dy).round() as usize;
+    let iz = |z: f64| ((z - g.z0) / g.dz).round() as usize;
+    let (x_in, x_out) = (
+        geometry.ports[0].position.x.to_um(),
+        geometry.ports[1].position.x.to_um(),
+    );
+    let half = 0.5 * v.at("width");
+    let guided = |m: &PortMode3d| {
+        let n = m.effective_index();
+        n.re > cladding && n.im.abs() < 1e-6 * n.re
+    };
+    // each mode's index and its forward and backward power (|a|², the guided modes' power)
+    let describe = |field: &Field3d, ms: &[PortMode3d]| -> (String, f64, f64) {
+        let (mut fwd, mut bwd) = (0.0, 0.0);
+        let parts: Vec<String> = ms
+            .iter()
+            .map(|m| {
+                let (f, b) = field.mode_amplitudes(m);
+                let n = m.effective_index();
+                let (pf, pb) = (f.norm_sqr(), b.norm_sqr());
+                if guided(m) {
+                    fwd += pf;
+                    bwd += pb;
+                    format!("[{:.5} fwd {pf:.6} bwd {pb:.2e}]", n.re)
+                } else {
+                    format!("({:.4}{:+.1e}i)", n.re, n.im)
+                }
+            })
+            .collect();
+        (parts.join(" "), fwd, bwd)
+    };
+    let launch = |p: usize| -> Field3d {
+        let (port, _) = &ports[p];
+        let direction = if p == 0 {
+            Direction::Forward
+        } else {
+            Direction::Backward
+        };
+        let t = Instant::now();
+        let (field, how) = solver
+            .solve_system(&solver.mode_source(&port.mode, direction), stopping)
+            .unwrap();
+        log(&format!(
+            "launched port {p}: {} iterations, {:.1} s",
+            how.iterations,
+            t.elapsed().as_secs_f64()
+        ));
+        field
+    };
+    let field = launch(0);
+    // the ports' fundamental modes, as the S-matrix measures them
+    let amplitude = |field: &Field3d, p: usize| field.mode_amplitudes(&ports[p].0.mode);
+    let (a0, b0) = amplitude(&field, 0);
+    let (o2, _) = amplitude(&field, 1);
+    let (o3, _) = amplitude(&field, 2);
+    let incident = a0.norm_sqr();
+    let (p2, p3) = (o2.norm_sqr() / incident, o3.norm_sqr() / incident);
+    log(&format!(
+        "incident |a|^2 {incident:.8}; P_o2 {p2:.6} P_o3 {p3:.6} sum {:.6} excess {:.5} dB; R {:.3e}",
+        p2 + p3,
+        -10.0 * portable::log10(p2 + p3),
+        b0.norm_sqr() / incident
+    ));
+    // every port's modes
+    for (p, (port, rows)) in ports.iter().enumerate() {
+        let ms = solver
+            .port_modes_within(Axis::X, port.mode.plane(), (rows.clone(), 0..g.nz), port_modes)
+            .unwrap();
+        let (text, fwd, bwd) = describe(&field, &ms);
+        log(&format!(
+            "port {p} at x {:.4}: guided fwd {fwd:.6} bwd {bwd:.3e}; {text}",
+            g.node(Axis::X, port.mode.plane())
+        ));
+    }
+    // the section's modes on planes after the input's face and before the outputs'
+    let dists: Vec<f64> = var("DIST", "0.15,0.4,0.8")
+        .split(',')
+        .map(|d| d.parse().unwrap())
+        .collect();
+    let core_window = (iy(-half - 0.4) + 1..iy(half + 0.4) + 1, iz(zb - 0.4) + 1..iz(zt + 0.4) + 1);
+    let mut section: Vec<(usize, Vec<PortMode3d>)> = Vec::new();
+    for &d in &dists {
+        for (label, plane) in [("after the input", ix(x_in + d)), ("before the outputs", ix(x_out - d) - 1)] {
+            let t = Instant::now();
+            let ms = solver.port_modes(Axis::X, plane, modes).unwrap();
+            let (text, fwd, bwd) = describe(&field, &ms);
+            let flux: f64 = flux_cells(&field, Axis::X, plane, core_window.clone())
+                .iter()
+                .map(|c| c.2)
+                .sum();
+            log(&format!(
+                "section {d} um {label} (x {:.4}, {:.1} s): guided fwd {fwd:.6} bwd {bwd:.3e} net {:.6}; flux within 0.4 um {flux:.6}; {text}",
+                g.node(Axis::X, plane),
+                t.elapsed().as_secs_f64(),
+                fwd - bwd
+            ));
+            section.push((plane, ms));
+        }
+    }
+    // boxes: the faces' power out, the input's face just past the source (total field there)
+    let a_face = ports[0].0.mode.plane() + 2;
+    let d_face = ports[1].0.mode.plane();
+    let mid = ix(0.5 * (x_in + x_out));
+    let maps = std::env::var("MAPS").ok();
+    for b in var("BOXES", "0.15:0.15,0.3:0.3").split(',') {
+        let (by, bz) = b
+            .split_once(':')
+            .map(|(a, c)| (a.parse::<f64>().unwrap(), c.parse::<f64>().unwrap()))
+            .unwrap();
+        let (j0, j1) = (iy(-half - by), iy(half + by));
+        let (k0, k1) = (iz(zb - bz), iz(zt + bz));
+        let (ys, zs, xs) = (j0 + 1..j1 + 1, k0 + 1..k1 + 1, a_face + 1..d_face + 1);
+        let sum = |c: &[(usize, usize, f64)]| c.iter().map(|c| c.2).sum::<f64>();
+        // a face's power, split at the section's middle along x where it runs along x
+        let split = |c: &[(usize, usize, f64)], x_is_u: bool| {
+            let mut halves = (0.0, 0.0);
+            for &(u, v, p) in c {
+                let x = if x_is_u { u } else { v };
+                if x < mid {
+                    halves.0 += p;
+                } else {
+                    halves.1 += p;
+                }
+            }
+            halves
+        };
+        let into = flux_cells(&field, Axis::X, a_face, (ys.clone(), zs.clone()));
+        let out = flux_cells(&field, Axis::X, d_face, (ys.clone(), zs.clone()));
+        // Y's others are (Z, X): x is v; Z's are (X, Y): x is u
+        let y_lo = flux_cells(&field, Axis::Y, j0, (zs.clone(), xs.clone()));
+        let y_hi = flux_cells(&field, Axis::Y, j1, (zs.clone(), xs.clone()));
+        let z_lo = flux_cells(&field, Axis::Z, k0, (xs.clone(), ys.clone()));
+        let z_hi = flux_cells(&field, Axis::Z, k1, (xs.clone(), ys.clone()));
+        let (yl, yh, zl, zh) = (split(&y_lo, false), split(&y_hi, false), split(&z_lo, true), split(&z_hi, true));
+        let beside = (yh.0 - yl.0, yh.1 - yl.1);
+        let vertical = (zh.0 - zl.0, zh.1 - zl.1);
+        let (fin, fout) = (sum(&into), sum(&out));
+        let leaves = fout + beside.0 + beside.1 + vertical.0 + vertical.1;
+        log(&format!(
+            "box {by}:{bz} um (y {:.3} to {:.3}, z {:.3} to {:.3}): in {fin:.6} (so back {:.6}); out the outputs' plane {fout:.6}; \
+             above and below {:.6} (input half {:.6}, output half {:.6}); beside {:.6} ({:.6}, {:.6}); closure {:.2e}",
+            g.node(Axis::Y, j0),
+            g.node(Axis::Y, j1),
+            g.node(Axis::Z, k0),
+            g.node(Axis::Z, k1),
+            incident - fin,
+            vertical.0 + vertical.1,
+            vertical.0,
+            vertical.1,
+            beside.0 + beside.1,
+            beside.0,
+            beside.1,
+            fin - leaves
+        ));
+        if let Some(dir) = &maps {
+            for (name, cells, axes) in [
+                ("outputs-plane", &out, ("y", "z", Axis::Y, Axis::Z)),
+                ("above", &z_hi, ("x", "y", Axis::X, Axis::Y)),
+                ("beside", &y_hi, ("z", "x", Axis::Z, Axis::X)),
+            ] {
+                let path = format!("{dir}/mmi-{h}-{by}-{bz}-{name}.csv");
+                let mut f = std::fs::File::create(&path).unwrap();
+                writeln!(f, "{},{},power", axes.0, axes.1).unwrap();
+                for &(u, w, p) in cells {
+                    writeln!(f, "{:.4},{:.4},{p:.6e}", g.node(axes.2, u), g.node(axes.3, w)).unwrap();
+                }
+            }
+        }
+    }
+    if var("BOTH", "0") == "1" {
+        // by reciprocity, the coupling of each of the section's modes into o2: what o2's launch
+        // puts into it going back, on the planes before the outputs
+        let back = launch(1);
+        let mut lines = Vec::new();
+        for (plane, ms) in &section {
+            if g.node(Axis::X, *plane) < 0.5 * (x_in + x_out) {
+                continue;
+            }
+            let mut predicted = num_complex::Complex64::new(0.0, 0.0);
+            let mut each = Vec::new();
+            for m in ms.iter().filter(|m| guided(m)) {
+                let (a, _) = field.mode_amplitudes(m);
+                let (_, t) = back.mode_amplitudes(m);
+                predicted += a * t;
+                each.push(format!("[{:.5} a {:.6} t {:.6}]", m.effective_index().re, a.norm_sqr(), t.norm_sqr()));
+            }
+            lines.push(format!(
+                "guided only at x {:.4}: P_o2 {:.6} against {p2:.6}; {}",
+                g.node(Axis::X, *plane),
+                predicted.norm_sqr() / incident,
+                each.join(" ")
+            ));
+        }
+        for l in lines {
+            log(&l);
+        }
+    }
+    // the guided-mode model's couplings on the plane, for the record
+    let (model, values) = StripMmi::one_by_two().guided(&v).unwrap();
+    let analysis = model.analysis(lam, values[1]).unwrap();
+    let c = analysis.couplings(0);
+    let n: Vec<f64> = analysis
+        .propagation_constants()
+        .iter()
+        .map(|b| b / lam.wavenumber())
+        .collect();
+    log(&format!(
+        "plane's guided modes {n:.5?}; input couplings squared {:.6?}, sum {:.6}",
+        c.iter().map(|c| c * c).collect::<Vec<_>>(),
+        c.iter().map(|c| c * c).sum::<f64>()
+    ));
+}
+
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell
 /// averaged from the fill: the leads abut the strip, and the seams no longer reflect (issue
 /// #376: |S₁₁|² 6e-5 and |S₂₁ − S₁₂| 3e-4 on these 100 nm cells), as with samples.
