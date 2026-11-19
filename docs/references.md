@@ -24,7 +24,7 @@ S. Aaronson, A. Arkhipov, "The Computational Complexity of Linear Optics", Theor
 
 J. Abate, P. P. Valkó, "Multi‐precision Laplace transform inversion", Numerical Meth Engineering 60, 979 (2004). [doi:10.1002/nme.995](https://doi.org/10.1002/nme.995)
 
-- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [1072](methods/devices.md?plain=1#L1072)
+- Methods pages: [devices.md:42](methods/devices.md?plain=1#L42), [1150](methods/devices.md?plain=1#L1150)
 - Validation cases: [`device/thermo-analytic-time-in-guide`](validation.md?plain=1#L658)
 - Code: [src/cases/device/thermo_checks.rs:590](../src/cases/device/thermo_checks.rs#L590), [src/device/thermo.rs:989](../src/device/thermo.rs#L989), [src/device/thermo_closed.rs:546](../src/device/thermo_closed.rs#L546)
 
@@ -1753,7 +1753,7 @@ E. Hairer, G. Wanner, "Solving Ordinary Differential Equations II", Springer Ber
 R. Halir, P. Cheben, J. M. Luque‐González, J. D. Sarmiento‐Merenguel, J. H. Schmid, G. Wangüemert‐Pérez, D. Xu, S. Wang, A. Ortega‐Moñux, Í. Molina‐Fernández, "Ultra‐broadband nanophotonic beamsplitter using an anisotropic sub‐wavelength metamaterial", Laser & Photonics Reviews 10, 1039 (2016). [doi:10.1002/lpor.201600213](https://doi.org/10.1002/lpor.201600213), open access.
 
 - Methods pages: [eme.md:1345](methods/eme.md?plain=1#L1345)
-- Academy lessons: [directional-coupler.md:100](../academy/directional-coupler.md?plain=1#L100), [515](../academy/directional-coupler.md?plain=1#L515), [mmi.md:35](../academy/mmi.md?plain=1#L35), [141](../academy/mmi.md?plain=1#L141), [224](../academy/mmi.md?plain=1#L224), [409](../academy/mmi.md?plain=1#L409), [505](../academy/mmi.md?plain=1#L505)
+- Academy lessons: [directional-coupler.md:100](../academy/directional-coupler.md?plain=1#L100), [515](../academy/directional-coupler.md?plain=1#L515), [mmi.md:35](../academy/mmi.md?plain=1#L35), [141](../academy/mmi.md?plain=1#L141), [224](../academy/mmi.md?plain=1#L224), [409](../academy/mmi.md?plain=1#L409), [509](../academy/mmi.md?plain=1#L509)
 - Examples: [README.md:67](../examples/README.md?plain=1#L67), [optimize_swg_converter.rs:18](../examples/optimize_swg_converter.rs#L18)
 
 #### Hall 1952
@@ -1977,7 +1977,7 @@ C. Y. Ho, R. W. Powell, P. E. Liley, "Thermal Conductivity of the Elements", Jou
 G. B. Hocker, W. K. Burns, "Mode dispersion in diffused channel waveguides by the effective index method", Appl. Opt. 16, 113 (1977). [doi:10.1364/AO.16.000113](https://doi.org/10.1364/AO.16.000113)
 
 - Methods pages: [devices.md:24](methods/devices.md?plain=1#L24), [eim.md:8](methods/eim.md?plain=1#L8)
-- Academy lessons: [crossings-and-converters.md:18](../academy/crossings-and-converters.md?plain=1#L18), [140](../academy/crossings-and-converters.md?plain=1#L140), [648](../academy/crossings-and-converters.md?plain=1#L648), [mmi.md:23](../academy/mmi.md?plain=1#L23), [207](../academy/mmi.md?plain=1#L207), [492](../academy/mmi.md?plain=1#L492), [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [690](../academy/strip-waveguide.md?plain=1#L690)
+- Academy lessons: [crossings-and-converters.md:18](../academy/crossings-and-converters.md?plain=1#L18), [140](../academy/crossings-and-converters.md?plain=1#L140), [648](../academy/crossings-and-converters.md?plain=1#L648), [mmi.md:23](../academy/mmi.md?plain=1#L23), [207](../academy/mmi.md?plain=1#L207), [496](../academy/mmi.md?plain=1#L496), [strip-waveguide.md:58](../academy/strip-waveguide.md?plain=1#L58), [300](../academy/strip-waveguide.md?plain=1#L300), [690](../academy/strip-waveguide.md?plain=1#L690)
 - Validation cases: [`mode/eim-strip-book`](validation.md?plain=1#L120), [`device/rib-eim`](validation.md?plain=1#L334), [`device/mmi-guided-3d`](validation.md?plain=1#L340), [`device/mmi-fdfd-3d`](validation.md?plain=1#L341), [`device/mmi-best-length-3d`](validation.md?plain=1#L342), [`device/y-branch-2d-3d`](validation.md?plain=1#L345), [`device/pcm-analytic-index`](validation.md?plain=1#L669)
 - Examples: [README.md:42](../examples/README.md?plain=1#L42)
 - Code: [src/cases/device/pcm_checks.rs:427](../src/cases/device/pcm_checks.rs#L427), [src/circuit/components/mmi.rs:46](../src/circuit/components/mmi.rs#L46), [src/device/mmi.rs:321](../src/device/mmi.rs#L321), [339](../src/device/mmi.rs#L339), [src/device/pcm.rs:980](../src/device/pcm.rs#L980), [src/device/rib.rs:227](../src/device/rib.rs#L227), [296](../src/device/rib.rs#L296), [src/device/splitter_checks.rs:90](../src/device/splitter_checks.rs#L90), [132](../src/device/splitter_checks.rs#L132), [139](../src/device/splitter_checks.rs#L139), [146](../src/device/splitter_checks.rs#L146), [167](../src/device/splitter_checks.rs#L167), [src/mode/eim.rs:6](../src/mode/eim.rs#L6), [src/validation.rs:871](../src/validation.rs#L871)
@@ -2331,7 +2331,7 @@ M. Kawachi, "Silica waveguides on silicon and their application to integrated-op
 
 B. Kearney, B. Jugdersuren, J. Culbertson, P. Desario, X. Liu, "Substrate and annealing temperature dependent electrical resistivity of sputtered titanium nitride thin films", Thin Solid Films 661, 78 (2018). [doi:10.1016/j.tsf.2018.07.001](https://doi.org/10.1016/j.tsf.2018.07.001)
 
-- Methods pages: [catalogue.md:106](methods/catalogue.md?plain=1#L106), [devices.md:969](methods/devices.md?plain=1#L969)
+- Methods pages: [catalogue.md:106](methods/catalogue.md?plain=1#L106), [devices.md:1047](methods/devices.md?plain=1#L1047)
 - Academy lessons: [how-a-chip-is-made.md:97](../academy/how-a-chip-is-made.md?plain=1#L97), [428](../academy/how-a-chip-is-made.md?plain=1#L428)
 - Validation cases: [`device/thermo-tin-films`](validation.md?plain=1#L666), [`device/thermo-tcr-drive`](validation.md?plain=1#L667), [`fabrication/thermal-order`](validation.md?plain=1#L806)
 - Code: [src/cases/device/thermo_checks.rs:646](../src/cases/device/thermo_checks.rs#L646), [653](../src/cases/device/thermo_checks.rs#L653), [src/fabrication/checks.rs:454](../src/fabrication/checks.rs#L454), [src/fabrication/references.rs:216](../src/fabrication/references.rs#L216), [src/material/catalogue/references.rs:431](../src/material/catalogue/references.rs#L431), [src/material/catalogue/resistivity.rs:9](../src/material/catalogue/resistivity.rs#L9), [273](../src/material/catalogue/resistivity.rs#L273)
@@ -2763,7 +2763,7 @@ V. Liu, S. Fan, "S4 : A free electromagnetic solver for layered periodic structu
 Z. Liu, J. K. S. Poon, "Comparison of Lumerical FDTD and Tidy3D for three-dimensional FDTD simulations of passive silicon photonic components", Opt. Continuum 4, 2427 (2025). [doi:10.1364/OPTCON.572107](https://doi.org/10.1364/OPTCON.572107)
 
 - Methods pages: [fdtd.md:52](methods/fdtd.md?plain=1#L52), [1075](methods/fdtd.md?plain=1#L1075)
-- Academy lessons: [crossings-and-converters.md:84](../academy/crossings-and-converters.md?plain=1#L84), [109](../academy/crossings-and-converters.md?plain=1#L109), [669](../academy/crossings-and-converters.md?plain=1#L669), [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [451](../academy/mmi.md?plain=1#L451), [507](../academy/mmi.md?plain=1#L507)
+- Academy lessons: [crossings-and-converters.md:84](../academy/crossings-and-converters.md?plain=1#L84), [109](../academy/crossings-and-converters.md?plain=1#L109), [669](../academy/crossings-and-converters.md?plain=1#L669), [directional-coupler.md:112](../academy/directional-coupler.md?plain=1#L112), [406](../academy/directional-coupler.md?plain=1#L406), [523](../academy/directional-coupler.md?plain=1#L523), [mmi.md:41](../academy/mmi.md?plain=1#L41), [455](../academy/mmi.md?plain=1#L455), [511](../academy/mmi.md?plain=1#L511)
 - Examples: [README.md:85](../examples/README.md?plain=1#L85), [coupler_liu_poon.rs:5](../examples/coupler_liu_poon.rs#L5), [crossing_liu_poon.rs:5](../examples/crossing_liu_poon.rs#L5), [mmi_liu_poon.rs:5](../examples/mmi_liu_poon.rs#L5), [mode_converter_liu_poon.rs:5](../examples/mode_converter_liu_poon.rs#L5), [pdk/mod.rs:7](../examples/pdk/mod.rs#L7), [ring_liu_poon.rs:5](../examples/ring_liu_poon.rs#L5), [splitter_rotator_liu_poon.rs:5](../examples/splitter_rotator_liu_poon.rs#L5)
 
 #### Liu et al. 2004
@@ -3030,7 +3030,7 @@ G. Masetti, M. Severi, S. Solmi, "Modeling of carrier mobility against carrier c
 
 M. D. McKay, R. J. Beckman, W. J. Conover, "Comparison of Three Methods for Selecting Values of Input Variables in the Analysis of Output from a Computer Code", Technometrics 21, 239 (1979). [doi:10.1080/00401706.1979.10489755](https://doi.org/10.1080/00401706.1979.10489755)
 
-- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1681](methods/devices.md?plain=1#L1681)
+- Methods pages: [compact.md:332](methods/compact.md?plain=1#L332), [devices.md:1759](methods/devices.md?plain=1#L1759)
 - Code: [src/device/compact.rs:54](../src/device/compact.rs#L54)
 
 #### McKinnon et al. 2009
@@ -4102,7 +4102,7 @@ E. Snitzer, "Cylindrical Dielectric Waveguide Modes\*", J. Opt. Soc. Am. 51, 491
 L. Soldano, E. Pennings, "Optical multi-mode interference devices based on self-imaging: principles and applications", J. Lightwave Technol. 13, 615 (1995). [doi:10.1109/50.372474](https://doi.org/10.1109/50.372474)
 
 - Methods pages: [components.md:10](methods/components.md?plain=1#L10), [devices.md:30](methods/devices.md?plain=1#L30), [eme.md:1343](methods/eme.md?plain=1#L1343), [generators.md:12](methods/generators.md?plain=1#L12)
-- Academy lessons: [crossings-and-converters.md:24](../academy/crossings-and-converters.md?plain=1#L24), [233](../academy/crossings-and-converters.md?plain=1#L233), [649](../academy/crossings-and-converters.md?plain=1#L649), [mmi.md:29](../academy/mmi.md?plain=1#L29), [58](../academy/mmi.md?plain=1#L58), [497](../academy/mmi.md?plain=1#L497)
+- Academy lessons: [crossings-and-converters.md:24](../academy/crossings-and-converters.md?plain=1#L24), [233](../academy/crossings-and-converters.md?plain=1#L233), [649](../academy/crossings-and-converters.md?plain=1#L649), [mmi.md:29](../academy/mmi.md?plain=1#L29), [58](../academy/mmi.md?plain=1#L58), [501](../academy/mmi.md?plain=1#L501)
 - Validation cases: [`components/mmi-beat-length-soldano`](validation.md?plain=1#L302), [`components/mmi-fdfd`](validation.md?plain=1#L303), [`device/mmi-self-imaging`](validation.md?plain=1#L330), [`device/mmi-guided-2d`](validation.md?plain=1#L339), [`device/mmi-guided-3d`](validation.md?plain=1#L340), [`device/mmi-best-power-3d`](validation.md?plain=1#L343)
 - Examples: [README.md:92](../examples/README.md?plain=1#L92), [mmi_soldano.rs:5](../examples/mmi_soldano.rs#L5)
 - Code: [src/circuit/components/mmi.rs:5](../src/circuit/components/mmi.rs#L5), [190](../src/circuit/components/mmi.rs#L190), [353](../src/circuit/components/mmi.rs#L353), [367](../src/circuit/components/mmi.rs#L367), [src/device/mmi.rs:310](../src/device/mmi.rs#L310), [src/device/splitter_checks.rs:62](../src/device/splitter_checks.rs#L62), [125](../src/device/splitter_checks.rs#L125), [132](../src/device/splitter_checks.rs#L132), [153](../src/device/splitter_checks.rs#L153), [src/validation.rs:2145](../src/validation.rs#L2145), [2152](../src/validation.rs#L2152), [studio/src-tauri/src/charts/mmi.rs:3](../studio/src-tauri/src/charts/mmi.rs#L3)
@@ -4390,7 +4390,7 @@ P. Triverio, S. Grivet-Talocia, M. Nakhla, "A Parameterized Macromodeling Strate
 
 W. Tsai, M. Delfino, J. A. Fair, D. Hodul, "Temperature dependence of the electrical resistivity of reactively sputtered TiN films", Journal of Applied Physics 73, 4462 (1993). [doi:10.1063/1.352785](https://doi.org/10.1063/1.352785)
 
-- Methods pages: [catalogue.md:104](methods/catalogue.md?plain=1#L104), [devices.md:936](methods/devices.md?plain=1#L936), [968](methods/devices.md?plain=1#L968)
+- Methods pages: [catalogue.md:104](methods/catalogue.md?plain=1#L104), [devices.md:1014](methods/devices.md?plain=1#L1014), [1046](methods/devices.md?plain=1#L1046)
 - Validation cases: [`material/tin-tsai-eq-3`](validation.md?plain=1#L40), [`device/thermo-tin-resistance`](validation.md?plain=1#L664), [`device/thermo-tin-films`](validation.md?plain=1#L666)
 - Code: [src/cases/device/thermo_checks.rs:632](../src/cases/device/thermo_checks.rs#L632), [646](../src/cases/device/thermo_checks.rs#L646), [src/material/catalogue/references.rs:424](../src/material/catalogue/references.rs#L424), [src/material/catalogue/resistivity.rs:7](../src/material/catalogue/resistivity.rs#L7), [254](../src/material/catalogue/resistivity.rs#L254), [286](../src/material/catalogue/resistivity.rs#L286), [src/validation.rs:311](../src/validation.rs#L311)
 
