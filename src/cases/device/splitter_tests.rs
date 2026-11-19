@@ -1065,6 +1065,101 @@ fn survey_mmi_budget() {
             ));
         }
     }
+    // o2's amplitude from every mode of a plane before the outputs, by reciprocity: across any
+    // cut between the two launches' sources, Lorentz's form of the two fields is o2's
+    // amplitude, and on the plane's modes it is Σ (a⁺ w⁻ − a⁻ w⁺), a from o1's launch and w from
+    // o2's. The guided modes' terms, then the rest's as more modes are taken; each non-guided
+    // mode put above and below the core or beside it, by where most of its field is.
+    let counts: Vec<usize> = var("RAD_MODES", "12,50,150,300")
+        .split(',')
+        .map(|n| n.parse().unwrap())
+        .collect();
+    let most = *counts.iter().max().unwrap();
+    let (b2, _) = fields[0].mode_amplitudes(&ports[1].0.mode);
+    let direct = b2 / a0;
+    let (k_lo, k_hi) = (iz(zb), iz(zt));
+    let (j_lo, j_hi) = (iy(-half), iy(half));
+    for (plane, _) in &section {
+        if g.node(Axis::X, *plane) < 0.5 * (x_in + x_out) {
+            continue;
+        }
+        let t = Instant::now();
+        let ms = solver.port_modes(Axis::X, *plane, most).unwrap();
+        let mut guided_sum = c64::new(0.0, 0.0);
+        let mut back = c64::new(0.0, 0.0);
+        let (mut vertical, mut beside) = (c64::new(0.0, 0.0), c64::new(0.0, 0.0));
+        let (mut n_vertical, mut n_beside) = (0, 0);
+        let mut partial = Vec::new();
+        for (i, m) in ms.iter().enumerate() {
+            let (ap, am) = fields[0].mode_amplitudes(m);
+            let (wp, wm) = fields[1].mode_amplitudes(m);
+            let (ap, am, wp, wm) = (ap / a0, am / a0, wp / a1, wm / a1);
+            if guided(m) {
+                guided_sum += ap * wm;
+                back -= am * wp;
+            } else {
+                let term = ap * wm - am * wp;
+                // where the mode's tangential E is: above and below the section, or beside it
+                // in the core layer (the corners left out)
+                let (mut up, mut side) = (0.0, 0.0);
+                for k in 0..g.nz {
+                    for j in 0..g.ny {
+                        let e = m.e(Axis::Y, (j, k)).norm_sqr() + m.e(Axis::Z, (j, k)).norm_sqr();
+                        let over = j >= j_lo && j < j_hi;
+                        let level = k >= k_lo && k < k_hi;
+                        if over && !level {
+                            up += e;
+                        } else if level && !over {
+                            side += e;
+                        }
+                    }
+                }
+                if up >= side {
+                    vertical += term;
+                    n_vertical += 1;
+                } else {
+                    beside += term;
+                    n_beside += 1;
+                }
+            }
+            if counts.contains(&(i + 1)) {
+                partial.push((i + 1, guided_sum + back + vertical + beside, vertical, beside));
+            }
+        }
+        let g2 = guided_sum.norm_sqr();
+        log(&format!(
+            "every mode at x {:.4} ({} modes, {:.1} s): o2 directly {:.6}{:+.6}i, |.|^2 {:.6}; guided forward {:.6}{:+.6}i, |.|^2 {g2:.6}; guided back {:.2e}{:+.2e}i",
+            g.node(Axis::X, *plane),
+            ms.len(),
+            t.elapsed().as_secs_f64(),
+            direct.re,
+            direct.im,
+            direct.norm_sqr(),
+            guided_sum.re,
+            guided_sum.im,
+            back.re,
+            back.im
+        ));
+        for (n, total, up, side) in partial {
+            // each part's share of the power, to first order: 2 Re(conj(guided) part)
+            let share = |r: c64| 2.0 * (guided_sum.conj() * r).re;
+            log(&format!(
+                "  {n} modes: sum {:.6}{:+.6}i, |.|^2 {:.6} (direct {:.6}); above and below {:.2e}{:+.2e}i, share {:+.6}; beside {:.2e}{:+.2e}i, share {:+.6}; back's share {:+.6}",
+                total.re,
+                total.im,
+                total.norm_sqr(),
+                direct.norm_sqr(),
+                up.re,
+                up.im,
+                share(up),
+                side.re,
+                side.im,
+                share(side),
+                share(back)
+            ));
+        }
+        log(&format!("  non-guided modes: {n_vertical} above and below, {n_beside} beside"));
+    }
 }
 
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell
