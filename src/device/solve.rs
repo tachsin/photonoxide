@@ -488,6 +488,69 @@ pub(super) fn iterative_3d(
     Ok((solver, ports, stopping))
 }
 
+/// [`sampled_by`]'s 2D route at one wavelength, set up and not solved, the cells averaged from
+/// the fill of the effective index method's plane (vertical walls only): the solver and each
+/// port (its fundamental mode, and its window's rows) in the geometry's order. For a survey that
+/// looks into the field.
+///
+/// # Errors
+///
+/// As [`sampled`], and [`Error::InvalidValue`] for sloped walls or sampled cells.
+#[cfg(test)]
+pub(super) fn direct_2d(
+    geometry: &Geometry,
+    core: &str,
+    wavelength: Wavelength,
+    grid: &FdfdGrid,
+) -> Result<(Solver2d, Vec<(Port, std::ops::Range<usize>)>)> {
+    let (nx, ny, _) = size(geometry, core, grid, false)?;
+    let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
+    let h = grid.step;
+    let x0 = 0.5 * (x0 + x1) - 0.5 * nx as f64 * h;
+    let y0 = 0.5 * (y0 + y1) - 0.5 * ny as f64 * h;
+    let lead = (TO_PLANE + TO_PML + grid.pml + 2) as f64 * h + (x1 - x0);
+    let structure = led(geometry, core, lead)?;
+    if grid.averaging == Averaging::Samples || structure.etches(core).iter().any(|e| e.run() != 0.0)
+    {
+        return Err(Error::invalid(
+            "device",
+            "the 2D survey takes cells averaged from the fill and vertical walls",
+        ));
+    }
+    let placed = place(geometry, x0, y0, h, ny)?;
+    let g = Grid {
+        nx,
+        ny,
+        dx: h,
+        dy: h,
+        x0,
+        y0,
+    };
+    let plane = super::slab_plane::fill_plane(&structure, core, Polarization::Te, wavelength)?;
+    let solver = Solver2d::from_plane(
+        g,
+        Field::Hz,
+        wavelength,
+        &plane,
+        Boundaries::pml(grid.pml),
+        grid.averaging,
+    )?;
+    let ports = placed
+        .iter()
+        .map(|p| -> Result<(Port, std::ops::Range<usize>)> {
+            let mut modes = solver.port_modes_within(p.plane, p.rows.clone(), 1)?;
+            Ok((
+                Port {
+                    mode: modes.remove(0),
+                    side: p.side,
+                },
+                p.rows.clone(),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((solver, ports))
+}
+
 /// Refuses a 3D solve of `unknowns` the iterative solver can't hold here.
 ///
 /// # Errors

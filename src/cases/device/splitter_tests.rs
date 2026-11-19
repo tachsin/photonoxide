@@ -994,24 +994,7 @@ fn survey_mmi_budget() {
     // carried by the guided modes; the length moved by ΔL turns each term by e^(iβΔL).
     let (a0, _) = fields[0].mode_amplitudes(&ports[0].0.mode);
     let (_, a1) = fields[1].mode_amplitudes(&ports[1].0.mode);
-    let best = |p: &dyn Fn(f64) -> f64| -> (f64, f64) {
-        let xs: Vec<f64> = (0..=1200).map(|i| -0.6 + 1e-3 * f64::from(i)).collect();
-        let i = (0..xs.len())
-            .max_by(|&a, &b| p(xs[a]).total_cmp(&p(xs[b])))
-            .unwrap();
-        let (mut a, mut b) = (xs[i.saturating_sub(1)], xs[(i + 1).min(1200)]);
-        let r = 0.5 * (5f64.sqrt() - 1.0);
-        while b - a > 1e-9 {
-            let (x, y) = (b - r * (b - a), a + r * (b - a));
-            if p(x) > p(y) {
-                b = y;
-            } else {
-                a = x;
-            }
-        }
-        let x = 0.5 * (a + b);
-        (x, p(x))
-    };
+    let best = best_length;
     let db = |p: f64| -10.0 * portable::log10(2.0 * p);
     // the section's even modes' β, converged: Hadley's equations on 10 nm cells, as
     // `survey_mmi_modes` solves them
@@ -1237,6 +1220,151 @@ fn survey_mmi_budget() {
             "  non-guided modes: {n_vertical} above and below, {n_beside} beside"
         ));
     }
+}
+
+/// The same MMI in 2D, for [`survey_mmi_budget`]'s 3D to stand against: 2D FDFD on the effective
+/// index method's plane (cells averaged from the fill, `GRID` µm, comma-separated), o1 and o2
+/// launched, and on a plane before the outputs (`DIST` µm from them) the section's guided modes:
+/// o1's power in them going forward and back, and o2's amplitude from them alone, Σ a t, against
+/// o1's launch's own. By hand:
+///
+/// ```sh
+/// GRID=0.01,0.005 LENGTH=3.337 cargo test --release --lib ///     device::splitter_tests::survey_mmi_budget_2d -- --ignored --nocapture
+/// ```
+#[test]
+#[ignore = "a survey, not a check"]
+fn survey_mmi_budget_2d() {
+    use crate::fdfd::{Direction, Field2d};
+    use num_complex::Complex64 as c64;
+    let var = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_owned());
+    let (device, v) = super::splitter_checks::splitter_3d("mmi");
+    let length: f64 = var("LENGTH", "3.337").parse().unwrap();
+    let v = v.with(device.as_ref(), "length", length).unwrap();
+    let lam = um(1.55);
+    let geometry = device.geometry(&v).unwrap();
+    let dist: f64 = var("DIST", "0.4").parse().unwrap();
+    let x_out = geometry.ports[1].position.x.to_um();
+    for step in var("GRID", "0.01,0.005").split(',') {
+        let h: f64 = step.parse().unwrap();
+        let t = Instant::now();
+        let grid = FdfdGrid::new(h)
+            .with_samples(1)
+            .with_averaging(crate::averaging::Averaging::Diagonal);
+        let (solver, ports) = super::solve::direct_2d(&geometry, "Si", lam, &grid).unwrap();
+        let g = solver.grid();
+        let dy = g.dy;
+        let launch = |p: usize| -> Field2d {
+            let direction = if p == 0 {
+                Direction::Forward
+            } else {
+                Direction::Backward
+            };
+            solver
+                .solve_system(&solver.mode_source(&ports[p].0.mode, direction))
+                .unwrap()
+        };
+        let (from_o1, from_o2) = (launch(0), launch(1));
+        // amplitudes scaled to the modes' power
+        let scaled = |f: &Field2d, m: &crate::fdfd::PortMode| {
+            let (a, b) = f.mode_amplitudes(m);
+            let n = m.power(dy).sqrt();
+            (a * n, b * n)
+        };
+        let (a0, r0) = scaled(&from_o1, &ports[0].0.mode);
+        let (b2, _) = scaled(&from_o1, &ports[1].0.mode);
+        let (_, a1) = scaled(&from_o2, &ports[1].0.mode);
+        let direct = (b2 / a0).norm_sqr();
+        let column = ((x_out - dist - g.x0) / g.dx).round() as usize;
+        let ms = solver.port_modes(column, 12).unwrap();
+        let cladding = 1.444;
+        let mut sum = c64::new(0.0, 0.0);
+        let (mut fwd, mut bwd) = (0.0, 0.0);
+        let mut each = Vec::new();
+        let mut even = Vec::new();
+        for m in ms.iter().filter(|m| {
+            let n = m.effective_index();
+            n.re > cladding && n.im.abs() < 1e-6 * n.re
+        }) {
+            let (ap, am) = scaled(&from_o1, m);
+            let (_, wm) = scaled(&from_o2, m);
+            let (ap, am, wm) = (ap / a0, am / a0, wm / a1);
+            fwd += ap.norm_sqr();
+            bwd += am.norm_sqr();
+            sum += ap * wm;
+            if ap.norm_sqr() > 1e-8 {
+                even.push((m.beta().re, ap * wm));
+                each.push(format!(
+                    "[n {:.5} |a|^2 {:.6} back {:.2e} |t|^2 {:.6}]",
+                    m.effective_index().re,
+                    ap.norm_sqr(),
+                    am.norm_sqr(),
+                    wm.norm_sqr()
+                ));
+            }
+        }
+        println!(
+            "2D FDFD {h} um, L {length}: P_o2 {direct:.6} ({:.4} dB), R {:.2e}; at x {:.4} the guided modes forward {fwd:.6}, back {bwd:.2e}; o2 from them alone {:.6}, the rest {:+.6}; {} ({:.1} s)",
+            -10.0 * portable::log10(2.0 * direct),
+            (r0 / a0).norm_sqr(),
+            g.x(column),
+            sum.norm_sqr(),
+            direct - sum.norm_sqr(),
+            each.join(" "),
+            t.elapsed().as_secs_f64()
+        );
+        // the guided modes alone against the length, their couplings these junctions' or the
+        // plane's overlaps (Soldano and Pennings's), each mode's β this grid's
+        let (model, values) = StripMmi::one_by_two().guided(&v).unwrap();
+        let analysis = model.analysis(lam, values[1]).unwrap();
+        let (c_in, c_out) = (analysis.couplings(0), analysis.couplings(1));
+        let turn = |b: f64, d: f64| portable::complex::exp(c64::new(0.0, b * d));
+        let own = |d: f64| -> f64 {
+            even.iter()
+                .map(|(b, k)| k * turn(*b, d))
+                .sum::<c64>()
+                .norm_sqr()
+        };
+        let overlaps = |d: f64| -> f64 {
+            even.iter()
+                .enumerate()
+                .map(|(k, (b, _))| c_in[2 * k] * c_out[2 * k] * turn(*b, length + d))
+                .sum::<c64>()
+                .norm_sqr()
+        };
+        for (label, p) in [
+            ("these junctions' couplings", &own as &dyn Fn(f64) -> f64),
+            ("the plane's overlaps", &overlaps),
+        ] {
+            let (d, pb) = best_length(p);
+            println!(
+                "  guided only, {label}: P {:.6} at {length} um; best {pb:.6} at {:.4} um ({:.4} dB)",
+                p(0.0),
+                length + d,
+                -10.0 * portable::log10(2.0 * pb)
+            );
+        }
+    }
+}
+
+/// The ΔL within ±0.6 µm where `p` is largest, by a scan at 1 nm and then golden section, and
+/// `p` there.
+fn best_length(p: &dyn Fn(f64) -> f64) -> (f64, f64) {
+    let xs: Vec<f64> = (0..=1200).map(|i| -0.6 + 1e-3 * f64::from(i)).collect();
+    let i = (0..xs.len())
+        .max_by(|&a, &b| p(xs[a]).total_cmp(&p(xs[b])))
+        .unwrap();
+    let (mut a, mut b) = (xs[i.saturating_sub(1)], xs[(i + 1).min(1200)]);
+    let r = 0.5 * (5f64.sqrt() - 1.0);
+    while b - a > 1e-9 {
+        let (x, y) = (b - r * (b - a), a + r * (b - a));
+        if p(x) > p(y) {
+            b = y;
+        } else {
+            a = x;
+        }
+    }
+    let x = 0.5 * (a + b);
+    (x, p(x))
 }
 
 /// A strip with its guides led out of its ends, through the devices' FDFD with each cell
