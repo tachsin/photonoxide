@@ -1205,6 +1205,24 @@ fn search(
                     minutes(elapsed * (generations as f64 - g as f64) / g.max(1) as f64)
                 ),
             );
+            // every 25 generations, the front so far at 100 nm on the search's wavelengths
+            if g % 25 == 0 {
+                let front: Vec<(f64, f64)> = non_dominated(&evaluated.lock().expect("a lock"))
+                    .iter()
+                    .map(|p| (100.0 * p.band.peak, p.band.width_nm()))
+                    .collect();
+                if let Some(k) = bracket(&front) {
+                    let ((c0, w0), (c1, w1)) = (front[k], front[k + 1]);
+                    note(
+                        log,
+                        &format!(
+                            "MFD {} um, NSGA-II: after generation {g}, the front at {TARGET} nm on {SEARCH_WAVELENGTHS} wavelengths: {:.2} %",
+                            model.setup.mfd,
+                            c0 + (c1 - c0) * (TARGET - w0) / (w1 - w0)
+                        ),
+                    );
+                }
+            }
         })
         .run()
         .expect("a run");
