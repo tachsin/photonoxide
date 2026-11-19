@@ -145,6 +145,12 @@
   venue: "ACM Trans. Math. Softw. 49, 1"
   year: 2023
 
+- doi: 10.1109/SOI.1999.819875
+  authors: "M. J. Anc, R. P. Dolan, J. Jiao, T. Nakai"
+  title: "Thin-layer SIMOX for future applications"
+  venue: "1999 IEEE International SOI Conference. Proceedings, 106"
+  year: 1999
+
 - doi: 10.1364/OE.16.010750
   authors: "V. Anant, A. J. Kerman, E. A. Dauler, J. K. W. Yang, K. M. Rosfjord, K. K. Berggren"
   title: "Optical properties of superconducting nanowire single-photon detectors"
@@ -821,6 +827,12 @@
   title: "Ion Implantation"
   venue: "North-Holland, ISBN 9780444104885"
   year: 1973
+
+- doi: 10.1038/256701a0
+  authors: "G. Dearnaley"
+  title: "Ion implantation"
+  venue: "Nature 256, 701"
+  year: 1975
 
 - doi: 10.1109/4235.996017
   authors: "K. Deb, A. Pratap, S. Agarwal, T. Meyarivan"
@@ -2783,6 +2795,12 @@
   title: "Simphony: An Open-Source Photonic Integrated Circuit Simulation Framework"
   venue: "Comput. Sci. Eng. 23, 65"
   year: 2021
+
+- key: plummer-2000
+  authors: "J. D. Plummer, M. D. Deal, P. B. Griffin"
+  title: "Silicon VLSI Technology: Fundamentals, Practice, and Modeling"
+  venue: "Prentice Hall, ISBN 9780130850379"
+  year: 2000
 
 - doi: 10.1002/lpor.201100035
   authors: "G. Poberaj, H. Hu, W. Sohler, P. Günter"
