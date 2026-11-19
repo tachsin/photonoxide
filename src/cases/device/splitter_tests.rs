@@ -814,7 +814,12 @@ fn survey_mmi_budget() {
     // every port's modes
     for (p, (port, rows)) in ports.iter().enumerate() {
         let ms = solver
-            .port_modes_within(Axis::X, port.mode.plane(), (rows.clone(), 0..g.nz), port_modes)
+            .port_modes_within(
+                Axis::X,
+                port.mode.plane(),
+                (rows.clone(), 0..g.nz),
+                port_modes,
+            )
             .unwrap();
         let (text, fwd, bwd) = describe(&field, &ms);
         log(&format!(
@@ -827,10 +832,16 @@ fn survey_mmi_budget() {
         .split(',')
         .map(|d| d.parse().unwrap())
         .collect();
-    let core_window = (iy(-half - 0.4) + 1..iy(half + 0.4) + 1, iz(zb - 0.4) + 1..iz(zt + 0.4) + 1);
+    let core_window = (
+        iy(-half - 0.4) + 1..iy(half + 0.4) + 1,
+        iz(zb - 0.4) + 1..iz(zt + 0.4) + 1,
+    );
     let mut section: Vec<(usize, Vec<PortMode3d>)> = Vec::new();
     for &d in &dists {
-        for (label, plane) in [("after the input", ix(x_in + d)), ("before the outputs", ix(x_out - d) - 1)] {
+        for (label, plane) in [
+            ("after the input", ix(x_in + d)),
+            ("before the outputs", ix(x_out - d) - 1),
+        ] {
             let t = Instant::now();
             let ms = solver.port_modes(Axis::X, plane, modes).unwrap();
             let (text, fwd, bwd) = describe(&field, &ms);
@@ -881,7 +892,12 @@ fn survey_mmi_budget() {
         let y_hi = flux_cells(&field, Axis::Y, j1, (zs.clone(), xs.clone()));
         let z_lo = flux_cells(&field, Axis::Z, k0, (xs.clone(), ys.clone()));
         let z_hi = flux_cells(&field, Axis::Z, k1, (xs.clone(), ys.clone()));
-        let (yl, yh, zl, zh) = (split(&y_lo, false), split(&y_hi, false), split(&z_lo, true), split(&z_hi, true));
+        let (yl, yh, zl, zh) = (
+            split(&y_lo, false),
+            split(&y_hi, false),
+            split(&z_lo, true),
+            split(&z_hi, true),
+        );
         let beside = (yh.0 - yl.0, yh.1 - yl.1);
         let vertical = (zh.0 - zl.0, zh.1 - zl.1);
         let (fin, fout) = (sum(&into), sum(&out));
@@ -912,7 +928,13 @@ fn survey_mmi_budget() {
                 let mut f = std::fs::File::create(&path).unwrap();
                 writeln!(f, "{},{},power", axes.0, axes.1).unwrap();
                 for &(u, w, p) in cells {
-                    writeln!(f, "{:.4},{:.4},{p:.6e}", g.node(axes.2, u), g.node(axes.3, w)).unwrap();
+                    writeln!(
+                        f,
+                        "{:.4},{:.4},{p:.6e}",
+                        g.node(axes.2, u),
+                        g.node(axes.3, w)
+                    )
+                    .unwrap();
                 }
             }
         }
@@ -991,6 +1013,31 @@ fn survey_mmi_budget() {
         (x, p(x))
     };
     let db = |p: f64| -10.0 * portable::log10(2.0 * p);
+    // the section's even modes' β, converged: Hadley's equations on 10 nm cells, as
+    // `survey_mmi_modes` solves them
+    let converged: Vec<f64> = {
+        use super::guide::{Profile, Strip};
+        use super::section::{Mesh, Scheme};
+        let strip = Strip {
+            mesh: Mesh::fitted(0.01, 1.0, Scheme::Hadley),
+            ..Strip::soi()
+        };
+        let cs = strip
+            .cross_section_of(2.0 * half, zt - zb, Profile::STRIP, lam)
+            .unwrap();
+        crate::mode::hadley::modes(&cs, lam, 3, None)
+            .unwrap()
+            .iter()
+            .map(|m| m.effective_index().re * lam.wavenumber())
+            .collect()
+    };
+    log(&format!(
+        "converged even modes (Hadley, 10 nm): {:.6?}",
+        converged
+            .iter()
+            .map(|b| b / lam.wavenumber())
+            .collect::<Vec<_>>()
+    ));
     for (plane, ms) in &section {
         if g.node(Axis::X, *plane) < 0.5 * (x_in + x_out) {
             continue;
@@ -1023,46 +1070,59 @@ fn survey_mmi_budget() {
             even.iter().map(|e| e.1.norm_sqr()).sum::<f64>(),
             2.0 * even.iter().map(|e| e.2.norm_sqr()).sum::<f64>()
         ));
-        // the models, each with the length moved by ΔL from LENGTH: the 3D couplings whole;
-        // their sizes only, with the plane's signs and no phase but the length's; and the
-        // plane's couplings, the first three even modes at the 3D β (the fourth isn't guided)
+        // the models, each with the length moved by ΔL from LENGTH, each mode's β the grid's
+        // own (the FDFD modes') or the converged one (Hadley's equations on 10 nm cells): the
+        // plane's couplings, the first three even modes (the fourth isn't guided in 3D); the 3D
+        // couplings' sizes, with the plane's signs and no phase but the length's; the 3D
+        // couplings whole, their junctions' phases too
         let turn = |b: f64, d: f64| portable::complex::exp(c64::new(0.0, b * d));
-        let three = |d: f64| -> f64 {
-            even.iter()
-                .map(|(b, a, t)| a * t * turn(*b, d))
-                .sum::<c64>()
-                .norm_sqr()
-        };
-        let sizes = |d: f64| -> f64 {
-            even.iter()
-                .enumerate()
-                .map(|(k, (b, a, t))| {
-                    let sign = (c_in[2 * k] * c_out[2 * k]).signum();
-                    sign * (a * t).norm() * turn(*b, length + d)
-                })
-                .sum::<c64>()
-                .norm_sqr()
-        };
-        let plane = |d: f64| -> f64 {
-            even.iter()
-                .enumerate()
-                .map(|(k, (b, ..))| c_in[2 * k] * c_out[2 * k] * turn(*b, length + d))
-                .sum::<c64>()
-                .norm_sqr()
-        };
-        for (label, p) in [
-            ("3D couplings", &three as &dyn Fn(f64) -> f64),
-            ("3D couplings' sizes, the plane's signs", &sizes),
-            ("the plane's couplings, 3D beta", &plane),
+        for (which, betas) in [
+            (
+                "grid's beta",
+                even.iter().map(|e| e.0).collect::<Vec<f64>>(),
+            ),
+            ("converged beta", converged.clone()),
         ] {
-            let (d, pb) = best(p);
-            log(&format!(
-                "  guided only, {label}: P {:.6} at {length} um ({:.4} dB); best {pb:.6} at {:.4} um ({:.4} dB)",
-                p(0.0),
-                db(p(0.0)),
-                length + d,
-                db(pb)
-            ));
+            let plane = |d: f64| -> f64 {
+                betas
+                    .iter()
+                    .enumerate()
+                    .map(|(k, b)| c_in[2 * k] * c_out[2 * k] * turn(*b, length + d))
+                    .sum::<c64>()
+                    .norm_sqr()
+            };
+            let sizes = |d: f64| -> f64 {
+                even.iter()
+                    .zip(&betas)
+                    .enumerate()
+                    .map(|(k, ((_, a, t), b))| {
+                        let sign = (c_in[2 * k] * c_out[2 * k]).signum();
+                        sign * (a * t).norm() * turn(*b, length + d)
+                    })
+                    .sum::<c64>()
+                    .norm_sqr()
+            };
+            let three = |d: f64| -> f64 {
+                even.iter()
+                    .zip(&betas)
+                    .map(|((own, a, t), b)| a * t * turn(b - own, length) * turn(*b, d))
+                    .sum::<c64>()
+                    .norm_sqr()
+            };
+            for (label, p) in [
+                ("the plane's couplings", &plane as &dyn Fn(f64) -> f64),
+                ("3D couplings' sizes, the plane's signs", &sizes),
+                ("3D couplings", &three),
+            ] {
+                let (d, pb) = best(p);
+                log(&format!(
+                    "  guided only, {which}, {label}: P {:.6} at {length} um ({:.4} dB); best {pb:.6} at {:.4} um ({:.4} dB)",
+                    p(0.0),
+                    db(p(0.0)),
+                    length + d,
+                    db(pb)
+                ));
+            }
         }
     }
     // o2's amplitude from every mode of a plane before the outputs, by reciprocity: across any
@@ -1123,10 +1183,25 @@ fn survey_mmi_budget() {
                 }
             }
             if counts.contains(&(i + 1)) {
-                partial.push((i + 1, guided_sum + back + vertical + beside, vertical, beside));
+                partial.push((
+                    i + 1,
+                    guided_sum + back + vertical + beside,
+                    vertical,
+                    beside,
+                ));
             }
         }
         let g2 = guided_sum.norm_sqr();
+        // S's power into o2, split exactly: the guided modes going forward; their reflections
+        // (the guided modes going back); the rest of the field (the junctions' radiation); and
+        // what the PMLs send back (the S-matrix against o1's launch alone)
+        let with_back = (guided_sum + back).norm_sqr();
+        log(&format!(
+            "split of P_o2 {s21:.6}: guided forward {g2:.6}, reflections {:+.6}, the rest of the field {:+.6}, the PMLs {:+.6}",
+            with_back - g2,
+            direct.norm_sqr() - with_back,
+            s21 - direct.norm_sqr()
+        ));
         log(&format!(
             "every mode at x {:.4} ({} modes, {:.1} s): o2 directly {:.6}{:+.6}i, |.|^2 {:.6}; guided forward {:.6}{:+.6}i, |.|^2 {g2:.6}; guided back {:.2e}{:+.2e}i",
             g.node(Axis::X, *plane),
@@ -1158,7 +1233,9 @@ fn survey_mmi_budget() {
                 share(back)
             ));
         }
-        log(&format!("  non-guided modes: {n_vertical} above and below, {n_beside} beside"));
+        log(&format!(
+            "  non-guided modes: {n_vertical} above and below, {n_beside} beside"
+        ));
     }
 }
 

@@ -470,7 +470,8 @@ pub(super) fn iterative_3d(
     let ports = placed
         .iter()
         .map(|p| -> Result<(Port3d, std::ops::Range<usize>)> {
-            let mut modes = solver.port_modes_within(Axis::X, p.plane, (p.rows.clone(), 0..g.nz), 1)?;
+            let mut modes =
+                solver.port_modes_within(Axis::X, p.plane, (p.rows.clone(), 0..g.nz), 1)?;
             Ok((
                 Port3d {
                     mode: modes.remove(0),
