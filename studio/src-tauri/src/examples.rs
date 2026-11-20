@@ -351,7 +351,7 @@ fn seconds(name: &str) -> f64 {
         "optimize_mesh" => 5.0,
         "optimize_mesh_selfconfig" => 50.0,
         "optimize_ybranch" => 180.0,
-        "optimize_grating_pareto" => 120.0,
+        "optimize_grating_pareto" => 240.0,
         "optimize_mode_converter" => 20.0,
         "optimize_demux_robust" => 10.0,
         "optimize_foundry_bend" => 10.0,

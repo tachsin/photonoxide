@@ -3,14 +3,14 @@ Setup
   MFD 4 µm (Fig. 6):
     layers:
       top oxide      half-space   oxide, n 1.440000
-      film           220 nm       silicon, n 3.470000; its grooves 150 nm deep, filled with the top oxide
+      film           220 nm       silicon, n 3.470000; its grooves 140 nm deep, filled with the top oxide
       BOX            2.1 µm       oxide, n 1.440000
       substrate      half-space   silicon, n 3.470000
     shapes:
-      on film: 8 grooves from x = 0, their widths 60 nm to 450 nm and the teeth between them 60 nm to 500 nm (the variables); the waveguide unetched for x < 0, the film unetched after the last groove
-    fibre: a Gaussian beam, MFD 4 µm (its waist 2 µm), in the top oxide at 10° from the normal, its axis 2.6 µm from the first groove (FIO), its waist on the film's top
-    window: x from -2.047102 µm to 7.812898 µm, y from -2.82 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
-    grid: 493 × 372 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's coarse grid twice the cells
+      on film: 8 grooves about a period Λ (the linear chirp's), groove k's centre within Λ/4 of k·Λ and its width 50 nm to 3Λ/4 (the variables), x = 0 at the chirp's first groove's centre; the waveguide unetched before the first groove, the film unetched after the last
+    fibre: a Gaussian beam, MFD 4 µm (its waist 2 µm), in the top oxide at 10° from the normal, its waist 1.28 µm above the film (FID), its axis through x = 2.6 µm there (FIO)
+    window: x from -2.2728 µm to 6.8272 µm, y from -2.82 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
+    grid: 455 × 372 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's fine grid half the cells
   MFD 6 µm (Fig. 6):
     layers:
       top oxide      half-space   oxide, n 1.440000
@@ -18,53 +18,75 @@ Setup
       BOX            2 µm         oxide, n 1.440000
       substrate      half-space   silicon, n 3.470000
     shapes:
-      on film: 11 grooves from x = 0, their widths 60 nm to 450 nm and the teeth between them 60 nm to 500 nm (the variables); the waveguide unetched for x < 0, the film unetched after the last groove
-    fibre: a Gaussian beam, MFD 6 µm (its waist 3 µm), in the top oxide at 10° from the normal, its axis 3.7 µm from the first groove (FIO), its waist on the film's top
-    window: x from -2.947102 µm to 10.6529 µm, y from -2.72 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
-    grid: 680 × 362 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's coarse grid twice the cells
+      on film: 13 grooves about a period Λ (the linear chirp's), groove k's centre within Λ/4 of k·Λ and its width 50 nm to 3Λ/4 (the variables), x = 0 at the chirp's first groove's centre; the waveguide unetched before the first groove, the film unetched after the last
+    fibre: a Gaussian beam, MFD 6 µm (its waist 3 µm), in the top oxide at 10° from the normal, its waist 1.28 µm above the film (FID), its axis through x = 3.7 µm there (FIO)
+    window: x from -3.1728 µm to 10.1872 µm, y from -2.72 µm to 900 nm (the film's top at y = 0), PMLs inside it, 400 nm and 300 nm thick
+    grid: 668 × 362 cells of 20 nm × 10 nm, each cell's ε its area's mean; the check's fine grid half the cells
   both:
-    wavelengths: 7 in the search, 31 for the front, from 1.4 to 1.7 µm; the band must hold 1.55 µm
+    wavelengths: 7 and 13 in the searches (4 and 6 µm), 31 for the front, from 1.4 to 1.7 µm; the band must hold 1.55 µm
     the efficiency: by reciprocity: the waveguide's TE0 launched into the grating, its field projected on the beam on a line 300 nm above the film
-    solver: 2D FDFD, E along z, photonoxide's direct solver; genoxide's PSO (20 particles, 30 moves) on a linear chirp, then NSGA-II (population 20, 80 generations) with --full
+    solver: 2D FDFD, E along z, photonoxide's direct solver; genoxide's PSO (20 particles, 30 moves) on a linear chirp, then NSGA-II (population 20, 300 and 120 generations) with --full
     tolerance: 3 percentage points on the efficiency at 100 nm (#244); the grid's error within a third of it
   materials:
     silicon, oxide: constant indices, Fig. 1's caption: 3.47 and 1.44
 
 Passoni et al. 2017's apodized grating couplers (Fig. 6): 220 nm SOI, n = 3.47 and 1.44, TE, a 10° fibre; 2D FDFD (labelled 2D), the efficiency by reciprocity, the 1-dB band from 31 wavelengths, 1.4 to 1.7 µm
 
-MFD 4 µm: T_BOX 2.1 µm, FIO 2.6 µm, etch 150 nm, 8 grooves
-  the front --full found (NSGA-II, population 20, 80 generations; CE %, 1-dB bandwidth nm):
-    47.19  81.3   46.92  84.9   46.68  85.4   46.19  88.5   45.58  90.8   45.20  92.9
-    44.77  94.4   44.71  96.0   44.61  96.1   44.50  96.2   44.30  98.1   43.66  99.8
-    43.31 103.2   43.25 103.5   43.15 103.8   42.81 103.8   42.61 104.6   42.33 107.0
-    42.27 109.1   42.04 110.3   40.90 116.1   39.04 117.3   38.76 117.8   38.24 123.3
-    38.13 123.6   37.80 123.8   37.73 124.0   36.61 126.9   36.60 127.5   36.51 127.7
-    36.26 128.4   34.92 132.8   34.82 133.4   32.47 136.0   31.76 137.1   31.67 137.2
-    31.44 138.0   26.38 140.5   26.05 140.7   25.50 143.8   24.97 147.3   24.53 149.6
-    24.52 149.8   20.98 149.8   19.93 160.8
-  40 × 20 nm (247 × 186 cells): the designs either side of 100 nm, 43.64 % at 98.0 nm (1.5040–1.6020 µm) and 43.49 % at 102.0 nm (1.4988–1.6008 µm)
-  20 × 10 nm (493 × 372 cells): the designs either side of 100 nm, 43.66 % at 99.8 nm (1.4958–1.5956 µm) and 43.31 % at 103.2 nm (1.4910–1.5942 µm)
-  MFD 4 µm: CE at 100 nm, grids         43.640000   on 2 grids, error 7.0e-2 ≤ 1e0 ok
-  MFD 4 µm: CE at 100 nm, 2D (%): 43.64, paper 53: -9.36 points, beyond 3; a gap, reported and not checked
+MFD 4 µm: T_BOX 2.1 µm, FIO 2.6 µm, etch 140 nm, 8 grooves
+  the front --full found (NSGA-II, population 20, 300 generations on 7 wavelengths; CE %, 1-dB bandwidth nm):
+    57.98  79.1   57.89  79.2   57.65  90.8   57.59  91.3   57.50  92.3   56.77  93.0
+    56.66  96.5   56.08  97.0   56.04  98.0   55.99  98.2   55.87  98.4   55.83  98.5
+    54.93 101.6   54.78 102.2   53.49 104.7   53.44 104.8   53.08 106.5   53.01 106.8
+    52.44 108.9   52.34 109.5   51.52 111.4   51.16 112.5   51.09 112.8   50.93 113.3
+    50.68 113.8   50.27 115.0   50.20 117.5   49.89 118.2   48.73 119.5   48.55 121.7
+    48.49 122.5   47.43 123.4   47.10 126.4   46.82 127.3   46.28 128.3   45.86 130.8
+    45.18 131.1   45.08 131.6   44.80 132.5   43.94 135.0   43.91 135.1   42.37 136.5
+    42.29 137.7   41.91 138.3   41.59 138.5   41.57 139.4   41.21 140.7   41.21 143.5
+    40.38 145.1   39.99 147.8   39.38 147.8   39.22 148.7   38.89 149.1   38.73 150.8
+    37.88 151.4   37.59 153.0   37.58 153.1   37.26 154.2   37.10 155.0   36.33 156.4
+    35.34 157.6   35.24 160.1   34.34 164.7   34.15 166.8   33.03 169.2   32.49 170.5
+    32.40 171.6   30.94 173.2   29.82 174.8   29.38 177.9   29.18 182.9   28.85 183.6
+    26.76 184.1   26.75 184.3   26.57 184.9   26.46 188.0   26.02 190.7   22.83 195.4
+    22.25 200.7   21.93 201.2   20.98 202.5   20.31 205.6   18.99 209.5   18.68 211.8
+    18.62 216.1   18.43 217.0   18.06 218.8   17.92 222.4   15.78 227.1   13.80 253.4
+    13.79 254.2   13.70 259.4   13.63 263.0
+  20 × 10 nm (455 × 372 cells): the designs either side of 100 nm, 55.83 % at 98.5 nm (1.5046–1.6031 µm) and 54.93 % at 101.6 nm (1.4957–1.5974 µm)
+  10 × 5 nm (910 × 744 cells): the designs either side of 100 nm, 55.69 % at 98.7 nm (1.5030–1.6017 µm) and 54.69 % at 101.9 nm (1.4941–1.5960 µm)
+  MFD 4 µm: CE at 100 nm, grids         55.280000   on 2 grids, error 1.2e-1 ≤ 1e0 ok
+  MFD 4 µm: CE at 100 nm, 2D (%)        55.280000   paper 53         ± 3e0       ok
 
-MFD 6 µm: T_BOX 2 µm, FIO 3.7 µm, etch 120 nm, 11 grooves
-  the front --full found (NSGA-II, population 20, 80 generations; CE %, 1-dB bandwidth nm):
-    52.93  69.6   52.83  69.8   52.80  69.8   52.49  70.8   52.33  71.7   51.83  72.8
-    51.54  74.9   50.14  76.6   49.99  77.0   49.87  77.0   48.32  77.6   48.31  78.1
-    47.95  78.8   47.92  80.3   47.87  80.6   47.76  80.7   47.58  82.0   46.38  82.2
-    44.51  88.0   43.80  93.0   41.72  93.5   41.69  96.6   40.00  98.7   39.09 103.8
-    38.63 106.5   28.58 107.8   28.36 108.2   28.05 123.7   27.39 126.2   26.11 131.6
-    25.39 137.8
-  40 × 20 nm (340 × 181 cells): the designs either side of 100 nm, 39.88 % at 95.1 nm (1.5028–1.5978 µm) and 39.08 % at 100.0 nm (1.4954–1.5954 µm)
-  20 × 10 nm (680 × 362 cells): the designs either side of 100 nm, 40.00 % at 98.7 nm (1.4918–1.5905 µm) and 39.09 % at 103.8 nm (1.4844–1.5882 µm)
-  MFD 6 µm: CE at 100 nm, grids         39.770000   on 2 grids, error 7.0e-1 ≤ 1e0 ok
-  MFD 6 µm: CE at 100 nm, 2D (%): 39.77, paper 47: -7.23 points, beyond 3; a gap, reported and not checked
+MFD 6 µm: T_BOX 2 µm, FIO 3.7 µm, etch 120 nm, 13 grooves
+  the front --full found (NSGA-II, population 20, 120 generations on 13 wavelengths; CE %, 1-dB bandwidth nm):
+    61.71  70.6   61.68  70.9   61.61  71.2   61.53  73.2   61.32  73.3   61.24  73.9
+    61.15  73.9   60.74  74.5   60.26  75.1   60.02  75.5   59.78  75.7   59.59  77.2
+    59.22  77.6   58.77  78.0   57.50  79.1   57.21  80.5   56.96  80.8   56.88  82.2
+    56.28  84.6   55.94  85.0   54.95  85.9   54.92  86.0   54.91  86.0   54.61  86.5
+    54.54  86.8   54.50  87.6   54.19  88.4   53.99  89.5   53.80  89.9   53.75  90.0
+    53.60  90.9   53.43  91.0   53.17  91.4   53.08  92.4   52.24  92.5   52.06  92.7
+    51.96  92.9   51.91  93.1   51.65  93.5   51.57  95.2   51.26  95.4   51.23  95.8
+    50.51  97.4   50.19  98.1   49.58  98.2   49.49  99.6   49.48  99.9   49.35 100.1
+    49.25 100.8   48.83 101.5   48.27 103.3   47.78 104.4   47.64 104.6   47.30 106.2
+    46.86 106.7   46.66 107.3   45.75 108.7   45.62 109.1   45.26 110.0   45.10 110.4
+    45.05 110.6   45.04 110.6   44.92 110.8   44.83 110.9   44.04 111.7   43.91 113.3
+    43.77 113.7   43.16 114.1   43.08 114.8   42.76 115.4   42.71 115.5   42.43 116.0
+    42.22 117.3   42.18 117.9   41.79 118.0   41.73 118.5   41.26 119.4   41.00 119.6
+    40.69 120.0   40.51 120.6   40.42 121.2   40.35 121.3   40.24 121.5   40.02 122.4
+    39.56 122.8   39.42 123.1   39.36 124.2   38.72 124.6   38.49 125.8   38.37 126.3
+    38.02 126.3   37.70 126.6   37.52 126.8   37.41 127.2   37.41 127.5   37.36 127.8
+    37.30 127.9   36.75 129.0   36.42 131.3   36.05 131.4   35.88 132.3   35.03 133.5
+    34.91 134.8   32.94 135.7   32.70 136.4   32.65 136.8   32.24 137.0   31.65 138.3
+    31.62 141.3   30.99 142.8   30.55 143.9   30.26 144.8   29.22 145.4   29.14 145.4
+    28.57 147.5   27.95 148.7   26.97 151.8   26.82 152.2   25.91 153.8   22.73 156.9
+    22.39 158.4   22.25 159.6   22.06 160.2   22.04 160.8
+  its designs either side of 100 nm are checked with `--recorded`: 10 × 5 nm takes about 10 minutes, too slow for CI
 
-The paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist on the film). The efficiency at 100 nm between two of them, against the main text's, within 3 points, for the 4 µm front: the 6 µm one's moves by 1.8 points between these two grids and needs `--supplement`'s finer one, which also compares each design with its printed efficiency and bandwidth.
+The paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist at FID). The efficiency at 100 nm on the front through them, against the main text's, within 3 points, for the 4 µm front (the 6 µm one's takes about 10 minutes on 10 × 5 nm, too slow for CI: `--recorded`).
 
 MFD 4 µm: T_BOX 2.1 µm, FIO 2.6 µm, etch 140 nm, 8 grooves, FID 1.28 µm (the data file's common data); the data file's front at 100 nm, between structures 49 (54 % at 99.2 nm) and 48 (53.1 % at 103.8 nm): 53.84 %, the main text's 53 %
-  structure 52: paper 55.1 % at 93 nm; ours 53.46 % at 98.7 nm (1.5013–1.6000 µm) on 20 × 10 nm, 53.59 % at 98.9 nm on 40 × 20 nm
-  structure 49: paper 54 % at 99.2 nm; ours 53.42 % at 104.4 nm (1.5068–1.6112 µm) on 20 × 10 nm, 53.31 % at 103.1 nm on 40 × 20 nm
-  MFD 4 µm: their CE at 100 nm, grids    53.450000   on 2 grids, error 6.0e-2 ≤ 1e0 ok
-  MFD 4 µm: their CE at 100 nm, 2D (%)    53.450000   paper 53         ± 3e0     ok
+  structure 52: paper 55.1 % at 93 nm; ours 55.39 % at 97.3 nm (1.5027–1.6000 µm) on 20 × 10 nm
+  structure 49: paper 54 % at 99.2 nm; ours 53.88 % at 103.7 nm (1.5087–1.6124 µm) on 20 × 10 nm
+  structure 52: paper 55.1 % at 93 nm; ours 55.29 % at 97.1 nm (1.5012–1.5983 µm) on 10 × 5 nm
+  structure 49: paper 54 % at 99.2 nm; ours 53.90 % at 103.9 nm (1.5070–1.6109 µm) on 10 × 5 nm
+  MFD 4 µm: their CE at 100 nm, grids    54.710000   on 2 grids, error 5.0e-2 ≤ 1e0 ok
+  MFD 4 µm: their CE at 100 nm, 2D (%)    54.710000   paper 53         ± 3e0     ok
 all 4 within tolerance of the paper

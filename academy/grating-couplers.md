@@ -472,26 +472,32 @@ improved to 53% if a 4 µm MFD is used" (p. 4).
 [optimize_grating_pareto](../examples/optimize_grating_pareto.rs) solves the same problem in 2D
 FDFD on 20 × 10 nm cells, its efficiency by reciprocity: the guide's TE₀ is launched into the
 grating and the field it sends up is projected on the fibre's beam, a sum of 161 plane waves. Its
-search, genoxide's NSGA-II in place of the paper's multi-objective swarm, evaluated 1620
-structures where the paper evaluated 2 × 10⁴. All its numbers are 2D:
+search follows the paper's steps: a linear chirp first, by a single-objective swarm, then genoxide's
+NSGA-II in place of the paper's multi-objective swarm, each groove's centre and width free within
+the bounds every design in the paper's data files keeps to. It evaluated 6020 structures (4 µm)
+and 2420 (6 µm) where the paper evaluated 2 × 10⁴ each. All its numbers are 2D:
 
-- **Our fronts** run from 47.2 % at 81 nm to 19.9 % at 161 nm (4 µm) and from 52.9 % at 70 nm to
-  25.4 % at 138 nm (6 µm). At 100 nm they couple 43.64 % and 39.77 %, 9.4 and 7.2 points below the
-  paper's 53 % and 47 %: **not reproduced.** The two grids, 20 × 10 and 40 × 20 nm, agree to 0.07
-  and 0.7 points, so the gap isn't the grid.
+- **The linear chirps** couple 57.58 % (4 µm) and 60.67 % (6 µm) at 1.55 µm, against the paper's
+  56.7 % and 60.1 %, with nearly its periods and duty cycles.
+- **Our fronts** run from 57.98 % at 79 nm to 13.63 % at 263 nm (4 µm) and from 61.71 % at 71 nm
+  to 22.04 % at 161 nm (6 µm). At 100 nm they couple 55.28 % and 49.61 %, 2.28 and 2.61 points
+  above the paper's 53 % and 47 %: **reproduced**, within the 3 points asked. The two grids,
+  20 × 10 and 10 × 5 nm, agree to 0.12 and 0.19 points. An earlier search, with too narrow bounds
+  on the gaps between grooves to hold the paper's own chirp, reached only 43.64 % and 39.77 %.
 - **The paper's own designs**, from its supplement, re-solved by the same model: two 4 µm designs
-  either side of 100 nm couple 53.45 % there, against the paper's 53 %. The model reproduces the
-  paper's number from the paper's designs, so the gap above is our search's: fewer structures,
-  11 grooves for the paper's 13 at 6 µm, and an etch of 150 nm for the 140 of the paper's 4 µm
-  files.
-- **The bandwidths.** Re-solved on 10 × 5 nm cells with the fibre at its height in the paper's
-  files, the paper's designs couple within 0.10 to 0.52 points of its efficiencies at 4 µm, but
-  every bandwidth comes out wider than the paper's, by 3.3 to 4.7 nm (3 to 5 %) at 4 µm and 1.6 to
-  3.6 nm (2 to 4 %) at 6 µm, beyond the grid's error of at most 0.4 nm. The paper prints its
-  indices as constants, 3.47 and 1.44; with silicon's and silica's own dispersion added about
-  those values (the catalogue's), every bandwidth narrows by 2.5 to 2.9 % at 4 µm and 3.3 % at
-  6 µm, and they end +0.2 to +1.9 % (4 µm) and −1.8 to +0.9 % (6 µm) from the paper's, about its
-  files' 1.5 nm steps: **the bandwidths are those of dispersive silicon and silica.**
+  either side of 100 nm couple 54.71 % there, against the paper's 53 %. On three grids down to
+  5 × 2.5 nm, with the grid's error under 0.03 points, three of the six 4 µm designs couple within
+  the paper's own spread of 0.24 points of their printed efficiencies; the others, and all four
+  6 µm ones, 0.30 to 0.84 points above them, a gap still open. A 40 × 20 nm grid is too coarse
+  along the film for such a check: moving its cells against the grooves alone moves the result.
+- **The bandwidths.** Every bandwidth of the paper's designs comes out wider than the paper's, by
+  3.4 to 4.8 nm at 4 µm and 1.8 to 3.7 nm at 6 µm. The paper prints its indices as constants,
+  3.47 and 1.44; with silicon's and silica's own dispersion added about those values (the
+  catalogue's), every bandwidth narrows by 2.5 to 2.9 % at 4 µm and 3.3 % at 6 µm, and they end
+  +0.2 to +1.9 % (4 µm) and −1.8 to +0.9 % (6 µm) from the paper's, about its files' 1.5 nm
+  steps: **the bandwidths are those of dispersive silicon and silica.** It is also why our fronts,
+  and the paper's designs in our model, cross 100 nm above the paper's numbers.
+
 
 The run CI checks re-solves the recorded designs on both grids:
 
