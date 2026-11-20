@@ -51,8 +51,8 @@ together through the circuit adjoint (#346).
 `optimize_ring_pareto`, `optimize_mesh`, `optimize_mesh_selfconfig`, `optimize_chip_rings`,
 `optimize_ybranch` (PSO in 2D, checked in 3D FDFD: 0.202 ± 0.027 dB against Zhang et al.'s
 0.13 dB, a gap in #595; the adjoint half waits for shape derivatives) and
-`optimize_grating_pareto` (39.77 % and 43.64 % against Passoni et al.'s 47 % and 53 %, a gap in
-#595). #244's phase 9, the topology examples, waits for this plan.
+`optimize_grating_pareto` (49.61 % and 55.28 % against Passoni et al.'s 47 % and 53 %, within
+#244's 3 points; #817). #244's phase 9, the topology examples, waits for this plan.
 
 ## 2. What 0.7 promises
 

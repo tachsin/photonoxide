@@ -52,16 +52,20 @@
 //! both maximized; a design whose band doesn't hold 1.55 µm is infeasible, by its distance from it
 //! (the paper doesn't say how its band is placed).
 //!
-//! **The budget.** The paper ran 1000 iterations, 2 × 10⁴ structures for each fibre. Here a
-//! structure on 7 wavelengths takes about 1.5 s (4 µm) and 3.6 s (6 µm) on 4 threads, so 2 × 10⁴
-//! would take about 8 and 20 hours: the searches ran 300 generations for the 4 µm fibre (6020
-//! structures, 2.5 h) and 150 for the 6 µm one (3020, 3 h), and the progress log's front at
-//! 100 nm on the search's wavelengths had stopped moving long before: 54.92 % after 75 generations
-//! and 54.99 % after 300 (4 µm), 56.83 % after 75 and 57.10 % after 125 and 150 (6 µm).
+//! **The budget.** The paper ran 1000 iterations, 2 × 10⁴ structures for each fibre. Here, on 4
+//! threads, a 4 µm structure takes about 1.5 s on 7 wavelengths and a 6 µm one about 6.4 s on 13,
+//! so 2 × 10⁴ would take about 8 and 36 hours: the searches ran 300 generations for the 4 µm fibre
+//! (6020 structures, 2.5 h) and 120 for the 6 µm one (2420, 4.3 h). The progress log's front at
+//! 100 nm on the search's wavelengths had stopped moving at 4 µm, 54.92 % after 75 generations and
+//! 54.99 % after 300; at 6 µm it still crept up, 49.09 % after 75 and 49.47 % after 100.
 //!
-//! **The spectra.** The search's on 7 wavelengths from 1.40 to 1.70 µm (50 nm apart); the
-//! front's again on 31 (10 nm apart); between them a natural cubic spline of the efficiency in
-//! dB, which is a parabola for a Gaussian line, read every 0.1 nm.
+//! **The spectra.** The search's on 7 wavelengths from 1.40 to 1.70 µm, 50 nm apart, for the
+//! 4 µm fibre and 13, 25 nm apart, for the 6 µm one, whose bands are narrower (a first 6 µm search
+//! on 7 held only two or three points of a band and left its front a gap at 100 nm, from 49.13 % at
+//! 95.5 nm to 42.90 % at 107.7 nm: 46.76 % there); the front's again on 31 (10 nm apart); between
+//! them a natural cubic spline of the efficiency in dB, which is a parabola for a Gaussian line,
+//! read every 0.1 nm.
+
 //!
 //! **What is checked** (p. 4): "The target of 100 nm bandwidth ... can be achieved with a 47%
 //! CE, by simply using a 6 µm MFD, further improved to 53% if a 4 µm MFD is used". The front's
@@ -81,19 +85,20 @@
 //! in the window, and the beam projected over twice its waist either side of its axis (all but
 //! 6e-5 of its power). Everything is the same bits on any number of threads.
 //!
-//! **What it found** (`--full`, 2026-11-19, on 4 threads of a machine shared with other work). The
-//! best linear chirps couple 57.58 % at 1.55 µm (4 µm: a period of 681.3 nm, the duty cycle from
-//! 11.7 to 35.6 % over 0.456 of the grating) and 60.67 % (6 µm: 657.2 nm, 8.1 to 38.7 % over
-//! 0.528), where the supplement's Supp. Tab. II has 56.7 % (684 nm, 10 to 35 % over 2.13 µm) and
-//! 60.1 % (662 nm, 10 to 40 % over 4.97 µm). The fronts run from 57.98 % at 79.1 nm to 13.63 % at
-//! 263.0 nm (4 µm) and from 62.65 % at 70.5 nm to 24.24 % at 141.6 nm (6 µm); Fig. 6's from about
-//! 57 % at 87 nm to 210 nm (4 µm) and from about 60 % at 65 nm to 193 nm (6 µm), read off the
-//! figure. At 100 nm ours couple 55.28 % (4 µm) and 46.76 % (6 µm), against the paper's 53 % and
-//! 47 %: 2.28 points above and 0.24 below, within the 3 asked; the grids (20 × 10 and 10 × 5 nm)
-//! agree to 0.12 and 0.08 points. The 6 µm front has a gap there, from 49.13 % at 95.5 nm to 42.90 %
-//! at 107.7 nm on the front's 31 wavelengths: the search's 7, 50 nm apart, hold only two or three
-//! points of a band that narrow, so the search's own front at 100 nm (57.10 %) isn't the refined
-//! one's.
+//! **What it found** (`--full`, 2026-11-19 and 20, on 4 threads of a machine shared with other
+//! work). The best linear chirps couple 57.58 % at 1.55 µm (4 µm: a period of 681.3 nm, the duty
+//! cycle from 11.7 to 35.6 % over 0.456 of the grating) and 60.67 % (6 µm: 657.2 nm, 8.1 to 38.7 %
+//! over 0.528), where the supplement's Supp. Tab. II has 56.7 % (684 nm, 10 to 35 % over 2.13 µm)
+//! and 60.1 % (662 nm, 10 to 40 % over 4.97 µm). The fronts run from 57.98 % at 79.1 nm to
+//! 13.63 % at 263.0 nm (4 µm) and from 61.71 % at 70.6 nm to 22.04 % at 160.8 nm (6 µm); Fig. 6's
+//! from about 57 % at 87 nm to 210 nm (4 µm) and from about 60 % at 65 nm to 193 nm (6 µm), read
+//! off the figure. At 100 nm ours couple 55.28 % (4 µm) and 49.61 % (6 µm), against the paper's
+//! 53 % and 47 %: 2.28 and 2.61 points above, within the 3 asked; the grids (20 × 10 and
+//! 10 × 5 nm) agree to 0.12 and 0.19 points. (On 10 × 5 nm both 6 µm designs are just over
+//! 100 nm, at 100.2 and 100.7 nm, so their line is followed 0.2 nm past them.) Ours sit above the
+//! paper's for the reason its own designs do in this model (below): our bandwidths come out 2 to
+//! 5 % wider than the paper's for the same structure.
+
 //!
 //! An earlier search (2026-10-30) had the waist on the film, a 150 nm etch at 4 µm, 11 grooves at
 //! 6 µm, the widths 60 to 450 nm and the teeth between grooves 60 to 500 nm, a chirp of the period
@@ -117,10 +122,13 @@
 //! checks the efficiency at 100 nm between them against the main text's 53 %, within #244's
 //! 3 points, its grid within a third of that; `--recorded` does the same for the 6 µm front through
 //! 42, 39 and 37 (42 is within a nanometre of 100 nm). The paper's 4 µm designs couple 54.71 % at
-//! 100 nm (the grids agree to 0.05 points): our model reproduces Fig. 6's 4 µm number from the
-//! paper's own designs, as our search's front does.
-//!
-//! RECORDED-6
+//! 100 nm (the grids agree to 0.05 points), 1.71 points above the main text's 53 %, and its 6 µm
+//! ones 50.39 % (0.70 points), 3.39 above 47 %: a gap, reported and not checked. The model gives
+//! the paper's designs wider bands than the paper prints (2 to 5 %, 1.8 to 4.8 nm about 100 nm), which
+//! moves the front's crossing of 100 nm to more efficient designs, steeply at 6 µm, where the front
+//! falls about 0.9 points a nanometre there. Our searches' fronts are 0.57 points above the
+//! paper's designs' at 4 µm and 0.78 below at 6 µm, in the same model.
+
 //!
 //! `--supplement` re-solves ten of the designs (the best of each front, those near 100 nm and
 //! the four of Supp. Fig. 7) on three grids, 20 × 10, 10 × 5 and 5 × 2.5 nm, with the beam's
@@ -137,20 +145,19 @@
 //! error under 0.08 points: the values oscillated or shrank too slowly. `--grids` solves the ten
 //! designs at 1.55 µm on grids refined along each axis alone and on the searches' grid moved
 //! against the grooves. Across the film the efficiency converges smoothly, at about second order:
-//! from 20 × 20 to 20 × 10 nm it falls by 0.10 to 0.64 points, and to 20 × 5 nm by 3.3 to 4 times less.
-//! Along the film 40 nm is too coarse to be in that range: from 40 × 10 to 20 × 10 nm the
+//! from 20 × 20 to 20 × 10 nm it falls by 0.10 to 0.64 points, and to 20 × 5 nm by 3.3 to 4
+//! times less. Along the film 40 nm is too coarse to be in that range: from 40 × 10 to 20 × 10 nm the
 //! efficiency moves by 0.18 to 1.46 points, 2.1 to 71 times the next change to 10 × 10 nm (for
 //! design 52 the next change has the other sign), and in eight of the ten designs it has the
 //! opposite sign to the change across the film, so the two errors cancel on one grid and not the
-//! next. On 20 × 10 nm, moving the cells 5, 10 or 15 nm against the
-//! grooves moves the efficiency by up to 0.36 points (6 µm design 39); on 10 × 5 nm by at most
-//! 0.035. Richardson's estimate takes the three
-//! grids' changes as one power of the cell, which that coarsest grid breaks. From 20 × 10 nm on
-//! the changes shrink by 1.9 to 7.3 times a halving (for 6 µm design 58 they are 0.008 and
-//! −0.025), and the three grids 20 × 10, 10 × 5 and
-//! 5 × 2.5 nm give errors of 0.003 to 0.05 points at 1.55 µm for all ten designs. The line the
-//! field is projected on doesn't matter: 0.2 and 0.4 µm above the film give the same efficiency to
-//! 0.02 points on every grid.
+//! next. On 20 × 10 nm, moving the cells 5, 10 or 15 nm against the grooves moves the
+//! efficiency by up to 0.36 points (6 µm design 39); on 10 × 5 nm by at most 0.035. Richardson's
+//! estimate takes the three grids' changes as one power of the cell, which that coarsest grid
+//! breaks. From 20 × 10 nm on the changes shrink by 1.9 to 7.3 times a halving (for 6 µm design
+//! 58 they are 0.008 and −0.025), and the three grids 20 × 10, 10 × 5 and 5 × 2.5 nm give
+//! errors of 0.003 to 0.05 points at 1.55 µm for all ten designs. The line the field is projected
+//! on doesn't matter: 0.2 and 0.4 µm above the film give the same efficiency to 0.02 points on
+//! every grid.
 //!
 //! **What the paper's designs gave** (`--supplement`, 2026-11-19, on 4 threads of a machine shared
 //! with other work: 68 minutes for the 4 µm designs and 2 h 40 min for the 6 µm ones). Every
@@ -462,74 +469,161 @@ const RECORDED: [Recorded; 2] = [
         generations: 120,
         wavelengths: 13,
         front: &[
-            (62.65, 70.5),
-            (62.6, 71.3),
-            (62.46, 72.8),
-            (62.36, 73.1),
-            (62.24, 73.4),
-            (62.17, 74.6),
-            (60.87, 75.4),
-            (60.74, 75.7),
-            (60.68, 77.0),
-            (59.89, 77.8),
-            (53.25, 84.1),
-            (51.9, 85.8),
-            (50.83, 87.2),
-            (50.05, 91.2),
-            (49.13, 95.5),
-            (42.9, 107.7),
-            (42.05, 109.4),
-            (41.87, 111.0),
-            (41.81, 111.1),
-            (40.84, 113.6),
-            (39.06, 117.2),
-            (36.9, 121.0),
-            (36.86, 122.9),
-            (36.13, 124.7),
-            (34.94, 128.9),
-            (34.35, 129.9),
-            (30.79, 130.7),
-            (29.83, 131.0),
-            (29.59, 132.4),
-            (29.41, 132.8),
-            (28.02, 135.2),
-            (27.95, 135.4),
-            (27.77, 136.3),
-            (27.44, 136.4),
-            (26.88, 136.8),
-            (26.58, 138.1),
-            (24.24, 141.6),
+            (61.71, 70.6),
+            (61.68, 70.9),
+            (61.61, 71.2),
+            (61.53, 73.2),
+            (61.32, 73.3),
+            (61.24, 73.9),
+            (61.15, 73.9),
+            (60.74, 74.5),
+            (60.26, 75.1),
+            (60.02, 75.5),
+            (59.78, 75.7),
+            (59.59, 77.2),
+            (59.22, 77.6),
+            (58.77, 78.0),
+            (57.5, 79.1),
+            (57.21, 80.5),
+            (56.96, 80.8),
+            (56.88, 82.2),
+            (56.28, 84.6),
+            (55.94, 85.0),
+            (54.95, 85.9),
+            (54.92, 86.0),
+            (54.91, 86.0),
+            (54.61, 86.5),
+            (54.54, 86.8),
+            (54.5, 87.6),
+            (54.19, 88.4),
+            (53.99, 89.5),
+            (53.8, 89.9),
+            (53.75, 90.0),
+            (53.6, 90.9),
+            (53.43, 91.0),
+            (53.17, 91.4),
+            (53.08, 92.4),
+            (52.24, 92.5),
+            (52.06, 92.7),
+            (51.96, 92.9),
+            (51.91, 93.1),
+            (51.65, 93.5),
+            (51.57, 95.2),
+            (51.26, 95.4),
+            (51.23, 95.8),
+            (50.51, 97.4),
+            (50.19, 98.1),
+            (49.58, 98.2),
+            (49.49, 99.6),
+            (49.48, 99.9),
+            (49.35, 100.1),
+            (49.25, 100.8),
+            (48.83, 101.5),
+            (48.27, 103.3),
+            (47.78, 104.4),
+            (47.64, 104.6),
+            (47.3, 106.2),
+            (46.86, 106.7),
+            (46.66, 107.3),
+            (45.75, 108.7),
+            (45.62, 109.1),
+            (45.26, 110.0),
+            (45.1, 110.4),
+            (45.05, 110.6),
+            (45.04, 110.6),
+            (44.92, 110.8),
+            (44.83, 110.9),
+            (44.04, 111.7),
+            (43.91, 113.3),
+            (43.77, 113.7),
+            (43.16, 114.1),
+            (43.08, 114.8),
+            (42.76, 115.4),
+            (42.71, 115.5),
+            (42.43, 116.0),
+            (42.22, 117.3),
+            (42.18, 117.9),
+            (41.79, 118.0),
+            (41.73, 118.5),
+            (41.26, 119.4),
+            (41.0, 119.6),
+            (40.69, 120.0),
+            (40.51, 120.6),
+            (40.42, 121.2),
+            (40.35, 121.3),
+            (40.24, 121.5),
+            (40.02, 122.4),
+            (39.56, 122.8),
+            (39.42, 123.1),
+            (39.36, 124.2),
+            (38.72, 124.6),
+            (38.49, 125.8),
+            (38.37, 126.3),
+            (38.02, 126.3),
+            (37.7, 126.6),
+            (37.52, 126.8),
+            (37.41, 127.2),
+            (37.41, 127.5),
+            (37.36, 127.8),
+            (37.3, 127.9),
+            (36.75, 129.0),
+            (36.42, 131.3),
+            (36.05, 131.4),
+            (35.88, 132.3),
+            (35.03, 133.5),
+            (34.91, 134.8),
+            (32.94, 135.7),
+            (32.7, 136.4),
+            (32.65, 136.8),
+            (32.24, 137.0),
+            (31.65, 138.3),
+            (31.62, 141.3),
+            (30.99, 142.8),
+            (30.55, 143.9),
+            (30.26, 144.8),
+            (29.22, 145.4),
+            (29.14, 145.4),
+            (28.57, 147.5),
+            (27.95, 148.7),
+            (26.97, 151.8),
+            (26.82, 152.2),
+            (25.91, 153.8),
+            (22.73, 156.9),
+            (22.39, 158.4),
+            (22.25, 159.6),
+            (22.06, 160.2),
+            (22.04, 160.8),
         ],
         designs: [
             &[
-                (-78.1, 50.2),
-                (689.9, 72.3),
-                (1347.6, 72.3),
-                (1993.0, 156.2),
-                (2670.6, 200.3),
-                (3311.8, 370.4),
-                (3932.5, 261.3),
-                (4549.7, 253.7),
-                (5206.4, 296.0),
-                (5878.4, 295.9),
-                (6556.6, 288.3),
-                (7176.2, 260.0),
-                (7884.7, 291.1),
+                (22.8, 54.5),
+                (657.1, 76.7),
+                (1324.0, 142.0),
+                (2006.0, 233.8),
+                (2620.7, 216.1),
+                (3239.0, 251.6),
+                (3895.9, 239.0),
+                (4586.5, 323.4),
+                (5254.7, 249.0),
+                (5914.7, 238.6),
+                (6525.9, 288.6),
+                (7299.4, 223.3),
+                (7908.6, 260.6),
             ],
             &[
-                (-72.1, 50.6),
-                (679.3, 74.0),
-                (1332.3, 71.5),
-                (1993.0, 90.1),
-                (2670.8, 207.3),
-                (3315.9, 371.7),
-                (3932.5, 262.9),
-                (4555.4, 258.2),
-                (5206.4, 293.9),
-                (5903.3, 291.8),
-                (6557.4, 295.9),
-                (7213.1, 254.9),
-                (7884.9, 384.3),
+                (22.8, 54.8),
+                (657.0, 76.7),
+                (1324.1, 142.0),
+                (2006.0, 225.1),
+                (2628.6, 216.1),
+                (3239.0, 251.6),
+                (3896.2, 239.0),
+                (4586.5, 324.6),
+                (5254.7, 249.0),
+                (5914.7, 238.6),
+                (6525.8, 288.6),
+                (7299.4, 223.3),
+                (7908.6, 260.0),
             ],
         ],
     },
