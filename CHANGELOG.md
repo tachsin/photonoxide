@@ -49,6 +49,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - *(validation)* the Kerr and S-matrix gradient rows' own error reads the same on every system (closes #854) ([#856](https://github.com/tachsin/photonoxide/pull/856))
 - *(simox)* what the sources in hand say about the buried oxides and Smith's range table (part of #820) ([#857](https://github.com/tachsin/photonoxide/pull/857))
 - *(examples)* Passoni's grating couplers searched in the paper's own design space, the grid study from 20 × 10 nm (part of #817) ([#869](https://github.com/tachsin/photonoxide/pull/869))
+- site-check reads the roadmap timeline's progress counts ([#782](https://github.com/tachsin/photonoxide/pull/782))
+- *(studio)* typing commits before the click, units shown in fields, honest labels (part of #783) ([#785](https://github.com/tachsin/photonoxide/pull/785))
+- the studio's tests stay under the Windows runner's memory (a followup of #795) ([#797](https://github.com/tachsin/photonoxide/pull/797))
 
 ### <!-- 4 -->Documentation
 
