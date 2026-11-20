@@ -385,6 +385,176 @@ pub(super) fn size(
     ))
 }
 
+/// The 3D grid of `nx` × `ny` cells across from (`x0`, `y0`), and up the stack the core layer
+/// with the margins and PMLs below and above it, the core's faces on nodes.
+///
+/// # Errors
+///
+/// [`Error::InvalidValue`] if the stack has no layer `core`.
+fn grid_3d(
+    structure: &Structure,
+    core: &str,
+    grid: &FdfdGrid,
+    (nx, ny): (usize, usize),
+    (x0, y0): (f64, f64),
+) -> Result<Grid3d> {
+    let (_, bottom, top) = structure
+        .stack()
+        .layer(core)
+        .ok_or_else(|| Error::invalid("device", format!("the stack has no layer {core}")))?;
+    let (b, t) = (bottom.to_um(), top.to_um());
+    let hz = grid.step_z;
+    let below = grid.margin + grid.pml as f64 * hz;
+    // the core's faces on nodes
+    let k0 = ((below / hz).ceil()) as usize;
+    let z0 = b - k0 as f64 * hz;
+    let nz = k0 + ((t - b) / hz).round() as usize + k0;
+    Ok(Grid3d {
+        nx,
+        ny,
+        nz,
+        dx: grid.step,
+        dy: grid.step,
+        dz: hz,
+        x0,
+        y0,
+        z0,
+    })
+}
+
+/// A 3D port and its window's rows across, for a survey.
+#[cfg(test)]
+pub(super) type Placed3d = (Port3d, std::ops::Range<usize>);
+
+/// A 2D port and its window's rows across, for a survey.
+#[cfg(test)]
+pub(super) type Placed2d = (Port, std::ops::Range<usize>);
+
+/// [`sampled_by`]'s iterative 3D route at one wavelength, set up and not solved: the solver,
+/// each port (its fundamental mode, and its window's rows across) in the geometry's order, and
+/// the stopping rule. For a survey that looks into the field rather than the S-matrix.
+///
+/// # Errors
+///
+/// As [`sampled`].
+#[cfg(test)]
+pub(super) fn iterative_3d(
+    geometry: &Geometry,
+    core: &str,
+    wavelength: Wavelength,
+    grid: &FdfdGrid,
+) -> Result<(IterativeSolver3d, Vec<Placed3d>, Stopping)> {
+    let (nx, ny, unknowns) = size(geometry, core, grid, true)?;
+    check_size(unknowns)?;
+    let Route::Iterative {
+        multigrid,
+        residual,
+    } = Route::iterative()
+    else {
+        unreachable!("the iterative route")
+    };
+    let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
+    let h = grid.step;
+    let x0 = 0.5 * (x0 + x1) - 0.5 * nx as f64 * h;
+    let y0 = 0.5 * (y0 + y1) - 0.5 * ny as f64 * h;
+    let lead = (TO_PLANE + TO_PML + grid.pml + 2) as f64 * h + (x1 - x0);
+    let structure = led(geometry, core, lead)?;
+    let placed = place(geometry, x0, y0, h, ny)?;
+    let g = grid_3d(&structure, core, grid, (nx, ny), (x0, y0))?;
+    let solver = IterativeSolver3d::from_structure(
+        g,
+        wavelength,
+        &structure,
+        Route::iterative().boundaries(grid.pml),
+        grid.averaging,
+        Formulation::ShinFan,
+        Product::MatrixFree,
+    )?
+    .with_multigrid(multigrid)?;
+    let ports = placed
+        .iter()
+        .map(|p| -> Result<(Port3d, std::ops::Range<usize>)> {
+            let mut modes =
+                solver.port_modes_within(Axis::X, p.plane, (p.rows.clone(), 0..g.nz), 1)?;
+            Ok((
+                Port3d {
+                    mode: modes.remove(0),
+                    side: p.side,
+                },
+                p.rows.clone(),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let stopping = Stopping {
+        tolerance: residual,
+        max_iterations: 5_000,
+    };
+    Ok((solver, ports, stopping))
+}
+
+/// [`sampled_by`]'s 2D route at one wavelength, set up and not solved, the cells averaged from
+/// the fill of the effective index method's plane (vertical walls only): the solver and each
+/// port (its fundamental mode, and its window's rows) in the geometry's order. For a survey that
+/// looks into the field.
+///
+/// # Errors
+///
+/// As [`sampled`], and [`Error::InvalidValue`] for sloped walls or sampled cells.
+#[cfg(test)]
+pub(super) fn direct_2d(
+    geometry: &Geometry,
+    core: &str,
+    wavelength: Wavelength,
+    grid: &FdfdGrid,
+) -> Result<(Solver2d, Vec<Placed2d>)> {
+    let (nx, ny, _) = size(geometry, core, grid, false)?;
+    let ((x0, x1), (y0, y1)) = window(geometry, core, grid)?;
+    let h = grid.step;
+    let x0 = 0.5 * (x0 + x1) - 0.5 * nx as f64 * h;
+    let y0 = 0.5 * (y0 + y1) - 0.5 * ny as f64 * h;
+    let lead = (TO_PLANE + TO_PML + grid.pml + 2) as f64 * h + (x1 - x0);
+    let structure = led(geometry, core, lead)?;
+    if grid.averaging == Averaging::Samples || structure.etches(core).iter().any(|e| e.run() != 0.0)
+    {
+        return Err(Error::invalid(
+            "device",
+            "the 2D survey takes cells averaged from the fill and vertical walls",
+        ));
+    }
+    let placed = place(geometry, x0, y0, h, ny)?;
+    let g = Grid {
+        nx,
+        ny,
+        dx: h,
+        dy: h,
+        x0,
+        y0,
+    };
+    let plane = super::slab_plane::fill_plane(&structure, core, Polarization::Te, wavelength)?;
+    let solver = Solver2d::from_plane(
+        g,
+        Field::Hz,
+        wavelength,
+        &plane,
+        Boundaries::pml(grid.pml),
+        grid.averaging,
+    )?;
+    let ports = placed
+        .iter()
+        .map(|p| -> Result<Placed2d> {
+            let mut modes = solver.port_modes_within(p.plane, p.rows.clone(), 1)?;
+            Ok((
+                Port {
+                    mode: modes.remove(0),
+                    side: p.side,
+                },
+                p.rows.clone(),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((solver, ports))
+}
+
 /// Refuses a 3D solve of `unknowns` the iterative solver can't hold here.
 ///
 /// # Errors
@@ -466,28 +636,8 @@ pub(super) fn sampled_by(
     let mut indices: Vec<Vec<f64>> = Vec::with_capacity(wavelengths.len());
     let description;
     if three {
-        let (_, bottom, top) = structure
-            .stack()
-            .layer(core)
-            .ok_or_else(|| Error::invalid("device", format!("the stack has no layer {core}")))?;
-        let (b, t) = (bottom.to_um(), top.to_um());
-        let hz = grid.step_z;
-        let below = grid.margin + grid.pml as f64 * hz;
-        // the core's faces on nodes
-        let k0 = ((below / hz).ceil()) as usize;
-        let z0 = b - k0 as f64 * hz;
-        let nz = k0 + ((t - b) / hz).round() as usize + k0;
-        let g = Grid3d {
-            nx,
-            ny,
-            nz,
-            dx: h,
-            dy: h,
-            dz: hz,
-            x0,
-            y0,
-            z0,
-        };
+        let g = grid_3d(&structure, core, grid, (nx, ny), (x0, y0))?;
+        let (nz, hz) = (g.nz, g.dz);
         let boundaries = route.boundaries(grid.pml);
         description = format!(
             "3D FDFD, {nx} × {ny} × {nz} cells of {:.1} × {:.1} × {:.1} nm{}, PMLs {} cells{}",

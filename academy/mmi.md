@@ -431,7 +431,11 @@ $3L_\pi/8$, where mode 4 is $0.283\pi$ off the law (Section 3's chart at 2 µm).
 even modes beat 3.2 % faster than the plane's, $\pi/(\beta_0 - \beta_2)$ = 3.602 µm against
 3.716 µm, while the plane's fourth even mode isn't guided in 3D at all; the guided modes with the
 3D modes' indices put the best length at 3.361 µm, within 3D's. What is left, 0.021 ± 0.007 dB,
-is beyond the guided modes. A 2D number is an estimate of the device, never its performance:
+is the section's faces: they send about half a percent of the light back into its modes, which
+the guided-mode analysis leaves out. A quarter of what 3D loses does leave above and below, but
+the 3D junctions couple into the section's modes about as well as the plane's do (within
+0.002 dB). A 2D number is an estimate of
+the device, never its performance:
 
 ::validation device/mmi-guided-3d device/mmi-best-length-3d device/mmi-best-power-3d
 

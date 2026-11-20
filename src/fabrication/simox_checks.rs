@@ -1,9 +1,10 @@
 //! The validation cases of the SIMOX start (#622): the dose balance against the buried oxides
 //! published after an anneal above 1300 °C (Celler and Cristoloveanu's two) and against Lam's
-//! 0.5 µm; the balance as an upper bound where precipitates remain (Izumi's and Hemment's
-//! oxides, below it by 23 % and 32 %: gaps kept open, not cases to pass); the route alone giving
-//! the wafer `LayerStack::soi` gives; and SOI designs' flows from bare silicon giving their
-//! structures back to the bit.
+//! 0.5 µm; the balance as an upper bound where part of the oxygen stays outside the continuous
+//! oxide (Izumi's oxide after 1150 °C, with precipitates around it, and Hemment's as implanted,
+//! with the profile's wings: below it by 23 % and 32 %, gaps kept open, not cases to pass); the
+//! route alone giving the wafer `LayerStack::soi` gives; and SOI designs' flows from bare
+//! silicon giving their structures back to the bit.
 //!
 //! The published comparisons carry the printed digits of both numbers through the balance, as
 //! Deal and Grove's case does: half a unit of the dose's last printed digit moves the oxide by
@@ -43,7 +44,10 @@ pub(crate) const CELLER_LOW: Published = Published {
 };
 
 /// Their thinnest: "2×10¹⁷ cm⁻² at 65 keV, followed by 4 h anneal at 1350 °C, which resulted in
-/// a 56 nm thick oxide" (p. 4960).
+/// a 56 nm thick oxide" (p. 4960). A review's one sentence, citing M. J. Anc, R. P. Dolan, J. Jiao,
+/// T. Nakai, 1999 IEEE International SOI Conference, p. 106, doi:10.1109/SOI.1999.819875 (not in
+/// hand): it gives the dose to one digit, and neither how the oxide was measured nor the anneal's
+/// ambient.
 pub(crate) const CELLER_THIN: Published = Published {
     dose: 2e17,
     dose_digit: 0.5e17,
@@ -100,7 +104,9 @@ fn lam() -> Outcome {
 pub(crate) const BELOW_1300: [(&str, f64, f64); 2] = [
     // 150 keV, 1150 °C for 2 h in nitrogen: 2100 Å by SEM (p. 593)
     ("izumi-1978", 1.2e18, 210.0),
-    // 200 keV at about 550 °C, as implanted: 2800 ± 140 Å by TEM (p. 204)
+    // 200 keV at about 550 °C, as implanted: 2800 ± 140 Å by TEM (p. 204); his RBS line of
+    // the oxide against the dose (implanted at 400–500 °C, Fig. 2, p. 204) reads about 2050 Å
+    // at this dose, so his own two measurements differ by a third
     ("hemment-1984", 1.8e18, 280.0),
 ];
 
@@ -213,9 +219,9 @@ pub(crate) fn cases() -> Vec<Case> {
         },
         Case {
             id: "fabrication/simox-oxide-below-1300",
-            title: "Below 1300 °C the dose balance only bounds the buried oxide from above: Izumi et al.'s 2100 Å after 1150 °C and Hemment et al.'s 2800 ± 140 Å as implanted are 77 % and 68 % of its 2727 Å and 4091 Å, the rest of the oxygen in precipitates around the oxide; neither may exceed it (oxides above it shown). The two gaps are kept open, not fitted",
+            title: "Below 1300 °C the dose balance only bounds the buried oxide from above: Izumi et al.'s 2100 Å after 1150 °C and Hemment et al.'s 2800 ± 140 Å as implanted are 77 % and 68 % of its 2727 Å and 4091 Å, the rest of the oxygen outside the continuous oxide (in precipitates after Izumi's anneal, in the implanted profile's wings in Hemment's unannealed layer); neither may exceed it (oxides above it shown). The two gaps are kept open, not fitted",
             tier: Tier::Published,
-            source: "K. Izumi, M. Doken, H. Ariyoshi, Electron. Lett. 14, 593 (1978), doi:10.1049/el:19780397, p. 593; P. L. F. Hemment et al., Vacuum 34, 203 (1984), doi:10.1016/0042-207X(84)90128-3, p. 204; the precipitates: Celler and Cristoloveanu (2003), p. 4959",
+            source: "K. Izumi, M. Doken, H. Ariyoshi, Electron. Lett. 14, 593 (1978), doi:10.1049/el:19780397, p. 593; P. L. F. Hemment et al., Vacuum 34, 203 (1984), doi:10.1016/0042-207X(84)90128-3, p. 204, the wings Fig. 3(b), p. 205; the precipitates: Celler and Cristoloveanu (2003), p. 4959",
             run: below_1300,
         },
         Case {
