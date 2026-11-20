@@ -236,16 +236,16 @@ const POSITION_SHARE: f64 = 0.25;
 /// 10 to 40 %, within them).
 const PERIOD: (f64, f64) = (0.60, 0.75);
 const DUTY: (f64, f64) = (0.05, 0.60);
-/// The wavelengths, µm: the window, and the search's and the front's counts across it.
+/// The wavelengths, µm: the window, and the front's count across it (each search's is recorded
+/// with it).
 const WINDOW: (f64, f64) = (1.40, 1.70);
-const SEARCH_WAVELENGTHS: usize = 7;
 const FRONT_WAVELENGTHS: usize = 31;
 /// The operating wavelength the band must hold, µm.
 const CENTRE: f64 = 1.55;
 /// The single-objective PSO on the chirp: particles, moves.
 const PSO: (usize, u64) = (20, 30);
-/// NSGA-II: population (the paper's 20 agents), generations.
-const NSGA: (usize, u64) = (20, 80);
+/// NSGA-II's population: the paper's 20 agents.
+const POPULATION: usize = 20;
 /// The bandwidth the paper reads its fronts at, nm.
 const TARGET: f64 = 100.0;
 /// #244's tolerance on the efficiency there, percentage points.
@@ -300,22 +300,212 @@ const SETUPS: [Setup; 2] = [
     },
 ];
 
-/// What `--full` found: for each setup the front (efficiency %, 1-dB bandwidth nm, on the
+/// What `--full` found: for each setup the search's generations, the front (efficiency %, 1-dB bandwidth nm, on the
 /// 31 wavelengths) and the two designs either side of 100 nm (each groove's centre and width,
 /// nm, the centres from x = 0).
 struct Recorded {
+    generations: u64,
+    wavelengths: usize,
     front: &'static [(f64, f64)],
     designs: [&'static [(f64, f64)]; 2],
 }
 
 const RECORDED: [Recorded; 2] = [
     Recorded {
-        front: &[],
-        designs: [&[], &[]],
+        generations: 300,
+        wavelengths: 7,
+        front: &[
+            (57.98, 79.1),
+            (57.89, 79.2),
+            (57.65, 90.8),
+            (57.59, 91.3),
+            (57.5, 92.3),
+            (56.77, 93.0),
+            (56.66, 96.5),
+            (56.08, 97.0),
+            (56.04, 98.0),
+            (55.99, 98.2),
+            (55.87, 98.4),
+            (55.83, 98.5),
+            (54.93, 101.6),
+            (54.78, 102.2),
+            (53.49, 104.7),
+            (53.44, 104.8),
+            (53.08, 106.5),
+            (53.01, 106.8),
+            (52.44, 108.9),
+            (52.34, 109.5),
+            (51.52, 111.4),
+            (51.16, 112.5),
+            (51.09, 112.8),
+            (50.93, 113.3),
+            (50.68, 113.8),
+            (50.27, 115.0),
+            (50.2, 117.5),
+            (49.89, 118.2),
+            (48.73, 119.5),
+            (48.55, 121.7),
+            (48.49, 122.5),
+            (47.43, 123.4),
+            (47.1, 126.4),
+            (46.82, 127.3),
+            (46.28, 128.3),
+            (45.86, 130.8),
+            (45.18, 131.1),
+            (45.08, 131.6),
+            (44.8, 132.5),
+            (43.94, 135.0),
+            (43.91, 135.1),
+            (42.37, 136.5),
+            (42.29, 137.7),
+            (41.91, 138.3),
+            (41.59, 138.5),
+            (41.57, 139.4),
+            (41.21, 140.7),
+            (41.21, 143.5),
+            (40.38, 145.1),
+            (39.99, 147.8),
+            (39.38, 147.8),
+            (39.22, 148.7),
+            (38.89, 149.1),
+            (38.73, 150.8),
+            (37.88, 151.4),
+            (37.59, 153.0),
+            (37.58, 153.1),
+            (37.26, 154.2),
+            (37.1, 155.0),
+            (36.33, 156.4),
+            (35.34, 157.6),
+            (35.24, 160.1),
+            (34.34, 164.7),
+            (34.15, 166.8),
+            (33.03, 169.2),
+            (32.49, 170.5),
+            (32.4, 171.6),
+            (30.94, 173.2),
+            (29.82, 174.8),
+            (29.38, 177.9),
+            (29.18, 182.9),
+            (28.85, 183.6),
+            (26.76, 184.1),
+            (26.75, 184.3),
+            (26.57, 184.9),
+            (26.46, 188.0),
+            (26.02, 190.7),
+            (22.83, 195.4),
+            (22.25, 200.7),
+            (21.93, 201.2),
+            (20.98, 202.5),
+            (20.31, 205.6),
+            (18.99, 209.5),
+            (18.68, 211.8),
+            (18.62, 216.1),
+            (18.43, 217.0),
+            (18.06, 218.8),
+            (17.92, 222.4),
+            (15.78, 227.1),
+            (13.8, 253.4),
+            (13.79, 254.2),
+            (13.7, 259.4),
+            (13.63, 263.0),
+        ],
+        designs: [
+            &[
+                (-1.2, 76.7),
+                (679.9, 103.3),
+                (1373.5, 204.1),
+                (2077.7, 262.5),
+                (2752.1, 249.9),
+                (3426.9, 249.2),
+                (4094.3, 229.6),
+                (4806.5, 257.8),
+            ],
+            &[
+                (-2.2, 76.7),
+                (679.9, 103.3),
+                (1373.5, 251.0),
+                (2077.1, 262.5),
+                (2752.1, 249.9),
+                (3425.1, 249.2),
+                (4094.3, 336.2),
+                (4806.5, 257.0),
+            ],
+        ],
     },
     Recorded {
-        front: &[],
-        designs: [&[], &[]],
+        generations: 120,
+        wavelengths: 13,
+        front: &[
+            (62.65, 70.5),
+            (62.6, 71.3),
+            (62.46, 72.8),
+            (62.36, 73.1),
+            (62.24, 73.4),
+            (62.17, 74.6),
+            (60.87, 75.4),
+            (60.74, 75.7),
+            (60.68, 77.0),
+            (59.89, 77.8),
+            (53.25, 84.1),
+            (51.9, 85.8),
+            (50.83, 87.2),
+            (50.05, 91.2),
+            (49.13, 95.5),
+            (42.9, 107.7),
+            (42.05, 109.4),
+            (41.87, 111.0),
+            (41.81, 111.1),
+            (40.84, 113.6),
+            (39.06, 117.2),
+            (36.9, 121.0),
+            (36.86, 122.9),
+            (36.13, 124.7),
+            (34.94, 128.9),
+            (34.35, 129.9),
+            (30.79, 130.7),
+            (29.83, 131.0),
+            (29.59, 132.4),
+            (29.41, 132.8),
+            (28.02, 135.2),
+            (27.95, 135.4),
+            (27.77, 136.3),
+            (27.44, 136.4),
+            (26.88, 136.8),
+            (26.58, 138.1),
+            (24.24, 141.6),
+        ],
+        designs: [
+            &[
+                (-78.1, 50.2),
+                (689.9, 72.3),
+                (1347.6, 72.3),
+                (1993.0, 156.2),
+                (2670.6, 200.3),
+                (3311.8, 370.4),
+                (3932.5, 261.3),
+                (4549.7, 253.7),
+                (5206.4, 296.0),
+                (5878.4, 295.9),
+                (6556.6, 288.3),
+                (7176.2, 260.0),
+                (7884.7, 291.1),
+            ],
+            &[
+                (-72.1, 50.6),
+                (679.3, 74.0),
+                (1332.3, 71.5),
+                (1993.0, 90.1),
+                (2670.8, 207.3),
+                (3315.9, 371.7),
+                (3932.5, 262.9),
+                (4555.4, 258.2),
+                (5206.4, 293.9),
+                (5903.3, 291.8),
+                (6557.4, 295.9),
+                (7213.1, 254.9),
+                (7884.9, 384.3),
+            ],
+        ],
     },
 ];
 
@@ -347,8 +537,8 @@ impl Structure {
 /// One of the supplement's fronts: its data file's common data (mode field diameter, BOX,
 /// fibre offset, etch and fibre distance, µm), the main text's efficiency at 100 nm, the
 /// structures re-solved and, of them, the numbers of the two either side of 100 nm on the
-/// paper's front and of the two either side of it on ours (the plain run's, where its two grids
-/// can judge it).
+/// paper's front and of those the plain run (4 µm) or `--recorded` (6 µm) re-solves about it on
+/// ours.
 struct Front {
     mfd: f64,
     t_box: f64,
@@ -358,7 +548,7 @@ struct Front {
     paper: f64,
     structures: &'static [Structure],
     bracket: [u32; 2],
-    plain: Option<[u32; 2]>,
+    plain: &'static [u32],
 }
 
 impl Front {
@@ -496,7 +686,7 @@ const FRONTS: [Front; 2] = [
             },
         ],
         bracket: [49, 48],
-        plain: Some([52, 49]),
+        plain: &[52, 49],
     },
     Front {
         mfd: 6.0,
@@ -588,9 +778,8 @@ const FRONTS: [Front; 2] = [
             },
         ],
         bracket: [39, 37],
-        // on 40 × 20 nm and 20 × 10 nm, the efficiency at 100 nm between 42 and 37 moves by
-        // 1.8 points, beyond the third of 3 a check needs: the 6 µm front is `--supplement`'s
-        plain: None,
+        // 42 is within a nanometre of 100 nm: the front through three, about it
+        plain: &[42, 39, 37],
     },
 ];
 
@@ -1137,18 +1326,18 @@ fn search(
     model: &Model,
     period: f64,
     start: &[f64],
-    generations: u64,
+    (generations, count): (u64, usize),
     log: &Mutex<std::fs::File>,
 ) -> (Vec<Point>, u64) {
     let n = model.setup.grooves;
     let genes = 2 * n;
-    let lambda = wavelengths(SEARCH_WAVELENGTHS);
+    let lambda = wavelengths(count);
     let beams = model.beams(&lambda);
     let range = bounds(n, period);
     // the chirped design and 19 others within 50 nm of it, seeded
     let mut rng = StreamRng::seed_from_u64(2);
     let mut initial = vec![Reals::from(start.to_vec())];
-    for _ in 1..NSGA.0 {
+    for _ in 1..POPULATION {
         let near: Vec<_> = start
             .iter()
             .zip(&range)
@@ -1159,7 +1348,7 @@ fn search(
     let real =
         Real::new(range.iter().map(|&(lo, hi)| lo..=hi).collect::<Vec<_>>()).expect("bounds");
     let nsga = Nsga2::builder(real, [Objective::Maximize; 2])
-        .population_size(NSGA.0)
+        .population_size(POPULATION)
         .crossover(SimulatedBinaryCrossover::new(20.0).expect("valid"))
         .mutate(PolynomialMutation::per_gene(1.0 / genes as f64, 20.0).expect("valid"))
         .initial_genomes(initial)
@@ -1216,7 +1405,7 @@ fn search(
                     note(
                         log,
                         &format!(
-                            "MFD {} um, NSGA-II: after generation {g}, the front at {TARGET} nm on {SEARCH_WAVELENGTHS} wavelengths: {:.2} %",
+                            "MFD {} um, NSGA-II: after generation {g}, the front at {TARGET} nm on {count} wavelengths: {:.2} %",
                             model.setup.mfd,
                             c0 + (c1 - c0) * (TARGET - w0) / (w1 - w0)
                         ),
@@ -1386,26 +1575,39 @@ fn header(front: &Front) {
     );
 }
 
-/// The paper's own front at 100 nm, as the searches' model solves it: two of the supplement's
-/// designs, either side of 100 nm on our grid, re-solved on the plain run's grids
-/// ([`CHECK_GRIDS`]); the efficiency between them at 100 nm checked against the main text's, as
-/// our own front's is.
-fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
+/// The efficiency at 100 nm on the front through `bands`, %: linear between the two either side
+/// of it by bandwidth; `None` when they don't reach either side of it.
+fn front_at(bands: &[Band]) -> Option<f64> {
+    let mut sorted: Vec<Band> = bands.to_vec();
+    sorted.sort_by(|a, b| a.width_nm().total_cmp(&b.width_nm()));
+    sorted
+        .windows(2)
+        .find(|w| w[0].width_nm() <= TARGET && TARGET <= w[1].width_nm())
+        .map(|w| between(&[w[0], w[1]]))
+}
+
+/// The paper's own front at 100 nm, as the searches' model solves it: the supplement's designs
+/// about 100 nm (`Front::plain`), re-solved on the plain run's grids ([`CHECK_GRIDS`]); the
+/// efficiency at 100 nm on the front through them checked against the main text's, as our own
+/// front's is. The 4 µm front in the plain run, both with `all` (`--recorded`).
+fn published(checks: &mut common::Checks, all: bool) -> photonoxide::Result<()> {
     println!(
-        "\nThe paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist at FID). The efficiency at {TARGET} nm between two of them, against the main text's, within {TOLERANCE} points, for the 4 µm front: the 6 µm one's needs 10 × 5 nm for a minute or more a wavelength, too slow for CI, and is `--supplement`'s, which also compares each design with its printed efficiency and bandwidth."
+        "\nThe paper's own designs (its supplement's data files), re-solved by the searches' model (the beam's waist at FID). The efficiency at {TARGET} nm on the front through them, against the main text's, within {TOLERANCE} points{}.",
+        if all {
+            ""
+        } else {
+            ", for the 4 µm front (the 6 µm one's takes about 10 minutes on 10 × 5 nm, too slow for CI: `--recorded`)"
+        }
     );
-    for front in &FRONTS {
-        let Some(plain) = front.plain else {
-            continue;
-        };
+    for front in FRONTS.iter().filter(|f| all || f.mfd == SETUPS[0].mfd) {
         header(front);
-        let pair = [front.structure(plain[0]), front.structure(plain[1])];
+        let designs: Vec<&Structure> = front.plain.iter().map(|&n| front.structure(n)).collect();
         let setup = front.setup(front.fid);
         let started = Instant::now();
         let mut study = Study::new("efficiency at 100 nm (%)");
         let mut ef = f64::NAN;
         for (k, step) in CHECK_GRIDS.into_iter().enumerate() {
-            let b = structure_bands(&Model::new(setup, step)?, &pair);
+            let b = structure_bands(&Model::new(setup, step)?, &designs);
             eprintln!(
                 "MFD {} um, the paper's designs: grid {} of {}, {} in",
                 front.mfd,
@@ -1413,7 +1615,7 @@ fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
                 CHECK_GRIDS.len(),
                 minutes(started.elapsed().as_secs_f64())
             );
-            for (s, b) in pair.iter().zip(&b) {
+            for (s, b) in designs.iter().zip(&b) {
                 println!(
                     "  structure {}: paper {} % at {} nm; ours {:.2} % at {:.1} nm ({:.4}–{:.4} µm) on {:.0} × {:.0} nm",
                     s.number,
@@ -1427,11 +1629,11 @@ fn published(checks: &mut common::Checks) -> photonoxide::Result<()> {
                     1000.0 * step.1
                 );
             }
-            if !(b[0].width_nm() <= TARGET && TARGET <= b[1].width_nm()) {
-                println!("  the two don't hold {TARGET} nm between them on this grid: not checked");
+            let Some(at) = front_at(&b) else {
+                println!("  they don't reach either side of {TARGET} nm on this grid: not checked");
                 return Ok(());
-            }
-            ef = held(between(&[b[0], b[1]]), 2);
+            };
+            ef = held(at, 2);
             study = study.on(step.1, ef)?;
         }
         checks.converged(
@@ -1476,6 +1678,10 @@ fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
         let total = waists.len() * GRIDS.len() * structures.len();
         let started = Instant::now();
         let mut done = 0;
+        // the time to go weighed by each grid's cost: about 8 times the last's on the finest
+        let weight = |g: usize| portable::powi(8f64, g as i32);
+        let work: f64 = (0..GRIDS.len()).map(weight).sum::<f64>() * structures.len() as f64;
+        let mut worked = 0.0;
         let mut bands = Vec::with_capacity(waists.len() * GRIDS.len());
         for &(name, waist) in &waists {
             for (g, step) in GRIDS.into_iter().enumerate() {
@@ -1492,15 +1698,17 @@ fn supplement(checks: &mut common::Checks) -> photonoxide::Result<()> {
                         grid.extend(structure_bands(&model, &[*s]));
                     }
                     done += 1;
+                    worked += weight(g);
                     let elapsed = started.elapsed().as_secs_f64();
                     eprintln!(
-                        "MFD {} um, the paper's designs: {done} of {total} ({:.0} %; structure {}, {name}, {:.0} x {:.1} nm), {} in",
+                        "MFD {} um, the paper's designs: {done} of {total} ({:.0} %; structure {}, {name}, {:.0} x {:.1} nm), {} in, about {} to go",
                         front.mfd,
                         100.0 * done as f64 / total as f64,
                         s.number,
                         1000.0 * step.0,
                         1000.0 * step.1,
-                        minutes(elapsed)
+                        minutes(elapsed),
+                        minutes(elapsed * (work - worked) / worked)
                     );
                 }
                 bands.push(grid);
@@ -1837,12 +2045,14 @@ fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
             .expect("a log file"),
     );
     eprintln!("progress in {path}");
-    let generations = option("--generations").unwrap_or(NSGA.1);
     let only: Option<f64> = option("--mfd");
-    for setup in SETUPS
+    for (setup, recorded) in SETUPS
         .into_iter()
-        .filter(|s| only.is_none_or(|m| m == s.mfd))
+        .zip(&RECORDED)
+        .filter(|(s, _)| only.is_none_or(|m| m == s.mfd))
     {
+        let generations = option("--generations").unwrap_or(recorded.generations);
+        let count = option("--wavelengths").unwrap_or(recorded.wavelengths);
         let model = Model::new(setup, STEP)?;
         println!(
             "\nMFD {} µm: T_BOX {} µm, FIO {} µm, etch {} nm, {} grooves, the waist at FID {} µm; {} × {} cells of {:.0} × {:.0} nm",
@@ -1866,10 +2076,10 @@ fn full(checks: &mut common::Checks) -> photonoxide::Result<()> {
             100.0 * ce
         );
         println!("    {start:?}");
-        let (points, evaluations) = search(&model, period, &start, generations, &log);
+        let (points, evaluations) = search(&model, period, &start, (generations, count), &log);
         println!(
-            "  NSGA-II (population {}, {generations} generations, {evaluations} evaluations): {} points on the front",
-            NSGA.0,
+            "  NSGA-II (population {}, {generations} generations, {evaluations} evaluations on {count} wavelengths): {} points on the front",
+            POPULATION,
             points.len()
         );
         let refined = refine(&model, &points);
@@ -1980,7 +2190,9 @@ fn print_setup() {
     s.item(
         "wavelengths",
         &format!(
-            "{SEARCH_WAVELENGTHS} in the search, {FRONT_WAVELENGTHS} for the front, from {} to {} µm; the band must hold {} µm",
+            "{} and {} in the searches (4 and 6 µm), {FRONT_WAVELENGTHS} for the front, from {} to {} µm; the band must hold {} µm",
+            RECORDED[0].wavelengths,
+            RECORDED[1].wavelengths,
             common::number(WINDOW.0),
             common::number(WINDOW.1),
             common::number(CENTRE)
@@ -1996,8 +2208,8 @@ fn print_setup() {
     s.item(
         "solver",
         &format!(
-            "2D FDFD, E along z, photonoxide's direct solver; genoxide's PSO ({} particles, {} moves) on a linear chirp, then NSGA-II (population {}, {} generations) with --full",
-            PSO.0, PSO.1, NSGA.0, NSGA.1
+            "2D FDFD, E along z, photonoxide's direct solver; genoxide's PSO ({} particles, {} moves) on a linear chirp, then NSGA-II (population {}, {} and {} generations) with --full",
+            PSO.0, PSO.1, POPULATION, RECORDED[0].generations, RECORDED[1].generations
         ),
     );
     s.item(
@@ -2039,9 +2251,11 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     }
     if std::env::args().any(|a| a == "--full") {
         full(&mut checks)?;
-        published(&mut checks)?;
+        published(&mut checks, true)?;
         return Ok(checks.finish());
     }
+    // the plain run (CI) checks the 4 µm fronts; `--recorded` the 6 µm ones too
+    let all = std::env::args().any(|a| a == "--recorded");
     for (setup, recorded) in SETUPS.iter().zip(&RECORDED) {
         println!(
             "\nMFD {} µm: T_BOX {} µm, FIO {} µm, etch {} nm, {} grooves",
@@ -2052,8 +2266,8 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             setup.grooves
         );
         println!(
-            "  the front --full found (NSGA-II, population {}, {} generations; CE %, 1-dB bandwidth nm):",
-            NSGA.0, NSGA.1
+            "  the front --full found (NSGA-II, population {}, {} generations on {} wavelengths; CE %, 1-dB bandwidth nm):",
+            POPULATION, recorded.generations, recorded.wavelengths
         );
         for row in recorded.front.chunks(6) {
             let cells: Vec<String> = row
@@ -2062,7 +2276,10 @@ pub fn main() -> photonoxide::Result<ExitCode> {
                 .collect();
             println!("    {}", cells.join("   "));
         }
-        if recorded.designs[0].is_empty() {
+        if !(all || setup.mfd == SETUPS[0].mfd) {
+            println!(
+                "  its designs either side of {TARGET} nm are checked with `--recorded`: 10 × 5 nm takes about 10 minutes, too slow for CI"
+            );
             continue;
         }
         check(
@@ -2071,6 +2288,6 @@ pub fn main() -> photonoxide::Result<ExitCode> {
             &[centred(recorded.designs[0]), centred(recorded.designs[1])],
         )?;
     }
-    published(&mut checks)?;
+    published(&mut checks, all)?;
     Ok(checks.finish())
 }
