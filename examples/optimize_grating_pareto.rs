@@ -12,16 +12,16 @@
 //! partially etched grooves, filled with the top oxide; TE polarization, the electric field along
 //! the grooves (p. 2), which is $E$ along $z$ here; the fibre at 10° (p. 2). Each of Fig. 6's
 //! fronts has its own $T_\mathrm{BOX}$, fibre offset FIO and etch (the table in Fig. 6, p. 4): 2.1 µm, 2.60 µm and 150 nm for a
-//! mode field diameter of 4.0 µm; 2.0 µm, 3.70 µm and 120 nm for 6.0 µm.
+//! mode field diameter of 4.0 µm; 2.0 µm, 3.70 µm and 120 nm for 6.0 µm. The supplement's data
+//! files (below) give the 4 µm etch as 140 nm, as Supp. Fig. 4(a) marks it, and the searches take
+//! the files' 140 nm.
 //!
 //! **The fibre** is a Gaussian beam whose mode field diameter (MFD) is the diameter at which its
-//! field falls to $1/e$ (p. 2), so its waist is MFD/2. Fig. 1 measures the fibre offset from the
-//! grating's start to the fibre's axis. For the searches its waist is put on the film's top, its
-//! axis FIO from the first groove, tilted 10° in the top oxide so that its light runs into the
-//! waveguide. The fibre's height, FID in Fig. 1, is 1.28 µm (the supplement's Supp. Tab. I and
-//! data files); the supplement's designs below are solved with the waist on the film and with it
-//! FID above, its axis through $x = \mathrm{FIO}$ there. The beam is exact in 2D: a sum of 161 plane waves of
-//! its Gaussian angular spectrum.
+//! field falls to $1/e$ (p. 2), so its waist is MFD/2. Its waist is FID = 1.28 µm above the
+//! film's top (the supplement's Supp. Tab. I and data files), its axis through $x = \mathrm{FIO}$
+//! there, tilted 10° in the top oxide so that its light runs into the waveguide; $x = 0$ is the
+//! centre of the linear chirp's first groove, as in the data files. The beam is exact in 2D: a
+//! sum of 161 plane waves of its Gaussian angular spectrum.
 //!
 //! **The coupling efficiency** is found by reciprocity: the waveguide's TE0 mode is launched into
 //! the grating and the field it sends up is projected on the fibre's beam travelling the other
@@ -31,25 +31,33 @@
 //! $\tilde H = \partial_y E_z / (i k_0)$ on the grid's faces.
 //!
 //! **The grating** (p. 4): "we vary the width and position of each grating element"; the
-//! footprint is "slightly larger than MFD" (p. 2). The searches, set up before the supplement was
-//! read, use a grating of $N$ grooves, $N = 8$ for the 4 µm fibre and 11 for the 6 µm one, the
-//! first groove's start at 0; the variables are the $N$ grooves' widths (60 to 450 nm) and the
-//! $N - 1$
-//! teeth between them (60 to 500 nm). The supplement's data files have 8 grooves over 5 µm for
-//! the 4 µm fibre and 13 over 8 µm for the 6 µm one.
+//! footprint is "slightly larger than MFD" (p. 2). The searches have the data files' groove
+//! counts, 8 for the 4 µm fibre and 13 for the 6 µm one, about a period $\Lambda$ (the linear
+//! chirp's, below); the variables are each groove's centre, within $\Lambda/4$ of $k\Lambda$, and
+//! its width, from 50 nm to $3\Lambda/4$; grooves that overlap merge. Those are the bounds every
+//! 4 and 6 µm structure in the data files lies within, with their extremes on them: the centres
+//! reach $+\Lambda/4$ (4 µm) and $\pm\Lambda/4$ (6 µm) from $k\Lambda$ about the files' mean
+//! periods, 684 and 662.5 nm, and the widths 50.0 nm (both) and 496.9 nm, $3\Lambda/4$ (6 µm).
 //!
-//! **The search, as in the paper** (p. 4). First, "the linearly chirped structure with the best
-//! CE ... found by a dedicated Single-Objective PSO": genoxide's PSO (20 particles, 30 moves) on
-//! a chirp of the period and of the grooves' share of it from the first groove to the last, for
-//! the efficiency at 1.55 µm. Then the two objectives from there. The paper's multi-objective
-//! PSO isn't in genoxide; its NSGA-II runs instead (#244's row 12), with the paper's 20 agents
-//! (population 20: the chirped design and 19 others within 50 nm of it), simulated binary
-//! crossover and polynomial mutation (both $\eta = 20$, a gene's mutation $1/n$). The paper ran 1000
-//! iterations, 2 × 10⁴ structures; here 80 generations, 1620. The front is the non-dominated
-//! set of every structure evaluated, as the paper's front "stored at each step". The objectives
-//! are the peak efficiency and the 1-dB bandwidth around it, both maximized; a design whose band
-//! doesn't hold 1.55 µm is infeasible, by its distance from it (the paper doesn't say how its
-//! band is placed).
+//! **The search, as in the paper** (p. 4 and the supplement's Sec. V). First, "the linearly chirped
+//! structure with the best CE ... found by a dedicated Single-Objective PSO": genoxide's PSO (20
+//! particles, 30 moves) on Supp. Eq. S11's chirp, a period and a duty cycle that runs linearly
+//! from the first groove for a chirp length and stays constant after it (the period 600 to 750 nm,
+//! the duty cycles 5 to 60 %), for the efficiency at 1.55 µm. Then the two objectives from there.
+//! The paper's multi-objective PSO isn't in genoxide; its NSGA-II runs instead (#244's row 12),
+//! with the paper's 20 agents (population 20: the chirped design and 19 others within 50 nm of
+//! it), simulated binary crossover and polynomial mutation (both $\eta = 20$, a gene's mutation
+//! $1/n$). The front is the non-dominated set of every structure evaluated, as the paper's front
+//! "stored at each step". The objectives are the peak efficiency and the 1-dB bandwidth around it,
+//! both maximized; a design whose band doesn't hold 1.55 µm is infeasible, by its distance from it
+//! (the paper doesn't say how its band is placed).
+//!
+//! **The budget.** The paper ran 1000 iterations, 2 × 10⁴ structures for each fibre. Here a
+//! structure on 7 wavelengths takes about 1.5 s (4 µm) and 3.6 s (6 µm) on 4 threads, so 2 × 10⁴
+//! would take about 8 and 20 hours: the searches ran 300 generations for the 4 µm fibre (6020
+//! structures, 2.5 h) and 150 for the 6 µm one (3020, 3 h), and the progress log's front at
+//! 100 nm on the search's wavelengths had stopped moving long before: 54.92 % after 75 generations
+//! and 54.99 % after 300 (4 µm), 56.83 % after 75 and 57.10 % after 125 and 150 (6 µm).
 //!
 //! **The spectra.** The search's on 7 wavelengths from 1.40 to 1.70 µm (50 nm apart); the
 //! front's again on 31 (10 nm apart); between them a natural cubic spline of the efficiency in
@@ -60,30 +68,40 @@
 //! efficiency at 100 nm, interpolated between its two designs either side, is compared with
 //! those within 3 percentage points: #244's tolerance; the paper states no uncertainty, and its
 //! fronts come from one stochastic run each. Our own grid's error is shown beside it, from the
-//! two designs re-solved on cells twice as coarse (40 × 20 nm), and must be within a third of
-//! that tolerance.
+//! two designs re-solved on cells half as large (10 × 5 nm), and must be within a third of that
+//! tolerance.
 //!
-//! **The two runs.** `--full` runs both searches and prints the front and its designs. The plain
-//! run, which CI compares, re-solves the two designs either side of 100 nm that `--full` found
-//! (recorded below) on both grids, checks their grid and compares them with the paper; the
-//! recorded front is printed for context.
+//! **The runs.** `--full` runs both searches and prints the front and its designs (`--mfd` one of
+//! them, `--generations` another budget). The plain run, which CI compares, re-solves the two
+//! 4 µm designs either side of 100 nm that `--full` found (recorded below) on both grids, checks
+//! their grid and compares them with the paper; the 6 µm ones take about 10 minutes on 10 × 5 nm,
+//! too slow for CI, and `--recorded` checks them too. The recorded fronts are printed for context.
 //! The model is 2D FDFD on 20 × 10 nm cells (10 nm vertically, as the paper's mesh), with PMLs
 //! 0.4 µm thick along the film and 0.3 µm across it, 0.2 µm of substrate and 0.6 µm of top oxide
 //! in the window, and the beam projected over twice its waist either side of its axis (all but
 //! 6e-5 of its power). Everything is the same bits on any number of threads.
 //!
-//! **What it found** (`--full`, 2026-10-30, on 7 threads: about 1.5 h for the 4 µm fibre and
-//! 5 h for the 6 µm one, the machine shared with other work). The best linear chirps couple
-//! 44.05 % (4 µm) and 49.40 % (6 µm) at 1.55 µm. The fronts reach 47.2 % at 81 nm and 19.9 % at
-//! 161 nm (4 µm), and 52.9 % at 70 nm and 25.4 % at 138 nm (6 µm), where Fig. 6's run from about
+//! **What it found** (`--full`, 2026-11-19, on 4 threads of a machine shared with other work). The
+//! best linear chirps couple 57.58 % at 1.55 µm (4 µm: a period of 681.3 nm, the duty cycle from
+//! 11.7 to 35.6 % over 0.456 of the grating) and 60.67 % (6 µm: 657.2 nm, 8.1 to 38.7 % over
+//! 0.528), where the supplement's Supp. Tab. II has 56.7 % (684 nm, 10 to 35 % over 2.13 µm) and
+//! 60.1 % (662 nm, 10 to 40 % over 4.97 µm). The fronts run from 57.98 % at 79.1 nm to 13.63 % at
+//! 263.0 nm (4 µm) and from 62.65 % at 70.5 nm to 24.24 % at 141.6 nm (6 µm); Fig. 6's from about
 //! 57 % at 87 nm to 210 nm (4 µm) and from about 60 % at 65 nm to 193 nm (6 µm), read off the
-//! figure. At 100 nm ours
-//! couple 43.64 % (4 µm) and 39.77 % (6 µm), against the paper's 53 % and 47 %: 9.4 and 7.2
-//! points below, beyond the 3 asked. Reported, not checked, and listed for #595; the grids agree
-//! to 0.07 and 0.7 points, so the gap isn't the grid. What differs from the paper's search:
-//! NSGA-II for its multi-objective PSO, 1620 structures for its 2 × 10⁴, 11 grooves for its 13
-//! (6 µm), an etch of 150 nm for the 140 nm of its 4 µm structures, and how the band is placed.
-//! Our 6 µm front also sits above our 4 µm one at the narrow end, which Fig. 6's don't.
+//! figure. At 100 nm ours couple 55.28 % (4 µm) and 46.76 % (6 µm), against the paper's 53 % and
+//! 47 %: 2.28 points above and 0.24 below, within the 3 asked; the grids (20 × 10 and 10 × 5 nm)
+//! agree to 0.12 and 0.08 points. The 6 µm front has a gap there, from 49.13 % at 95.5 nm to 42.90 %
+//! at 107.7 nm on the front's 31 wavelengths: the search's 7, 50 nm apart, hold only two or three
+//! points of a band that narrow, so the search's own front at 100 nm (57.10 %) isn't the refined
+//! one's.
+//!
+//! An earlier search (2026-10-30) had the waist on the film, a 150 nm etch at 4 µm, 11 grooves at
+//! 6 µm, the widths 60 to 450 nm and the teeth between grooves 60 to 500 nm, a chirp of the period
+//! and the duty cycle from the first groove to the last, and 1620 structures: 43.64 % and 39.77 %
+//! at 100 nm, 9.4 and 7.2 points below. Its chirps coupled only 44.05 % and 49.40 %: teeth of at
+//! most 500 nm can't hold the paper's chirps (684 nm periods with 10 % grooves leave teeth of
+//! 616 nm), nor most of the paper's structures (the files' teeth reach 657 nm at 4 µm and 792 nm
+//! at 6 µm).
 //!
 //! **The paper's own designs** (its supplementary material, Sec. VI and the data files
 //! supp_MFD_4.txt and supp_MFD_6.txt): each front's common data (MFD, n, the film, etch, FIO,
@@ -97,52 +115,58 @@
 //!
 //! The plain run re-solves two of the 4 µm designs, 52 and 49, with the searches' model, and
 //! checks the efficiency at 100 nm between them against the main text's 53 %, within #244's
-//! 3 points, its grid within a third of that: the question is whether the gap above is the
-//! search or the model. The 6 µm pair is left to `--supplement`: on 40 × 20 and 20 × 10 nm its
-//! efficiency at 100 nm moves by 1.8 points (the bandwidths by up to 4 nm), beyond the 1 point a
-//! check needs, and a finer grid costs too much for CI.
+//! 3 points, its grid within a third of that; `--recorded` does the same for the 6 µm front through
+//! 42, 39 and 37 (42 is within a nanometre of 100 nm). The paper's 4 µm designs couple 54.71 % at
+//! 100 nm (the grids agree to 0.05 points): our model reproduces Fig. 6's 4 µm number from the
+//! paper's own designs, as our search's front does.
+//!
+//! RECORDED-6
 //!
 //! `--supplement` re-solves ten of the designs (the best of each front, those near 100 nm and
-//! the four of Supp. Fig. 7) on three grids, 40 × 20, 20 × 10 and 10 × 5 nm, with the beam's
-//! waist on the film and FID above it, and compares each design's efficiency and bandwidth with
-//! the paper's. The tolerance is the paper's own spread on its 2D numbers: Supp. Fig. 7 solves
-//! four of the 4 µm designs again in 2D, and those differ from the data file's by up to
-//! 0.24 points in efficiency (structure 56) and 1.32 % in bandwidth (structure 45). (The file's
-//! bandwidths come in steps of about 1.5 nm, its spectra's resolution.) Our grid's error, from
-//! the three grids, must be within a third of that.
+//! the four of Supp. Fig. 7) on three grids, 20 × 10, 10 × 5 and 5 × 2.5 nm, with the beam's
+//! waist at FID, and compares each design's efficiency and bandwidth with the paper's. The
+//! tolerance is the paper's own spread on its 2D numbers: Supp. Fig. 7 solves four of the 4 µm
+//! designs again in 2D, and those differ from the data file's by up to 0.24 points in efficiency
+//! (structure 56) and 1.32 % in bandwidth (structure 45). (The file's bandwidths come in steps of
+//! about 1.5 nm, its spectra's resolution.) Our grid's error, from the three grids, must be within
+//! a third of that. On 5 × 2.5 nm a 6 µm solve takes 15 GB, so that grid's wavelengths are solved
+//! one at a time.
 //!
-//! **What the paper's designs gave.** The plain run's check holds: the paper's 4 µm designs 52
-//! and 49 couple 53.45 % at 100 nm, against the main text's 53 % (the grids agree to
-//! 0.06 points). Our model reproduces Fig. 6's 4 µm number from the paper's own designs, so the
-//! 9.4 points our front misses it by are our search's, with its 150 nm etch.
+//! **Why 40 × 20 nm is left out** (`--grids`, 2026-11-19). An earlier `--supplement` (2026-10-31)
+//! took 40 × 20, 20 × 10 and 10 × 5 nm, and for some designs those didn't bring the efficiency's
+//! error under 0.08 points: the values oscillated or shrank too slowly. `--grids` solves the ten
+//! designs at 1.55 µm on grids refined along each axis alone and on the searches' grid moved
+//! against the grooves. Across the film the efficiency converges smoothly, at about second order:
+//! from 20 × 20 to 20 × 10 nm it falls by 0.10 to 0.64 points, and to 20 × 5 nm by 3.3 to 4 times less.
+//! Along the film 40 nm is too coarse to be in that range: from 40 × 10 to 20 × 10 nm the
+//! efficiency moves by 0.18 to 1.46 points, 2.1 to 71 times the next change to 10 × 10 nm (for
+//! design 52 the next change has the other sign), and in eight of the ten designs it has the
+//! opposite sign to the change across the film, so the two errors cancel on one grid and not the
+//! next. On 20 × 10 nm, moving the cells 5, 10 or 15 nm against the
+//! grooves moves the efficiency by up to 0.36 points (6 µm design 39); on 10 × 5 nm by at most
+//! 0.035. Richardson's estimate takes the three
+//! grids' changes as one power of the cell, which that coarsest grid breaks. From 20 × 10 nm on
+//! the changes shrink by 1.9 to 7.3 times a halving (for 6 µm design 58 they are 0.008 and
+//! −0.025), and the three grids 20 × 10, 10 × 5 and
+//! 5 × 2.5 nm give errors of 0.003 to 0.05 points at 1.55 µm for all ten designs. The line the
+//! field is projected on doesn't matter: 0.2 and 0.4 µm above the film give the same efficiency to
+//! 0.02 points on every grid.
 //!
-//! `--supplement` (2026-10-31, on 8 threads of a machine shared with other work: about 1 h for
-//! the 4 µm designs and 2 h 15 min for the 6 µm ones), on 10 × 5 nm with the waist at FID: the
-//! 4 µm efficiencies are within 0.10
-//! to 0.52 points of the data file's, 55.29 % against 55.1 % (52), 53.90 against 54.0 (49), 53.23
-//! against 53.1 (48), 51.17 against 50.9 (45), 57.73 against 57.36 (56) and 46.72 against 46.2
-//! (35): the first three within the paper's spread of 0.24 points, the others just beyond it.
-//! With the waist on the film they are 0.40 to 1.74 points below the paper's, so the fibre's distance matters
-//! at the half-point level. The bandwidths are wider than the paper's for every design, by 3.3 to
-//! 4.7 nm (3 to 5 %; 4.8 to 6.1 nm with the waist on the film), beyond the spread of 1.32 % and
-//! far beyond our grid's error (at most 0.4 nm): a gap the indices' dispersion explains (below), reported and not checked.
-//! Where the fibre's offset is measured (at its facet here), the grooves' positions taken as their
-//! centres, and the paper's FDTD mesh and spectra (its bandwidths come in steps of about 1.5 nm)
-//! are the candidates. Our grid's error on the efficiency is within a third of the spread
-//! (0.08 points) for 49, 48 and 45 with the waist at FID; for the others the three grids give an
-//! estimate up to 0.4 points, or none where the changes don't shrink, so the efficiencies agree
-//! to about half a point, not yet to the paper's own 0.24.
-//!
-//! The 6 µm designs, the same way: the efficiencies are 0.45 to 0.79 points above the data
-//! file's with the waist at FID, 60.61 % against 59.82 % (58), 50.65 against 50.2 (42), 48.39
-//! against 47.8 (39) and 46.85 against 46.1 (37); with the waist on the film, from 1.37 below to
-//! 0.36 above. The bandwidths are again wider, by 1.6 to 3.6 nm (2 to 4 %). Our grid's error with
-//! the waist at FID is within 0.08 points for 58, 42 and 37; for 39 the three grids give
-//! 0.74 points and 1.5 nm. With the searches'
-//! model on 10 × 5 nm, the paper's designs 42 and 39 couple 49.26 % at 100 nm (48.78 % on
-//! 20 × 10 nm), within 3 points of the main text's 47 %; so the 7.2 points our 6 µm front misses
-//! by are also our search's, with its 11 grooves for the paper's 13. That 49.26 % is above the
-//! data file's own 47.36 % because our bandwidths are wider: the same front, moved to the right.
+//! **What the paper's designs gave** (`--supplement`, 2026-11-19, on 4 threads of a machine shared
+//! with other work: 68 minutes for the 4 µm designs and 2 h 40 min for the 6 µm ones). Every
+//! design's grids now converge: the efficiency's error is 0.003 to 0.021 points (4 µm) and 0.004
+//! to 0.012 points (6 µm), the bandwidth's at most 0.11 nm, and the run exits 0. On 5 × 2.5 nm the
+//! 4 µm efficiencies are 55.27 % against the data file's 55.1 % (52), 53.89 against 54.0 (49) and
+//! 53.24 against 53.1 (48), within the paper's spread of 0.24 points, and 57.71 against 57.36 (56),
+//! 51.20 against 50.9 (45) and 46.66 against 46.2 (35), 0.30 to 0.46 points above it. The 6 µm
+//! ones are all above the file's, by 0.46 to 0.84 points: 60.66 % against 59.82 % (58), 50.66
+//! against 50.2 (42), 48.37 against 47.8 (39) and 46.82 against 46.1 (37). Our grid's error is
+//! now a twentieth of those gaps, so the grid doesn't explain them; they are reported, not
+//! checked, and stay open (#817). The bandwidths are wider than the paper's, by 3.4 to 4.8 nm at
+//! 4 µm and 1.8 to 3.7 nm at 6 µm: the indices' dispersion explains that (below). The earlier run
+//! also put the waist on the film, where the 4 µm efficiencies were 0.40 to 1.74 points below the
+//! paper's: the fibre's distance matters at the half-point level, and the searches and
+//! `--supplement` now take the paper's FID.
 //!
 //! **The bandwidths' gap, candidate by candidate** (2026-11-04, the ten designs on 20 × 10 nm with
 //! the waist at FID, where they are 0.9 to 4.7 % wider than the data file's, within 1.1 nm of
@@ -178,9 +202,11 @@
 //! the paper doesn't say which material models its solver took.
 //!
 //! ```sh
-//! cargo run --release --example optimize_grating_pareto                  # the recorded designs
-//! cargo run --release --example optimize_grating_pareto -- --full        # the searches
-//! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs
+//! cargo run --release --example optimize_grating_pareto                  # the recorded 4 µm designs
+//! cargo run --release --example optimize_grating_pareto -- --recorded    # and the 6 µm ones
+//! cargo run --release --example optimize_grating_pareto -- --full        # the searches (--mfd 4, --generations 300, --wavelengths 7)
+//! cargo run --release --example optimize_grating_pareto -- --supplement  # the paper's designs (--mfd 6)
+//! cargo run --release --example optimize_grating_pareto -- --grids       # the grid study at 1.55 µm (--mfd, --structure 39, --grid 3)
 //! cargo run --release --example optimize_grating_pareto -- --beams       # the two beams, 20 x 10 nm
 //! cargo run --release --example optimize_grating_pareto -- --dispersion  # the indices' dispersion
 //! cargo run --release --example optimize_grating_pareto -- --dispersion --fine  # on 10 x 5 nm
@@ -2242,7 +2268,7 @@ pub fn main() -> photonoxide::Result<ExitCode> {
     }
     if std::env::args().any(|a| a == "--dispersion") {
         let fine = std::env::args().any(|a| a == "--fine");
-        dispersion(if fine { GRIDS[2] } else { STEP })?;
+        dispersion(if fine { GRIDS[1] } else { STEP })?;
         return Ok(ExitCode::SUCCESS);
     }
     if std::env::args().any(|a| a == "--supplement") {
