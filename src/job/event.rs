@@ -347,18 +347,6 @@ pub enum Event {
         /// Cells times steps over `steps_seconds`.
         cell_updates_per_second: f64,
     },
-    /// An FDTD run before its first step: the modes of its mode sources and monitors solved so
-    /// far, one for each source and one at each of the spectrum's wavelengths for each mode
-    /// monitor. Recorded at least every second while they are solved, and when the last one is,
-    /// so a run with many wavelengths isn't silent before it steps (#783).
-    FdtdSetup {
-        /// The modes solved.
-        modes: usize,
-        /// The modes the run solves.
-        of: usize,
-        /// The time they have taken so far, seconds.
-        seconds: f64,
-    },
     /// An FDTD monitor's spectrum: its transforms so far, recorded every two seconds or so as they
     /// accumulate, and once more at the end (`last`). For a mode source, also its reflection
     /// back into its own guide's mode.
@@ -997,5 +985,17 @@ pub enum Event {
     Warning {
         /// The warning.
         text: String,
+    },
+    /// An FDTD run before its first step: the modes of its mode sources and monitors solved so
+    /// far, one for each source and one at each of the spectrum's wavelengths for each mode
+    /// monitor. Recorded at least every second while they are solved, and when the last one is,
+    /// so a run with many wavelengths isn't silent before it steps (#783).
+    FdtdSetup {
+        /// The modes solved.
+        modes: usize,
+        /// The modes the run solves.
+        of: usize,
+        /// The time they have taken so far, seconds.
+        seconds: f64,
     },
 }
