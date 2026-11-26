@@ -2,7 +2,11 @@
 
 Each example computes a published result: it prints it next to the number the paper prints, with
 the grid and the tolerance, and exits with code 1 when it is outside that tolerance. CI runs every
-example.
+example. What is checked is what the paper fully specifies; where the paper leaves a dimension, a
+material or a grid out and the example chooses it, the two numbers are printed side by side
+without a pass or a fail ([docs/comparisons.md](../docs/comparisons.md)). The examples written
+before that rule still check some comparisons that rest on a choice of ours; each is brought in
+line when it is next touched.
 
 ```sh
 photonoxide example <name>               # the installed program; `photonoxide example --list` lists them
