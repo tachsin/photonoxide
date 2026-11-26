@@ -1537,6 +1537,17 @@ end.
   on a plane three cells after it (exact, whatever the pulse launches off its carrier); for a
   plane wave, ½√ε|W(ω)|² over its box's face; for a beam, the paraxial beam's power. A mode
   source also records what comes back into its mode, the reflection.
+- **Before the first step:** the modes of the mode sources and monitors are solved by FDFD on
+  their planes: one for each source at the carrier, and one at each of the spectrum's
+  wavelengths for each mode monitor and for each source's incident monitor. They are solved
+  side by side on the machine's threads, in the wavelengths' order whichever finishes first,
+  so the run's bits are the same on any number of threads. The run records how many are
+  solved at least every second (`fdtd_setup`), and looks at its timeout and for a stop before
+  each one: a run stopped there ends without a spectrum, and when it was the timeout a
+  warning says how many modes were solved and what to change. Measured on an add-drop ring
+  of 10 µm radius in 2D, 640 × 612 cells of 40 nm, 21 wavelengths, so 106 modes on planes
+  612 cells long: 0.5 s a mode, 61 s one after another, and 4.6 s on 20 threads (a Core
+  Ultra 7 265K); at 101 wavelengths, 506 modes, 262 s one after another (#783).
 - **The record:** a frame of the field on the view's plane at intervals that start at an
   eightieth of the pulse's length and the light's crossing of the window, and double after
   every hundred frames and whenever a frame takes more than a tenth of the steps' time since the
@@ -1548,7 +1559,14 @@ end.
   for ten carrier periods after the pulse, at a time limit, or at the job's timeout; the last
   check's fraction is the run's recorded error, what the transforms leave out. A run also stops
   when the fields grow again (see [Late growth](#late-growth)), and records a solve error that
-  says so, the factor they grew by.
+  says so, the factor they grew by. A run until the fields decay that ends first, at its
+  `limit_um`, its timeout or a stop, records a warning: its spectra are the transforms of a
+  signal cut off at the time $t$ it ended, which resolve no line narrower than about
+  $\lambda^2/(c t)$, 1.2 nm at 1.55 µm for the default limit of 2000 µm/c. A resonance of
+  $Q$ decays in energy as $e^{-2\pi c t/(Q\lambda)}$, by $10^{-8}$ after $c t = 2.9 Q\lambda$: a
+  ring of $Q = 8000$ at 1.55 µm needs 36 000 µm/c, and a job for it raises `limit_um` and
+  its `timeout_minutes`, or takes a resonance monitor, whose harmonic inversion reads a
+  line's width from a record shorter than its decay.
 
 On the same grid with the permittivity of the carrier, a job's spectra are FDFD's
 S-parameters at the leapfrog's frequencies. At the carrier they differ by the CPMLs' difference

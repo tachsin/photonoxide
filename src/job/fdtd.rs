@@ -35,7 +35,7 @@ use crate::fdtd::{
 };
 use crate::geometry::{Point, Shape};
 use crate::material::Material;
-use crate::run::{Job, Run, Stop};
+use crate::run::{Job, Run, Stop, StopReason};
 use crate::stack::Structure;
 use crate::units::{Frequency, Length, Wavelength};
 use crate::{Error, Result};
@@ -1876,6 +1876,157 @@ pub(super) fn preview(job: &Job) -> Result<Event> {
     Setup::new(job)?.scene()
 }
 
+/// A port as a mode's solve takes it: its axis, its plane's node, its window's cells along the
+/// two other axes, and whether the mode is the TE one.
+type Port<'a> = (Axis, usize, &'a [std::ops::Range<usize>; 2], bool);
+
+/// The modes a run solves before its first step, counted as they are solved: an
+/// [`Event::FdtdSetup`] at least every [`PROGRESS_SECONDS`] of the clock and at the last one, so
+/// that a run with many wavelengths isn't silent before it steps (#783).
+struct ModeSetup {
+    done: usize,
+    total: usize,
+    began: Instant,
+    recorded: Instant,
+}
+
+impl ModeSetup {
+    fn of(total: usize) -> ModeSetup {
+        ModeSetup {
+            done: 0,
+            total,
+            began: Instant::now(),
+            recorded: Instant::now(),
+        }
+    }
+
+    /// Records how far the modes are, if the run solves any.
+    fn record(&mut self, run: &mut Run) -> Result<()> {
+        if self.total == 0 {
+            return Ok(());
+        }
+        self.recorded = Instant::now();
+        run.record(&Event::FdtdSetup {
+            modes: self.done,
+            of: self.total,
+            seconds: self.began.elapsed().as_secs_f64(),
+        })
+    }
+
+    /// `n` more modes are solved.
+    fn add(&mut self, n: usize, run: &mut Run) -> Result<()> {
+        self.done += n;
+        if self.done == self.total || self.recorded.elapsed().as_secs_f64() >= PROGRESS_SECONDS {
+            self.record(run)?;
+        }
+        Ok(())
+    }
+
+    /// The run was stopped before its first step: how far the modes were, and for a time limit
+    /// a warning that says what to change. The run then ends as any stopped run does.
+    fn stopped(&mut self, run: &mut Run, stop: &Stop) -> Result<()> {
+        self.record(run)?;
+        if stop.reason() == Some(StopReason::Timeout) {
+            run.record(&Event::Warning {
+                text: format!(
+                    "the run's time limit passed before its first step, with {} of the {} modes \
+                     of its mode sources and monitors solved in {:.0} s: it has no spectrum. \
+                     Each mode monitor takes a mode's solve at each of the spectrum's \
+                     wavelengths: raise timeout_minutes, or take fewer points in the spectrum",
+                    self.done,
+                    self.total,
+                    self.began.elapsed().as_secs_f64()
+                ),
+            })?;
+        }
+        Ok(())
+    }
+}
+
+/// The warning of a run until the fields decay that ended first, at `time` µm/c by its
+/// `limit_um`, its time limit or a stop (`stopped`), the field at the monitors at `left` of its
+/// peak at the last check (`None`: before the first check) where it runs to `fraction`: what the
+/// spectra then are, the narrowest line a record that long resolves near `wavelength` µm
+/// (λ²/(c t), the transform of a signal of length t), and what to raise.
+fn cut_off(
+    time: f64,
+    wavelength: f64,
+    fraction: f64,
+    left: Option<f64>,
+    stopped: Option<StopReason>,
+) -> String {
+    let (by, raise) = match stopped {
+        Some(StopReason::Timeout) => ("its time limit", "timeout_minutes"),
+        Some(StopReason::Requested) => ("a stop", "limit_um, and let it run"),
+        None => ("its limit_um", "limit_um (and timeout_minutes with it)"),
+    };
+    let left = match left {
+        Some(d) => format!("the field at the monitors still at {d:.1e} of its peak"),
+        None => "the pulse not yet past the monitors".to_owned(),
+    };
+    let resolved = if time > 0.0 {
+        format!(
+            " A record that long resolves no line narrower than about {:.2} nm at \
+             {wavelength} um (wavelength^2 over c t), and a resonance still ringing at its end \
+             leaves ripples beside its line.",
+            1e3 * wavelength * wavelength / time
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "the run ended at {time:.0} um/c by {by}, with {left}, where it runs until that is \
+         below {fraction:.0e}: its spectra are of a signal cut off there.{resolved} Raise \
+         {raise} to let the fields decay"
+    )
+}
+
+/// [`port_mode`] at each of `frequencies`, in their order: a batch of them side by side on
+/// rayon's threads at a time (each mode is a solve of its own, so which finishes first changes
+/// nothing), the stop checked before each solve and the setup's progress recorded after each
+/// batch. `None` when the stop came first.
+#[allow(clippy::too_many_arguments)]
+fn port_modes(
+    sim: &Simulation,
+    eps: &(dyn Fn(f64, f64, f64) -> [f64; 3] + Sync),
+    boundaries: &Boundaries,
+    port: Port<'_>,
+    frequencies: &[Frequency],
+    stop: &Stop,
+    solved: &mut ModeSetup,
+    run: &mut Run,
+) -> Result<Option<Vec<PortMode3d>>> {
+    use rayon::prelude::*;
+    let g = sim.grid();
+    let wavelengths = frequencies
+        .iter()
+        .map(|&f| sim.fdfd_wavelength(f))
+        .collect::<Result<Vec<_>>>()?;
+    let batch = rayon::current_num_threads().max(1);
+    let mut modes = Vec::with_capacity(wavelengths.len());
+    for some in wavelengths.chunks(batch) {
+        let found: Vec<Option<Result<PortMode3d>>> = some
+            .par_iter()
+            .map(|&w| {
+                if stop.reason().is_some() {
+                    None
+                } else {
+                    Some(port_mode_at(g, eps, boundaries, port, w))
+                }
+            })
+            .collect();
+        // in the wavelengths' order, so the first error is the same one on any thread count
+        for mode in found {
+            match mode {
+                Some(mode) => modes.push(mode?),
+                None => return Ok(None),
+            }
+        }
+        solved.add(some.len(), run)?;
+    }
+    Ok(Some(modes))
+}
+
 /// The fundamental mode of the job's polarization on a plane, solved by FDFD on a few planes
 /// cut out of the grid around it at the wavelength whose leapfrog frequency is `frequency`'s
 /// (as a mode source and a mode monitor need), and put back on the plane.
@@ -1890,7 +2041,25 @@ fn port_mode(
     te: bool,
     frequency: Frequency,
 ) -> Result<PortMode3d> {
-    let g = sim.grid();
+    let wavelength = sim.fdfd_wavelength(frequency)?;
+    port_mode_at(
+        sim.grid(),
+        eps,
+        boundaries,
+        (axis, plane, window, te),
+        wavelength,
+    )
+}
+
+/// [`port_mode`] on `g`'s grid at the FDFD's `wavelength`: what a mode's solve needs of the
+/// simulation, so that several are solved side by side.
+fn port_mode_at(
+    g: Grid3d,
+    eps: &(dyn Fn(f64, f64, f64) -> [f64; 3] + Sync),
+    boundaries: &Boundaries,
+    (axis, plane, window, te): Port<'_>,
+    wavelength: Wavelength,
+) -> Result<PortMode3d> {
     let mut cut = g;
     // nodes plane − 3 to plane + 5 along the axis
     match axis {
@@ -1920,7 +2089,6 @@ fn port_mode(
         Axis::Y => fdfd.y = Edges::Pml { low: 0, high: 0 },
         Axis::Z => fdfd.z = Edges::Pml { low: 0, high: 0 },
     }
-    let wavelength = sim.fdfd_wavelength(frequency)?;
     let solver = IterativeSolver3d::diagonal(
         cut,
         wavelength,
@@ -2355,6 +2523,23 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             other => other,
         }
     };
+    // the modes the run solves before it steps: one for each mode source, and one at each of
+    // the spectrum's wavelengths for its incident monitor and for each mode monitor
+    let mut solved = ModeSetup::of(
+        setup
+            .sources
+            .iter()
+            .filter(|s| matches!(s, SourcePlan::Mode { .. }))
+            .count()
+            * (1 + frequencies.len())
+            + setup
+                .monitors
+                .iter()
+                .filter(|m| matches!(m, MonitorPlan::Mode { .. }))
+                .count()
+                * frequencies.len(),
+    );
+    solved.record(run)?;
     // the sources, and each mode source's incident monitor just after it
     let mut incident = Vec::new();
     for k in 0..setup.sources.len() {
@@ -2367,6 +2552,9 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 window,
                 te,
             } => {
+                if stop.reason().is_some() {
+                    return solved.stopped(run, stop);
+                }
                 let mode = port_mode(
                     &sim,
                     &eps,
@@ -2378,19 +2566,28 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                     carrier,
                 )
                 .map_err(at(what.clone()))?;
+                solved.add(1, run)?;
                 sim.add_mode_source(&mode, *direction, waveform)
                     .map_err(at(what.clone()))?;
                 let after = match direction {
                     Direction::Forward => *plane + 3,
                     Direction::Backward => *plane - 3,
                 };
-                let modes = frequencies
-                    .iter()
-                    .map(|&f| {
-                        port_mode(&sim, &eps, &setup.boundaries, *axis, after, window, *te, f)
-                    })
-                    .collect::<Result<Vec<_>>>()
-                    .map_err(at(what.clone()))?;
+                let port = (*axis, after, &*window, *te);
+                let Some(modes) = port_modes(
+                    &sim,
+                    &eps,
+                    &setup.boundaries,
+                    port,
+                    &frequencies,
+                    stop,
+                    &mut solved,
+                    run,
+                )
+                .map_err(at(what.clone()))?
+                else {
+                    return solved.stopped(run, stop);
+                };
                 incident.push((
                     sim.add_mode_monitor(&modes).map_err(at(what.clone()))?,
                     *direction,
@@ -2426,13 +2623,21 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
                 window,
                 te,
             } => {
-                let modes = frequencies
-                    .iter()
-                    .map(|&f| {
-                        port_mode(&sim, &eps, &setup.boundaries, *axis, *plane, window, *te, f)
-                    })
-                    .collect::<Result<Vec<_>>>()
-                    .map_err(at(what.clone()))?;
+                let port = (*axis, *plane, window, *te);
+                let Some(modes) = port_modes(
+                    &sim,
+                    &eps,
+                    &setup.boundaries,
+                    port,
+                    &frequencies,
+                    stop,
+                    &mut solved,
+                    run,
+                )
+                .map_err(at(what.clone()))?
+                else {
+                    return solved.stopped(run, stop);
+                };
                 Added::Mode {
                     name: name.clone(),
                     n: sim.add_mode_monitor(&modes).map_err(at(what))?,
@@ -2785,6 +2990,22 @@ pub(super) fn run(job: &Job, run: &mut Run, stop: &Stop) -> Result<()> {
             }
             Added::Mode { .. } | Added::Flux { .. } | Added::FluxBox { .. } => {}
         }
+    }
+    // a run until the fields decay that ended before they had: its spectra are of a signal cut
+    // off there, and the run says so (the fields growing again says so itself, below)
+    if let Until::Decay { fraction, .. } = setup.until
+        && !decayed
+        && grew.is_none()
+    {
+        run.record(&Event::Warning {
+            text: cut_off(
+                sim.time(),
+                setup.task.wavelength_um,
+                fraction,
+                last_decay,
+                stop.reason(),
+            ),
+        })?;
     }
     if let Some(d) = last_decay {
         run.record(&Event::SolveError {
@@ -3211,6 +3432,128 @@ time_um = 160.0
                 .any(|e| matches!(e, Event::FdtdResonances { .. }))
         );
         assert!(events.iter().any(|e| matches!(e, Event::Field { .. })));
+    }
+
+    /// [`run_job`] with `stop`.
+    fn run_job_until(text: &str, tag: &str, stop: &Stop) -> Vec<Event> {
+        let job = Job::parse(text).unwrap();
+        let root =
+            std::env::temp_dir().join(format!("photonoxide-fdtd-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut run = Run::create(&root, &job).unwrap();
+        super::super::execute(&job, &mut run, stop).unwrap();
+        let events = crate::run::replay(run.dir()).unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+        events
+    }
+
+    /// The modes solved and to solve, of each [`Event::FdtdSetup`] in `events`.
+    fn setup_counts(events: &[Event]) -> Vec<(usize, usize)> {
+        events
+            .iter()
+            .filter_map(|e| match e {
+                Event::FdtdSetup { modes, of, .. } => Some((*modes, *of)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn warnings(events: &[Event]) -> Vec<&str> {
+        events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Warning { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_modes_before_the_first_step_are_counted_and_a_stop_ends_them() {
+        // #783, B1: a run's setup was silent and heard neither its time limit nor a stop until
+        // every mode was solved. SMALL solves 7: its source's, and one at each of the 3
+        // wavelengths for the source's incident monitor and for the mode monitor
+        let events = run_job(SMALL, "setup");
+        let counts = setup_counts(&events);
+        assert_eq!(counts.first(), Some(&(0, 7)), "{counts:?}");
+        assert_eq!(counts.last(), Some(&(7, 7)), "{counts:?}");
+        assert!(counts.windows(2).all(|w| w[0].0 <= w[1].0), "{counts:?}");
+        // before the solver's record and the first step
+        let first = |f: fn(&Event) -> bool| events.iter().position(f).unwrap();
+        let last_setup = events
+            .iter()
+            .rposition(|e| matches!(e, Event::FdtdSetup { .. }))
+            .unwrap();
+        assert!(last_setup < first(|e| matches!(e, Event::Solver { .. })));
+        assert!(last_setup < first(|e| matches!(e, Event::FdtdProgress { .. })));
+        // a run for a stated time has nothing to warn of
+        assert!(warnings(&events).is_empty(), "{:?}", warnings(&events));
+
+        // a time limit that has passed: no mode is solved and no step taken, the run says why
+        // it has no spectrum, and ends stopped by its timeout
+        let timeout = Stop::new(Some(std::time::Duration::ZERO));
+        let events = run_job_until(SMALL, "setup-timeout", &timeout);
+        assert_eq!(setup_counts(&events), [(0, 7), (0, 7)]);
+        assert!(!events.iter().any(|e| matches!(
+            e,
+            Event::Solver { .. } | Event::FdtdProgress { .. } | Event::FdtdSpectrum { .. }
+        )));
+        let said = warnings(&events);
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(said[0].contains("before its first step"), "{said:?}");
+        assert!(said[0].contains("0 of the 7 modes"), "{said:?}");
+        assert!(said[0].contains("timeout_minutes"), "{said:?}");
+        assert!(matches!(
+            events.last(),
+            Some(Event::Finished { stopped: Some(r), .. }) if r == "timeout"
+        ));
+
+        // a stop asked for: the same end, and nothing to warn of
+        let asked = Stop::new(None);
+        asked.request();
+        let events = run_job_until(SMALL, "setup-stop", &asked);
+        assert_eq!(setup_counts(&events), [(0, 7), (0, 7)]);
+        assert!(warnings(&events).is_empty());
+        assert!(matches!(
+            events.last(),
+            Some(Event::Finished { stopped: Some(r), .. }) if r == "requested"
+        ));
+    }
+
+    #[test]
+    fn a_run_cut_off_before_its_fields_decay_says_so() {
+        // #783, B1: a ring of Q about 8000 run to the default 2000 um/c ended with its fields
+        // still ringing, and nothing said its spectra were of a cut-off signal
+        assert_eq!(
+            cut_off(2000.0, 1.55, 1e-8, Some(3.2e-2), None),
+            "the run ended at 2000 um/c by its limit_um, with the field at the monitors still \
+             at 3.2e-2 of its peak, where it runs until that is below 1e-8: its spectra are of \
+             a signal cut off there. A record that long resolves no line narrower than about \
+             1.20 nm at 1.55 um (wavelength^2 over c t), and a resonance still ringing at its \
+             end leaves ripples beside its line. Raise limit_um (and timeout_minutes with it) \
+             to let the fields decay"
+        );
+        let by_timeout = cut_off(500.0, 1.55, 1e-8, None, Some(StopReason::Timeout));
+        assert!(by_timeout.contains("by its time limit, with the pulse not yet past the monitors"));
+        assert!(by_timeout.ends_with("Raise timeout_minutes to let the fields decay"));
+
+        // the straight guide until its fields decay: to 20 um/c the pulse is still in it, and
+        // the run warns; left to decay it has nothing to warn of
+        let until = |stop: &str| SMALL.replace("until = \"time\"\ntime_um = 160.0", stop);
+        let events = run_job(&until("limit_um = 20.0"), "cut-off");
+        let said = warnings(&events);
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(
+            said[0].starts_with("the run ended at 20 um/c by its limit_um"),
+            "{said:?}"
+        );
+        assert!(said[0].contains("cut off there"), "{said:?}");
+        let events = run_job(&until("fraction = 1e-6"), "decayed");
+        assert!(warnings(&events).is_empty(), "{:?}", warnings(&events));
+        assert!(matches!(
+            events.last(),
+            Some(Event::Finished { stopped: None, .. })
+        ));
     }
 
     #[test]

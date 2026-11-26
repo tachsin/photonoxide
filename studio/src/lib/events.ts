@@ -447,6 +447,22 @@ export interface FdtdProgress {
   cell_updates_per_second: number;
 }
 
+/** An FDTD run before its first step: the modes of its mode sources and monitors solved so far. */
+export interface FdtdSetup {
+  type: "fdtd_setup";
+  /** The modes solved. */
+  modes: number;
+  /** The modes the run solves. */
+  of: number;
+  seconds: number;
+}
+
+/** What a run's numbers may not mean, though it ran: a line in plain words. */
+export interface Warning {
+  type: "warning";
+  text: string;
+}
+
 /** An FDTD monitor's spectrum: its transforms so far, or at the end (last). */
 export interface FdtdSpectrum {
   type: "fdtd_spectrum";
@@ -1015,6 +1031,8 @@ export type Event =
   | CompactFit
   | FdtdFrame
   | FdtdProgress
+  | FdtdSetup
+  | Warning
   | FdtdSpectrum
   | FdtdResonances
   | Scene

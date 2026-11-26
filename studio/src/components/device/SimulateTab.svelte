@@ -405,9 +405,16 @@
         <button class="btn btn-ghost btn-xs gap-1" onclick={onshow} title="Show the run on the device in the main view"><Eye size={12} /> On the device</button>
       </div>
       <p class="mt-1 truncate text-xs faint" title={run.info?.dir ?? ""}>{run.job?.job ?? ""} · {run.info?.name ?? ""}</p>
-      {#if going && run.device === null && !run.frames.length}
+      {#if going && run.device === null && !run.frames.length && !run.setup}
         <p class="mt-2 text-xs faint">The model is being built{size ? `: ${sci(size[2])} unknowns a solve` : ""}. It goes on in the background if you leave the page; Stop ends it, and what it recorded stays.</p>
       {/if}
+      {#if going && run.setup && !run.progress}
+        <p class="mt-2 text-xs faint">Before its first step the run solves the ports' modes, one at each wavelength of each mode monitor: <span class="num">{run.setup.modes} of {run.setup.of}</span> in {duration(run.setup.seconds)}. Stop ends it between two of them, and so does the time limit.</p>
+        <progress class="progress progress-primary mt-1 h-1 w-full" value={run.setup.modes} max={run.setup.of}></progress>
+      {/if}
+      {#each run.warnings as w, i (i)}
+        <div role="alert" class="alert alert-warning alert-soft mt-2 text-sm selectable"><TriangleAlert size={16} /><span>{w}</span></div>
+      {/each}
       {#if run.device || run.sparams.length || run.frames.length || run.progress}
         <div class="mt-3 [&_.max-w-6xl]:max-w-none [&_.max-w-6xl]:p-0">
           <RunPlots />
