@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 653 sources, 644 with a DOI and 9 without, are cited at 4013 places in 477 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 653 sources, 644 with a DOI and 9 without, are cited at 4015 places in 478 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -195,6 +195,7 @@ M. J. Anc, R. P. Dolan, J. Jiao, T. Nakai, "Thin-layer SIMOX for future applicat
 
 - Methods pages: [fabrication.md:35](methods/fabrication.md?plain=1#L35), [936](methods/fabrication.md?plain=1#L936)
 - Code: [src/fabrication/simox_checks.rs:48](../src/fabrication/simox_checks.rs#L48)
+- Other documents: [docs/comparisons.md:190](comparisons.md?plain=1#L190)
 
 #### Anemogiannis et al. 1999
 
@@ -1156,7 +1157,7 @@ V. M. Donnelly, A. Kornblit, "Plasma etching: Yesterday, today, and tomorrow", J
 
 V. Donzella, A. Sherwali, J. Flueckiger, S. Talebi Fard, S. M. Grist, L. Chrostowski, "Sub-wavelength grating components for integrated optics applications on SOI chips", Opt. Express 22, 21037 (2014). [doi:10.1364/OE.22.021037](https://doi.org/10.1364/OE.22.021037)
 
-- Other documents: [docs/plans/inverse-design.md:637](plans/inverse-design.md?plain=1#L637)
+- Other documents: [docs/comparisons.md:184](comparisons.md?plain=1#L184), [docs/plans/inverse-design.md:637](plans/inverse-design.md?plain=1#L637)
 
 #### Dörfler 1996
 
