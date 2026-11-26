@@ -986,4 +986,16 @@ pub enum Event {
         /// The warning.
         text: String,
     },
+    /// An FDTD run before its first step: the modes of its mode sources and monitors solved so
+    /// far, one for each source and one at each of the spectrum's wavelengths for each mode
+    /// monitor. Recorded at least every second while they are solved, and when the last one is,
+    /// so a run with many wavelengths isn't silent before it steps (#783).
+    FdtdSetup {
+        /// The modes solved.
+        modes: usize,
+        /// The modes the run solves.
+        of: usize,
+        /// The time they have taken so far, seconds.
+        seconds: f64,
+    },
 }

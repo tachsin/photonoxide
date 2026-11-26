@@ -1,7 +1,7 @@
 // The window's shared state: settings, the page shown, toasts, and the run being followed.
 
 import { api, type AppState, type FabDesign, type FabStart, type Info, type JobFormat, type Settings } from "./api";
-import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
+import type { ChipEvent, CompactFit, CompactPlan, ChipPoint, ChipStudy, DeviceModel, DevicePoint, DeviceStudy, Evaluation, Event, FdtdFrame, FdtdProgress, FdtdSetup, FdtdResonances, FdtdSpectrum, Field, Front, Mode, ModeField, ModeLoss, Optimization, Optimum, Permittivity, Scene, ScenePort, Shape, SolveError, Solver, SParameters, StaticField, StaticFrame, StaticResult, StaticStep, Sweep, SweepField, SweepMode, SweepPermittivity, SweepPoint } from "./events";
 import { template, type Kind } from "./job";
 import type { Looks } from "./layers";
 import type { EmeRecord } from "./eme";
@@ -266,6 +266,10 @@ export const run = $state({
   frames: [] as FdtdFrame[],
   /** An FDTD run's latest progress. */
   progress: null as FdtdProgress | null,
+  /** An FDTD run's modes solved before its first step, the latest count. */
+  setup: null as FdtdSetup | null,
+  /** The run's warnings, in the order recorded. */
+  warnings: [] as string[],
   /** An FDTD run's latest spectrum of each monitor, by its name, in the order first recorded. */
   spectra: {} as Record<string, FdtdSpectrum>,
   /** An FDTD run's resonances, one record per resonance monitor. */
@@ -480,6 +484,12 @@ function take(e: Event) {
     case "fdtd_frame":
       run.frames.push(e);
       break;
+    case "fdtd_setup":
+      run.setup = e;
+      break;
+    case "warning":
+      run.warnings.push(e.text);
+      break;
     case "fdtd_progress":
       run.progress = e;
       break;
@@ -594,6 +604,8 @@ function reset(info: Info) {
     errors: [],
     frames: [],
     progress: null,
+    setup: null,
+    warnings: [],
     spectra: {},
     resonances: [],
     statics: [],

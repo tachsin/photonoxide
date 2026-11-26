@@ -1,7 +1,7 @@
 <script lang="ts">
   // The viewer: the run the window follows, in 3D (its layers as solids, the field painted on
   // its plane) or 2D (pictures and plots), with its details at the side.
-  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, Download, Factory, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, Waves } from "@lucide/svelte";
+  import { Box, ChartLine, ChevronLeft, ChevronRight, CirclePause, Cpu, Download, Factory, FolderOpen, Info, Layers, Pause, Play, RotateCcw, Square, TriangleAlert, Waves } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
 
@@ -431,6 +431,25 @@
           {/each}
         </dl>
         <button class="btn btn-ghost btn-xs mt-1 -ml-2" onclick={() => (view = "2d")}>{run.statics.length === 1 ? "Its field" : "Its fields"} in 2D →</button>
+      </section>
+    {/if}
+    {#if run.warnings.length}
+      <section>
+        <h3 class="panel-title mb-2 flex items-center gap-1.5"><TriangleAlert size={13} /> Warnings</h3>
+        {#each run.warnings as w, i (i)}
+          <p class="mb-1 text-sm selectable">{w}</p>
+        {/each}
+      </section>
+    {/if}
+    {#if run.setup && !run.progress}
+      <section>
+        <h3 class="panel-title mb-2 flex items-center gap-1.5"><Waves size={13} /> Time domain</h3>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <dt class="faint">ports' modes</dt>
+          <dd class="num" title="Solved before the first step: one for each mode source, and one at each wavelength of each mode monitor">{run.setup.modes} of {run.setup.of}</dd>
+          <dt class="faint">step</dt>
+          <dd class="num">0</dd>
+        </dl>
       </section>
     {/if}
     {#if run.progress}
