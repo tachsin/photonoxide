@@ -16,11 +16,15 @@ Photonics design and simulation software: simulation, inverse design and layout 
 
 ## Design principles
 
-1. **Validation before features.** A solver is merged with three things:
+1. **Verification before features.** A solver is merged with what shows it solves its equations:
    - an analytic test;
-   - a reproduction of a published result;
-   - a convergence test showing the expected order.
-   A feature without validation isn't done, however useful it looks.
+   - a convergence test showing the expected order;
+   - where they apply, an adjoint gradient against finite differences, an identity the result
+     must obey, or another solver on the same problem.
+   A feature without verification isn't done, however useful it looks. A published result is
+   reproduced as well when its paper states the whole problem; a comparison with a paper that
+   doesn't is printed, not tested, and its difference is a row in
+   [docs/comparisons.md](docs/comparisons.md), not an open task.
 2. **Every number knows its error.**
    - Results carry the discretization they came from, and convergence studies are built in.
    - A 2D result is labelled 2D, and "verified in 3D" is a separate status.

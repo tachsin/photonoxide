@@ -10,11 +10,11 @@ phase shifters as devices, Pockels modulation, travelling-wave electrodes, phase
 and 0.5.5's job editor and exports). 0.6's leftovers (#543) are on main since: the TFLN modulator
 and the phase-change phase shifter as devices, the studio's temperature and field views and its
 sweeps, GDS read into jobs. Two published results aren't reproduced yet and stay open, Zhang 2022's
-bandwidths (#418) and He 2019's Vπ·L (#420), with the other gaps against papers in #595. 0.6.1,
+bandwidths (#418) and He 2019's Vπ·L (#420), with the other differences from papers in docs/comparisons.md. 0.6.1,
 nonlinear integrated optics, is under way on main: phase matching and the coupled-amplitude
 equations (#621), the nonlinear data (#629), the same from a waveguide's modes (#630), and the
 NLSE, four-wave mixing and the Lugiato–Lefever equation (#632), and its job kind and studio view
-(#637); the published results it doesn't reproduce yet are left (#595). 0.6.2's eigenmode expansion and mode
+(#637); the published results it doesn't reproduce are in docs/comparisons.md. 0.6.2's eigenmode expansion and mode
 tools are released in part (#432; 3D eigenmode expansion and beam and fibre coupling are left), and the fabrication engine of 0.10 (#622) has its flows and rules on
 main (F1 to F4), with F6 and F7 in progress. The library stays one crate: its modules sit in layers that a test keeps (#508). The
 library's modules, each with a write-up in `docs/methods/`:
@@ -223,12 +223,17 @@ checks their rows (and the report's head and list of cases); the release PR chec
   - `libm::` only inside `src/portable/`; no `mul_add`; `src/portable/` never imports `crate::`.
   - A dense QR, SVD or eigendecomposition goes through `crate::dense::fixed` (faer's, sequential), never faer's own `qr`, `svd`, `thin_svd`, `singular_values`, `eigen`, `eigenvalues` or `generalized_eigen`; a sparse LU through `crate::dense::fixed::SparseLu` (four tasks), never `sp_lu`: faer's own follow rayon's thread count, the machine's cores. faer's dense products and LUs don't, and stay on rayon's threads.
   - In the studio's window, a number shown as a result never goes through `Math.log10`, `Math.atan2`, `**` or any other `Math` function but `sqrt`, `round`, `floor`, `ceil`, `abs`, `min` and `max`: take `log10` and `atan2` from `studio/src/lib/portable.ts` (Rust's bits), a power of ten from `toExponential`, or compute it in Rust. `Math` is for drawing.
-- **Validation before features.** A solver or device isn't done without three things:
+- **Verification before features.** A solver or device isn't done without what shows it solves its equations:
   - an analytic test;
-  - a reproduction of a published result;
-  - a convergence test.
-  Adjoint gradients are checked against finite differences.
-- **Examples are published results.** Each file in `examples/` reproduces one paper's numbers, checks them with `common::Checks` and fails when they disagree; CI runs them (a PR those of its areas, the release PR all of them). See [examples/README.md](examples/README.md).
+  - a convergence test;
+  - where they apply: an adjoint gradient against finite differences, an identity the result must obey (energy, reciprocity, a mirror image, the modes' powers adding up), another solver on the same problem.
+  A reproduction of a published result is added when the paper states the whole problem; it is not what a feature waits for.
+- **A comparison with a paper ends** ([docs/comparisons.md](docs/comparisons.md)), in one of three ways: *reproduced* (the paper states the whole problem and we agree: a case or an example's check), *consistent* (the paper leaves something out and we chose it: both numbers printed, each choice named, no check) or *not comparable* (the paper lacks what a comparison needs).
+  - Never check a number against a paper when a width, a material, a polarization or a grid it depends on was our choice: print it beside the paper's.
+  - About a day for a paper. After that the comparison gets its outcome and, if the difference is worth knowing, a row in docs/comparisons.md, and the work moves on.
+  - No tolerance is widened and no value chosen to make a comparison agree.
+- **Issues are work someone can do now:** a wrong result of ours, a missing feature, a decision for tachsin. A difference from a paper, a missing source, an unread supplement or a run that needs another machine is a row in docs/comparisons.md, not an issue. Don't open an issue for one, and don't split one out of another issue; an agent opens an issue only for a bug it can show (the input, our result, the result it should be).
+- **Examples are published results.** Each file in `examples/` computes one paper's numbers and prints them beside the paper's; what the paper fully specifies is checked with `common::Checks` and fails when it disagrees, and what rests on a choice of ours is printed without a check. CI runs them (a PR those of its areas, the release PR all of them). See [examples/README.md](examples/README.md).
 - **Cite the source.** Every method's docs name the paper it implements, by DOI. Check a DOI before citing it.
 - **No GPL code.** Meep, MPB, KLayout and SPINS-B may be run as external programs for comparison. Never read them to port code. photonoxide is MIT OR Apache-2.0.
 - **Material data is CC0 or our own, with provenance:** source, validity range and temperature.

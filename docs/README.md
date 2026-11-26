@@ -242,6 +242,9 @@ the studio and read on GitHub as ordinary Markdown.
   openEMS, established codes that solve the same physics; the reports from other codes are [openEMS](validation-openems.md),
   [openEMS on more lines](validation-openems-lines.md) and [Elmer](validation-elmer.md), and the
   programs that run the other codes are in [crosscode/](../crosscode/README.md).
+- [Comparisons with published results](comparisons.md): how a comparison with a paper ends
+  (reproduced, consistent or not comparable), the reference problems, and every place where our
+  number and a paper's differ or no source gives a number, with what would settle each.
 - [Direct solvers](baselines.md): photonoxide's sparse direct solves against PARDISO and MUMPS.
 - [Benchmarks](benchmarks.md): what `photonoxide bench` measures.
 

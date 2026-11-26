@@ -248,8 +248,10 @@ The optimized build profiles (`release`, `dist` and `fastest`) are described in
 
 ## Validation
 
-Nothing is merged without an analytic test, a reproduction of a published result and a
-convergence test; adjoint gradients are checked against finite differences. The
+Nothing is merged without an analytic test and a convergence test; adjoint gradients are checked
+against finite differences. A published result is reproduced as well where its paper states the
+whole problem, and where it doesn't the two numbers are printed side by side
+([docs/comparisons.md](docs/comparisons.md) has every such difference and what would settle it). The
 [report](docs/validation.md) has 1003 cases: 697 against closed forms, 293 against published
 results and 13 against a second method of photonoxide's own on a shared problem. Each states its source,
 tolerance and grid; a published case is a number a paper prints or a formula re-implemented from its

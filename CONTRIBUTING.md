@@ -99,9 +99,30 @@ page, lesson or case, the value it gives, the value the source gives, and where 
 code that changes a result is a `fix:`, a patch release even when numbers move
 ([Versioning](#versioning)); one to a page or a lesson alone is a `docs:` change.
 
+### A comparison with a paper
+
+A comparison with a paper is worth having, and it is not a test of the code unless the paper
+states the whole problem. It ends in one of three ways
+([docs/comparisons.md](docs/comparisons.md)):
+
+- **Reproduced:** the paper gives every dimension, material, polarization and grid its number
+  depends on, and ours agrees within a tolerance that has a basis. That is a validation case or
+  an example's check.
+- **Consistent:** the paper leaves something out, and we chose it. The example prints both
+  numbers and names each choice; the comparison has no pass or fail.
+- **Not comparable:** the paper lacks what a comparison needs, or its number can't be read to
+  the accuracy one needs.
+
+A comparison takes about a day. If it isn't reproduced by then, give it its outcome, add a row to
+docs/comparisons.md when the difference is worth knowing (what differs, and what would settle it),
+and move on. A difference from a paper is not an issue: issues are for work someone can do now (a
+wrong result of ours, a missing feature, a decision). No tolerance is widened and no value chosen
+to make a comparison agree.
+
 ### A validation case
 
-A published number the library can compute is a validation case. A case (`Case`, in
+A number the library can compute against an exact answer, another solver or a paper that states
+the whole problem is a validation case. A case (`Case`, in
 `src/verdict.rs`) has an id `<area>/<name>`, a one-sentence title, its tier (analytic, published
 or cross-code), its source with its DOI, and a function that runs it; `cases()` in
 `src/validation.rs` lists it, directly or through its area's checks module. Its rule goes in its
@@ -156,7 +177,7 @@ contribution. Questions before starting belong in
 
 ## Pull requests
 
-- **One issue per PR, with tests, and with its validation.** A PR is one issue's work, not one slice of it: the phases of an umbrella issue are commits of a single PR, opened when the work is done and checked locally, so CI runs once on the whole; small unrelated fixes are grouped into one PR. A solver or device comes with an analytic test, a reproduction of a published result, and a convergence test; adjoint gradients are checked against finite differences. A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`).
+- **One issue per PR, with tests, and with its validation.** A PR is one issue's work, not one slice of it: the phases of an umbrella issue are commits of a single PR, opened when the work is done and checked locally, so CI runs once on the whole; small unrelated fixes are grouped into one PR. A solver or device comes with what shows it solves its equations: an analytic test, a convergence test, and where they apply an adjoint gradient against finite differences, an identity the result must obey, or another solver on the same problem. A published result is reproduced as well when its paper states the whole problem ([a comparison with a paper](#a-comparison-with-a-paper)). A change that adds or alters a validation case regenerates `docs/validation.md` (`cargo run -p photonoxide-studio --release -- validate --write docs/validation.md`).
 - **Cite the paper.** Every method's docs name the paper it implements, by a DOI that was checked.
 - **The PR title is the changelog entry.** PRs are squash merged: the title becomes the commit message and the changelog line. Use [Conventional Commits](https://www.conventionalcommits.org/), with a short sentence as the subject:
 
