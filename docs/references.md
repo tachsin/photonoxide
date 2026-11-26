@@ -2,7 +2,7 @@
 
 <!-- Written by `photonoxide references --write` (or `just references`) from docs/references.yaml and the citations in the repository: edit those, not this page. -->
 
-Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 653 sources, 644 with a DOI and 9 without, are cited at 4015 places in 478 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
+Every paper, book and data set photonoxide cites, with every place in the repository that cites it, by file and line. 653 sources, 644 with a DOI and 9 without, are cited at 4020 places in 478 files. The sources are listed by their first author; [references-by-file.md](references-by-file.md) lists each methods page, lesson, example and source file with the sources it cites, and the [validation report](validation.md) gives each case's source on its row. How to cite a source is in [CONTRIBUTING.md](../CONTRIBUTING.md#citing-a-source); the list of sources is [references.yaml](references.yaml).
 
 [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [H](#h) · [I](#i) · [J](#j) · [K](#k) · [L](#l) · [M](#m) · [N](#n) · [O](#o) · [P](#p) · [Q](#q) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v) · [W](#w) · [X](#x) · [Y](#y) · [Z](#z)
 
@@ -613,6 +613,7 @@ A. D. Bristow, N. Rotenberg, H. M. van Driel, "Two-photon absorption and Kerr co
 M. A. Broome, A. Fedrizzi, S. Rahimi-Keshari, J. Dove, S. Aaronson, T. C. Ralph, A. G. White, "Photonic Boson Sampling in a Tunable Circuit", Science 339, 794 (2013). [doi:10.1126/science.1231440](https://doi.org/10.1126/science.1231440)
 
 - Academy lessons: [quantum-light.md:141](../academy/quantum-light.md?plain=1#L141), [588](../academy/quantum-light.md?plain=1#L588)
+- Other documents: [docs/comparisons.md:168](comparisons.md?plain=1#L168)
 
 #### Browne and Rudolph 2005
 
@@ -868,6 +869,7 @@ A. Christ, B. Brecht, W. Mauerer, C. Silberhorn, "Theory of quantum frequency co
 
 - Methods pages: [quantum.md:75](methods/quantum.md?plain=1#L75)
 - Code: [src/quantum/broadband.rs:33](../src/quantum/broadband.rs#L33)
+- Other documents: [docs/comparisons.md:170](comparisons.md?plain=1#L170)
 
 #### Christiansen and Sigmund 2021
 
@@ -3323,6 +3325,7 @@ A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. Joannopoulos, S. G. Johnson,
 S. Paesani, "Data for "Near-ideal spontaneous photon sources in silicon quantum photonics"", figshare (2020). [doi:10.6084/m9.figshare.11882760](https://doi.org/10.6084/m9.figshare.11882760)
 
 - Methods pages: [quantum.md:1057](methods/quantum.md?plain=1#L1057)
+- Other documents: [docs/comparisons.md:120](comparisons.md?plain=1#L120)
 
 #### Paesani et al. 2019
 
@@ -3683,7 +3686,7 @@ M. Reck, A. Zeilinger, H. J. Bernstein, P. Bertani, "Experimental realization of
 - Academy lessons: [mach-zehnder.md:52](../academy/mach-zehnder.md?plain=1#L52), [368](../academy/mach-zehnder.md?plain=1#L368), [quantum-light.md:57](../academy/quantum-light.md?plain=1#L57), [455](../academy/quantum-light.md?plain=1#L455), [983](../academy/quantum-light.md?plain=1#L983)
 - Validation cases: [`quantum/mesh-reconstruction`](validation.md?plain=1#L904)
 - Code: [src/quantum/checks.rs:152](../src/quantum/checks.rs#L152), [src/quantum/mesh.rs:3](../src/quantum/mesh.rs#L3)
-- Other documents: [ROADMAP.md:841](../ROADMAP.md?plain=1#L841), [docs/plans/carrier-modulators.md:583](plans/carrier-modulators.md?plain=1#L583), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
+- Other documents: [ROADMAP.md:841](../ROADMAP.md?plain=1#L841), [docs/comparisons.md:168](comparisons.md?plain=1#L168), [docs/plans/carrier-modulators.md:583](plans/carrier-modulators.md?plain=1#L583), [docs/plans/optimization.md:618](plans/optimization.md?plain=1#L618), [docs/plans/quantum.md:480](plans/quantum.md?plain=1#L480)
 
 #### Reddy et al. 2020
 
@@ -4667,6 +4670,7 @@ W. Wasilewski, A. I. Lvovsky, K. Banaszek, C. Radzewicz, "Pulsed squeezed light:
 
 - Methods pages: [quantum.md:73](methods/quantum.md?plain=1#L73)
 - Code: [src/quantum/broadband.rs:30](../src/quantum/broadband.rs#L30)
+- Other documents: [docs/comparisons.md:170](comparisons.md?plain=1#L170)
 
 #### Weedbrook et al. 2012
 
